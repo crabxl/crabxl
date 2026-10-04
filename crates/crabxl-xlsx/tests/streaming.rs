@@ -2979,3 +2979,51 @@ fn differential_extension_presence_is_explicit_and_tight_budgets_leave_no_catalo
     assert!(reader.style_catalog().is_err());
     assert_eq!(reader.style_memory_bytes(), 0);
 }
+
+#[test]
+fn literal_array_table_and_shared_references_do_not_require_geometry() {
+    use crabxl_core::FormulaReadPolicy;
+    let content = r#"<row><c r="A1"><f t="array" ref="">1</f></c><c r="B1"><f t="dataTable" ref="Sheet1!B1:C2" r1="input" r2=""/></c><c r="C1"><f t="shared" si="3" ref="opaque">A1</f></c><c r="D1"><f t="shared" si="3"/></c></row>"#;
+    let mut book = open(content);
+    let loaded = book.read_sheet("A & B").unwrap();
+    let formula = |index: usize| {
+        let CellValue::Formula(value) = &loaded.rows[0].cells[index].value else {
+            panic!("Expected formula")
+        };
+        value
+    };
+    assert_eq!(
+        formula(0)
+            .metadata()
+            .unwrap()
+            .reference
+            .as_ref()
+            .unwrap()
+            .spelling(),
+        ""
+    );
+    let table = formula(1).metadata().unwrap();
+    assert_eq!(table.reference.as_ref().unwrap().spelling(), "Sheet1!B1:C2");
+    assert_eq!(
+        table.data_table.as_ref().unwrap().input1.as_deref(),
+        Some("input")
+    );
+    assert_eq!(
+        table.data_table.as_ref().unwrap().input2.as_deref(),
+        Some("")
+    );
+    assert_eq!(formula(3).expression(), "B1");
+    let mut strict = open(content);
+    let error = strict
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                formula_policy: FormulaReadPolicy::ValidateGroups,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .next_row()
+        .unwrap_err();
+    assert!(error.to_string().contains("data/values.xml"));
+}

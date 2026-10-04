@@ -198,7 +198,10 @@ fn formula_ranges_and_literal_source_prefixes_keep_distinct_identities() {
     );
     let mut range = FormulaRange::from_xml("$A$1:$B$2").unwrap();
     assert_eq!(range.spelling(), "$A$1:$B$2");
-    assert_eq!(range.range().start, CellAddress::new(0, 0).unwrap());
+    assert_eq!(
+        range.range().unwrap().start,
+        CellAddress::new(0, 0).unwrap()
+    );
     range
         .set_range(
             CellRange::new(
@@ -368,4 +371,67 @@ fn literal_array_text_borrows_original_property_and_slices_one_unicode_character
     .unwrap();
     assert!(absent.array_text().is_none());
     assert!(Formula::from_array_text(None, None, FormulaMetadata::default()).is_err());
+}
+
+#[test]
+fn literal_formula_references_preserve_properties_until_geometry_is_requested() {
+    use crabxl_core::{
+        CellRange, DataTableOptions, Formula, FormulaMetadata, FormulaReference, FormulaType,
+    };
+    use std::borrow::Cow;
+    for spelling in ["", "Sheet1!A1:B2", "not a range", "XFE1"] {
+        let mut reference = FormulaReference::from_literal(spelling);
+        assert!(matches!(reference.spelling(), Cow::Borrowed(value) if value == spelling));
+        assert_eq!(reference.clone().spelling(), spelling);
+        assert_eq!(reference.heap_bytes(), spelling.len());
+        assert!(reference.range().is_err());
+        let formula = Formula::from_array_text(
+            Some("=1".into()),
+            None,
+            FormulaMetadata {
+                kind: FormulaType::Array,
+                reference: Some(reference.clone()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            formula
+                .metadata()
+                .unwrap()
+                .reference
+                .as_ref()
+                .unwrap()
+                .spelling(),
+            spelling
+        );
+        reference
+            .set_range("A1:B2".parse::<CellRange>().unwrap())
+            .unwrap();
+        assert_eq!(reference.spelling(), "A1:B2");
+        assert_eq!(reference.heap_bytes(), 0);
+        assert!(reference.range().is_ok());
+    }
+    let physical = FormulaReference::from_literal("$A$1:$B$2");
+    assert_eq!(
+        physical.range().unwrap(),
+        "A1:B2".parse::<CellRange>().unwrap()
+    );
+    let options = DataTableOptions {
+        input1: Some("Sheet1!A1".into()),
+        ..Default::default()
+    };
+    assert!(options.validate_inputs().is_err());
+    assert!(
+        Formula::with_metadata(
+            "",
+            None,
+            FormulaMetadata {
+                kind: FormulaType::DataTable,
+                data_table: Some(Box::new(options)),
+                ..Default::default()
+            }
+        )
+        .is_ok()
+    );
 }

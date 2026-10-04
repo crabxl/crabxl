@@ -17,7 +17,8 @@ pub use date::{DateEpoch, DateKind, ExcelDateTime};
 pub use error::{Error, ErrorKind, Result};
 pub use formula::Formula;
 pub use formula_metadata::{
-    DataTableOptions, FormulaFlag, FormulaFlags, FormulaMetadata, FormulaRange, FormulaType,
+    DataTableOptions, FormulaFlag, FormulaFlags, FormulaMetadata, FormulaRange, FormulaReference,
+    FormulaType,
 };
 pub use iso_date::parse_iso8601;
 pub use limits::ResourceLimits;

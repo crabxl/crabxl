@@ -83,7 +83,11 @@ pub(crate) fn header(
                         .map_err(|_| invalid("Invalid shared formula index"))?,
                 )
             }
-            b"ref" => metadata.reference = Some(FormulaRange::from_xml(value.as_ref())?),
+            b"ref" => {
+                metadata.reference = Some(FormulaRange::from_literal(
+                    value.into_owned().into_boxed_str(),
+                ))
+            }
             b"aca" => metadata.flags.always_calculate = Some(flag(&value)?),
             b"ca" => metadata.flags.calculate_cell = Some(flag(&value)?),
             b"bx" => metadata.flags.data_box = Some(flag(&value)?),
@@ -104,12 +108,10 @@ pub(crate) fn header(
                 table_seen = true;
             }
             b"r1" => {
-                value.parse::<CellAddress>()?;
                 table.input1 = Some(value.into_owned().into_boxed_str());
                 table_seen = true;
             }
             b"r2" => {
-                value.parse::<CellAddress>()?;
                 table.input2 = Some(value.into_owned().into_boxed_str());
                 table_seen = true;
             }
@@ -254,7 +256,15 @@ impl SharedFormulas {
                 index,
                 master: !expression.is_empty(),
             };
-            let range = metadata.reference.as_ref().map(|value| value.range());
+            let range = if strict {
+                metadata
+                    .reference
+                    .as_ref()
+                    .map(|value| value.range())
+                    .transpose()?
+            } else {
+                None
+            };
             if strict && range.is_some_and(|range| !range.contains(address)) {
                 return Err(invalid("Shared master lies outside its declared range"));
             }
@@ -367,7 +377,10 @@ pub(crate) fn write(
         }
         if !matches!(metadata.kind, FormulaType::Shared { .. }) {
             if let Some(reference) = &metadata.reference {
-                attribute(output, "ref", &reference.spelling())?;
+                let spelling = reference.spelling();
+                if !spelling.is_empty() || policy == crate::FormulaWritePolicy::RetainExplicit {
+                    attribute(output, "ref", &spelling)?;
+                }
             }
         }
         flag(output, "aca", &metadata.flags.always_calculate, policy)?;

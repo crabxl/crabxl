@@ -1,0 +1,207 @@
+{
+  "reference": "3.1.5",
+  "xml_records": [
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": "1"
+    },
+    {
+      "attributes": {
+        "t": "array",
+        "ref": "A1:B2"
+      },
+      "body": "1"
+    },
+    {
+      "attributes": {
+        "t": "array",
+        "ref": "$A$1:$B$2"
+      },
+      "body": "1"
+    },
+    {
+      "attributes": {
+        "t": "array",
+        "ref": "Sheet1!A1:B2"
+      },
+      "body": "1"
+    },
+    {
+      "attributes": {
+        "t": "array",
+        "ref": "not a range"
+      },
+      "body": "1"
+    },
+    {
+      "attributes": {
+        "t": "dataTable",
+        "ref": "opaque"
+      },
+      "body": null
+    },
+    {
+      "attributes": {
+        "t": "dataTable",
+        "ref": "opaque",
+        "r1": "C1"
+      },
+      "body": null
+    },
+    {
+      "attributes": {
+        "t": "dataTable",
+        "ref": "opaque",
+        "r1": "Sheet1!C1"
+      },
+      "body": null
+    },
+    {
+      "attributes": {
+        "t": "dataTable",
+        "ref": "opaque",
+        "r1": "input"
+      },
+      "body": null
+    }
+  ],
+  "public_readback": [
+    [
+      {
+        "ref": null,
+        "text": "=1"
+      },
+      {
+        "ref": "A1:B2",
+        "text": "=1"
+      },
+      {
+        "ref": "$A$1:$B$2",
+        "text": "=1"
+      },
+      {
+        "ref": "Sheet1!A1:B2",
+        "text": "=1"
+      },
+      {
+        "ref": "not a range",
+        "text": "=1"
+      },
+      {
+        "ref": "opaque",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": null,
+        "r2": null,
+        "del1": false,
+        "del2": false
+      },
+      {
+        "ref": "opaque",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": "C1",
+        "r2": null,
+        "del1": false,
+        "del2": false
+      },
+      {
+        "ref": "opaque",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": "Sheet1!C1",
+        "r2": null,
+        "del1": false,
+        "del2": false
+      },
+      {
+        "ref": "opaque",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": "input",
+        "r2": null,
+        "del1": false,
+        "del2": false
+      }
+    ],
+    [
+      {
+        "ref": null,
+        "text": "=1"
+      },
+      {
+        "ref": "A1:B2",
+        "text": "=1"
+      },
+      {
+        "ref": "$A$1:$B$2",
+        "text": "=1"
+      },
+      {
+        "ref": "Sheet1!A1:B2",
+        "text": "=1"
+      },
+      {
+        "ref": "not a range",
+        "text": "=1"
+      },
+      {
+        "ref": "opaque",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": null,
+        "r2": null,
+        "del1": false,
+        "del2": false
+      },
+      {
+        "ref": "opaque",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": "C1",
+        "r2": null,
+        "del1": false,
+        "del2": false
+      },
+      {
+        "ref": "opaque",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": "Sheet1!C1",
+        "r2": null,
+        "del1": false,
+        "del2": false
+      },
+      {
+        "ref": "opaque",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": "input",
+        "r2": null,
+        "del1": false,
+        "del2": false
+      }
+    ]
+  ],
+  "cache_projection": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ]
+}
