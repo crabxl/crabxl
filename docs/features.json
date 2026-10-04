@@ -16758,7 +16758,33 @@
         "crates/openrsxl-xlsx/tests/writer.rs::owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values",
         "bindings/python/tests/test_parity.py"
       ],
-      "limitations": "Independent scalar/formula model copies only; no original feature-graph copying or existing-file sheet surgery. Python aggregate bank integration and complete style/feature catalogs remain planned. Aggregate managed accounting is not hard RSS."
+      "limitations": "Independent scalar/formula model copies only; no original feature-graph copying or existing-file sheet surgery. Loaded-model aggregate integration and complete style/feature catalogs remain planned. Aggregate managed accounting is not hard RSS."
+    },
+    {
+      "id": "binding.python.owned-bank",
+      "description": "Openpyxl-compatible owned workbook copy/move/index/deletion backed by canonical aggregate Rust sheet bank",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "planned"
+      },
+      "modes": [
+        "python-owned-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
+      "modules": [
+        "bindings/python/src/lib.rs",
+        "bindings/python/python/openrsxl/__init__.py",
+        "crates/openrsxl-core/src/workbook.rs"
+      ],
+      "tests": [
+        "bindings/python/tests/test_upstream_workbook.py",
+        "bindings/python/tests/test_parity.py"
+      ],
+      "limitations": "Scalar/formula models only; full feature catalogs and loaded structural/feature-graph copies remain required. New registered sheets share managed bank allowance; loaded, standalone, removed caller-retained models and Python heap are separate. Not a hard RSS cap."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

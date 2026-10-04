@@ -222,3 +222,101 @@ def test_active_sheet_creation_and_loaded_catalog_match(engine, tmp_path):
     loaded = engine.load_workbook(path)
     assert loaded.active.title == "Other" and loaded.active["A1"].value == 2
     loaded.close()
+
+
+def test_owned_workbook_copy_order_removed_aliases_and_independent_values(engine, tmp_path):
+    workbook = engine.Workbook()
+    source = workbook.active
+    source.title = "Data"
+    source.append([1, "text", "=A1+1"])
+    source.append([])
+    copied = workbook.copy_worksheet(source)
+    assert copied.title == "Data Copy"
+    assert copied.parent is workbook and copied["C1"].value == "=A1+1"
+    copied["A1"] = 7
+    assert source["A1"].value == 1
+    assert workbook.copy_worksheet(source).title == "Data Copy1"
+    workbook.move_sheet(copied, offset=-1)
+    assert workbook.sheetnames == ["Data Copy", "Data", "Data Copy1"]
+    assert workbook.index(source) == 1
+    workbook.active = source
+    cell = copied["A1"]
+    workbook.remove(copied)
+    assert cell.value == 7 and copied["A1"] is cell
+    cell.value = 8
+    assert copied["A1"].value == 8
+    assert workbook.sheetnames == ["Data", "Data Copy1"]
+    del workbook["Data Copy1"]
+    assert workbook.active is None
+    workbook.active = source
+    target = tmp_path / "bank.xlsx"
+    workbook.save(target)
+    verified = openpyxl.load_workbook(target)
+    assert verified.sheetnames == ["Data"] and verified.active["A1"].value == 1
+    verified.close()
+    with pytest.raises(ValueError):
+        workbook.copy_worksheet(engine.Workbook().active)
+
+
+@pytest.mark.parametrize("offset", [-10, -4, -2, -1, 0, 1, 2, 10])
+def test_move_sheet_offsets_match_list_insertion(engine, offset):
+    workbook = engine.Workbook()
+    workbook.create_sheet("B")
+    source = workbook.create_sheet("C")
+    expected = workbook.worksheets
+    old = expected.index(source)
+    expected.remove(source)
+    expected.insert(old + offset, source)
+    workbook.move_sheet("C", offset=offset)
+    assert workbook.worksheets == expected
+
+
+def test_python_bank_aggregate_limit_atomic_copy_and_freed_space():
+    workbook = openrsxl.Workbook(max_memory_bytes=1600)
+    first = workbook.active
+    first["A1"] = 1
+    second = workbook.create_sheet("B")
+    second["A1"] = 2
+    assert workbook._book.charged_bytes() == 1030
+    with pytest.raises(MemoryError):
+        workbook.copy_worksheet(first)
+    assert workbook.sheetnames == ["Sheet", "B"]
+    first["A2"] = 3
+    second["A2"] = 4
+    before = workbook._book.charged_bytes()
+    with pytest.raises(MemoryError):
+        second["A3"] = 5
+    assert workbook._book.charged_bytes() == before and not second._native.contains(2, 0)
+    with pytest.raises(MemoryError):
+        first.insert_rows(1)
+    assert first["A1"].value == 1
+    workbook.remove(first)
+    assert first["A1"].value == 1
+    # Detached models remain caller-owned, outside the bank's allowance.
+    second["A3"] = 5
+    assert second["A3"].value == 5
+    first["A1"] = 9
+    assert first["A1"].value == 9
+
+
+def test_native_bank_concurrent_copies_keep_owned_handles_valid():
+    from concurrent.futures import ThreadPoolExecutor
+    from openrsxl._native import NativeBook
+    book = NativeBook(10_000_000)
+    source = book.create_sheet("Source")
+    for row in range(400):
+        source.append([("int", str(row))])
+
+    def copies(worker):
+        for iteration in range(10):
+            copied = book.copy_sheet(source, f"Copy{worker}-{iteration}")
+            assert copied.get(0, 0) == ("n", 0)
+            assert copied.get(399, 0) == ("n", 399)
+            book.remove_sheet(copied)
+            assert copied.get(399, 0) == ("n", 399)
+        return worker
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        assert list(pool.map(copies, range(4))) == [0, 1, 2, 3]
+    assert source.get(399, 0) == ("n", 399)
+    assert book.charged_bytes() < 10_000_000

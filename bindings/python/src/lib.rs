@@ -2,8 +2,9 @@
 use openrsxl::{
     Cell, CellAddress, CellRange, CellValue, ColumnIndex, DateEpoch, DateKind, EditLimits,
     EditorOptions, Error, ErrorKind, ExactInteger, ExcelDateTime, Formula, MemoryPolicy,
-    ReadOptions, ResourceLimits, Row, RowIndex, SaveOptions, StyleId, WorkbookEditor,
-    WorkbookReader, WorkbookWriter, Worksheet, WriteOptions,
+    ReadOptions, ResourceLimits, Row, RowIndex, SaveOptions, SheetId, StyleId, Workbook,
+    WorkbookEditor, WorkbookLimits, WorkbookReader, WorkbookWriter, Worksheet, WorksheetEditor,
+    WriteOptions,
 };
 use pyo3::{
     IntoPyObjectExt,
@@ -123,16 +124,51 @@ fn encode(py: Python<'_>, value: &CellValue) -> PyResult<TaggedValue> {
     Ok((kind.into(), object))
 }
 
+// A handle owns either a detached worksheet or a stable identity in the shared
+// core bank. No Python object or payload clone lives in the canonical model.
+enum SheetStorage {
+    Standalone(Worksheet),
+    Bank {
+        book: Arc<Mutex<Workbook>>,
+        id: SheetId,
+    },
+}
 #[pyclass]
 struct NativeSheet {
-    sheet: Arc<Mutex<Worksheet>>,
+    storage: Arc<Mutex<SheetStorage>>,
+}
+impl NativeSheet {
+    fn with<T>(&self, action: impl FnOnce(&Worksheet) -> PyResult<T>) -> PyResult<T> {
+        let storage = lock(&self.storage)?;
+        match &*storage {
+            SheetStorage::Standalone(sheet) => action(sheet),
+            SheetStorage::Bank { book, id } => action(lock(book)?.sheet(*id).map_err(failure)?),
+        }
+    }
+    fn with_mut<T>(
+        &self,
+        action: impl FnOnce(&mut WorksheetEditor<'_>) -> PyResult<T>,
+    ) -> PyResult<T> {
+        let mut storage = lock(&self.storage)?;
+        match &mut *storage {
+            SheetStorage::Standalone(sheet) => action(&mut sheet.edit()),
+            SheetStorage::Bank { book, id } => {
+                action(&mut lock(book)?.sheet_mut(*id).map_err(failure)?)
+            }
+        }
+    }
+    fn in_bank(book: Arc<Mutex<Workbook>>, id: SheetId) -> Self {
+        Self {
+            storage: Arc::new(Mutex::new(SheetStorage::Bank { book, id })),
+        }
+    }
 }
 #[pymethods]
 impl NativeSheet {
     #[new]
     fn new(name: String, max_bytes: usize) -> PyResult<Self> {
         Ok(Self {
-            sheet: Arc::new(Mutex::new(
+            storage: Arc::new(Mutex::new(SheetStorage::Standalone(
                 Worksheet::new(
                     name,
                     EditLimits {
@@ -141,72 +177,76 @@ impl NativeSheet {
                     },
                 )
                 .map_err(failure)?,
-            )),
+            ))),
         })
     }
     fn get(&self, py: Python<'_>, row: u32, column: u32) -> PyResult<TaggedValue> {
-        let sheet = lock(&self.sheet)?;
         let address = CellAddress::new(row, column).map_err(failure)?;
-        encode(
-            py,
-            sheet
-                .get(address)
-                .map_or(&CellValue::Empty, |cell| &cell.value),
-        )
+        self.with(|sheet| {
+            encode(
+                py,
+                sheet
+                    .get(address)
+                    .map_or(&CellValue::Empty, |cell| &cell.value),
+            )
+        })
     }
     fn contains(&self, row: u32, column: u32) -> PyResult<bool> {
-        Ok(lock(&self.sheet)?
-            .get(CellAddress::new(row, column).map_err(failure)?)
-            .is_some())
+        let address = CellAddress::new(row, column).map_err(failure)?;
+        self.with(|sheet| Ok(sheet.get(address).is_some()))
     }
     fn set(&self, py: Python<'_>, row: u32, column: u32, value: TaggedValue) -> PyResult<()> {
-        lock(&self.sheet)?
-            .set(Cell {
-                address: CellAddress::new(row, column).map_err(failure)?,
-                value: decode(py, value)?,
-                style: StyleId::new(0),
-            })
-            .map_err(failure)
+        let cell = Cell {
+            address: CellAddress::new(row, column).map_err(failure)?,
+            value: decode(py, value)?,
+            style: StyleId::new(0),
+        };
+        self.with_mut(|sheet| sheet.set(cell).map_err(failure))
     }
     fn remove(&self, row: u32, column: u32) -> PyResult<()> {
-        lock(&self.sheet)?.remove(CellAddress::new(row, column).map_err(failure)?);
-        Ok(())
+        let address = CellAddress::new(row, column).map_err(failure)?;
+        self.with_mut(|sheet| {
+            sheet.remove(address);
+            Ok(())
+        })
     }
     fn append(&self, py: Python<'_>, values: Vec<TaggedValue>) -> PyResult<u32> {
         let values = values
             .into_iter()
             .map(|value| decode(py, value))
             .collect::<PyResult<Vec<_>>>()?;
-        lock(&self.sheet)?
-            .append(values)
-            .map(|row| row.get())
-            .map_err(failure)
+        self.with_mut(|sheet| sheet.append(values).map(|row| row.get()).map_err(failure))
     }
     fn bounds(&self) -> PyResult<(u32, u32, u32, u32)> {
-        let sheet = lock(&self.sheet)?;
-        let mut bounds = (u32::MAX, u32::MAX, 0, 0);
-        for cell in sheet.cells() {
-            let row = cell.address.row.get() + 1;
-            let col = cell.address.column.get() + 1;
-            bounds.0 = bounds.0.min(row);
-            bounds.1 = bounds.1.min(col);
-            bounds.2 = bounds.2.max(row);
-            bounds.3 = bounds.3.max(col);
-        }
-        Ok(if sheet.is_empty() {
-            (1, 1, 1, 1)
-        } else {
-            bounds
+        self.with(|sheet| {
+            let mut bounds = (u32::MAX, u32::MAX, 0, 0);
+            for cell in sheet.cells() {
+                let row = cell.address.row.get() + 1;
+                let col = cell.address.column.get() + 1;
+                bounds.0 = bounds.0.min(row);
+                bounds.1 = bounds.1.min(col);
+                bounds.2 = bounds.2.max(row);
+                bounds.3 = bounds.3.max(col);
+            }
+            Ok(if sheet.is_empty() {
+                (1, 1, 1, 1)
+            } else {
+                bounds
+            })
         })
     }
     fn row_extent(&self) -> PyResult<u32> {
-        Ok(lock(&self.sheet)?.row_extent())
-    }
-    fn rename(&self, name: String) -> PyResult<()> {
-        lock(&self.sheet)?.rename(name).map_err(failure)
+        self.with(|sheet| Ok(sheet.row_extent()))
     }
     fn charged_bytes(&self) -> PyResult<usize> {
-        Ok(lock(&self.sheet)?.charged_bytes())
+        self.with(|sheet| Ok(sheet.charged_bytes()))
+    }
+    fn rename(&self, name: String) -> PyResult<()> {
+        let mut storage = lock(&self.storage)?;
+        match &mut *storage {
+            SheetStorage::Standalone(sheet) => sheet.rename(name).map_err(failure),
+            SheetStorage::Bank { book, id } => lock(book)?.rename_sheet(*id, name).map_err(failure),
+        }
     }
     fn shift(
         &self,
@@ -216,20 +256,25 @@ impl NativeSheet {
         rows: bool,
         insert: bool,
     ) -> PyResult<()> {
-        let sheet = Arc::clone(&self.sheet);
+        let storage = Arc::clone(&self.storage);
         py.detach(move || {
-            let mut sheet = lock(&sheet)?;
-            match (rows, insert) {
-                (true, true) => sheet.insert_rows(RowIndex::new(index).map_err(failure)?, count),
-                (true, false) => sheet.delete_rows(RowIndex::new(index).map_err(failure)?, count),
-                (false, true) => {
-                    sheet.insert_columns(ColumnIndex::new(index).map_err(failure)?, count)
+            NativeSheet { storage }.with_mut(|sheet| {
+                match (rows, insert) {
+                    (true, true) => {
+                        sheet.insert_rows(RowIndex::new(index).map_err(failure)?, count)
+                    }
+                    (true, false) => {
+                        sheet.delete_rows(RowIndex::new(index).map_err(failure)?, count)
+                    }
+                    (false, true) => {
+                        sheet.insert_columns(ColumnIndex::new(index).map_err(failure)?, count)
+                    }
+                    (false, false) => {
+                        sheet.delete_columns(ColumnIndex::new(index).map_err(failure)?, count)
+                    }
                 }
-                (false, false) => {
-                    sheet.delete_columns(ColumnIndex::new(index).map_err(failure)?, count)
-                }
-            }
-            .map_err(failure)
+                .map_err(failure)
+            })
         })
     }
     fn move_range(
@@ -240,22 +285,99 @@ impl NativeSheet {
         cols: i32,
         translate: bool,
     ) -> PyResult<()> {
-        let (first_row, first_col, last_row, last_col) = bounds;
+        let (fr, fc, lr, lc) = bounds;
         let range = CellRange::new(
-            CellAddress::new(first_row, first_col).map_err(failure)?,
-            CellAddress::new(last_row, last_col).map_err(failure)?,
+            CellAddress::new(fr, fc).map_err(failure)?,
+            CellAddress::new(lr, lc).map_err(failure)?,
         )
         .map_err(failure)?;
-        let sheet = Arc::clone(&self.sheet);
+        let storage = Arc::clone(&self.storage);
         py.detach(move || {
-            let mut sheet = lock(&sheet)?;
-            if translate {
-                sheet.move_range_translated(range, rows, cols)
-            } else {
-                sheet.move_range(range, rows, cols)
-            }
-            .map_err(failure)
+            NativeSheet { storage }.with_mut(|sheet| {
+                if translate {
+                    sheet.move_range_translated(range, rows, cols)
+                } else {
+                    sheet.move_range(range, rows, cols)
+                }
+                .map_err(failure)
+            })
         })
+    }
+}
+#[pyclass]
+struct NativeBook {
+    book: Arc<Mutex<Workbook>>,
+}
+#[pymethods]
+impl NativeBook {
+    #[new]
+    fn new(max_bytes: usize) -> PyResult<Self> {
+        Ok(Self {
+            book: Arc::new(Mutex::new(
+                Workbook::new(WorkbookLimits {
+                    max_bytes,
+                    sheet: EditLimits {
+                        max_bytes,
+                        ..EditLimits::default()
+                    },
+                    ..WorkbookLimits::default()
+                })
+                .map_err(failure)?,
+            )),
+        })
+    }
+    fn create_sheet(&self, name: String) -> PyResult<NativeSheet> {
+        let id = lock(&self.book)?.create_sheet(name).map_err(failure)?;
+        Ok(NativeSheet::in_bank(Arc::clone(&self.book), id))
+    }
+    fn copy_sheet(
+        &self,
+        py: Python<'_>,
+        source: &NativeSheet,
+        name: String,
+    ) -> PyResult<NativeSheet> {
+        let storage = lock(&source.storage)?;
+        let SheetStorage::Bank { book, id } = &*storage else {
+            return Err(PyValueError::new_err(
+                "Source sheet is not registered in this workbook",
+            ));
+        };
+        if !Arc::ptr_eq(book, &self.book) {
+            return Err(PyValueError::new_err("Cannot copy between workbooks"));
+        }
+        let id = *id;
+        let bank = Arc::clone(&self.book);
+        // Validate the ID atomically under the bank lock. Release the handle
+        // lock before detaching so GIL reacquisition cannot block a remover.
+        drop(storage);
+        let new = py.detach(move || lock(&bank)?.copy_sheet(id, name).map_err(failure))?;
+        Ok(NativeSheet::in_bank(Arc::clone(&self.book), new))
+    }
+    fn move_sheet(&self, sheet: &NativeSheet, position: usize) -> PyResult<()> {
+        let storage = lock(&sheet.storage)?;
+        let SheetStorage::Bank { book, id } = &*storage else {
+            return Err(PyValueError::new_err("Sheet is not registered"));
+        };
+        if !Arc::ptr_eq(book, &self.book) {
+            return Err(PyValueError::new_err("Sheet belongs to another workbook"));
+        }
+        lock(&self.book)?.move_sheet(*id, position).map_err(failure)
+    }
+    fn remove_sheet(&self, sheet: &NativeSheet) -> PyResult<()> {
+        let mut storage = lock(&sheet.storage)?;
+        let SheetStorage::Bank { book, id } = &*storage else {
+            return Err(PyValueError::new_err("Sheet is not registered"));
+        };
+        if !Arc::ptr_eq(book, &self.book) {
+            return Err(PyValueError::new_err("Sheet belongs to another workbook"));
+        }
+        let removed = lock(&self.book)?.remove_sheet(*id).map_err(failure)?;
+        // Removed Python worksheet/cell aliases remain usable, as in openpyxl.
+        *storage = SheetStorage::Standalone(removed);
+        Ok(())
+    }
+    fn charged_bytes(&self) -> PyResult<usize> {
+        Ok(lock(&self.book)?.charged_bytes())
     }
 }
 #[pyclass]
@@ -333,7 +455,7 @@ impl NativeReader {
             Ok::<_, PyErr>(sheet)
         })?;
         Ok(NativeSheet {
-            sheet: Arc::new(Mutex::new(sheet)),
+            storage: Arc::new(Mutex::new(SheetStorage::Standalone(sheet))),
         })
     }
     fn close(&self) -> PyResult<()> {
@@ -402,15 +524,16 @@ impl NativeEditor {
     fn apply(&self, name: &str, sheet: &NativeSheet) -> PyResult<()> {
         let editor = lock(&self.editor)?;
         let editor = editor.as_ref().ok_or_else(closed)?;
-        let mut sheet = lock(&sheet.sheet)?;
-        for cell in editor.pending_cells(name) {
-            let mut cell = cell.clone();
-            cell.style = sheet
-                .get(cell.address)
-                .map_or(StyleId::new(0), |old| old.style);
-            sheet.set(cell).map_err(failure)?;
-        }
-        Ok(())
+        sheet.with_mut(|sheet| {
+            for cell in editor.pending_cells(name) {
+                let mut cell = cell.clone();
+                cell.style = sheet
+                    .get(cell.address)
+                    .map_or(StyleId::new(0), |old| old.style);
+                sheet.set(cell).map_err(failure)?;
+            }
+            Ok(())
+        })
     }
     fn bounds(&self, name: &str) -> PyResult<(u32, u32)> {
         let editor = lock(&self.editor)?;
@@ -525,7 +648,7 @@ fn save_models(
 ) -> PyResult<()> {
     let sheets = sheets
         .iter()
-        .map(|sheet| Arc::clone(&sheet.borrow(py).sheet))
+        .map(|sheet| Arc::clone(&sheet.borrow(py).storage))
         .collect::<Vec<_>>();
     py.detach(move || {
         let mut writer = WorkbookWriter::new(WriteOptions {
@@ -534,7 +657,8 @@ fn save_models(
         })
         .map_err(failure)?;
         for sheet in sheets {
-            writer.write_worksheet(&*lock(&sheet)?).map_err(failure)?;
+            NativeSheet { storage: sheet }
+                .with(|sheet| writer.write_worksheet(sheet).map_err(failure))?;
         }
         // Protect an existing target through failures, with a full adjacent
         // output ZIP rather than duplicating model payloads in memory.
@@ -556,6 +680,7 @@ fn save_models(
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<NativeSheet>()?;
+    module.add_class::<NativeBook>()?;
     module.add_class::<NativeReader>()?;
     module.add_class::<NativeEditor>()?;
     module.add_function(wrap_pyfunction!(save_models, module)?)?;
