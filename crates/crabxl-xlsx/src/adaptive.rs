@@ -32,10 +32,11 @@ impl<R: Read + Seek> WorkbookReader<R> {
     /// retaining them or trusting dimensions. If an estimate fits, materialize
     /// within the data allowance; discard and reopen as streaming if later data
     /// exceeds it. Format/value errors propagate instead of becoming fallbacks.
-    /// This policy overrides only the materialized-data allowance for this call;
+    /// This policy governs managed allocations for this call;
     /// direct `rows`/`read_sheet` calls retain their explicit semantics and limits.
-    /// Catalog/dependency overhead and caller-retained outputs are outside the
-    /// operation budget. Availability is a snapshot, not a memory reservation.
+    /// Managed package/style/theme/string catalogs, template tables and retained rows
+    /// share the allowance. Dependency/allocator overhead and caller-retained outputs
+    /// remain additional. Availability is a snapshot, not a memory reservation.
     pub fn read_with_policy(
         &mut self,
         name: &str,
@@ -43,12 +44,33 @@ impl<R: Read + Seek> WorkbookReader<R> {
         policy: MemoryPolicy,
     ) -> Result<AdaptiveRead<'_, R>> {
         let mut decision = memory_decision(policy, self.limits)?;
+        let retained_allowance = decision.retained_data_bytes;
         if access == AccessPattern::RepeatedAccess {
-            let estimate = self.estimate_sheet(name)?;
+            let estimate = self.estimate_sheet(name, retained_allowance)?;
+            self.rebalance_strings_for_retained(estimate, retained_allowance)?;
+            decision.catalog_bytes = self.policy_catalog_bytes();
+            decision.cache_bytes = self.shared_cache_bytes();
+            decision.retained_data_bytes = retained_allowance
+                .checked_sub(decision.catalog_bytes)
+                .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::MemoryBudgetExceeded,
+                    "Prepared catalogs exceed managed policy allowance",
+                )
+            })?;
             decision.estimated_data_bytes = Some(estimate);
             if estimate <= decision.retained_data_bytes {
-                match self.collect_sheet(name, decision.retained_data_bytes) {
+                match self.collect_sheet_with_allowance(
+                    name,
+                    retained_allowance,
+                    crabxl_core::ReadOptions::default(),
+                    Some(retained_allowance),
+                ) {
                     Ok(sheet) => {
+                        decision.catalog_bytes = self.policy_catalog_bytes();
+                        decision.cache_bytes = self.shared_cache_bytes();
+                        decision.retained_data_bytes =
+                            retained_allowance.saturating_sub(decision.catalog_bytes);
                         decision.mode = ReadMode::Materialized;
                         decision.reason = DecisionReason::SampleFits;
                         return Ok(AdaptiveRead {
@@ -65,13 +87,28 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 decision.reason = DecisionReason::EstimateExceedsBudget;
             }
         }
+        let stream = self.rows_with_allowance(
+            name,
+            crabxl_core::ReadOptions::default(),
+            Some(retained_allowance),
+        )?;
+        decision.catalog_bytes = stream.policy_catalog_bytes();
+        decision.cache_bytes = stream.shared_cache_bytes();
+        decision.retained_data_bytes = retained_allowance
+            .checked_sub(decision.catalog_bytes)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::MemoryBudgetExceeded,
+                    "Prepared catalogs exceed managed policy allowance",
+                )
+            })?;
         Ok(AdaptiveRead {
-            data: ReadData::Streaming(Box::new(self.rows(name)?)),
+            data: ReadData::Streaming(Box::new(stream)),
             decision,
         })
     }
 
-    fn estimate_sheet(&mut self, name: &str) -> Result<usize> {
+    fn estimate_sheet(&mut self, name: &str, allowance: usize) -> Result<usize> {
         let part = self
             .sheets()
             .iter()
@@ -87,7 +124,8 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     .with_part(&part)
             })?
             .size();
-        let mut rows = self.rows(name)?;
+        let mut rows =
+            self.rows_with_allowance(name, crabxl_core::ReadOptions::default(), Some(allowance))?;
         let start = rows.bytes_consumed();
         let mut weight = 0u128;
         for _ in 0..128 {
@@ -117,6 +155,8 @@ fn memory_decision(policy: MemoryPolicy, limits: ResourceLimits) -> Result<ReadD
         budget_bytes: allowance.budget_bytes,
         working_reserve_bytes: allowance.working_reserve_bytes,
         retained_data_bytes: allowance.retained_data_bytes,
+        catalog_bytes: 0,
+        cache_bytes: 0,
         estimated_data_bytes: None,
         available_bytes: allowance.available_bytes,
         memory_source: allowance.memory_source,

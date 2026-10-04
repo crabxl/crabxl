@@ -224,6 +224,7 @@ pub(crate) struct SharedStrings {
     cache: Vec<Option<CacheEntry>>,
     cache_payload: usize,
     cache_maximum: usize,
+    cache_policy_maximum: usize,
     stats: SharedStringStats,
     limits: ResourceLimits,
 }
@@ -255,6 +256,7 @@ impl SharedStrings {
             cache: Vec::new(),
             cache_payload: 0,
             cache_maximum: options.cache_bytes.min(allowance),
+            cache_policy_maximum: options.cache_bytes.min(allowance),
             stats: SharedStringStats {
                 rich_text_preserved: preserve_rich,
                 budget_bytes: allowance_details.budget_bytes,
@@ -305,19 +307,7 @@ impl SharedStrings {
             disk.finish()?;
             table.stats.disk_backed = true;
             table.stats.temp_bytes = disk.bytes;
-            let slots = (table.cache_maximum / (size_of::<Option<CacheEntry>>() + 128)).min(4096);
-            table.cache.try_reserve_exact(slots).map_err(|e| {
-                Error::caused_by(
-                    ErrorKind::MemoryBudgetExceeded,
-                    "Cannot allocate shared-string cache",
-                    e,
-                )
-            })?;
-            if table.cache.capacity() * size_of::<Option<CacheEntry>>() > table.cache_maximum {
-                return Err(limit("Shared-string cache allocation exceeds budget"));
-            }
-            table.cache.resize_with(slots, || None);
-            table.stats.managed_bytes = table.cache.capacity() * size_of::<Option<CacheEntry>>();
+            table.initialize_cache()?;
         }
         Ok(table)
     }
@@ -545,6 +535,117 @@ impl SharedStrings {
             }
         }
         Ok(value)
+    }
+    fn initialize_cache(&mut self) -> Result<()> {
+        let slots = (self.cache_maximum / (size_of::<Option<CacheEntry>>() + 128)).min(4096);
+        self.cache.try_reserve_exact(slots).map_err(|error| {
+            Error::caused_by(
+                ErrorKind::MemoryBudgetExceeded,
+                "Cannot allocate shared-string cache",
+                error,
+            )
+        })?;
+        if self
+            .cache
+            .capacity()
+            .saturating_mul(size_of::<Option<CacheEntry>>())
+            > self.cache_maximum
+        {
+            return Err(limit("Shared-string cache allocation exceeds budget"));
+        }
+        self.cache.resize_with(slots, || None);
+        self.stats.managed_bytes = self
+            .cache
+            .capacity()
+            .saturating_mul(size_of::<Option<CacheEntry>>());
+        Ok(())
+    }
+    /// Spill a previously prepared Auto table when another managed component needs space.
+    /// The existing table remains usable if temporary output fails.
+    pub(crate) fn limit_or_spill(
+        &mut self,
+        options: &SharedStringOptions,
+        maximum: usize,
+    ) -> Result<()> {
+        if self.disk.is_some()
+            || self.stats.managed_bytes <= maximum
+            || options.storage == SharedStringStorage::Memory
+        {
+            return self.limit_managed_bytes(maximum);
+        }
+        let mut disk = Disk::new(options)?;
+        if self.stats.rich_text_preserved {
+            for entry in &self.memory {
+                disk.push(entry.view(), options.max_temp_bytes)?;
+            }
+        } else {
+            for entry in &self.plain_memory {
+                disk.push(
+                    entry
+                        .as_deref()
+                        .map_or(EntryView::Unsupported, EntryView::Text),
+                    options.max_temp_bytes,
+                )?;
+            }
+        }
+        disk.finish()?;
+        self.stats.disk_backed = true;
+        self.stats.temp_bytes = disk.bytes;
+        self.disk = Some(disk);
+        self.memory = Vec::new();
+        self.plain_memory = Vec::new();
+        self.cache = Vec::new();
+        self.cache_payload = 0;
+        self.cache_policy_maximum = options.cache_bytes.min(maximum);
+        self.cache_maximum = self.cache_policy_maximum;
+        self.stats.managed_bytes = 0;
+        self.initialize_cache()
+    }
+    pub(crate) fn minimum_managed_bytes(&self) -> usize {
+        if self.disk.is_some() {
+            0
+        } else {
+            self.stats.managed_bytes
+        }
+    }
+    /// Shrink optional decoded cache before another jointly managed component grows.
+    pub(crate) fn limit_managed_bytes(&mut self, maximum: usize) -> Result<()> {
+        if self.disk.is_none() {
+            if self.stats.managed_bytes > maximum {
+                return Err(Error::new(
+                    ErrorKind::MemoryBudgetExceeded,
+                    "Shared-string table exceeds aggregate allowance",
+                ));
+            }
+            return Ok(());
+        }
+        self.cache_maximum = maximum.min(self.cache_policy_maximum);
+        let slots = self
+            .cache
+            .capacity()
+            .saturating_mul(size_of::<Option<CacheEntry>>());
+        if slots > self.cache_maximum {
+            self.cache = Vec::new();
+            self.cache_payload = 0;
+        } else if slots.saturating_add(self.cache_payload) > self.cache_maximum {
+            for entry in &mut self.cache {
+                if slots.saturating_add(self.cache_payload) <= self.cache_maximum {
+                    break;
+                }
+                if let Some(old) = entry.take() {
+                    self.cache_payload -= old.value.payload_bytes();
+                }
+            }
+        }
+        self.stats.managed_bytes = self
+            .cache
+            .capacity()
+            .saturating_mul(size_of::<Option<CacheEntry>>())
+            .saturating_add(self.cache_payload);
+        if self.cache.is_empty() && self.cache_maximum >= size_of::<Option<CacheEntry>>() + 128 {
+            self.initialize_cache()?;
+        }
+        Ok(())
     }
     pub(crate) fn stats(&self) -> SharedStringStats {
         self.stats

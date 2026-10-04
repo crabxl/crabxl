@@ -2406,3 +2406,212 @@ fn dynamic_array_and_opaque_metadata_project_visible_values_or_explicitly_reject
     assert!(excluded.next_row().unwrap().unwrap().cells.is_empty());
     assert_eq!(excluded.projected_metadata_cells(), 0);
 }
+
+#[test]
+fn aggregate_scan_charges_prepared_catalogs_and_shared_formula_storage() {
+    let mut book = open("<row><c><f t=\"shared\" si=\"1\" ref=\"A1\">A1+1</f><v>2</v></c></row>");
+    let limits = ResourceLimits::default();
+    let working = crabxl_xlsx::memory_allowance(MemoryPolicy::Budget(usize::MAX), limits)
+        .unwrap()
+        .working_reserve_bytes;
+    let catalog = book.catalog_memory_bytes();
+    assert!(
+        book.read_with_policy(
+            "A & B",
+            AccessPattern::Scan,
+            MemoryPolicy::Budget(working + catalog - 1)
+        )
+        .is_err()
+    );
+    let output = book
+        .read_with_policy(
+            "A & B",
+            AccessPattern::Scan,
+            MemoryPolicy::Budget(working + catalog + 1024),
+        )
+        .unwrap();
+    assert_eq!(output.decision.catalog_bytes, catalog);
+    assert_eq!(output.decision.retained_data_bytes, 1024);
+    let ReadData::Streaming(mut rows) = output.data else {
+        panic!("Expected stream");
+    };
+    assert!(rows.next_row().unwrap().is_some());
+    assert!(rows.shared_formula_stats().accounted_bytes > 0);
+    assert!(rows.managed_retained_bytes() <= catalog + 1024);
+}
+
+#[test]
+fn aggregate_auto_rebalances_existing_strings_and_bounds_mixed_components() {
+    use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    let payload = "X".repeat(1000);
+    let strings = (0..100)
+        .map(|_| format!("<si><t>{payload}</t></si>"))
+        .collect::<String>();
+    let mut content = String::new();
+    for index in 1..=100 {
+        content.push_str(&format!("<row r=\"{index}\"><c r=\"A{index}\" t=\"s\"><v>{}</v></c><c r=\"B{index}\"><f t=\"shared\" si=\"{index}\" ref=\"B{index}\">B{index}+1</f><v>{index}</v></c></row>", index - 1));
+    }
+    let bytes = with_strings(&content, &strings);
+    let mut book = WorkbookReader::new(Cursor::new(&bytes)).unwrap();
+    // Prepare under the old independent allowance, then choose a tighter policy.
+    assert!(book.rows("A & B").unwrap().next_row().unwrap().is_some());
+    assert!(!book.shared_string_stats().unwrap().disk_backed);
+    let working =
+        crabxl_xlsx::memory_allowance(MemoryPolicy::Budget(usize::MAX), ResourceLimits::default())
+            .unwrap()
+            .working_reserve_bytes;
+    let maximum = book.catalog_memory_bytes() + 32_000;
+    let mut output = book
+        .read_with_policy(
+            "A & B",
+            AccessPattern::Scan,
+            MemoryPolicy::Budget(working + maximum),
+        )
+        .unwrap();
+    let ReadData::Streaming(ref mut rows) = output.data else {
+        panic!("Expected stream");
+    };
+    let mut count = 0;
+    while let Some(row) = rows.next_row().unwrap() {
+        assert_eq!(row.cells[0].value, CellValue::text(payload.as_str()));
+        count += 1;
+        assert!(rows.managed_retained_bytes() <= maximum);
+    }
+    assert_eq!(count, 100);
+    drop(output);
+    assert!(book.shared_string_stats().unwrap().disk_backed);
+    assert!(book.shared_string_stats().unwrap().temp_bytes > 100_000);
+    // A forced-memory table cannot silently spill to satisfy a new global cap.
+    let mut strict = WorkbookReader::new(Cursor::new(&bytes)).unwrap();
+    strict.set_shared_string_options(SharedStringOptions {
+        storage: SharedStringStorage::Memory,
+        ..Default::default()
+    });
+    assert!(strict.rows("A & B").unwrap().next_row().unwrap().is_some());
+    assert!(
+        strict
+            .read_with_policy(
+                "A & B",
+                AccessPattern::Scan,
+                MemoryPolicy::Budget(working + maximum)
+            )
+            .is_err()
+    );
+    assert!(!strict.shared_string_stats().unwrap().disk_backed);
+}
+
+#[test]
+fn aggregate_repeated_access_can_retain_rows_after_lending_string_table_memory() {
+    let payload = "X".repeat(1000);
+    let strings = (0..100)
+        .map(|_| format!("<si><t>{payload}</t></si>"))
+        .collect::<String>();
+    let content = (1..=100)
+        .map(|index| {
+            format!(
+                "<row r=\"{index}\"><c r=\"A{index}\" t=\"s\"><v>{}</v></c></row>",
+                index - 1
+            )
+        })
+        .collect::<String>();
+    let mut book = WorkbookReader::new(Cursor::new(with_strings(&content, &strings))).unwrap();
+    let working =
+        crabxl_xlsx::memory_allowance(MemoryPolicy::Budget(usize::MAX), ResourceLimits::default())
+            .unwrap()
+            .working_reserve_bytes;
+    let maximum = book.catalog_memory_bytes() + 180_000;
+    let output = book
+        .read_with_policy(
+            "A & B",
+            AccessPattern::RepeatedAccess,
+            MemoryPolicy::Budget(working + maximum),
+        )
+        .unwrap();
+    assert_eq!(output.decision.mode, ReadMode::Materialized);
+    let catalog = output.decision.catalog_bytes;
+    let cache = output.decision.cache_bytes;
+    let ReadData::Materialized(ref sheet) = output.data else {
+        panic!("Expected owned rows");
+    };
+    assert_eq!(sheet.rows.len(), 100);
+    assert!(sheet.memory_bytes() + catalog + cache <= maximum);
+    drop(output);
+    assert!(book.shared_string_stats().unwrap().disk_backed);
+}
+
+#[test]
+fn aggregate_batches_lend_cache_space_and_release_library_retention_on_delivery() {
+    let payload = "X".repeat(1000);
+    let strings = (0..100)
+        .map(|_| format!("<si><t>{payload}</t></si>"))
+        .collect::<String>();
+    let content = (1..=100)
+        .map(|index| {
+            format!(
+                "<row r=\"{index}\"><c r=\"A{index}\" t=\"s\"><v>{}</v></c></row>",
+                index - 1
+            )
+        })
+        .collect::<String>();
+    let mut book = WorkbookReader::new(Cursor::new(with_strings(&content, &strings))).unwrap();
+    let working =
+        crabxl_xlsx::memory_allowance(MemoryPolicy::Budget(usize::MAX), ResourceLimits::default())
+            .unwrap()
+            .working_reserve_bytes;
+    let maximum = book.catalog_memory_bytes() + 100_000;
+    let output = book
+        .read_with_policy(
+            "A & B",
+            AccessPattern::Scan,
+            MemoryPolicy::Budget(working + maximum),
+        )
+        .unwrap();
+    let ReadData::Streaming(mut rows) = output.data else {
+        panic!("Expected stream");
+    };
+    let mut count = 0;
+    while let Some(batch) = rows.read_batch().unwrap() {
+        assert!(batch.memory_bytes() + rows.managed_retained_bytes() <= maximum);
+        count += batch.rows.len();
+        for row in batch.rows {
+            assert_eq!(row.cells[0].value, CellValue::text(payload.as_str()));
+        }
+    }
+    assert_eq!(count, 100);
+}
+
+#[test]
+fn aggregate_failed_auto_spill_keeps_the_existing_table_and_cleans_partial_temp_storage() {
+    use crabxl_xlsx::SharedStringOptions;
+    let directory = tempfile::tempdir().unwrap();
+    let strings = format!("<si><t>{}</t></si>", "X".repeat(10_000));
+    let mut book = WorkbookReader::new(Cursor::new(with_strings(
+        "<row><c t=\"s\"><v>0</v></c></row>",
+        &strings,
+    )))
+    .unwrap();
+    book.set_shared_string_options(SharedStringOptions {
+        temp_directory: Some(directory.path().into()),
+        max_temp_bytes: 32,
+        ..Default::default()
+    });
+    assert!(book.rows("A & B").unwrap().next_row().unwrap().is_some());
+    let previous = book.shared_string_stats().unwrap().managed_bytes;
+    let working =
+        crabxl_xlsx::memory_allowance(MemoryPolicy::Budget(usize::MAX), ResourceLimits::default())
+            .unwrap()
+            .working_reserve_bytes;
+    let maximum = book.catalog_memory_bytes() + 1000;
+    assert!(
+        book.read_with_policy(
+            "A & B",
+            AccessPattern::Scan,
+            MemoryPolicy::Budget(working + maximum)
+        )
+        .is_err()
+    );
+    assert!(!book.shared_string_stats().unwrap().disk_backed);
+    assert_eq!(book.shared_string_stats().unwrap().managed_bytes, previous);
+    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    assert!(book.rows("A & B").unwrap().next_row().unwrap().is_some());
+}
