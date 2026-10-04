@@ -190,17 +190,21 @@ impl Worksheet {
     }
     /// Set one cell; budget failures leave the previous value unchanged.
     pub fn set(&mut self, cell: Cell) -> Result<()> {
-        let old = self.get(cell.address).map_or(0, charge);
-        let bytes = self
-            .charged
-            .saturating_sub(old)
-            .saturating_add(charge(&cell));
-        self.check(bytes, self.len() + usize::from(old == 0))?;
+        let bytes = self.preflight_set(&cell)?;
         self.append_cursor = self.append_cursor.max(cell.address.row.get() + 1);
         self.cells.insert(key(cell.address), cell);
         self.charged = bytes;
         self.dirty = true;
         Ok(())
+    }
+    pub(crate) fn preflight_set(&self, cell: &Cell) -> Result<usize> {
+        let old = self.get(cell.address).map_or(0, charge);
+        let bytes = self
+            .charged
+            .saturating_sub(old)
+            .saturating_add(charge(cell));
+        self.check(bytes, self.len().saturating_add(usize::from(old == 0)))?;
+        Ok(bytes)
     }
     /// Remove a physical cell; existing append position is retained.
     pub fn remove(&mut self, address: CellAddress) -> Option<Cell> {
@@ -214,27 +218,37 @@ impl Worksheet {
     /// Append a row after the logical extent. Empty rows advance the cursor
     /// without allocating cells. Appending is atomic on count/budget failures.
     pub fn append(&mut self, values: Vec<CellValue>) -> Result<RowIndex> {
-        let index = RowIndex::new(self.append_cursor)?;
+        self.append_with_styles(values, |_| StyleId::new(0))
+    }
+    pub(crate) fn preflight_append(&self, values: &[CellValue]) -> Result<usize> {
+        RowIndex::new(self.append_cursor)?;
         if values.len() > MAX_COLUMNS as usize {
             return Err(invalid("Appended row exceeds column bounds"));
         }
-        let extra = values
+        let bytes = values
             .iter()
             .map(|value| ENTRY_BYTES.saturating_add(value.heap_bytes()))
-            .fold(0usize, usize::saturating_add);
-        self.check(
-            self.charged.saturating_add(extra),
-            self.len().saturating_add(values.len()),
-        )?;
+            .fold(self.charged, usize::saturating_add);
+        self.check(bytes, self.len().saturating_add(values.len()))?;
+        Ok(bytes)
+    }
+    pub(crate) fn append_with_styles(
+        &mut self,
+        values: Vec<CellValue>,
+        style: impl Fn(&CellValue) -> StyleId,
+    ) -> Result<RowIndex> {
+        let bytes = self.preflight_append(&values)?;
+        let index = RowIndex::new(self.append_cursor)?;
         for (column, value) in values.into_iter().enumerate() {
+            let style = style(&value);
             let cell = Cell {
                 address: CellAddress::new(index.get(), column as u32)?,
                 value,
-                style: StyleId::new(0),
+                style,
             };
             self.cells.insert(key(cell.address), cell);
         }
-        self.charged += extra;
+        self.charged = bytes;
         self.append_cursor += 1;
         self.dirty = true;
         Ok(index)

@@ -369,3 +369,258 @@ fn releasing_sheet_storage_restores_style_registration_allowance() {
     );
     assert!(bank.charged_bytes() <= 64 * 1024);
 }
+
+fn temporal(kind: crabxl_core::DateKind) -> CellValue {
+    CellValue::DateTime(Box::new(
+        crabxl_core::ExcelDateTime::from_serial(
+            if kind == crabxl_core::DateKind::Time {
+                0.25
+            } else {
+                2.0
+            },
+            DateEpoch::Windows1900,
+            kind,
+        )
+        .unwrap(),
+    ))
+}
+
+#[test]
+fn owned_temporal_assignment_exposes_final_shared_formats_before_save() {
+    use crabxl_core::{Alignment, CellStyle, DateKind, Font};
+    let mut book = Workbook::new(WorkbookLimits::default()).unwrap();
+    let sheet = book.create_sheet("Sheet").unwrap();
+    let base = book
+        .register_style(CellStyle {
+            number_format: "0.000".into(),
+            font: Font {
+                name: Some("Shared temporal font".into()),
+                ..Default::default()
+            },
+            alignment: Alignment {
+                wrap_text: Some(true),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .unwrap();
+    for (row, kind) in [
+        DateKind::Date,
+        DateKind::DateTime,
+        DateKind::Time,
+        DateKind::Duration,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let address = CellAddress::new(row as u32, 0).unwrap();
+        book.sheet_mut(sheet)
+            .unwrap()
+            .set(Cell {
+                address,
+                value: temporal(kind),
+                style: base,
+            })
+            .unwrap();
+        let style = book.sheet(sheet).unwrap().get(address).unwrap().style;
+        assert_ne!(style, base);
+        let catalog = book.style_catalog().unwrap();
+        let format = catalog.cell_format(style).unwrap();
+        let original = catalog.cell_format(base).unwrap();
+        assert_eq!(
+            catalog.number_format(format.number_format_id),
+            Some(kind.default_number_format())
+        );
+        assert_eq!(format.font_id, original.font_id);
+        assert_eq!(format.fill_id, original.fill_id);
+        assert_eq!(format.border_id, original.border_id);
+        assert_eq!(format.alignment, original.alignment);
+        assert_eq!(format.apply_number_format, Some(true));
+        let bytes = book.charged_bytes();
+        book.sheet_mut(sheet)
+            .unwrap()
+            .set(Cell {
+                address,
+                value: temporal(kind),
+                style: base,
+            })
+            .unwrap();
+        assert_eq!(book.charged_bytes(), bytes);
+        assert_eq!(
+            book.sheet(sheet).unwrap().get(address).unwrap().style,
+            style
+        );
+    }
+    let date_style = book
+        .register_style(CellStyle {
+            number_format: "yyyy-mm-dd".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    let address = CellAddress::new(8, 0).unwrap();
+    book.sheet_mut(sheet)
+        .unwrap()
+        .set(Cell {
+            address,
+            value: temporal(DateKind::Duration),
+            style: date_style,
+        })
+        .unwrap();
+    assert_eq!(
+        book.sheet(sheet).unwrap().get(address).unwrap().style,
+        date_style
+    );
+}
+
+#[test]
+fn owned_temporal_append_shares_styles_and_formula_cache_interpretation() {
+    use crabxl_core::{DateKind, Formula};
+    let mut book = Workbook::new(WorkbookLimits::default()).unwrap();
+    let sheet = book.create_sheet("Sheet").unwrap();
+    let row = book
+        .sheet_mut(sheet)
+        .unwrap()
+        .append(vec![
+            temporal(DateKind::Date),
+            temporal(DateKind::DateTime),
+            temporal(DateKind::Time),
+            temporal(DateKind::Duration),
+            CellValue::Formula(Box::new(
+                Formula::new("1", Some(temporal(DateKind::Date))).unwrap(),
+            )),
+            CellValue::Integer(7),
+        ])
+        .unwrap();
+    assert_eq!(row.get(), 0);
+    let styles: Vec<_> = book
+        .sheet(sheet)
+        .unwrap()
+        .row_cells(row)
+        .map(|cell| cell.style)
+        .collect();
+    assert_eq!(styles[0], styles[4]);
+    assert_eq!(styles[5], StyleId::new(0));
+    let catalog = book.style_catalog().unwrap();
+    for (index, kind) in [
+        DateKind::Date,
+        DateKind::DateTime,
+        DateKind::Time,
+        DateKind::Duration,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_eq!(
+            catalog.number_format(catalog.cell_format(styles[index]).unwrap().number_format_id),
+            Some(kind.default_number_format())
+        );
+    }
+    let style_count = catalog.cell_formats.len();
+    book.sheet_mut(sheet)
+        .unwrap()
+        .append(vec![temporal(DateKind::Date)])
+        .unwrap();
+    assert_eq!(
+        book.style_catalog().unwrap().cell_formats.len(),
+        style_count
+    );
+}
+
+#[test]
+fn temporal_style_growth_cannot_spend_bytes_reserved_for_pending_cells() {
+    use crabxl_core::DateKind;
+    let mut probe = Workbook::new(WorkbookLimits::default()).unwrap();
+    probe.create_sheet("Sheet").unwrap();
+    let needed = probe.charged_bytes() + 256 + temporal(DateKind::Date).heap_bytes() + 1;
+    let mut book = Workbook::new(WorkbookLimits {
+        max_bytes: needed - 1,
+        ..Default::default()
+    })
+    .unwrap();
+    let sheet = book.create_sheet("Sheet").unwrap();
+    let initial = book.charged_bytes();
+    let error = book
+        .sheet_mut(sheet)
+        .unwrap()
+        .append(vec![temporal(DateKind::Date)])
+        .unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::MemoryBudgetExceeded);
+    assert!(book.style_catalog().is_none());
+    assert_eq!(book.sheet(sheet).unwrap().row_extent(), 0);
+    assert!(book.sheet(sheet).unwrap().is_empty());
+    assert_eq!(book.charged_bytes(), initial);
+    book.sheet_mut(sheet)
+        .unwrap()
+        .append(vec![CellValue::Integer(1)])
+        .unwrap();
+    assert!(book.charged_bytes() < needed);
+    let invalid = Cell {
+        address: CellAddress::new(2, 0).unwrap(),
+        value: temporal(DateKind::Date),
+        style: StyleId::new(500),
+    };
+    assert!(book.sheet_mut(sheet).unwrap().set(invalid).is_err());
+    assert!(
+        book.sheet(sheet)
+            .unwrap()
+            .get(CellAddress::new(2, 0).unwrap())
+            .is_none()
+    );
+}
+
+#[test]
+fn raw_standalone_sheet_retains_caller_style_and_source_zero_date_is_preserved() {
+    use crabxl_core::{DateKind, StyleLimits, Worksheet};
+    let mut raw = Worksheet::new("Raw", EditLimits::default()).unwrap();
+    raw.edit().append(vec![temporal(DateKind::Date)]).unwrap();
+    assert_eq!(raw.cells().next().unwrap().style, StyleId::new(0));
+    let mut catalog = crabxl_core::StyleRegistry::new(StyleLimits::default())
+        .unwrap()
+        .catalog()
+        .clone();
+    catalog.cell_formats[0].number_format_id = 14;
+    let mut book = Workbook::new(WorkbookLimits::default()).unwrap();
+    let sheet = book.create_sheet("Sheet").unwrap();
+    book.import_style_catalog(catalog, StyleLimits::default())
+        .unwrap();
+    book.sheet_mut(sheet)
+        .unwrap()
+        .append(vec![temporal(DateKind::Duration)])
+        .unwrap();
+    assert_eq!(
+        book.sheet(sheet).unwrap().cells().next().unwrap().style,
+        StyleId::new(0)
+    );
+}
+
+#[test]
+fn failed_multi_kind_append_keeps_cells_atomic_and_valid_styles_reusable() {
+    use crabxl_core::{DateKind, StyleLimits, StyleRegistry};
+    let mut book = Workbook::new(WorkbookLimits::default()).unwrap();
+    let sheet = book.create_sheet("Sheet").unwrap();
+    let limits = StyleLimits {
+        max_records: 2,
+        ..Default::default()
+    };
+    let catalog = StyleRegistry::new(limits).unwrap().catalog().clone();
+    book.import_style_catalog(catalog, limits).unwrap();
+    let error = book
+        .sheet_mut(sheet)
+        .unwrap()
+        .append(vec![temporal(DateKind::Date), temporal(DateKind::DateTime)])
+        .unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::MemoryBudgetExceeded);
+    assert!(book.sheet(sheet).unwrap().is_empty());
+    assert_eq!(book.sheet(sheet).unwrap().row_extent(), 0);
+    assert_eq!(book.style_catalog().unwrap().cell_formats.len(), 2);
+    let charged = book.charged_bytes();
+    book.sheet_mut(sheet)
+        .unwrap()
+        .append(vec![temporal(DateKind::Date)])
+        .unwrap();
+    assert_eq!(book.style_catalog().unwrap().cell_formats.len(), 2);
+    assert_eq!(
+        book.charged_bytes() - charged,
+        256 + temporal(DateKind::Date).heap_bytes()
+    );
+}

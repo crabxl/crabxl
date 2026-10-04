@@ -221,6 +221,30 @@ enum IndexKind {
     Number,
     Format,
 }
+/// Canonical workbook-local temporal presets. IDs are resolved from each
+/// source catalog rather than assuming that imported records occupy 1..=4.
+#[derive(Clone, Copy, Debug)]
+pub struct TemporalStyleIds {
+    /// Calendar datetime preset.
+    pub datetime: StyleId,
+    /// Clock preset.
+    pub time: StyleId,
+    /// Elapsed duration preset.
+    pub duration: StyleId,
+    /// Calendar date preset.
+    pub date: StyleId,
+}
+impl TemporalStyleIds {
+    /// Resolve one temporal kind to its workbook-local style identity.
+    pub const fn for_kind(self, kind: crate::DateKind) -> StyleId {
+        match kind {
+            crate::DateKind::Date => self.date,
+            crate::DateKind::DateTime => self.datetime,
+            crate::DateKind::Time => self.time,
+            crate::DateKind::Duration => self.duration,
+        }
+    }
+}
 /// One canonical catalog plus collision-checked indices. Styles share components,
 /// not whole appearance clones. Catalog access is borrowed and immutable so
 /// numeric IDs and deduplication indices cannot become stale.
@@ -720,6 +744,63 @@ impl StyleRegistry {
                 format_key(existing, existing.alignment.as_deref()) == key
             })
             .map(StyleId::new))
+    }
+    /// Intern the canonical automatic presets using the source normal format's
+    /// shared components. Default catalogs obtain the stable IDs 1 through 4;
+    /// imported catalogs retain their existing IDs. Valid interned records may
+    /// remain after a later budget failure.
+    pub fn register_temporal_presets_with_limit(
+        &mut self,
+        maximum: usize,
+    ) -> Result<TemporalStyleIds> {
+        self.catalog.cell_format(StyleId::new(0)).ok_or_else(|| {
+            Error::new(ErrorKind::InvalidData, "Normal cell format is unavailable")
+        })?;
+        let mut register = |kind: crate::DateKind| -> Result<StyleId> {
+            let code = kind.default_number_format();
+            let number = match self.number_id_for_code(code) {
+                Some(id) => id,
+                None => self.register_number_format_with_limit(code.into(), maximum)?,
+            };
+            self.register_format_with_number_format_limit(StyleId::new(0), number, maximum)
+        };
+        Ok(TemporalStyleIds {
+            datetime: register(crate::DateKind::DateTime)?,
+            time: register(crate::DateKind::Time)?,
+            duration: register(crate::DateKind::Duration)?,
+            date: register(crate::DateKind::Date)?,
+        })
+    }
+    /// Resolve temporal assignment through the shared source format. Existing
+    /// date/duration codes remain unchanged; other codes gain a shared variant.
+    /// A failed later variant insertion may retain its valid interned code.
+    pub fn register_temporal_format_with_limit(
+        &mut self,
+        base: StyleId,
+        kind: crate::DateKind,
+        maximum: usize,
+    ) -> Result<StyleId> {
+        let format = self
+            .catalog
+            .cell_format(base)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Cell format is unavailable"))?;
+        if self
+            .catalog
+            .number_format(format.number_format_id)
+            .and_then(crate::classify_number_format)
+            .is_some()
+        {
+            if self.memory_bytes() > maximum.min(self.limits.max_bytes) {
+                return Err(limit());
+            }
+            return Ok(base);
+        }
+        let code = kind.default_number_format();
+        let number = match self.number_id_for_code(code) {
+            Some(id) => id,
+            None => self.register_number_format_with_limit(code.into(), maximum)?,
+        };
+        self.register_format_with_number_format_limit(base, number, maximum)
     }
     /// Intern a number-format override, retaining all other format properties and
     /// component IDs. The override explicitly applies its number format.

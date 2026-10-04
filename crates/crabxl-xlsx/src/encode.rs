@@ -36,12 +36,7 @@ impl StyleContext<'_> {
                 .map(|style| style.number_format.as_ref()),
         }
     }
-    fn prepare_date_format(
-        &mut self,
-        id: u32,
-        date: &crabxl_core::ExcelDateTime,
-        dates: DateStyleIds,
-    ) -> Result<()> {
+    fn prepare_date_format(&mut self, id: u32, date: &crabxl_core::ExcelDateTime) -> Result<()> {
         if id == 0
             || self
                 .number_format(id)
@@ -52,16 +47,9 @@ impl StyleContext<'_> {
         }
         match self {
             Self::Registry { registry, maximum } => {
-                let number = registry
-                    .catalog()
-                    .cell_format(crabxl_core::StyleId::new(dates.for_kind(date.kind())))
-                    .ok_or_else(|| {
-                        Error::new(ErrorKind::InvalidState, "Date preset is unavailable")
-                    })?
-                    .number_format_id;
-                registry.register_format_with_number_format_limit(
+                registry.register_temporal_format_with_limit(
                     crabxl_core::StyleId::new(id),
-                    number,
+                    date.kind(),
                     *maximum,
                 )?;
                 Ok(())
@@ -85,13 +73,13 @@ impl StyleContext<'_> {
             return Ok(id);
         }
         if id == 0 {
-            return Ok(dates.for_kind(date.kind()));
+            return Ok(dates.for_kind(date.kind()).get());
         }
         match self {
             Self::Registry { registry, .. } => {
                 let number = registry
                     .catalog()
-                    .cell_format(crabxl_core::StyleId::new(dates.for_kind(date.kind())))
+                    .cell_format(dates.for_kind(date.kind()))
                     .ok_or_else(|| {
                         Error::new(ErrorKind::InvalidState, "Date preset is unavailable")
                     })?
@@ -108,24 +96,7 @@ impl StyleContext<'_> {
     }
 }
 
-#[derive(Clone, Copy)]
-pub(crate) struct DateStyleIds {
-    pub(crate) datetime: crabxl_core::StyleId,
-    pub(crate) time: crabxl_core::StyleId,
-    pub(crate) duration: crabxl_core::StyleId,
-    pub(crate) date: crabxl_core::StyleId,
-}
-impl DateStyleIds {
-    fn for_kind(self, kind: crabxl_core::DateKind) -> u32 {
-        match kind {
-            crabxl_core::DateKind::Date => self.date,
-            crabxl_core::DateKind::DateTime => self.datetime,
-            crabxl_core::DateKind::Time => self.time,
-            crabxl_core::DateKind::Duration => self.duration,
-        }
-        .get()
-    }
-}
+pub(crate) use crabxl_core::TemporalStyleIds as DateStyleIds;
 pub(crate) struct ValueEncoding {
     pub(crate) epoch: crabxl_core::DateEpoch,
     pub(crate) iso_dates: bool,
@@ -267,7 +238,7 @@ pub(crate) fn encode_cells<'a>(
     for cell in cells.clone() {
         if let Some(date) = date_value(&cell.value) {
             styles
-                .prepare_date_format(cell.style.get(), date, date_styles)
+                .prepare_date_format(cell.style.get(), date)
                 .map_err(|error| error.with_cell(cell.address))?;
         }
     }
@@ -366,11 +337,7 @@ pub(crate) fn encode_cells<'a>(
     })
 }
 fn date_value(value: &CellValue) -> Option<&crabxl_core::ExcelDateTime> {
-    match value {
-        CellValue::DateTime(value) => Some(value),
-        CellValue::Formula(value) => value.cached().and_then(date_value),
-        _ => None,
-    }
+    value.temporal_value()
 }
 pub(crate) fn validate_non_finite(
     value: &CellValue,

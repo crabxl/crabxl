@@ -46,7 +46,7 @@ Acceptance: repeated-string and high-cardinality tables work under small managed
 
 Checkpoint: indexed palette entries share ArgbLiteral, preserving mixed case and six-digit alpha normalization through source adoption and export with actual-capacity accounting (ADR 0039). The additional four bytes per palette slot are disclosed and measured; complete style mutation remains open.
 
-Checkpoint: temporal output preserves any existing date/duration format and derives shared variants for non-date styles, using public default codes and the existing borrowed deduplication index (ADR 0038). Owned-bank pre-save style assignment/views and complete style mutation remain open.
+Checkpoint: temporal output preserves any existing date/duration format and derives shared variants for non-date styles, using public default codes and the existing borrowed deduplication index (ADR 0038). Owned-bank temporal assignment now resolves shared style IDs before save (ADR 0040); complete style mutation remains open.
 
 Checkpoint: typed differential overrides and table/pivot definitions/defaults are verified in ADR 0033, including all 28 region tokens and bounded deferred reference checks. Extension payloads, full style mutation/assignment semantics and worksheet rule/table graph integration remain required.
 
@@ -73,6 +73,8 @@ Checkpoint: optional/literal array text and literal formula reference/input owne
 M2 acceptance: all assigned value/string/date/formula read cases pass in streaming and explicit materialization, with high-cardinality disk-backed strings, mode restrictions, aggregate catalog accounting and representative benchmarks. M2 stays in progress until these requirements are met.
 
 ## M4.1: Loaded workbook ownership
+
+Checkpoint: owned set/append resolves temporal style IDs before committing cells with joint prospective-cell/style accounting, shared canonical presets and reusable failure state (ADR 0040). Raw standalone models remain catalog-free; loaded graphs and general repeated styled save remain open.
 
 Checkpoint: canonical owned-bank style import/registration, aggregate theme/style/sheet budgeting and consuming registry/sheet export are verified in ADR 0030 and benchmarks/m4-bank-styles.md. Lazy loading, repeated non-consuming styled save and original feature graphs remain open; this checkpoint does not complete M4.1.
 
