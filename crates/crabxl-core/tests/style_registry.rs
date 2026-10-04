@@ -168,3 +168,134 @@ fn public_style_domains_and_literal_color_casing_are_retained() {
         );
     }
 }
+
+#[test]
+fn imported_catalogs_preserve_ids_duplicates_and_sparse_number_format_identity() {
+    use crabxl_core::{NumberFormat, StyleId};
+    let mut original = StyleRegistry::new(StyleLimits::default()).unwrap();
+    let existing = original
+        .register(CellStyle {
+            number_format: "0.000".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    let mut catalog = original.catalog().clone();
+    catalog.fonts.push(catalog.fonts[0].clone());
+    catalog.cell_formats.push(catalog.cell_formats[0].clone());
+    let duplicate_id = catalog.cell_formats.len() - 1;
+    catalog.cell_formats[duplicate_id].font_id = 1;
+    catalog
+        .number_formats
+        .push(NumberFormat::new(u32::MAX, "0.00000"));
+    catalog
+        .number_formats
+        .push(NumberFormat::new(165, "0.0000"));
+    let mut registry =
+        StyleRegistry::from_catalog(catalog.clone(), StyleLimits::default()).unwrap();
+    assert_eq!(registry.catalog().cell_formats, catalog.cell_formats);
+    assert_eq!(registry.catalog().fonts, catalog.fonts);
+    assert_eq!(
+        registry
+            .catalog()
+            .cell_style(StyleId::new(duplicate_id as u32))
+            .unwrap()
+            .font,
+        &catalog.fonts[1]
+    );
+    assert_eq!(
+        registry
+            .register(CellStyle {
+                number_format: "0.000".into(),
+                ..Default::default()
+            })
+            .unwrap(),
+        existing
+    );
+    let id = registry
+        .register(CellStyle {
+            number_format: "0.000000".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(
+        registry.catalog().cell_formats[id.get() as usize].number_format_id,
+        166
+    );
+    assert_eq!(registry.catalog().number_format(u32::MAX), Some("0.00000"));
+    assert_eq!(registry.catalog().fonts.len(), 2);
+}
+
+#[test]
+fn imported_builtin_overrides_do_not_change_new_literal_format_meaning() {
+    use crabxl_core::NumberFormat;
+    let mut catalog = StyleRegistry::new(StyleLimits::default())
+        .unwrap()
+        .catalog()
+        .clone();
+    catalog.number_formats.push(NumberFormat::new(14, "0.000"));
+    let mut registry = StyleRegistry::from_catalog(catalog, StyleLimits::default()).unwrap();
+    let id = registry
+        .register(CellStyle {
+            number_format: "mm-dd-yy".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    let format = &registry.catalog().cell_formats[id.get() as usize];
+    assert_ne!(format.number_format_id, 14);
+    assert_eq!(
+        registry.catalog().number_format(format.number_format_id),
+        Some("mm-dd-yy")
+    );
+    assert_eq!(registry.catalog().number_format(14), Some("0.000"));
+}
+
+#[test]
+fn imported_catalogs_reject_missing_links_duplicates_and_index_budget_overflow() {
+    use crabxl_core::{ErrorKind, NumberFormat};
+    let source = StyleRegistry::new(StyleLimits::default())
+        .unwrap()
+        .catalog()
+        .clone();
+    let mut invalid = source.clone();
+    invalid.cell_formats[0].font_id = 99;
+    assert!(
+        matches!(StyleRegistry::from_catalog(invalid, StyleLimits::default()), Err(e) if e.kind() == ErrorKind::InvalidData)
+    );
+    let mut duplicate = source.clone();
+    duplicate.number_formats = vec![
+        NumberFormat::new(164, "0.00"),
+        NumberFormat::new(164, "0.000"),
+    ];
+    assert!(
+        matches!(StyleRegistry::from_catalog(duplicate, StyleLimits::default()), Err(e) if e.kind() == ErrorKind::InvalidData)
+    );
+    let imported = StyleRegistry::from_catalog(source.clone(), StyleLimits::default()).unwrap();
+    let limits = StyleLimits {
+        max_bytes: imported.memory_bytes() - 1,
+        ..Default::default()
+    };
+    assert!(StyleRegistry::from_catalog(source, limits).is_err());
+}
+
+#[test]
+fn raw_format_edits_reuse_components_and_retain_absence_and_application_flags() {
+    let source = StyleRegistry::new(StyleLimits::default())
+        .unwrap()
+        .catalog()
+        .clone();
+    let mut registry = StyleRegistry::from_catalog(source, StyleLimits::default()).unwrap();
+    let mut format = registry.catalog().cell_formats[0].clone();
+    format.number_format_id = 14;
+    format.apply_number_format = None;
+    format.alignment = None;
+    format.protection = None;
+    let id = registry.register_format(format.clone()).unwrap();
+    assert_eq!(registry.register_format(format.clone()).unwrap(), id);
+    assert_eq!(registry.catalog().cell_formats[id.get() as usize], format);
+    assert_eq!(registry.catalog().fonts.len(), 1);
+    assert_eq!(registry.catalog().fills.len(), 2);
+    let count = registry.catalog().cell_formats.len();
+    format.font_id = 99;
+    assert!(registry.register_format(format).is_err());
+    assert_eq!(registry.catalog().cell_formats.len(), count);
+}

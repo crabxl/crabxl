@@ -181,6 +181,14 @@ fn format_key<'a>(format: &CellFormat, alignment: Option<&'a crate::Alignment>) 
         unmodeled_extensions: format.unmodeled_extensions,
     }
 }
+#[derive(Clone, Copy)]
+enum IndexKind {
+    Font,
+    Fill,
+    Border,
+    Number,
+    Format,
+}
 /// One canonical catalog plus collision-checked indices. Styles share components,
 /// not whole appearance clones. Catalog access is borrowed and immutable so
 /// numeric IDs and deduplication indices cannot become stale.
@@ -193,6 +201,8 @@ pub struct StyleRegistry {
     formats: Index,
     limits: StyleLimits,
     payload_bytes: usize,
+    reserved_number_ids: Vec<u32>,
+    next_number_id: u64,
 }
 impl StyleRegistry {
     /// Create the normal style, two required fills and one named/base record.
@@ -210,6 +220,8 @@ impl StyleRegistry {
             formats: Index::default(),
             limits,
             payload_bytes: 0,
+            reserved_number_ids: Vec::new(),
+            next_number_id: 164,
         };
         for fill in [
             Fill::default(),
@@ -259,6 +271,189 @@ impl StyleRegistry {
         registry.register(CellStyle::default())?;
         Ok(registry)
     }
+    /// Adopt existing tables without remapping component, format or source IDs.
+    /// Duplicate components remain present; new registration reuses the first equal record.
+    /// Source custom-number IDs are sparse and never size a dense allocation.
+    pub fn from_catalog(mut catalog: StyleCatalog, limits: StyleLimits) -> Result<Self> {
+        if limits.max_bytes == 0
+            || limits.max_records == 0
+            || limits.max_records > u32::MAX as usize
+        {
+            return Err(limit());
+        }
+        for count in [
+            catalog.fonts.len(),
+            catalog.fills.len(),
+            catalog.borders.len(),
+            catalog.number_formats.len(),
+            catalog.cell_formats.len(),
+            catalog.base_formats.len(),
+            catalog.named_styles.len(),
+            catalog.indexed_colors.len(),
+            catalog.recent_colors.len(),
+            catalog.unmodeled_sections.len(),
+        ] {
+            if count > limits.max_records {
+                return Err(limit());
+            }
+        }
+        if catalog.memory_bytes().saturating_add(size_of::<Self>()) > limits.max_bytes {
+            return Err(limit());
+        }
+        catalog
+            .number_formats
+            .sort_unstable_by_key(NumberFormat::id);
+        catalog.validate_references()?;
+        let payload_bytes = catalog
+            .number_formats
+            .iter()
+            .map(|n| n.code().len())
+            .sum::<usize>()
+            + catalog
+                .fonts
+                .iter()
+                .map(|v| v.name.as_ref().map_or(0, |s| s.len()))
+                .sum::<usize>()
+            + catalog.fills.iter().map(Fill::heap_bytes).sum::<usize>()
+            + catalog
+                .base_formats
+                .iter()
+                .chain(&catalog.cell_formats)
+                .map(CellFormat::heap_bytes)
+                .sum::<usize>()
+            + catalog
+                .named_styles
+                .iter()
+                .map(|v| v.name.len())
+                .sum::<usize>()
+            + catalog
+                .unmodeled_sections
+                .iter()
+                .map(|v| v.len())
+                .sum::<usize>();
+        let mut value = Self {
+            catalog,
+            fonts: Index::default(),
+            fills: Index::default(),
+            borders: Index::default(),
+            numbers: Index::default(),
+            formats: Index::default(),
+            limits,
+            payload_bytes,
+            reserved_number_ids: Vec::new(),
+            next_number_id: 164,
+        };
+        if value.memory_bytes().saturating_add(
+            value
+                .catalog
+                .number_formats
+                .len()
+                .saturating_mul(size_of::<u32>()),
+        ) > limits.max_bytes
+        {
+            return Err(limit());
+        }
+        value
+            .reserved_number_ids
+            .try_reserve_exact(value.catalog.number_formats.len())
+            .map_err(allocation)?;
+        value
+            .reserved_number_ids
+            .extend(value.catalog.number_formats.iter().map(NumberFormat::id));
+        value.reserved_number_ids.sort_unstable();
+        if value.reserved_number_ids.windows(2).any(|p| p[0] == p[1]) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Duplicate number-format identity",
+            ));
+        }
+        for color in &value.catalog.recent_colors {
+            color.validate()?;
+        }
+        for i in 0..value.catalog.fonts.len() {
+            value.catalog.fonts[i].validate()?;
+            value.index_imported(
+                IndexKind::Font,
+                fingerprint(&value.catalog.fonts[i]),
+                i as u32,
+            )?;
+        }
+        for i in 0..value.catalog.fills.len() {
+            if let Fill::Gradient(v) = &value.catalog.fills[i] {
+                if value
+                    .memory_bytes()
+                    .saturating_add(v.stops.len().saturating_mul(size_of::<u64>()))
+                    > limits.max_bytes
+                {
+                    return Err(limit());
+                }
+            }
+            value.catalog.fills[i].validate()?;
+            value.index_imported(
+                IndexKind::Fill,
+                fingerprint(&value.catalog.fills[i]),
+                i as u32,
+            )?;
+        }
+        for i in 0..value.catalog.borders.len() {
+            value.catalog.borders[i].validate()?;
+            value.index_imported(
+                IndexKind::Border,
+                fingerprint(&value.catalog.borders[i]),
+                i as u32,
+            )?;
+        }
+        for i in 0..value.catalog.number_formats.len() {
+            value.index_imported(
+                IndexKind::Number,
+                fingerprint(&value.catalog.number_formats[i].code()),
+                i as u32,
+            )?;
+        }
+        for i in 0..value.catalog.cell_formats.len() {
+            let format = &value.catalog.cell_formats[i];
+            let hash = fingerprint(&format_key(format, format.alignment.as_deref()));
+            value.index_imported(IndexKind::Format, hash, i as u32)?;
+        }
+        Ok(value)
+    }
+    fn index_imported(&mut self, kind: IndexKind, hash: u64, id: u32) -> Result<()> {
+        let index = match kind {
+            IndexKind::Font => &self.fonts,
+            IndexKind::Fill => &self.fills,
+            IndexKind::Border => &self.borders,
+            IndexKind::Number => &self.numbers,
+            IndexKind::Format => &self.formats,
+        };
+        if self.memory_bytes().saturating_add(index.growth(hash)) > self.limits.max_bytes {
+            return Err(limit());
+        }
+        let index = match kind {
+            IndexKind::Font => &mut self.fonts,
+            IndexKind::Fill => &mut self.fills,
+            IndexKind::Border => &mut self.borders,
+            IndexKind::Number => &mut self.numbers,
+            IndexKind::Format => &mut self.formats,
+        };
+        let prepared = index.reserve(hash)?;
+        index.insert(hash, id, prepared);
+        if self.memory_bytes() > self.limits.max_bytes {
+            return Err(limit());
+        }
+        Ok(())
+    }
+    fn available_number_id(&self) -> Result<u32> {
+        let mut next = self.next_number_id;
+        while next <= u64::from(u32::MAX)
+            && self
+                .reserved_number_ids
+                .binary_search(&(next as u32))
+                .is_ok()
+        {
+            next += 1;
+        }
+        u32::try_from(next).map_err(|_| limit())
+    }
     /// Borrow all canonical tables with stable workbook-local identities.
     pub fn catalog(&self) -> &StyleCatalog {
         &self.catalog
@@ -278,12 +473,66 @@ impl StyleRegistry {
             + catalog.unmodeled_sections.capacity() * size_of::<Box<str>>();
         size_of::<Self>()
             .saturating_add(capacities)
+            .saturating_add(self.reserved_number_ids.capacity() * size_of::<u32>())
             .saturating_add(self.payload_bytes)
             .saturating_add(self.fonts.heap_bytes())
             .saturating_add(self.fills.heap_bytes())
             .saturating_add(self.borders.heap_bytes())
             .saturating_add(self.numbers.heap_bytes())
             .saturating_add(self.formats.heap_bytes())
+    }
+    /// Intern a complete format referencing existing components without replacing source flags.
+    /// Absence, explicit zero/false and unknown extension markers remain distinct.
+    pub fn register_format(&mut self, format: CellFormat) -> Result<StyleId> {
+        self.catalog.validate_format(&format)?;
+        let key = format_key(&format, format.alignment.as_deref());
+        let hash = fingerprint(&key);
+        if let Some(id) = self.formats.find_by(hash, |id| {
+            let existing = &self.catalog.cell_formats[id as usize];
+            format_key(existing, existing.alignment.as_deref()) == key
+        }) {
+            return Ok(StyleId::new(id));
+        }
+        let retained = self
+            .memory_bytes()
+            .saturating_add(format.heap_bytes())
+            .saturating_add(self.formats.growth(hash));
+        let geometric = retained.saturating_add(vector_growth(
+            &self.catalog.cell_formats,
+            self.limits.max_records,
+            true,
+        )) <= self.limits.max_bytes;
+        if retained.saturating_add(vector_growth(
+            &self.catalog.cell_formats,
+            self.limits.max_records,
+            geometric,
+        )) > self.limits.max_bytes
+        {
+            return Err(limit());
+        }
+        reserve(
+            &mut self.catalog.cell_formats,
+            self.limits.max_records,
+            geometric,
+        )?;
+        let prepared = self.formats.reserve(hash)?;
+        if self
+            .memory_bytes()
+            .saturating_add(format.heap_bytes())
+            .saturating_add(
+                prepared
+                    .as_ref()
+                    .map_or(0, |v| v.capacity() * size_of::<u32>()),
+            )
+            > self.limits.max_bytes
+        {
+            return Err(limit());
+        }
+        let id = self.catalog.cell_formats.len() as u32;
+        self.payload_bytes = self.payload_bytes.saturating_add(format.heap_bytes());
+        self.catalog.cell_formats.push(format);
+        self.formats.insert(hash, id, prepared);
+        Ok(StyleId::new(id))
     }
     /// Register with the registry's configured retained allowance.
     pub fn register(&mut self, style: CellStyle) -> Result<StyleId> {
@@ -321,19 +570,23 @@ impl StyleRegistry {
                 self.catalog.number_formats[id as usize].code() == style.number_format.as_ref()
             })
             .map(|id| self.catalog.number_formats[id as usize].id())
-            .or_else(|| builtin_number_format_id(&style.number_format));
+            .or_else(|| {
+                builtin_number_format_id(&style.number_format).filter(|id| {
+                    self.catalog
+                        .declared_number_format(*id)
+                        .is_none_or(|code| code == style.number_format.as_ref())
+                })
+            });
         let number_id = match number {
             Some(id) => id,
-            None => 164u32
-                .checked_add(self.catalog.number_formats.len() as u32)
-                .ok_or_else(limit)?,
+            None => self.available_number_id()?,
         };
         let mut format = CellFormat {
             number_format_id: number_id,
             font_id: font.unwrap_or(self.catalog.fonts.len() as u32),
             fill_id: fill.unwrap_or(self.catalog.fills.len() as u32),
             border_id: border.unwrap_or(self.catalog.borders.len() as u32),
-            base_format_id: Some(0),
+            base_format_id: (!self.catalog.base_formats.is_empty()).then_some(0),
             apply_number_format: Some(true),
             apply_font: Some(true),
             apply_fill: Some(true),
@@ -487,6 +740,7 @@ impl StyleRegistry {
                 .number_formats
                 .push(NumberFormat::new(number_id, style.number_format));
             self.numbers.insert(number_hash, id, index);
+            self.next_number_id = u64::from(number_id) + 1;
         }
         let id = self.catalog.cell_formats.len() as u32;
         format.alignment = Some(Box::new(style.alignment));

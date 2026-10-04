@@ -2834,3 +2834,32 @@ fn cache_only_projection_ignores_formula_semantics_without_ignoring_xml_or_value
             .is_err()
     );
 }
+
+#[test]
+fn consuming_reader_transfers_original_style_records_for_canonical_registration() {
+    use crabxl_core::{CellStyle, StyleLimits, StyleRegistry};
+    let styles = basic_styles("<xf/><xf numFmtId=\"14\"/>");
+    let mut book = WorkbookReader::new(Cursor::new(with_styles(
+        "<row><c s=\"1\"><v>43831</v></c></row>",
+        &styles,
+        false,
+    )))
+    .unwrap();
+    let source = book.style_catalog().unwrap().unwrap();
+    let pointer = source.fonts.as_ptr();
+    let source_formats = source.cell_formats.clone();
+    let catalog = book.into_style_catalog().unwrap().unwrap();
+    assert_eq!(catalog.fonts.as_ptr(), pointer);
+    let mut registry = StyleRegistry::from_catalog(catalog, StyleLimits::default()).unwrap();
+    assert_eq!(registry.catalog().cell_formats, source_formats);
+    registry
+        .register(CellStyle {
+            number_format: "0.000".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(
+        &registry.catalog().cell_formats[..source_formats.len()],
+        source_formats.as_slice()
+    );
+}
