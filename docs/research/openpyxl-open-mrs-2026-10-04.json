@@ -1,0 +1,465 @@
+{
+  "checked_on": "2026-10-04",
+  "project_id": 322,
+  "source": "https://foss.heptapod.net/api/v4/projects/322/merge_requests?state=opened&per_page=100",
+  "open_count": 20,
+  "diff_review_count": 15,
+  "discussion_access": "notes API returned HTTP 401; maintainer comments not reviewed",
+  "merge_action": "none",
+  "merge_requests": [
+    {
+      "iid": 473,
+      "title": "Stop writing an empty cached value after every formula",
+      "description": "Resolves #2325.\n\nEvery formula openpyxl writes carries an empty cached-value element — `<f>SUM(A1:A2)</f><v/>`. The cell has no `t` attribute, so its type defaults to `n`, and an empty string is not a number: Excel decides the file is damaged and offers to repair it. LibreOffice is more forgiving, which is why it's easy to miss.\n\n### The cause\n\nIn both `etree_write_cell` and `lxml_write_cell`, the `<v>` element is created before anything checks whether there is a value to put in it, and the formula branch immediately above has set `value = None` after moving the text into `<f>`. The `value is None` early return at the top of each function means the only cells that reach that branch with `None` are formulae — so `elif value is not None:` omits the element exactly for those, and leaves every cell carrying a real cached value untouched. A formula cell with no cached result is valid; Excel and LibreOffice both calculate it on open, which they were going to do anyway.\n\n### Tests\n\nThree existing tests asserted the empty `<v/>` — the `=sum(1+1)` case in `test_write_cell`, plus `test_table_formula` and `test_array_formula` — so those expectations change with it. `test_formula_has_no_empty_cached_value` pins the absence directly across plain, array and data table formulae, parametrised over both writers.\n\nFull suite green both ways: 2710 passed / 10 skipped / 12 xfailed with lxml, and 2706 passed / 14 skipped / 12 xfailed under `OPENPYXL_LXML=False`. With `_writer.py` reverted the new test fails on all six parametrisations, so it pins the behaviour rather than passing by accident.\n\nAlso included: a `3.1.6` changelog entry, and myself in `AUTHORS.rst` as the developer docs ask.\n\nTargeted at `branch/3.1` since the docs say bug fixes to released versions go to the relevant release branch and get merged forward.\n\n---\n\nAs noted on the issue: I hit this in our own production workbooks and diagnosed and verified the fix myself, but wrote the patch with Claude's help — that's what the `Co-Authored-By` trailer in the changeset records. Happy to strip it or restructure if you'd prefer.",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/473",
+      "updated_at": "2026-09-16T08:30:03.949Z",
+      "source_branch": "topic/3.1/no-empty-cached-value-for-formulae",
+      "target_branch": "branch/3.1",
+      "sha": "5afa2b1ca01c32df8e66c2d6b59a7846a46c69df",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "c7b9026dab21c7fae28c45c2366c0fb3edc0319f",
+        "head_sha": "5afa2b1ca01c32df8e66c2d6b59a7846a46c69df",
+        "start_sha": "c7b9026dab21c7fae28c45c2366c0fb3edc0319f"
+      },
+      "changed_paths": [
+        "doc/changes.rst",
+        "openpyxl/cell/tests/test_writer.py",
+        "openpyxl/cell/_writer.py",
+        "AUTHORS.rst"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 472,
+      "title": "Release write-only workbook streams via close() and context-manager support",
+      "description": "A write-only workbook that was appended to but never saved left its lxml streaming generators suspended inside open element contexts. The garbage collector then finalised them in arbitrary order, emitting spurious \"Exception ignored ... LxmlSyntaxError\" messages (visible in the doctest run). The only deterministic teardown was a full save(); there was no way to just release the resources.\n\n- Workbook is now a context manager (**enter**/**exit**) and close() releases resources per mode: write-only finalises each sheet's streaming writer and removes its temp file immediately (rather than leaving it for the atexit sweep); read-only closes the open archive. Every mode marks the workbook closed via a new file-like `Workbook.closed` attribute.\n- WriteOnlyWorksheet.close() gains a `cleanup` flag: the save path keeps the temp file (ExcelWriter reads it into the archive then cleans up itself), while a standalone Workbook.close() passes cleanup=True.\n- Saving a closed write-only workbook raises ValueError (its streams are finalised), mirroring Python's closed-file semantics; a normal workbook keeps its data in memory and can still be saved after close().\n- doc/optimized.rst: demonstrate the context manager for both write-only and read-only, and document `wb.closed`. The write-only example now actually runs save() (it was previously \"# doctest: +SKIP\", which is what left the stream open and produced the GC noise). But generated files are harmless and land in a tmp dir.\n- Tests for close-without-save, temp-file cleanup, save-after-close, the context manager over normal/read-only/write-only (via load_workbook), and cleanup when an exception interrupts a partially-written workbook.\n- Paired regression tests via sys.unraisablehook: a closed write-only workbook leaves no suspended lxml generators for the GC, while an abandoned one (no save/close/context-manager) does -- characterising the deferred limitation and the skipped-save doctest noise (lxml-only).",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/472",
+      "updated_at": "2026-07-28T13:29:51.797Z",
+      "source_branch": "topic/3.2/write_only_resource_release",
+      "target_branch": "branch/3.2",
+      "sha": "e068caa6ab6e6a2738e862b41247d04ae52ef563",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "8ea4ebcb2440853e0a85e3b990678730bbc78534",
+        "head_sha": "e068caa6ab6e6a2738e862b41247d04ae52ef563",
+        "start_sha": "8ea4ebcb2440853e0a85e3b990678730bbc78534"
+      },
+      "changed_paths": [
+        "doc/optimized.rst",
+        "openpyxl/workbook/tests/test_workbook.py",
+        "openpyxl/workbook/workbook.py",
+        "openpyxl/worksheet/_write_only.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 470,
+      "title": "Fix whitespace handling for <t> elements (resolves #2243)",
+      "description": "Ensure that xml:space=\"preserve\" is set for whitespace-only text in elements, restoring compatibility with Excel.\n\nThe previous condition to resolve #1912 skipped whitespace-only strings, which broke rich text formatted spaces (#2243). This fix handles both correctly.\n\nTests added to cover elements in addition to generic XML nodes.",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/470",
+      "updated_at": "2026-06-11T09:11:32.182Z",
+      "source_branch": "topic/3.1/fix-richtext-whitespace",
+      "target_branch": "branch/3.1",
+      "sha": "13e92add53be96c3d55ae2921953aafc42684b96",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128",
+        "head_sha": "13e92add53be96c3d55ae2921953aafc42684b96",
+        "start_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128"
+      },
+      "changed_paths": [
+        "openpyxl/xml/tests/test_functions.py",
+        "openpyxl/xml/functions.py",
+        "AUTHORS.rst"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 469,
+      "title": "Draft: Definition of print-area (issues #2079 and #2231)",
+      "description": "Fix issues #2079 and #2231 for definition of print-area when only columns (e.g. <span dir=\"\">A:</span>X) or only rows (e.g. $1:$20) are defined. In these cases `openpyxl.utils.range_boundaries()` returned `None` for either `max_col` or `max_row`, raising a ValueError in the calling code.\n\nThis change limits the row and column ranges to the maximum ranges defined for Microsoft Excel. This is just a bugfix. It would be preferable to have the calling code handle the case of 'only-row' or 'only-column' ranges correctly in the future.",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/469",
+      "updated_at": "2026-03-31T13:51:38.052Z",
+      "source_branch": "topic/3.1/print-area",
+      "target_branch": "branch/3.1",
+      "sha": "af8f3cd7e085f5b213e252f023717485f2952306",
+      "draft": true,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128",
+        "head_sha": "af8f3cd7e085f5b213e252f023717485f2952306",
+        "start_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128"
+      },
+      "changed_paths": [
+        "openpyxl/utils/cell.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 468,
+      "title": "Add autofit() method for automatic column width adjustment",
+      "description": "This commit introduces a new autofit() method in ColumnDimension that automatically adjusts column widths based on cell content length.\n\nFeatures:\n\n- Uses public API: worksheet.cell(), min_row, max_row\n- Configurable: min_width, max_width, width_factor parameters\n- Robust: handles None values, multiline content (\\\\n)\n- Returns calculated width for debugging\n\nAlso includes:\n\n- autofit_columns() helper method in Worksheet class\n- Comprehensive test suite (13 new tests, all passing)\n\nThis is a pragmatic approximation based on character count. Excel's AutoFit uses complex calculations involving DPI, font metrics, and rendering engine details that are not available to openpyxl. This method provides a practical solution suitable for most use cases.",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/468",
+      "updated_at": "2026-01-20T20:22:32.490Z",
+      "source_branch": "topic/3.2/autofit-columns",
+      "target_branch": "branch/3.2",
+      "sha": "07ac7a1bc58f09a089c502a43de4a9030cf0a617",
+      "draft": false,
+      "review_depth": "title and description"
+    },
+    {
+      "iid": 467,
+      "title": "Skip empty text items in rich text",
+      "description": "Somewhat related to #2243\n\nEmpty text items in a rich text cell cause excel to throw an error. This MR skips rendering empty blocks in rich text.",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/467",
+      "updated_at": "2025-11-14T15:16:44.815Z",
+      "source_branch": "topic/3.1/rich-text-empty-items",
+      "target_branch": "branch/3.1",
+      "sha": "8367857129faad37acd4fe90bea21cee623ba97b",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128",
+        "head_sha": "8367857129faad37acd4fe90bea21cee623ba97b",
+        "start_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128"
+      },
+      "changed_paths": [
+        "openpyxl/cell/rich_text.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 466,
+      "title": "Always add xml:space=\"preserve\", even when node.text is only white space",
+      "description": "Fixes #2243",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/466",
+      "updated_at": "2026-06-02T03:53:59.501Z",
+      "source_branch": "topic/3.1/rich-text-ws",
+      "target_branch": "branch/3.1",
+      "sha": "cce05a91ffbdc3254bcbdb39c2144c37dc891f59",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128",
+        "head_sha": "cce05a91ffbdc3254bcbdb39c2144c37dc891f59",
+        "start_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128"
+      },
+      "changed_paths": [
+        "openpyxl/xml/functions.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 465,
+      "title": "Return None for empty sequence data validations",
+      "description": "Fixes #2299 \n\n(Replaces !464 that became a bit messy)",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/465",
+      "updated_at": "2025-11-14T15:09:28.711Z",
+      "source_branch": "topic/3.1/empty-dv-list",
+      "target_branch": "branch/3.1",
+      "sha": "e86c06fe4929274b1805da08525ce4be82ea5635",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128",
+        "head_sha": "e86c06fe4929274b1805da08525ce4be82ea5635",
+        "start_sha": "dd2a9505d9a8a3696373cca12a5c85cffe2b5128"
+      },
+      "changed_paths": [
+        "openpyxl/worksheet/tests/test_datavalidation.py",
+        "openpyxl/worksheet/datavalidation.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 458,
+      "title": "Fix the double save issue",
+      "description": "Hi,\n\nThis is a proposition to solve [issue#2279](https://foss.heptapod.net/openpyxl/openpyxl/-/issues/2279).\nThis issue seems to arise when saving a file containing images more than once.\n\nI modified the Image class to not close the PILImage file-like object (fp) when the image is passed directly as a PILImage instance. The image lifecycle is managed by the Image class when provided as a path (str). In this case, `mark_to_close` is `True`.\n\nThe example code I initially posted on the issue is now passing:\n```Python\nfrom openpyxl import Workbook, load_workbook\nfrom openpyxl.drawing.image import Image as XlImage\nfrom PIL import Image\n\nimg = Image.new('RGB', (200, 200), color='red')\nimg.save(\"tmp.png\")\n\nwb = Workbook()\nsheet = wb.active\nsheet.add_image(XlImage(\"tmp.png\"))\nwb.save(\"wb-img.xlsx\")\n\nwb = load_workbook(\"wb-img.xlsx\")\nwb.save(\"wb-img-1.xlsx\")\nwb.save(\"wb-img-2.xlsx\")\n```\n\nI didn't study the Image class in details so I may have missed something. This patch solved the issue I encountered in my application.\n\nNote: I have 4 tests that fail in local as well as in the pipelines, ` openpyxl/xml/tests/test_functions.py`\n\nHave a great day :smiley:",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/458",
+      "updated_at": "2025-07-11T09:04:12.204Z",
+      "source_branch": "topic/3.2/fix-image-closed-issue",
+      "target_branch": "branch/3.2",
+      "sha": "8c98a89a86f7b2b180d86e789ba9d671ab4f15c9",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "9de8f6bb3a00632f22026507ebcad40c43fc0d08",
+        "head_sha": "8c98a89a86f7b2b180d86e789ba9d671ab4f15c9",
+        "start_sha": "9de8f6bb3a00632f22026507ebcad40c43fc0d08"
+      },
+      "changed_paths": [
+        "openpyxl/drawing/tests/test_image.py",
+        "openpyxl/drawing/image.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 455,
+      "title": "Draft: Fix handling of multiple external links in openpyxl",
+      "description": "- Updated the ExternalLink class to support multiple file links using RelationshipList.\n- Modified the read_external_link function to handle multiple relationships and remove duplicates.\n- Updated the ExcelWriter class's _write_external_links method to write all file links.\n- Adjusted test_write to check for multiple file links.\n- Updated test_read_external_link to verify the correct number of file links and their targets.\n\n--HG--\nbranch : 3.1",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/455",
+      "updated_at": "2024-08-29T11:13:49.976Z",
+      "source_branch": "topic/3.1/fix_multiple_external_links_handling_issue_2019",
+      "target_branch": "branch/default",
+      "sha": "5be1cea4e5488527b6624b7f34fe44731f0d5f50",
+      "draft": true,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "13627b03ca25a1a98becf40e533b955615b13429",
+        "head_sha": "5be1cea4e5488527b6624b7f34fe44731f0d5f50",
+        "start_sha": "10b9879b1f260676b32aa760f77d872436bbe29d"
+      },
+      "changed_paths": [
+        "openpyxl/workbook/external_link/tests/test_external.py",
+        "openpyxl/workbook/external_link/external.py",
+        "openpyxl/writer/excel.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 454,
+      "title": "Draft: Add max_col to sheet parsing",
+      "description": "https://foss.heptapod.net/openpyxl/openpyxl/-/issues/2207\n\nTake `max_col` into account before parsing a row. This code speeds up this code path; I added a test case and a test spreadsheet for illustration. That test case is timing-dependent, so likely shouldn't be merged as is. \n\nThere's another performance issue iterating through self.source, [here](https://foss.heptapod.net/openpyxl/openpyxl/-/blob/branch/default/openpyxl/worksheet/_reader.py?ref_type=heads#L156). For the MaxColsDT.xlsx spreadsheet, the source has ~2.5million elements, of which <100 were relevant. This iteration was taking about half the total time of the parse iteration before I added max_col. I'm not sure how to solve this issue. Maybe there's some pre-filtering that can be done?\n\n--HG--\nbranch : 3.2",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/454",
+      "updated_at": "2024-12-18T16:18:42.964Z",
+      "source_branch": "topic/3.2/max_col",
+      "target_branch": "branch/3.2",
+      "sha": "cf72122e7b6d8978501871e58faa3a893ae19a6b",
+      "draft": true,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "c45e4a06f2689e731e66dbbd6961183fa715e25e",
+        "head_sha": "cf72122e7b6d8978501871e58faa3a893ae19a6b",
+        "start_sha": "c45e4a06f2689e731e66dbbd6961183fa715e25e"
+      },
+      "changed_paths": [
+        "openpyxl/worksheet/tests/data/sparse_test.xlsx",
+        "openpyxl/worksheet/tests/test_reader.py",
+        "openpyxl/worksheet/tests/test_worksheet.py",
+        "openpyxl/worksheet/_read_only.py",
+        "openpyxl/worksheet/_reader.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 451,
+      "title": "Draft: Header and Footer images",
+      "description": "--HG--\nbranch : 3.2",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/451",
+      "updated_at": "2025-03-21T09:28:43.944Z",
+      "source_branch": "topic/3.2/issue-737",
+      "target_branch": "branch/3.2",
+      "sha": "9af0cdb0ccfe71d92b08c0a9c4757ff98f1b2fe8",
+      "draft": true,
+      "review_depth": "title and description"
+    },
+    {
+      "iid": 446,
+      "title": "Draft: Add support for x14 dataValidation and conditionalFormatting extensions",
+      "description": "Currently this MR just adds machinery to handle extLst's and their ext's. Keen to hear your feedback early in case you had a different implementation in mind. Also happy to discuss how this patch set could incorporate https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/443 if it makes sense.\n\nMy plans for the new dataValidation elements is to create the new Serialisable classes for the extension version and map the new and old Serialisable classes to an intermediate class that knows the features of both versions and which representation to use to serialise the data given the features requested.\n\nI'm also thinking of using the same strategy for the conditionalFormatting elements but that will be more involved as they have many more options. It is also possible for a single conditional formatting to have some content written to the current data structures and the rest to the new extension element and linked via and id.",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/446",
+      "updated_at": "2025-02-14T10:01:40.125Z",
+      "source_branch": "topic/3.2/formatextensions",
+      "target_branch": "branch/3.2",
+      "sha": "57a08bb6ee3989ea17efdeff6b3ae2c39f9ae6a9",
+      "draft": true,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "86f087965360a647cfa5a769fa94045ff9309279",
+        "head_sha": "57a08bb6ee3989ea17efdeff6b3ae2c39f9ae6a9",
+        "start_sha": "2e2b0ccb89f9f6b8cf645857f70784ec3797dcb9"
+      },
+      "changed_paths": [
+        "openpyxl/descriptors/tests/test_excel.py",
+        "openpyxl/descriptors/excel.py",
+        "openpyxl/formula/tests/test_tokenizer.py",
+        "openpyxl/formula/tokenizer.py",
+        "openpyxl/worksheet/tests/test_cell_range.py",
+        "openpyxl/worksheet/tests/test_datavalidation.py",
+        "openpyxl/worksheet/tests/test_reader.py",
+        "openpyxl/worksheet/tests/test_writer.py",
+        "openpyxl/worksheet/_reader.py",
+        "openpyxl/worksheet/_writer.py",
+        "openpyxl/worksheet/cell_range.py",
+        "openpyxl/worksheet/controls.py",
+        "openpyxl/worksheet/datavalidation.py",
+        "openpyxl/worksheet/extensions.py",
+        "openpyxl/worksheet/worksheet.py",
+        "openpyxl/xml/constants.py",
+        "openpyxl/xml/functions.py",
+        "requirements.txt"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 445,
+      "title": "Change Sequence elements to allow a namespace when serialising",
+      "description": "This is a bit of foundation work for adding support for some ExtensionList extensions (in this case, support for a sequence containing xm:f elements as found in the x14:cfRule element)",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/445",
+      "updated_at": "2024-04-23T04:58:46.349Z",
+      "source_branch": "topic/3.2/sequence-namespace",
+      "target_branch": "branch/3.2",
+      "sha": "60419f617afc6c24de20757cf439f1bfff3030f5",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "86f087965360a647cfa5a769fa94045ff9309279",
+        "head_sha": "60419f617afc6c24de20757cf439f1bfff3030f5",
+        "start_sha": "86f087965360a647cfa5a769fa94045ff9309279"
+      },
+      "changed_paths": [
+        "openpyxl/chart/series.py",
+        "openpyxl/descriptors/tests/test_sequence.py",
+        "openpyxl/descriptors/sequence.py",
+        "openpyxl/worksheet/related.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 444,
+      "title": "Improving table documentation with totals row and calculated cells examples",
+      "description": "Some table documentation improvements to help adding totals row and calculated cells.\nReally not quite sure why the test are failing. \n\n--HG--\nbranch : 3.1",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/444",
+      "updated_at": "2024-05-24T11:49:32.382Z",
+      "source_branch": "topic/3.1/total-row-table-example-doc",
+      "target_branch": "branch/3.1",
+      "sha": "66dfd72a5dcd923b327786fe00b3e33145c4679b",
+      "draft": false,
+      "review_depth": "title and description"
+    },
+    {
+      "iid": 443,
+      "title": "Preserve extension data in worksheets",
+      "description": "* Require lxml<5 to avoid BC-breaking issues in 5.0.0.\n* Clean up openpyxl.xml.functions to ensure lxml's iterparse is used when available.\n* Fix #1745 by maintaining all generic XML elements under extlst.",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/443",
+      "updated_at": "2024-04-23T05:57:37.736Z",
+      "source_branch": "topic/3.2/extlst",
+      "target_branch": "branch/3.2",
+      "sha": "bd263f4592d5d65c7df50023f8d78c5592e932d6",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "86f087965360a647cfa5a769fa94045ff9309279",
+        "head_sha": "bd263f4592d5d65c7df50023f8d78c5592e932d6",
+        "start_sha": "86f087965360a647cfa5a769fa94045ff9309279"
+      },
+      "changed_paths": [
+        "openpyxl/descriptors/excel.py",
+        "openpyxl/worksheet/tests/test_reader.py",
+        "openpyxl/worksheet/_reader.py",
+        "openpyxl/worksheet/errors.py",
+        "openpyxl/xml/tests/test_functions.py",
+        "openpyxl/xml/functions.py",
+        "requirements.txt"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 439,
+      "title": "Add support for metadata.xml",
+      "description": "This merge aims to add support for the metadata.xml. I've implemented the data structures as per https://c-rex.net/samples/ooxml/e1/Part4/OOXML_P4_DOCX_Metadata_topic_ID0EYWT6.html\n\nCurrently it has basic round trip support (ie can be read in and written) but the additional namespaces and extLst contents are lost which causes file corruption when used with Dynamic Arrays (adding support for these would resolve #1898)\n\nExample: [input.xlsx](/openpyxl/openpyxl/uploads/495b24ebc4a8701423db399555cd70d9/input.xlsx) [test.py](/openpyxl/openpyxl/uploads/12f1dab7e7942041f69c5e8fa170be68/test.py)\n\nIf you modify the metadata.xml in the resulting output.xlsx generated from that script to include the full namespaces and extLst, it will load correctly with no corruption.\n\nTODO:\n\n* Add Tests. Some simple tests for metadata types are now running.\n* Split `cm`/`vm` out to their own custom cell type (treat it similar to ArrayFormula). I've seen samples of `vm` looking something like\n```\n            <c r=\"O9\" s=\"3\" vm=\"208\">\n                <f>CUBEVALUE(\"ThisWorkbookDataModel\",$B$5,$C9,O$6,Slicer_Year)</f>\n                <v>115</v>\n            </c>\n```\nand `cm` like\n```\n            <c r=\"C1\" cm=\"1\">\n                <f t=\"array\" ref=\"C1:C6\">_xlfn.UNIQUE(A1:A50)</f>\n                <v>27</v>\n            </c>\n```\n\nNote: This is https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/437 rebased to 3.2",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/439",
+      "updated_at": "2024-11-13T14:51:05.531Z",
+      "source_branch": "topic/3.2/metadata-xml",
+      "target_branch": "branch/3.2",
+      "sha": "6aa5e0e4247ccc45a68f1530e66fc1d77d817a1a",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "4ae0a72154e20fafac38022aba3df758d1e5947d",
+        "head_sha": "6aa5e0e4247ccc45a68f1530e66fc1d77d817a1a",
+        "start_sha": "4ae0a72154e20fafac38022aba3df758d1e5947d"
+      },
+      "changed_paths": [
+        "doc/data/sample_with_metadata.xlsx",
+        "doc/conf.py",
+        "doc/index.rst",
+        "doc/metadata.rst",
+        "openpyxl/cell/tests/test_writer.py",
+        "openpyxl/cell/_writer.py",
+        "openpyxl/cell/cell.py",
+        "openpyxl/metadata/tests/data/invalid_name.xml",
+        "openpyxl/metadata/tests/data/metadata.xml",
+        "openpyxl/metadata/tests/data/trivial_metadata.xml",
+        "openpyxl/metadata/tests/__init__.py",
+        "openpyxl/metadata/tests/conftest.py",
+        "openpyxl/metadata/tests/test_cellmetadata.py",
+        "openpyxl/metadata/tests/test_metadata.py",
+        "openpyxl/metadata/__init__.py",
+        "openpyxl/metadata/cellmetadata.py",
+        "openpyxl/metadata/metadata.py",
+        "openpyxl/reader/tests/data/sample_with_metadata.xlsx",
+        "openpyxl/reader/tests/test_excel.py",
+        "openpyxl/reader/excel.py",
+        "openpyxl/workbook/tests/data/workbook_metadata.xml.rels",
+        "openpyxl/workbook/tests/test_writer.py",
+        "openpyxl/workbook/_writer.py",
+        "openpyxl/workbook/workbook.py",
+        "openpyxl/worksheet/tests/data/sheet_with_metadata.xml",
+        "openpyxl/worksheet/tests/test_read_only.py",
+        "openpyxl/worksheet/tests/test_reader.py",
+        "openpyxl/worksheet/tests/test_worksheet.py",
+        "openpyxl/worksheet/_read_only.py",
+        "openpyxl/worksheet/_reader.py",
+        "openpyxl/worksheet/worksheet.py",
+        "openpyxl/writer/tests/data/metadata_invalid_names.xlsx",
+        "openpyxl/writer/tests/test_excel.py",
+        "openpyxl/writer/excel.py",
+        "openpyxl/xml/constants.py"
+      ],
+      "diff_overflow": false
+    },
+    {
+      "iid": 416,
+      "title": "Draft: Add support for deleting noncontiguous row/columns from worksheet",
+      "description": "--HG--\nbranch : 3.1\n\nCurrent functions delete_rows() and delete_cols() only support deleting contiguous sections of the worksheet, and need to move all cells below or to the right of the deleted sections to accomplish this. This MR adds delete_many_rows() and delete_many_cols() which allow for noncontiguous sections (ie. Deleting rows 1, 3, and 5) in faster time than a for loop previously. \nThe data is given in one of two ways: either as a list of ints corresponding to rows/cols to be deleted, or as a list of tuples containing an index row/col and the amount after to be deleted. This mirrors delete_rows() or delete_cols, which take either an int as the row/col to be deleted or an idx and an amount.",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/416",
+      "updated_at": "2022-07-16T11:50:04.466Z",
+      "source_branch": "topic/3.1/non-contiguous-rowcol-deletions",
+      "target_branch": "branch/3.1",
+      "sha": "aeff5df1afeca35263bc0a9958e5e1d8eadb8a06",
+      "draft": true,
+      "review_depth": "title and description"
+    },
+    {
+      "iid": 414,
+      "title": "Draft: Provide search function for worksheets",
+      "description": "--HG--\nbranch : 3.1\n\nRebased to 3.1 from 3.2\n\nOutstanding Review comments (that I know of):\n- [1] search is still coercing to string. Haven't decided the best way to validate before search\n- [2] (DONE) still need to rebase the merge to version 3.1 iso 3.2\n- [3] (DONE) while the data structure is changed to a dict; I kept the return values as cells or arrays of cells. I did this for two reasons: it allowed me to validate the change to dictionary with minimal refactoring of the unit tests and two, I wanted Charlie's feedback on his view of the return types. Now that I know the internal structure change is working, changing the return type is relatively trivial.\n- [4] (DONE) based on review comments, I changed empty return types to 'None'. Some comments suggested throwing a warning or error. Personally, I prefer returning None and letting the user handle it; but am open to feedback.\n- [5] (DONE) while I did some updates to the test code based on the changes made, I still need to add some coverage. I opted to keep this for a separate merge.\n- [6] I still need to review general comments such as checking stack overflow a rereading the documentation from a 'new user' perspective so that I can make it more clear.",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/414",
+      "updated_at": "2022-07-15T13:55:59.185Z",
+      "source_branch": "topic/3.1/Search",
+      "target_branch": "branch/3.1",
+      "sha": "621c84b57e93496b61bb49e0f19daa61e2f3ea39",
+      "draft": true,
+      "review_depth": "title and description"
+    },
+    {
+      "iid": 345,
+      "title": "Treat : as infix operator",
+      "description": "*Created originally on Bitbucket by [piti118 (Piti Ongmongkolkul)](https://bitbucket.org/%7Badc62c00-a156-4ca5-89f5-10b94a7d5926%7D/)*\n\nCurrently the cell that is of the form function:range function:function range:function are not correctly parsed.\r\n\r\nFor example, =SUM\\(OFFSET\\(A1,1,1\\):C3\\) is parsed as\r\n\r\n```\r\n[\r\n('SUM(', 'FUNC', 'OPEN'),\r\n('OFFSET(', 'FUNC', 'OPEN'),\r\n('A1', 'OPERAND', 'RANGE'),\r\n(',', 'SEP', 'ARG'),\r\n('1', 'OPERAND', 'NUMBER'),\r\n(',', 'SEP', 'ARG'),\r\n('1', 'OPERAND', 'NUMBER'),\r\n(')', 'FUNC', 'CLOSE'),\r\n(':C3', 'OPERAND', 'RANGE'), # note the colon\r\n(')', 'FUNC', 'CLOSE')\r\n]\r\n```\r\n\r\nThis PR fix it such that it is parsed to\r\n\r\n```\r\n[\r\n('SUM(', 'FUNC', 'OPEN'),\r\n('OFFSET(', 'FUNC', 'OPEN'),\r\n('A1', 'OPERAND', 'RANGE'),\r\n(',', 'SEP', 'ARG'),\r\n('1', 'OPERAND', 'NUMBER'),\r\n(',', 'SEP', 'ARG'),\r\n('1', 'OPERAND', 'NUMBER'),\r\n(')', 'FUNC', 'CLOSE'),\r\n(':', OP_IN, ''), # notice : is now treated as OP_IN\r\n('C3', 'OPERAND', 'RANGE'),\r\n(')', 'FUNC', 'CLOSE')\r\n]\r\n```\r\n\r\nThis PR also maintain backward compatibility of how the parser treat constant range such as A1:A2 or A1:3 as a single range.\r\n\r\n‌\r\n\r\nThis issue affect library such as pycel which the PR for the said library will be submitted shortly.\r\n\r\n[https://github.com/dgorissen/pycel/issues/17](https://github.com/dgorissen/pycel/issues/17)",
+      "web_url": "https://foss.heptapod.net/openpyxl/openpyxl/-/merge_requests/345",
+      "updated_at": "2020-06-26T12:06:39.629Z",
+      "source_branch": "topic/default/bitbucket-pr-345",
+      "target_branch": "branch/2.6",
+      "sha": "d41d7d71108621496b97708ea10b85b210ed88db",
+      "draft": false,
+      "review_depth": "selected diff and relevant tests/context",
+      "diff_refs": {
+        "base_sha": "f60b5e24d0387ba8d25e1d1f4bc93df5ddae7de6",
+        "head_sha": "d41d7d71108621496b97708ea10b85b210ed88db",
+        "start_sha": "f737c584677a603db00ce9477c1612de64f41a57"
+      },
+      "changed_paths": [
+        "openpyxl/formula/tests/test_tokenizer.py",
+        "openpyxl/formula/tests/test_translate.py",
+        "openpyxl/formula/tokenizer.py",
+        ".hgtags"
+      ],
+      "diff_overflow": false
+    }
+  ]
+}
