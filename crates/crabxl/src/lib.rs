@@ -85,3 +85,5 @@ pub use crabxl_core::{StyleLimits, StyleRegistry};
 
 pub use crabxl_core::Theme;
 pub use crabxl_xlsx::ThemeWritePolicy;
+
+pub use crabxl_core::CellMetadataReadPolicy;

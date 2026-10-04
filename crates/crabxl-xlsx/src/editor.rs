@@ -674,13 +674,7 @@ fn patched_start(e: &BytesStart<'_>, uri: &str, value: &CellValue) -> Result<Byt
     for attribute in e.attributes() {
         let attribute = attribute
             .map_err(|error| Error::caused_by(ErrorKind::Xml, "Invalid cell attribute", error))?;
-        if matches!(attribute.key.as_ref(), b"cm" | b"vm") {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing cell metadata references requires typed metadata support",
-            ));
-        }
-        if !matches!(attribute.key.as_ref(), b"t" | b"xmlns") {
+        if !matches!(attribute.key.as_ref(), b"t" | b"xmlns" | b"cm" | b"vm") {
             start.push_attribute(attribute);
         }
     }

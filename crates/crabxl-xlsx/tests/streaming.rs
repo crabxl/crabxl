@@ -495,19 +495,15 @@ fn foreign_cell_namespace_is_not_decoded_as_spreadsheet_data() {
 }
 #[test]
 fn selected_unsupported_features_fail_with_cell_context() {
-    for content in [
-        "<c vm=\"1\"><v>1</v></c>",
-        "<c><f t=\"futureFormula\">1</f></c>",
-    ] {
-        let mut book = open(&format!("<row>{content}</row>"));
-        let mut rows = book.rows("A & B").unwrap();
-        let error = rows.next_row().unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::Unsupported);
-        assert_eq!(error.cell().unwrap().to_string(), "A1");
-        assert_eq!(error.part(), Some("data/values.xml"));
-        assert!(rows.next().is_none());
-        assert!(rows.next().is_none());
-    }
+    let content = "<c><f t=\"futureFormula\">1</f></c>";
+    let mut book = open(&format!("<row>{content}</row>"));
+    let mut rows = book.rows("A & B").unwrap();
+    let error = rows.next_row().unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert_eq!(error.cell().unwrap().to_string(), "A1");
+    assert_eq!(error.part(), Some("data/values.xml"));
+    assert!(rows.next().is_none());
+    assert!(rows.next().is_none());
 }
 #[test]
 fn malformed_numeric_values_and_coordinates_fail() {
@@ -2350,4 +2346,63 @@ fn lazy_themes_resolve_custom_parts_keep_opaque_bytes_and_enforce_limits() {
         .map(|(a, b)| (a.as_str(), b.as_str()))
         .collect();
     assert!(WorkbookReader::new(Cursor::new(fixture(&refs))).is_err());
+}
+
+#[test]
+fn dynamic_array_and_opaque_metadata_project_visible_values_or_explicitly_reject() {
+    use crabxl_core::{CellMetadataReadPolicy, FormulaType};
+    let content = "<row r=\"1\"><c r=\"A1\" cm=\"1\"><f t=\"array\" ref=\"A1:A2\">_xlfn.SEQUENCE(2)</f><v>7</v></c><c r=\"B1\" vm=\"4294967295\"><v>42</v></c><c r=\"C1\" cm=\"bad\" t=\"str\"><v>visible</v></c></row>";
+    let mut book = open(content);
+    let mut rows = book.rows("A & B").unwrap();
+    let row = rows.next_row().unwrap().unwrap();
+    let CellValue::Formula(formula) = &row.cells[0].value else {
+        panic!("Expected array formula");
+    };
+    assert_eq!(formula.formula_type(), FormulaType::Array);
+    assert_eq!(formula.expression(), "_xlfn.SEQUENCE(2)");
+    assert_eq!(formula.cached(), Some(&CellValue::Integer(7)));
+    assert_eq!(row.cells[1].value, CellValue::Integer(42));
+    assert_eq!(row.cells[2].value, CellValue::text("visible"));
+    assert_eq!(rows.projected_metadata_cells(), 3);
+    drop(rows);
+    let mut cached = book
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                data_only: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        cached.next_row().unwrap().unwrap().cells[0].value,
+        CellValue::Integer(7)
+    );
+    assert_eq!(cached.projected_metadata_cells(), 3);
+    drop(cached);
+    let mut reject = book
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                cell_metadata_policy: CellMetadataReadPolicy::Reject,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let error = reject.next_row().unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert_eq!(error.cell().unwrap().to_string(), "A1");
+    drop(reject);
+    let mut excluded = book
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                columns: Some(ColumnIndex::new(3).unwrap()..=ColumnIndex::new(4).unwrap()),
+                cell_metadata_policy: CellMetadataReadPolicy::Reject,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(excluded.next_row().unwrap().unwrap().cells.is_empty());
+    assert_eq!(excluded.projected_metadata_cells(), 0);
 }
