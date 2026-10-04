@@ -1283,20 +1283,28 @@ fn array_table_metadata_and_verbatim_source_formulas_round_trip() {
 #[test]
 fn structured_formula_payload_and_input_validation_are_atomic() {
     use crabxl_core::{DataTableOptions, Formula, FormulaFlag, FormulaMetadata, FormulaType};
-    assert!(
-        Formula::with_metadata(
-            "",
-            None,
-            FormulaMetadata {
-                kind: FormulaType::DataTable,
-                data_table: Some(Box::new(DataTableOptions {
-                    input1: Some("XFE1".into()),
-                    ..Default::default()
-                })),
+    let literal = Formula::with_metadata(
+        "",
+        None,
+        FormulaMetadata {
+            kind: FormulaType::DataTable,
+            data_table: Some(Box::new(DataTableOptions {
+                input1: Some("XFE1".into()),
                 ..Default::default()
-            }
-        )
-        .is_err()
+            })),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(
+        literal
+            .metadata()
+            .unwrap()
+            .data_table
+            .as_ref()
+            .unwrap()
+            .validate_inputs()
+            .is_err()
     );
     assert!(FormulaFlag::from_xml("\u{000b}true").is_err());
     let directory = tempfile::tempdir().unwrap();
@@ -2014,4 +2022,49 @@ fn typed_differential_table_catalogs_export_with_original_identity_and_count_pro
     assert!(
         matches!(WorkbookWriter::from_style_catalog(WriteOptions::default(), invalid), Err(error) if error.kind() == ErrorKind::Unsupported)
     );
+}
+
+#[test]
+fn literal_empty_formula_references_follow_compatible_and_retained_policies() {
+    use crabxl_core::{Formula, FormulaMetadata, FormulaReference, FormulaType};
+    use crabxl_xlsx::FormulaWritePolicy;
+    use std::io::Read;
+    for kind in [FormulaType::Array, FormulaType::DataTable] {
+        for policy in [
+            FormulaWritePolicy::Compatible,
+            FormulaWritePolicy::RetainExplicit,
+        ] {
+            let formula = Formula::with_optional_expression(
+                None,
+                None,
+                FormulaMetadata {
+                    kind,
+                    reference: Some(FormulaReference::from_literal("")),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            let mut writer = WorkbookWriter::new(WriteOptions {
+                formula_attributes: policy,
+                ..Default::default()
+            })
+            .unwrap();
+            writer.start_sheet("Sheet").unwrap();
+            writer
+                .write_row(&row(0, vec![CellValue::Formula(Box::new(formula))]))
+                .unwrap();
+            let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+            let mut archive = zip::ZipArchive::new(output).unwrap();
+            let mut xml = String::new();
+            archive
+                .by_name("xl/worksheets/sheet1.xml")
+                .unwrap()
+                .read_to_string(&mut xml)
+                .unwrap();
+            assert_eq!(
+                xml.contains("ref=\"\""),
+                policy == FormulaWritePolicy::RetainExplicit
+            );
+        }
+    }
 }

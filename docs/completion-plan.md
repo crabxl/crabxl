@@ -56,6 +56,8 @@ Acceptance: styled numeric/text/date/time/duration fixtures round-trip through r
 
 ## M2.4: Formula/value completion
 
+Checkpoint: optional/literal array text and literal formula reference/input ownership are verified in ADRs 0031, 0032 and 0034. Geometry is checked by explicit physical operations and strict shared-group reads; public property/save representation differences are tested. Remaining formula/cache/header and graph cases below keep this milestone open.
+
 - Support shared formulas and follower expansion using the canonical A1 translation engine; validate master IDs/ranges and avoid dense range allocation.
 - Represent array, data-table and baseline dynamic formula metadata independently of normal formula text and optional typed cache.
 - Preserve absent caches, empty string caches, errors and dates distinctly. Implement normal/data-only reads without calculating formulas or fabricating results.
