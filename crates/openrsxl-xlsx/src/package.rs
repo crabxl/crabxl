@@ -66,6 +66,7 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     sheets: Vec<SheetInfo>,
     pub(crate) limits: ResourceLimits,
     date_1904: bool,
+    active_sheet: usize,
     pub(crate) workbook_part: String,
 }
 impl WorkbookReader<File> {
@@ -140,7 +141,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
         let rels_part = relationship_part(&workbook_part);
         let relationships =
             read_relationships(&mut archive, &rels_part, limits, &mut metadata_remaining)?;
-        let (sheets, date_1904) = read_workbook(
+        let (sheets, date_1904, active_sheet) = read_workbook(
             &mut archive,
             &workbook_part,
             &relationships,
@@ -174,6 +175,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
             sheets,
             limits,
             date_1904,
+            active_sheet,
             workbook_part,
         })
     }
@@ -181,7 +183,12 @@ impl<R: Read + Seek> WorkbookReader<R> {
     pub fn sheets(&self) -> &[SheetInfo] {
         &self.sheets
     }
-    /// Whether the workbook uses the 1904 date epoch. Date decoding is deferred.
+    /// First workbook view's active display position, or None if out of range.
+    /// Missing view metadata defaults to the first sheet.
+    pub fn active_index(&self) -> Option<usize> {
+        (self.active_sheet < self.sheets.len()).then_some(self.active_sheet)
+    }
+    /// Whether the workbook uses the 1904 date origin.
     pub fn date_1904(&self) -> bool {
         self.date_1904
     }
@@ -466,12 +473,15 @@ fn read_workbook<R: Read + Seek>(
     rels: &HashMap<String, Relationship>,
     limits: ResourceLimits,
     remaining: &mut u64,
-) -> Result<(Vec<SheetInfo>, bool)> {
+) -> Result<(Vec<SheetInfo>, bool, usize)> {
     let mut xml = metadata_xml(archive, part, limits, remaining)?;
     let mut sheets = Vec::new();
     let mut names = HashSet::new();
     let mut date_1904 = false;
     let mut inside_sheets = false;
+    let mut inside_views = false;
+    let mut view_seen = false;
+    let mut active_sheet = 0usize;
     loop {
         let frame = xml.next()?;
         match frame.event {
@@ -495,6 +505,42 @@ fn read_workbook<R: Read + Seek>(
                     && e.local_name().as_ref() == b"sheets" =>
             {
                 inside_sheets = false;
+            }
+            Event::Start(e)
+                if frame.scope == Scope::Spreadsheet
+                    && frame.depth == 2
+                    && e.local_name().as_ref() == b"bookViews" =>
+            {
+                inside_views = true;
+            }
+            Event::End(e)
+                if frame.scope == Scope::Spreadsheet
+                    && frame.depth == 1
+                    && e.local_name().as_ref() == b"bookViews" =>
+            {
+                inside_views = false;
+            }
+            Event::Start(e)
+                if inside_views
+                    && !view_seen
+                    && frame.scope == Scope::Spreadsheet
+                    && frame.depth == 3
+                    && e.local_name().as_ref() == b"workbookView" =>
+            {
+                active_sheet = attribute(&e, b"activeTab", frame.decoder)?
+                    .map(|value| {
+                        value.parse::<usize>().map_err(|error| {
+                            Error::caused_by(
+                                ErrorKind::InvalidData,
+                                "Invalid active sheet index",
+                                error,
+                            )
+                            .with_part(part)
+                        })
+                    })
+                    .transpose()?
+                    .unwrap_or(0);
+                view_seen = true;
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
@@ -550,7 +596,7 @@ fn read_workbook<R: Read + Seek>(
                     kind,
                 });
             }
-            Event::Eof => return Ok((sheets, date_1904)),
+            Event::Eof => return Ok((sheets, date_1904, active_sheet)),
             _ => {}
         }
     }

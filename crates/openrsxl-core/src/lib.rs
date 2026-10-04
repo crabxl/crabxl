@@ -30,3 +30,6 @@ pub use worksheet::{CellRange, EditLimits, Worksheet};
 
 mod translate;
 pub use translate::{formula_position, translate_axis, translate_expression};
+
+mod workbook;
+pub use workbook::{SheetId, Workbook, WorkbookLimits, WorksheetEditor};

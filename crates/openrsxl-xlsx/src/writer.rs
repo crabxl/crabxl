@@ -43,6 +43,8 @@ pub struct WriteOptions {
     pub max_styles: usize,
     /// Select the workbook's 1904 date epoch.
     pub date_1904: bool,
+    /// Zero-based active display sheet, checked against the completed catalog.
+    pub active_sheet: usize,
 }
 impl Default for WriteOptions {
     fn default() -> Self {
@@ -57,6 +59,7 @@ impl Default for WriteOptions {
             max_temp_bytes: 4 * 1024 * 1024 * 1024,
             max_sheet_bytes: 2 * 1024 * 1024 * 1024,
             date_1904: false,
+            active_sheet: 0,
             max_styles: 8192,
         }
     }
@@ -308,6 +311,26 @@ impl WorkbookWriter {
         }
         self.close_sheet()
     }
+    /// Spool an owned workbook's borrowed sheets in display order. The writer
+    /// must be fresh; caller-registered style IDs are shared with the models.
+    /// Model epoch and active sheet are applied before any worksheet starts.
+    pub fn write_workbook(&mut self, workbook: &openrsxl_core::Workbook) -> Result<()> {
+        self.ensure_open()?;
+        if !self.sheets.is_empty() || self.active.is_some() {
+            return Err(state("Workbook model export requires a fresh writer"));
+        }
+        if workbook.is_empty() {
+            return Err(state("A workbook requires at least one worksheet"));
+        }
+        self.options.date_1904 = workbook.epoch() == DateEpoch::Mac1904;
+        self.options.active_sheet = workbook
+            .active_index()
+            .ok_or_else(|| state("Workbook has no active sheet"))?;
+        for (_, sheet) in workbook.sheets() {
+            self.write_worksheet(sheet)?;
+        }
+        Ok(())
+    }
     fn write_cells<'a>(
         &mut self,
         index: RowIndex,
@@ -454,6 +477,9 @@ impl WorkbookWriter {
         if self.sheets.is_empty() {
             return Err(state("A workbook requires at least one worksheet"));
         }
+        if self.options.active_sheet >= self.sheets.len() {
+            return Err(state("Active sheet index is outside the completed catalog"));
+        }
         let mut zip = ZipWriter::new(output);
         let options =
             SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
@@ -488,6 +514,7 @@ impl WorkbookWriter {
             &self.sheets,
             &self.styles,
             self.options.date_1904,
+            self.options.active_sheet,
             options,
         )?;
         let mut output = zip
@@ -586,6 +613,7 @@ fn package_metadata<W: Write + Seek>(
     sheets: &[StoredSheet],
     styles: &[CellStyle],
     date_1904: bool,
+    active_sheet: usize,
     options: SimpleFileOptions,
 ) -> Result<()> {
     write_part(zip, "[Content_Types].xml", options, |zip| {
@@ -621,9 +649,16 @@ fn package_metadata<W: Write + Seek>(
     write_part(zip, "xl/workbook.xml", options, |zip| {
         write!(
             zip,
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><workbook xmlns=\"{MAIN}\" xmlns:r=\"{REL}\"><workbookPr date1904=\"{}\"/><sheets>",
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><workbook xmlns=\"{MAIN}\" xmlns:r=\"{REL}\"><workbookPr date1904=\"{}\"/>",
             u8::from(date_1904)
         )?;
+        if active_sheet != 0 {
+            write!(
+                zip,
+                "<bookViews><workbookView activeTab=\"{active_sheet}\"/></bookViews>"
+            )?;
+        }
+        zip.write_all(b"<sheets>")?;
         for (index, sheet) in sheets.iter().enumerate() {
             let name = quick_xml::escape::escape(&sheet.name);
             write!(

@@ -100,6 +100,28 @@ impl Worksheet {
         }
         Ok(())
     }
+    pub(crate) fn edit_limits(&self) -> EditLimits {
+        self.limits
+    }
+    pub(crate) fn set_edit_limits(&mut self, limits: EditLimits) {
+        self.limits = limits;
+    }
+    pub(crate) fn copy_named(&self, name: Box<str>, limits: EditLimits) -> Result<Self> {
+        let bytes = self
+            .charged
+            .saturating_sub(self.name.len())
+            .saturating_add(name.len());
+        if bytes > limits.max_bytes || self.len() > limits.max_cells {
+            return Err(budget());
+        }
+        let mut copy = Self::new(name, limits)?;
+        for cell in self.cells.values() {
+            copy.set(cell.clone())?;
+        }
+        copy.append_cursor = self.append_cursor;
+        copy.dirty = true;
+        Ok(copy)
+    }
     /// Number of physically present cells, including explicit Empty values.
     pub fn len(&self) -> usize {
         self.cells.len()

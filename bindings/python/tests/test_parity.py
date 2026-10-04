@@ -204,3 +204,21 @@ def test_formula_move_translation_and_failure_atomicity(engine):
         with pytest.raises(ValueError):
             sheet.move_range("C3:C4", rows=-1, translate=True)
         assert tuple(sheet.values) == before
+
+
+def test_active_sheet_creation_and_loaded_catalog_match(engine, tmp_path):
+    workbook = engine.Workbook()
+    first = workbook.active
+    second = workbook.create_sheet("Other")
+    first["A1"] = 1
+    second["A1"] = 2
+    workbook.active = second
+    assert workbook.active is second
+    path = tmp_path / "active.xlsx"
+    workbook.save(path)
+    verified = openpyxl.load_workbook(path)
+    assert verified.active.title == "Other"
+    verified.close()
+    loaded = engine.load_workbook(path)
+    assert loaded.active.title == "Other" and loaded.active["A1"].value == 2
+    loaded.close()

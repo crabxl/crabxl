@@ -48,3 +48,5 @@ pub use openrsxl_core::MemoryAllowance;
 pub use openrsxl_xlsx::memory_allowance;
 
 pub use openrsxl_core::{formula_position, translate_axis, translate_expression};
+
+pub use openrsxl_core::{SheetId, Workbook, WorkbookLimits, WorksheetEditor};

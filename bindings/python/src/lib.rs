@@ -289,6 +289,12 @@ impl NativeReader {
             .map(|sheet| sheet.name().into())
             .collect())
     }
+    fn active_index(&self) -> PyResult<Option<usize>> {
+        Ok(lock(&self.reader)?
+            .as_ref()
+            .ok_or_else(closed)?
+            .active_index())
+    }
     fn load_sheet(
         &self,
         py: Python<'_>,
@@ -510,13 +516,23 @@ fn resolve_model_budget(max_bytes: Option<usize>) -> PyResult<usize> {
     }
 }
 #[pyfunction]
-fn save_models(py: Python<'_>, path: PathBuf, sheets: Vec<Py<NativeSheet>>) -> PyResult<()> {
+#[pyo3(signature = (path, sheets, active_sheet=0))]
+fn save_models(
+    py: Python<'_>,
+    path: PathBuf,
+    sheets: Vec<Py<NativeSheet>>,
+    active_sheet: usize,
+) -> PyResult<()> {
     let sheets = sheets
         .iter()
         .map(|sheet| Arc::clone(&sheet.borrow(py).sheet))
         .collect::<Vec<_>>();
     py.detach(move || {
-        let mut writer = WorkbookWriter::new(WriteOptions::default()).map_err(failure)?;
+        let mut writer = WorkbookWriter::new(WriteOptions {
+            active_sheet,
+            ..WriteOptions::default()
+        })
+        .map_err(failure)?;
         for sheet in sheets {
             writer.write_worksheet(&*lock(&sheet)?).map_err(failure)?;
         }
