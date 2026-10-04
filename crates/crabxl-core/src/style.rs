@@ -44,7 +44,7 @@ impl Default for CellStyle {
             font: Font {
                 name: Some("Calibri".into()),
                 size: Some(11.0),
-                family: Some(2),
+                family: Some(2.0),
                 scheme: Some(crate::FontScheme::Minor),
                 color: Some(crate::Color {
                     kind: crate::ColorKind::Theme(1),

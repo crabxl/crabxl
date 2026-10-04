@@ -58,8 +58,8 @@ pub use crabxl_core::{SheetId, Workbook, WorkbookLimits, WorksheetEditor};
 pub use crabxl_xlsx::{SharedStringOptions, SharedStringStats, SharedStringStorage};
 
 pub use crabxl_core::{
-    Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText, RichTextRun, RunFont,
-    TextVerticalAlignment, Underline,
+    ArgbLiteral, Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText,
+    RichTextRun, RunFont, TextVerticalAlignment, Underline,
 };
 
 pub use crabxl_core::{

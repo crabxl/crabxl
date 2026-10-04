@@ -1,0 +1,95 @@
+{
+  "reference": "3.1.5",
+  "observations": [
+    {
+      "field": "family",
+      "input": -1,
+      "accepted": false,
+      "error": "Min value is 0"
+    },
+    {
+      "field": "family",
+      "input": 0,
+      "accepted": true,
+      "stored": 0.0
+    },
+    {
+      "field": "family",
+      "input": 2.5,
+      "accepted": true,
+      "stored": 2.5
+    },
+    {
+      "field": "family",
+      "input": 14,
+      "accepted": true,
+      "stored": 14.0
+    },
+    {
+      "field": "family",
+      "input": 14.5,
+      "accepted": false,
+      "error": "Max value is 14"
+    },
+    {
+      "field": "charset",
+      "input": -1,
+      "accepted": true,
+      "stored": -1
+    },
+    {
+      "field": "charset",
+      "input": 255,
+      "accepted": true,
+      "stored": 255
+    },
+    {
+      "field": "charset",
+      "input": 256,
+      "accepted": true,
+      "stored": 256
+    },
+    {
+      "field": "theme",
+      "input": -1,
+      "accepted": true,
+      "stored": -1
+    },
+    {
+      "field": "theme",
+      "input": 0,
+      "accepted": true,
+      "stored": 0
+    },
+    {
+      "field": "theme",
+      "input": 256,
+      "accepted": true,
+      "stored": 256
+    },
+    {
+      "field": "indexed",
+      "input": -1,
+      "accepted": true,
+      "stored": -1
+    },
+    {
+      "field": "indexed",
+      "input": 256,
+      "accepted": true,
+      "stored": 256
+    },
+    {
+      "field": "rgb",
+      "input": "aAbBcC",
+      "accepted": true,
+      "stored": "00aAbBcC"
+    },
+    {
+      "field": "rgb",
+      "input": "aaBbCcDd",
+      "accepted": true,
+      "stored": "aaBbCcDd"
+    }
+  ]
+}

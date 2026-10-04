@@ -27,7 +27,7 @@ impl Hash for RunFont {
         self.underline.hash(state);
         self.vertical.hash(state);
         self.charset.hash(state);
-        self.family.hash(state);
+        float(self.family, state);
         self.scheme.hash(state);
         self.color.hash(state);
     }

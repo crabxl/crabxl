@@ -65,13 +65,14 @@ def main():
     parser.add_argument("--styles", type=int, nargs="+", default=[1000, 8000])
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--baseline", type=Path, required=True)
+    parser.add_argument("--baseline-core", default="3dfda8a5b7d3fb376d781cc74cad84867a34e4a5")
     parser.add_argument("--output", type=Path, default=HERE / "results/m2-style-registry.json")
     args = parser.parse_args()
     assert openpyxl.__version__ == "3.1.5"
     if args.runs < 1 or any(not 0 < count <= 8192 for count in args.styles):
         parser.error("Require positive samples and 1..8192 combinations")
     target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
-    report = {"reference": openpyxl.__version__, "platform": platform.platform(), "baseline_core": "3dfda8a5b7d3fb376d781cc74cad84867a34e4a5", "measurement": f"One warmup plus {args.runs} rotating serial Linux wall/CPU/RSS samples including process baseline. Builds and public/native readback excluded from creation timing.", "semantics": "All writers create one floating cell per distinct font/fill/rotation combination using sequential spools. Both native versions additionally re-register every style to assert stable IDs; public reference shares component objects and interns formats during row writing. Timed workflows produce equivalent public values/styles, not identical API call counts. Every cell is checked through both public and canonical native streaming readers outside timing. Source font/fill/format counts and metadata bytes are recorded separately from RAM; native exact completed spool and lower-bound 25ms temp sampling exclude final ZIP. No calamine creation overlap or rust_xlsxwriter API comparison is claimed here.", "cases": []}
+    report = {"reference": openpyxl.__version__, "platform": platform.platform(), "baseline_core": args.baseline_core, "measurement": f"One warmup plus {args.runs} rotating serial Linux wall/CPU/RSS samples including process baseline. Builds and public/native readback excluded from creation timing.", "semantics": "All writers create one floating cell per distinct font/fill/rotation combination using sequential spools. Both native versions additionally re-register every style to assert stable IDs; public reference shares component objects and interns formats during row writing. Timed workflows produce equivalent public values/styles, not identical API call counts. Every cell is checked through both public and canonical native streaming readers outside timing. Source font/fill/format counts and metadata bytes are recorded separately from RAM; native exact completed spool and lower-bound 25ms temp sampling exclude final ZIP. No calamine creation overlap or rust_xlsxwriter API comparison is claimed here.", "cases": []}
     (HERE / "data").mkdir(exist_ok=True)
     for count in args.styles:
         paths = {name: HERE / "data" / f"style-registry-{name}-{count}.xlsx" for name in ("crabxl", "crabxl-before", "openpyxl")}

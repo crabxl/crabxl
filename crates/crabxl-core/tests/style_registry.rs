@@ -122,6 +122,49 @@ fn tight_allowances_fall_back_to_small_capacity_growth_without_losing_defaults()
         .cell_style(crabxl_core::StyleId::new(0))
         .unwrap();
     assert_eq!(style.font.name.as_deref(), Some("Calibri"));
-    assert_eq!(style.font.family, Some(2));
+    assert_eq!(style.font.family, Some(2.0));
     assert_eq!(style.number_format, Some("General"));
+}
+
+#[test]
+fn public_style_domains_and_literal_color_casing_are_retained() {
+    use crabxl_core::{ArgbLiteral, Font};
+    let rgb = ArgbLiteral::parse("aAbBcC").unwrap();
+    assert_eq!(rgb.to_string(), "00aAbBcC");
+    assert_eq!(rgb.channels(), 0x00AABBCC);
+    assert_eq!(
+        ArgbLiteral::parse("AABBCC").unwrap().into_kind(),
+        ColorKind::Argb(0x00AABBCC)
+    );
+    for invalid in ["abc", "GG001100", "123456789"] {
+        assert!(ArgbLiteral::parse(invalid).is_err());
+    }
+    let mut registry = StyleRegistry::new(StyleLimits::default()).unwrap();
+    let style = CellStyle {
+        font: Font {
+            family: Some(2.5),
+            charset: Some(-1),
+            color: Some(Color {
+                kind: rgb.into_kind(),
+                tint: None,
+            }),
+            ..Font::default()
+        },
+        ..CellStyle::default()
+    };
+    let id = registry.register(style.clone()).unwrap();
+    assert_eq!(registry.register(style).unwrap(), id);
+    let view = registry.catalog().cell_style(id).unwrap();
+    assert_eq!(view.font.family, Some(2.5));
+    assert_eq!(view.font.charset, Some(-1));
+    for value in [-1.0, 14.5, f64::NAN, f64::INFINITY] {
+        assert!(
+            Font {
+                family: Some(value),
+                ..Font::default()
+            }
+            .validate()
+            .is_err()
+        );
+    }
 }

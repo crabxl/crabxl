@@ -9,12 +9,73 @@ pub enum ColorKind {
     Unspecified,
     /// Eight-digit ARGB channels, including alpha.
     Argb(u32),
+    /// ARGB channels with reference-compatible hexadecimal letter casing.
+    ArgbLiteral(ArgbLiteral),
     /// Theme slot; resolve through the workbook theme when needed.
-    Theme(u32),
+    Theme(i64),
     /// Indexed palette slot.
-    Indexed(u32),
+    Indexed(i64),
     /// Automatic color setting, including explicit false.
     Auto(bool),
+}
+/// Compact validated ARGB spelling, without allocating an owned color string.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ArgbLiteral {
+    channels: u32,
+    lowercase_mask: u8,
+}
+impl ArgbLiteral {
+    /// Parse six RGB or eight ARGB hexadecimal digits, preserving letter casing.
+    /// Six-digit RGB receives the reference's zero alpha prefix.
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        if !matches!(value.len(), 6 | 8) || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(crate::Error::new(
+                crate::ErrorKind::InvalidData,
+                "Invalid ARGB color",
+            ));
+        }
+        let channels = u32::from_str_radix(value, 16).map_err(|error| {
+            crate::Error::caused_by(crate::ErrorKind::InvalidData, "Invalid ARGB color", error)
+        })?;
+        let offset = 8 - value.len();
+        let mut lowercase_mask = 0;
+        for (index, byte) in value.bytes().enumerate() {
+            if byte.is_ascii_lowercase() {
+                lowercase_mask |= 1 << (offset + index);
+            }
+        }
+        Ok(Self {
+            channels,
+            lowercase_mask,
+        })
+    }
+    /// Return the numeric channel identity independently of source spelling.
+    pub fn channels(self) -> u32 {
+        self.channels
+    }
+    /// Use the existing numeric variant for canonical uppercase input.
+    pub fn into_kind(self) -> ColorKind {
+        if self.lowercase_mask == 0 {
+            ColorKind::Argb(self.channels)
+        } else {
+            ColorKind::ArgbLiteral(self)
+        }
+    }
+}
+impl std::fmt::Display for ArgbLiteral {
+    fn fmt(&self, output: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for index in 0..8 {
+            let nibble = ((self.channels >> ((7 - index) * 4)) & 15) as u8;
+            let digit = b"0123456789ABCDEF"[usize::from(nibble)];
+            let digit = if self.lowercase_mask & (1 << index) != 0 {
+                digit.to_ascii_lowercase()
+            } else {
+                digit
+            };
+            write!(output, "{}", char::from(digit))?;
+        }
+        Ok(())
+    }
 }
 /// Color identity and optional tint without eager RGB conversion.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -85,9 +146,9 @@ pub struct RunFont {
     /// Vertical baseline override.
     pub vertical: Option<TextVerticalAlignment>,
     /// Charset number.
-    pub charset: Option<u8>,
+    pub charset: Option<i64>,
     /// Font family number.
-    pub family: Option<u8>,
+    pub family: Option<f64>,
     /// Theme font scheme.
     pub scheme: Option<FontScheme>,
     /// Color reference with optional tint.

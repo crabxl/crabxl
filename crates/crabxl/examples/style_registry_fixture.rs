@@ -8,7 +8,7 @@ fn style(index: u32) -> CellStyle {
         number_format: "0.000".into(),
         ..Default::default()
     };
-    style.font.family = Some(2);
+    style.font.family = Some(2.0);
     style.font.scheme = Some(crabxl::FontScheme::Minor);
     style.alignment.horizontal = Some(crabxl::HorizontalAlignment::General);
     style.alignment.vertical = Some(crabxl::VerticalAlignment::Bottom);
