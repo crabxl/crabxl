@@ -1746,3 +1746,103 @@ fn owned_bank_theme_exports_without_payload_copy_and_preflights_strict_validatio
     strict.write_workbook(&bank).unwrap();
     strict.finish(Cursor::new(Vec::new())).unwrap();
 }
+
+#[test]
+fn imported_style_ids_and_zero_date_formats_survive_export_with_derived_auto_ids() {
+    use crabxl_core::{DateEpoch, DateKind, ExcelDateTime, StyleId, StyleLimits, StyleRegistry};
+    for zero_is_date in [false, true] {
+        let mut catalog = StyleRegistry::new(StyleLimits::default())
+            .unwrap()
+            .catalog()
+            .clone();
+        catalog.fonts[0].name = Some("Source font".into());
+        let mut second = catalog.fonts[0].clone();
+        second.name = Some("Unchanged font".into());
+        catalog.fonts.push(second);
+        let mut format = catalog.cell_formats[0].clone();
+        format.font_id = 1;
+        catalog.cell_formats.push(format);
+        if zero_is_date {
+            catalog.cell_formats[0].number_format_id = 14;
+        }
+        let prefix = catalog.cell_formats.clone();
+        let mut writer =
+            WorkbookWriter::from_style_catalog(WriteOptions::default(), catalog).unwrap();
+        assert_eq!(writer.style_catalog().unwrap().fonts.len(), 2);
+        assert_eq!(
+            &writer.style_catalog().unwrap().cell_formats[..2],
+            prefix.as_slice()
+        );
+        writer.start_sheet("Sheet").unwrap();
+        let mut values = row(
+            0,
+            vec![
+                CellValue::Integer(1),
+                CellValue::text("stable"),
+                CellValue::DateTime(Box::new(
+                    ExcelDateTime::from_serial(
+                        43831.25,
+                        DateEpoch::Windows1900,
+                        DateKind::DateTime,
+                    )
+                    .unwrap(),
+                )),
+                CellValue::DateTime(Box::new(
+                    ExcelDateTime::from_serial(0.5, DateEpoch::Windows1900, DateKind::Time)
+                        .unwrap(),
+                )),
+                CellValue::DateTime(Box::new(
+                    ExcelDateTime::from_serial(1.25, DateEpoch::Windows1900, DateKind::Duration)
+                        .unwrap(),
+                )),
+            ],
+        );
+        values.cells[1].style = StyleId::new(1);
+        writer.write_row(&values).unwrap();
+        let mut reader =
+            WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+        assert_eq!(
+            &reader.style_catalog().unwrap().unwrap().cell_formats[..2],
+            prefix.as_slice()
+        );
+        let output = reader.read_sheet("Sheet").unwrap();
+        assert_eq!(output.rows[0].cells[1].style.get(), 1);
+        assert_eq!(output.rows[0].cells[2].style.get() == 0, zero_is_date);
+        assert_eq!(output.rows[0].cells[3].style.get() == 0, zero_is_date);
+        assert!(output.rows[0].cells[4].style.get() >= 2);
+        let CellValue::DateTime(date) = &output.rows[0].cells[2].value else {
+            panic!("Missing date")
+        };
+        assert_eq!(
+            date.to_datetime().unwrap().to_string(),
+            "2020-01-01 06:00:00"
+        );
+        let CellValue::DateTime(time) = &output.rows[0].cells[3].value else {
+            panic!("Missing time")
+        };
+        assert_eq!(time.to_time().unwrap().to_string(), "12:00:00");
+        let CellValue::DateTime(duration) = &output.rows[0].cells[4].value else {
+            panic!("Missing duration")
+        };
+        assert_eq!(duration.to_duration().unwrap().num_seconds(), 108000);
+    }
+}
+
+#[test]
+fn source_catalog_creation_rejects_unmodeled_sections_and_accepts_large_configured_counts() {
+    use crabxl_core::{StyleLimits, StyleRegistry};
+    let mut catalog = StyleRegistry::new(StyleLimits::default())
+        .unwrap()
+        .catalog()
+        .clone();
+    catalog.unmodeled_sections.push("dxfs".into());
+    assert!(
+        matches!(WorkbookWriter::from_style_catalog(WriteOptions::default(), catalog), Err(e) if e.kind() == ErrorKind::Unsupported)
+    );
+    let writer = WorkbookWriter::new(WriteOptions {
+        max_styles: 100000,
+        ..Default::default()
+    })
+    .unwrap();
+    assert_eq!(writer.style_catalog().unwrap().cell_formats.len(), 5);
+}

@@ -1,5 +1,5 @@
 //! Lazy original-package preservation and bounded existing-cell value overlays.
-use crate::encode::{DateEncoding, RowBuffer, StyleContext, encode_cells, validate_value};
+use crate::encode::{RowBuffer, StyleContext, ValueEncoding, encode_cells, validate_value};
 use crate::writer::{io_error, zip_error};
 use crate::xml::{Scope, XmlStream, attribute};
 use crate::{SheetInfo, SheetKind, WorkbookReader};
@@ -716,11 +716,17 @@ fn write_body<W: Write>(
         limits.max_cell_bytes,
         1,
         StyleContext::Appearance(&[CellStyle::default()]),
-        DateEncoding {
+        ValueEncoding {
             epoch: DateEpoch::Windows1900,
             iso_dates: false,
             non_finite: crate::NonFiniteWritePolicy::Blank,
             formula_attributes,
+            date_styles: crate::encode::DateStyleIds {
+                datetime: crabxl_core::StyleId::new(1),
+                time: crabxl_core::StyleId::new(2),
+                duration: crabxl_core::StyleId::new(3),
+                date: crabxl_core::StyleId::new(4),
+            },
         },
     )
     .map_err(|error| error.with_cell(cell.address))?;

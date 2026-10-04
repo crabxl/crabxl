@@ -481,9 +481,120 @@ impl StyleRegistry {
             .saturating_add(self.numbers.heap_bytes())
             .saturating_add(self.formats.heap_bytes())
     }
+    /// Intern a literal number-format code, respecting source built-in overrides.
+    /// Returns a stable source/custom ID without dense allocation or component copies.
+    pub fn register_number_format(&mut self, code: Box<str>) -> Result<u32> {
+        self.register_number_format_with_limit(code, self.limits.max_bytes)
+    }
+    /// Intern a caller-owned code under a smaller aggregate allowance.
+    pub fn register_number_format_with_limit(
+        &mut self,
+        code: Box<str>,
+        maximum: usize,
+    ) -> Result<u32> {
+        let maximum = maximum.min(self.limits.max_bytes);
+        if self.memory_bytes() > maximum {
+            return Err(limit());
+        }
+        if let Some(id) = self.number_id_for_code(&code) {
+            return Ok(id);
+        }
+        let id = self.available_number_id()?;
+        let hash = fingerprint(&code);
+        let retained = self
+            .memory_bytes()
+            .saturating_add(code.len())
+            .saturating_add(self.numbers.growth(hash));
+        let geometric = retained.saturating_add(vector_growth(
+            &self.catalog.number_formats,
+            self.limits.max_records,
+            true,
+        )) <= maximum;
+        if retained.saturating_add(vector_growth(
+            &self.catalog.number_formats,
+            self.limits.max_records,
+            geometric,
+        )) > maximum
+        {
+            return Err(limit());
+        }
+        reserve(
+            &mut self.catalog.number_formats,
+            self.limits.max_records,
+            geometric,
+        )?;
+        let prepared = self.numbers.reserve(hash)?;
+        if self
+            .memory_bytes()
+            .saturating_add(code.len())
+            .saturating_add(
+                prepared
+                    .as_ref()
+                    .map_or(0, |v| v.capacity() * size_of::<u32>()),
+            )
+            > maximum
+        {
+            return Err(limit());
+        }
+        self.payload_bytes = self.payload_bytes.saturating_add(code.len());
+        self.insert_number_record(hash, id, code, prepared);
+        Ok(id)
+    }
+    fn number_id_for_code(&self, code: &str) -> Option<u32> {
+        self.numbers
+            .find_by(fingerprint(&code), |id| {
+                self.catalog.number_formats[id as usize].code() == code
+            })
+            .map(|id| self.catalog.number_formats[id as usize].id())
+            .or_else(|| {
+                builtin_number_format_id(code).filter(|id| {
+                    self.catalog
+                        .declared_number_format(*id)
+                        .is_none_or(|source| source == code)
+                })
+            })
+    }
+    fn insert_number_record(
+        &mut self,
+        hash: u64,
+        id: u32,
+        code: Box<str>,
+        prepared: Option<Vec<u32>>,
+    ) {
+        let position = self
+            .catalog
+            .number_formats
+            .partition_point(|format| format.id() < id);
+        if position < self.catalog.number_formats.len() {
+            for ids in self.numbers.values.values_mut() {
+                for index in ids {
+                    if *index as usize >= position {
+                        *index += 1;
+                    }
+                }
+            }
+        }
+        self.catalog
+            .number_formats
+            .insert(position, NumberFormat::new(id, code));
+        self.numbers.insert(hash, position as u32, prepared);
+        self.next_number_id = u64::from(id) + 1;
+    }
     /// Intern a complete format referencing existing components without replacing source flags.
     /// Absence, explicit zero/false and unknown extension markers remain distinct.
     pub fn register_format(&mut self, format: CellFormat) -> Result<StyleId> {
+        self.register_format_with_limit(format, self.limits.max_bytes)
+    }
+    /// Intern a raw source format under a smaller aggregate allowance.
+    pub fn register_format_with_limit(
+        &mut self,
+        format: CellFormat,
+        maximum: usize,
+    ) -> Result<StyleId> {
+        let maximum = maximum.min(self.limits.max_bytes);
+        if self.memory_bytes() > maximum {
+            return Err(limit());
+        }
         self.catalog.validate_format(&format)?;
         let key = format_key(&format, format.alignment.as_deref());
         let hash = fingerprint(&key);
@@ -501,12 +612,12 @@ impl StyleRegistry {
             &self.catalog.cell_formats,
             self.limits.max_records,
             true,
-        )) <= self.limits.max_bytes;
+        )) <= maximum;
         if retained.saturating_add(vector_growth(
             &self.catalog.cell_formats,
             self.limits.max_records,
             geometric,
-        )) > self.limits.max_bytes
+        )) > maximum
         {
             return Err(limit());
         }
@@ -524,7 +635,7 @@ impl StyleRegistry {
                     .as_ref()
                     .map_or(0, |v| v.capacity() * size_of::<u32>()),
             )
-            > self.limits.max_bytes
+            > maximum
         {
             return Err(limit());
         }
@@ -564,19 +675,7 @@ impl StyleRegistry {
         let font = self.fonts.find(&self.catalog.fonts, &style.font);
         let fill = self.fills.find(&self.catalog.fills, &style.fill);
         let border = self.borders.find(&self.catalog.borders, &style.borders);
-        let number = self
-            .numbers
-            .find_by(fingerprint(&style.number_format), |id| {
-                self.catalog.number_formats[id as usize].code() == style.number_format.as_ref()
-            })
-            .map(|id| self.catalog.number_formats[id as usize].id())
-            .or_else(|| {
-                builtin_number_format_id(&style.number_format).filter(|id| {
-                    self.catalog
-                        .declared_number_format(*id)
-                        .is_none_or(|code| code == style.number_format.as_ref())
-                })
-            });
+        let number = self.number_id_for_code(&style.number_format);
         let number_id = match number {
             Some(id) => id,
             None => self.available_number_id()?,
@@ -735,12 +834,7 @@ impl StyleRegistry {
             self.borders.insert(border_hash, format.border_id, index);
         }
         if let Some(index) = number_index {
-            let id = self.catalog.number_formats.len() as u32;
-            self.catalog
-                .number_formats
-                .push(NumberFormat::new(number_id, style.number_format));
-            self.numbers.insert(number_hash, id, index);
-            self.next_number_id = u64::from(number_id) + 1;
+            self.insert_number_record(number_hash, number_id, style.number_format, index);
         }
         let id = self.catalog.cell_formats.len() as u32;
         format.alignment = Some(Box::new(style.alignment));

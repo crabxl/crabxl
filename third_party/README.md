@@ -20,3 +20,5 @@ Formula attribute write policies are original shared-model/codec integration cha
 Owned bank theme integration and immutable shared ownership are original Rust model/resource work, with synthetic lifecycle/limit fixtures and native snapshot verification; existing opaque theme serialization provenance remains unchanged. See ADR 0026 and benchmarks/m4-bank-themes.md.
 
 Canonical style catalog adoption, sparse ID reservation, raw format registration and consuming reader transfer are original ownership/resource integration changes to previously attributed shared models and codecs. Public model calls and generated OOXML verify behavior without additional upstream implementation inspection; see ADR 0027 and benchmarks/m2-style-import.md.
+
+Source catalog export, source-derived automatic date identities, sorted sparse number-format insertion and aggregate raw-registration wrappers are original integration changes to the attributed core/style/writer models. Public save/reload uses generated fixtures and no additional reference implementation inspection; see ADR 0028 and benchmarks/m2-style-export.md.

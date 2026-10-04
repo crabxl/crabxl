@@ -2,7 +2,9 @@
 // Sequential spooling, scalar XML layouts and packaging adapted from rust_xlsxwriter,
 // Copyright 2022-2026 John McNamara. Source provenance: third_party/ports.json.
 
-use crate::encode::{DateEncoding, RowBuffer, StyleContext, encode_cells, validate_xml_text};
+use crate::encode::{
+    DateStyleIds, RowBuffer, StyleContext, ValueEncoding, encode_cells, validate_xml_text,
+};
 use crabxl_core::{
     CellStyle, DateEpoch, Error, ErrorKind, MAX_COLUMNS, Result, Row, RowIndex, StyleCatalog,
     StyleId, StyleLimits, StyleRegistry,
@@ -143,6 +145,7 @@ pub struct WorkbookWriter {
     options: WriteOptions,
     sheets: Vec<StoredSheet>,
     styles: Option<StyleRegistry>,
+    date_styles: DateStyleIds,
     active: Option<ActiveSheet>,
     row_buffer: RowBuffer,
     temporary_bytes: u64,
@@ -154,8 +157,17 @@ pub struct WorkbookWriter {
 impl WorkbookWriter {
     /// Create a writer with explicit resource and temporary-directory options.
     pub fn new(options: WriteOptions) -> Result<Self> {
+        Self::new_with_catalog(options, None)
+    }
+    /// Adopt source tables and preserve their component/format IDs in a new package.
+    /// Automatic date formats register after existing records rather than using fixed IDs.
+    /// Unmodeled extensions require original-package preservation and are rejected here.
+    pub fn from_style_catalog(options: WriteOptions, catalog: StyleCatalog) -> Result<Self> {
+        Self::new_with_catalog(options, Some(catalog))
+    }
+    fn new_with_catalog(options: WriteOptions, catalog: Option<StyleCatalog>) -> Result<Self> {
         if options.max_styles < 5
-            || options.max_styles > 65373
+            || options.max_styles > u32::MAX as usize
             || options.buffer_bytes == 0
             || options.max_sheets == 0
             || options.max_metadata_bytes == 0
@@ -191,30 +203,31 @@ impl WorkbookWriter {
             data: Vec::new(),
             maximum: options.max_row_bytes,
         };
-        let mut styles = StyleRegistry::new(StyleLimits {
+        let style_limits = StyleLimits {
             max_bytes: options
                 .max_metadata_bytes
                 .saturating_sub(options.theme.memory_bytes()),
             max_records: options.max_styles,
-        })
-        .map_err(writer_style_error)?;
-        for format in [
-            "yyyy-mm-dd hh:mm:ss.000",
-            "hh:mm:ss.000",
-            "[h]:mm:ss.000",
-            "yyyy-mm-dd",
-        ] {
-            styles
-                .register(CellStyle {
-                    number_format: format.into(),
-                    ..CellStyle::default()
-                })
-                .map_err(writer_style_error)?;
-        }
+        };
+        let mut styles = if let Some(catalog) = catalog {
+            crate::styles::validate_catalog(&catalog)?;
+            let mut registry =
+                StyleRegistry::from_catalog(catalog, style_limits).map_err(writer_style_error)?;
+            if registry.catalog().cell_formats.is_empty() {
+                registry
+                    .register(CellStyle::default())
+                    .map_err(writer_style_error)?;
+            }
+            registry
+        } else {
+            StyleRegistry::new(style_limits).map_err(writer_style_error)?
+        };
+        let date_styles = register_date_styles(&mut styles)?;
         let writer = Self {
             options,
             sheets: Vec::new(),
             styles: Some(styles),
+            date_styles,
             active: None,
             row_buffer,
             temporary_bytes: 0,
@@ -241,6 +254,39 @@ impl WorkbookWriter {
             .as_mut()
             .ok_or_else(|| state("Writer style catalog is released"))?
             .register_with_limit(style, allowance)
+            .map_err(writer_style_error)
+    }
+    /// Register a literal code against imported declarations and built-in overrides.
+    pub fn register_number_format(&mut self, code: Box<str>) -> Result<u32> {
+        self.ensure_open()?;
+        validate_xml_text(&code)?;
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes());
+        self.styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?
+            .register_number_format_with_limit(code, allowance)
+            .map_err(writer_style_error)
+    }
+    /// Register a source format using existing components, retaining its explicit flags.
+    pub fn register_format(&mut self, format: crabxl_core::CellFormat) -> Result<StyleId> {
+        self.ensure_open()?;
+        if format.unmodeled_extensions {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Unmodeled style extensions require original-package preservation",
+            ));
+        }
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes());
+        self.styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?
+            .register_format_with_limit(format, allowance)
             .map_err(writer_style_error)
     }
     /// Borrow the canonical shared catalog; None after abort releases storage.
@@ -450,7 +496,7 @@ impl WorkbookWriter {
                     .ok_or_else(|| state("Writer style catalog is released"))?
                     .catalog(),
             ),
-            DateEncoding {
+            ValueEncoding {
                 epoch: if self.options.date_1904 {
                     DateEpoch::Mac1904
                 } else {
@@ -459,6 +505,7 @@ impl WorkbookWriter {
                 iso_dates: self.options.iso_dates,
                 non_finite: self.options.non_finite,
                 formula_attributes: self.options.formula_attributes,
+                date_styles: self.date_styles,
             },
         )
         .map_err(|error| error.with_part(&part))?;
@@ -670,6 +717,31 @@ impl WorkbookWriter {
         Ok(())
     }
 }
+fn register_date_styles(styles: &mut StyleRegistry) -> Result<DateStyleIds> {
+    // Copy the small format record, retaining shared component IDs and raw overrides.
+    // Font names and gradient vectors are not cloned to derive automatic date formats.
+    let template = styles
+        .catalog()
+        .cell_formats
+        .first()
+        .ok_or_else(|| state("Writer has no normal cell format"))?
+        .clone();
+    let mut register = |code: &str| -> Result<StyleId> {
+        let mut format = template.clone();
+        format.number_format_id = styles
+            .register_number_format(code.into())
+            .map_err(writer_style_error)?;
+        format.apply_number_format = Some(true);
+        styles.register_format(format).map_err(writer_style_error)
+    };
+    Ok(DateStyleIds {
+        datetime: register("yyyy-mm-dd hh:mm:ss.000")?,
+        time: register("hh:mm:ss.000")?,
+        duration: register("[h]:mm:ss.000")?,
+        date: register("yyyy-mm-dd")?,
+    })
+}
+
 impl Drop for WorkbookWriter {
     fn drop(&mut self) {
         let _ = self.abort();

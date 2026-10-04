@@ -34,11 +34,30 @@ impl StyleContext<'_> {
     }
 }
 
-pub(crate) struct DateEncoding {
+#[derive(Clone, Copy)]
+pub(crate) struct DateStyleIds {
+    pub(crate) datetime: crabxl_core::StyleId,
+    pub(crate) time: crabxl_core::StyleId,
+    pub(crate) duration: crabxl_core::StyleId,
+    pub(crate) date: crabxl_core::StyleId,
+}
+impl DateStyleIds {
+    fn for_kind(self, kind: crabxl_core::DateKind) -> u32 {
+        match kind {
+            crabxl_core::DateKind::Date => self.date,
+            crabxl_core::DateKind::DateTime => self.datetime,
+            crabxl_core::DateKind::Time => self.time,
+            crabxl_core::DateKind::Duration => self.duration,
+        }
+        .get()
+    }
+}
+pub(crate) struct ValueEncoding {
     pub(crate) epoch: crabxl_core::DateEpoch,
     pub(crate) iso_dates: bool,
     pub(crate) non_finite: crate::NonFiniteWritePolicy,
     pub(crate) formula_attributes: crate::FormulaWritePolicy,
+    pub(crate) date_styles: DateStyleIds,
 }
 
 pub(crate) struct RowBuffer {
@@ -102,13 +121,14 @@ pub(crate) fn encode_cells<'a>(
     maximum_cell: usize,
     maximum_cells: usize,
     styles: StyleContext<'_>,
-    date_encoding: DateEncoding,
+    date_encoding: ValueEncoding,
 ) -> Result<()> {
-    let DateEncoding {
+    let ValueEncoding {
         epoch,
         iso_dates,
         non_finite,
         formula_attributes,
+        date_styles,
     } = date_encoding;
     buffer.data.clear();
     let mut next_column = 0;
@@ -191,11 +211,21 @@ pub(crate) fn encode_cells<'a>(
         write!(buffer, "<row r=\"{}\">", index.get() + 1)?;
         for cell in cells {
             let style = if cell.style.get() == 0 {
-                date_value(&cell.value).map_or(0, |date| match date.kind() {
-                    crabxl_core::DateKind::Date => 4,
-                    crabxl_core::DateKind::DateTime => 1,
-                    crabxl_core::DateKind::Time => 2,
-                    crabxl_core::DateKind::Duration => 3,
+                date_value(&cell.value).map_or(0, |date| {
+                    let expected = if date.kind() == crabxl_core::DateKind::Duration {
+                        crabxl_core::DateKind::Duration
+                    } else {
+                        crabxl_core::DateKind::DateTime
+                    };
+                    if styles
+                        .number_format(0)
+                        .and_then(crabxl_core::classify_number_format)
+                        == Some(expected)
+                    {
+                        0
+                    } else {
+                        date_styles.for_kind(date.kind())
+                    }
                 })
             } else {
                 cell.style.get()
