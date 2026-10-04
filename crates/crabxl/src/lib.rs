@@ -92,3 +92,7 @@ pub use crabxl_core::Theme;
 pub use crabxl_xlsx::ThemeWritePolicy;
 
 pub use crabxl_core::CellMetadataReadPolicy;
+
+pub use crabxl_core::{
+    DifferentialStyle, TableStyle, TableStyleCatalog, TableStyleElement, TableStyleRegion,
+};

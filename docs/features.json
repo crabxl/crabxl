@@ -17370,6 +17370,35 @@
         "benchmarks/style_export_checkpoint.py"
       ],
       "limitations": "Creates a new package; original advanced/opaque part graphs and full bank/structural edits are not covered. Unmodeled style sections reject creation. Unused native source declarations remain unlike reference pruning. Arbitrary date/style assignment acceptance remains staged. No milestone completion claimed."
+    },
+    {
+      "id": "styles.differential-table-definitions",
+      "description": "Canonical sparse differential overrides, table/pivot defaults and all 28 named region definitions with retained optional properties and bounded validated references",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "verified"
+      },
+      "modes": [
+        "typed-style-catalog",
+        "source-catalog-new-package",
+        "sequential-write"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/style_extras.rs",
+        "crates/crabxl-core/src/style_catalog.rs",
+        "crates/crabxl-xlsx/src/style_extras_codec.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/streaming.rs::differential_and_table_styles_share_components_and_keep_sparse_declared_counts",
+        "crates/crabxl-xlsx/tests/streaming.rs::differential_extension_presence_is_explicit_and_tight_budgets_leave_no_catalog",
+        "crates/crabxl-xlsx/tests/writer.rs::typed_differential_table_catalogs_export_with_original_identity_and_count_properties",
+        "benchmarks/style_extras_checkpoint.py"
+      ],
+      "limitations": "Verified definition properties and source-catalog export only; worksheet conditional-formatting/table instances and structural graphs remain M5 work. Extension payloads remain explicit markers and reject new-package export. Full bank mutation and Python style surfaces remain staged. Advertised count is retained for named definitions but does not allocate. No milestone completion claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

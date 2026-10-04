@@ -71,3 +71,7 @@ pub use style_registry::{StyleLimits, StyleRegistry};
 
 mod theme;
 pub use theme::Theme;
+
+mod style_extras;
+pub use style_components::TableStyleRegion;
+pub use style_extras::{DifferentialStyle, TableStyle, TableStyleCatalog, TableStyleElement};

@@ -43,3 +43,5 @@ mod theme;
 pub use theme::ThemeWritePolicy;
 
 mod aggregate;
+
+mod style_extras_codec;

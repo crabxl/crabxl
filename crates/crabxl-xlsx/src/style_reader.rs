@@ -12,16 +12,16 @@ use quick_xml::{
     events::{BytesStart, Event},
 };
 use std::io::BufRead;
-struct Budget {
-    used: usize,
-    maximum: usize,
-    records: usize,
+pub(super) struct Budget {
+    pub(super) used: usize,
+    pub(super) maximum: usize,
+    pub(super) records: usize,
 }
 impl Budget {
-    fn remaining(&self) -> usize {
+    pub(super) fn remaining(&self) -> usize {
         self.maximum.saturating_sub(self.used)
     }
-    fn push<T>(&mut self, target: &mut Vec<T>, value: T, heap: usize) -> Result<()> {
+    pub(super) fn push<T>(&mut self, target: &mut Vec<T>, value: T, heap: usize) -> Result<()> {
         if target.len() >= self.records || heap > self.remaining() {
             return Err(limit("Style record/payload limit exceeded"));
         }
@@ -63,16 +63,20 @@ fn limit(s: &str) -> Error {
 fn invalid(s: &str) -> Error {
     Error::new(ErrorKind::InvalidData, s)
 }
-fn blank(e: &Event<'_>) -> bool {
+pub(super) fn blank(e: &Event<'_>) -> bool {
     matches!(e,Event::Text(t) if t.iter().all(u8::is_ascii_whitespace))
         || matches!(e, Event::Comment(_) | Event::PI(_))
 }
-fn integer(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<Option<u32>> {
+pub(super) fn integer(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<Option<u32>> {
     attribute(e, key, decoder)?
-        .map(|n| n.parse().map_err(|_| invalid("Invalid style identity")))
+        .map(|n| {
+            n.trim()
+                .parse()
+                .map_err(|_| invalid("Invalid style identity"))
+        })
         .transpose()
 }
-fn boolean(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<Option<bool>> {
+pub(super) fn boolean(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<Option<bool>> {
     attribute(e, key, decoder)?
         .map(|n| crate::formatting::boolean(Some(&n)))
         .transpose()
@@ -208,21 +212,43 @@ fn read_impl<B: BufRead>(
                     b"cellXfs" => 5,
                     b"cellStyles" => 6,
                     b"colors" => 7,
-                    _ => 8,
+                    b"dxfs" => 8,
+                    b"tableStyles" => 9,
+                    _ => 10,
                 };
-                if number != 8 {
+                if number != 10 {
                     if seen & (1 << number) != 0 {
                         return Err(invalid("Duplicate style section"));
                     }
                     seen |= 1 << number;
                 }
-                if number == 8 {
+                if number == 10 {
                     let name = String::from_utf8(section)
                         .map_err(|_| invalid("Invalid style section name"))?
                         .into_boxed_str();
                     let heap = name.len();
                     budget.push(&mut result.unmodeled_sections, name, heap)?;
                     crate::style_codec::skip(&mut xml, 2)?;
+                    continue;
+                }
+                if number == 8 {
+                    crate::formatting::check_attributes(&e, &[b"count"])?;
+                    attribute(&e, b"count", f.decoder)?;
+                    crate::style_extras_codec::read_differentials(
+                        &mut xml,
+                        &mut result,
+                        &mut budget,
+                    )?;
+                    continue;
+                }
+                if number == 9 {
+                    let header = crate::style_extras_codec::table_header(&e, f.decoder)?;
+                    crate::style_extras_codec::read_tables(
+                        &mut xml,
+                        &mut result,
+                        &mut budget,
+                        header,
+                    )?;
                     continue;
                 }
                 if number == 7 {

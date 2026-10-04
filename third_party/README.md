@@ -30,3 +30,5 @@ Canonical owned-bank styles, aggregate registration wrappers and consuming bank/
 Optional structured expression ownership is an original canonical model change. Tests and public constructor/save/reload probes use generated array formulas and record the pinned missing data-table reference reload defect, without further reference implementation inspection. Existing formula codec/translation attribution remains unchanged; see ADR 0031.
 
 Single-payload literal array text ownership and source/body views are original canonical model changes verified through public constructor/save/reload fixtures, including Unicode prefix slicing. No additional reference implementation was inspected; existing formula codec attribution is unchanged. See ADR 0032.
+
+Differential/table catalog models, region enum and budgeted integration codecs are original composition of the existing attributed shared style components/codecs and reader Budget. Public openpyxl classes/serializers and runtime schema tokens generate/check fixtures without additional implementation inspection. No whole upstream engine is wrapped or copied. See ADR 0033 and benchmarks/style_extras_checkpoint.py.

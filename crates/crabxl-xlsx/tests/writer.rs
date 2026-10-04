@@ -1946,3 +1946,72 @@ fn absent_array_expression_and_reference_serialize_as_empty_source_body() {
     assert!(source.metadata().unwrap().reference.is_none());
     assert!(source.cached().is_none());
 }
+
+#[test]
+fn typed_differential_table_catalogs_export_with_original_identity_and_count_properties() {
+    use crabxl_core::{
+        CellStyle, DifferentialStyle, NumberFormat, StyleLimits, StyleRegistry, TableStyle,
+        TableStyleCatalog, TableStyleElement, TableStyleRegion,
+    };
+    let mut catalog = StyleRegistry::new(StyleLimits::default())
+        .unwrap()
+        .catalog()
+        .clone();
+    let mut font = CellStyle::default().font;
+    font.name = Some("SparseOverride".into());
+    catalog.differential_styles.push(DifferentialStyle {
+        font: Some(Box::new(font)),
+        number_format: Some(NumberFormat::new(500, "0.000")),
+        ..Default::default()
+    });
+    catalog.table_styles = Some(Box::new(TableStyleCatalog {
+        default_table_style: Some("Custom & Named".into()),
+        styles: vec![TableStyle {
+            name: "Custom & Named".into(),
+            pivot: Some(false),
+            table: Some(true),
+            count: Some(4_000_000_000),
+            elements: vec![TableStyleElement {
+                region: TableStyleRegion::WholeTable,
+                size: Some(0),
+                differential_style_id: Some(0),
+            }],
+        }],
+        ..Default::default()
+    }));
+    let expected_differentials = catalog.differential_styles.clone();
+    let expected_tables = catalog.table_styles.clone();
+    let pointer = catalog.differential_styles[0]
+        .font
+        .as_ref()
+        .unwrap()
+        .name
+        .as_ref()
+        .unwrap()
+        .as_ptr();
+    let mut writer = WorkbookWriter::from_style_catalog(WriteOptions::default(), catalog).unwrap();
+    assert_eq!(
+        writer.style_catalog().unwrap().differential_styles[0]
+            .font
+            .as_ref()
+            .unwrap()
+            .name
+            .as_ref()
+            .unwrap()
+            .as_ptr(),
+        pointer
+    );
+    writer.start_sheet("Sheet").unwrap();
+    writer
+        .write_row(&row(0, vec![CellValue::Integer(1)]))
+        .unwrap();
+    let mut reader = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    let actual = reader.style_catalog().unwrap().unwrap();
+    assert_eq!(actual.differential_styles, expected_differentials);
+    assert_eq!(actual.table_styles, expected_tables);
+    let mut invalid = actual.clone();
+    invalid.differential_styles[0].unmodeled_extensions = true;
+    assert!(
+        matches!(WorkbookWriter::from_style_catalog(WriteOptions::default(), invalid), Err(error) if error.kind() == ErrorKind::Unsupported)
+    );
+}

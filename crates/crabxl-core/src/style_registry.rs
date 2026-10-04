@@ -46,10 +46,20 @@ fn validate_table_limits(catalog: &StyleCatalog, limits: StyleLimits) -> Result<
         catalog.indexed_colors.len(),
         catalog.recent_colors.len(),
         catalog.unmodeled_sections.len(),
+        catalog.differential_styles.len(),
+        catalog.table_styles.as_ref().map_or(0, |v| v.styles.len()),
     ] {
         if count > limits.max_records {
             return Err(limit());
         }
+    }
+    if catalog.table_styles.as_ref().is_some_and(|tables| {
+        tables
+            .styles
+            .iter()
+            .any(|style| style.elements.len() > limits.max_records)
+    }) {
+        return Err(limit());
     }
     Ok(())
 }
@@ -331,7 +341,13 @@ impl StyleRegistry {
                 .unmodeled_sections
                 .iter()
                 .map(|v| v.len())
-                .sum::<usize>();
+                .sum::<usize>()
+            + catalog
+                .differential_styles
+                .iter()
+                .map(crate::DifferentialStyle::heap_bytes)
+                .sum::<usize>()
+            + catalog.table_styles.as_ref().map_or(0, |v| v.heap_bytes());
         let mut value = Self {
             catalog,
             fonts: Index::default(),
@@ -367,6 +383,18 @@ impl StyleRegistry {
                 ErrorKind::InvalidData,
                 "Duplicate number-format identity",
             ));
+        }
+        for style in &value.catalog.differential_styles {
+            let scratch = match style.fill.as_deref() {
+                Some(Fill::Gradient(gradient)) => {
+                    gradient.stops.len().saturating_mul(size_of::<u64>())
+                }
+                _ => 0,
+            };
+            if value.memory_bytes().saturating_add(scratch) > limits.max_bytes {
+                return Err(limit());
+            }
+            style.validate()?;
         }
         for color in &value.catalog.recent_colors {
             color.validate()?;
@@ -481,7 +509,12 @@ impl StyleRegistry {
             + catalog.named_styles.capacity() * size_of::<NamedStyle>()
             + catalog.indexed_colors.capacity() * size_of::<u32>()
             + catalog.recent_colors.capacity() * size_of::<crate::Color>()
-            + catalog.unmodeled_sections.capacity() * size_of::<Box<str>>();
+            + catalog.unmodeled_sections.capacity() * size_of::<Box<str>>()
+            + catalog.differential_styles.capacity() * size_of::<crate::DifferentialStyle>()
+            + catalog
+                .table_styles
+                .as_ref()
+                .map_or(0, |_| size_of::<crate::TableStyleCatalog>());
         size_of::<Self>()
             .saturating_add(capacities)
             .saturating_add(self.reserved_number_ids.capacity() * size_of::<u32>())
