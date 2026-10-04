@@ -53,4 +53,7 @@ pub use style_components::{
 };
 
 mod style_catalog;
-pub use style_catalog::{CellFormat, NamedStyle, NumberFormat, StyleCatalog};
+pub use style_catalog::{CellFormat, NamedStyle, NumberFormat, StyleCatalog, StyleView};
+
+mod number_formats;
+pub use number_formats::{BUILTIN_NUMBER_FORMATS, builtin_number_format, builtin_number_format_id};

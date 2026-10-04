@@ -65,7 +65,7 @@ pub use crabxl_core::{
     Protection,
 };
 
-pub use crabxl_core::{CellFormat, NamedStyle, NumberFormat, StyleCatalog};
+pub use crabxl_core::{CellFormat, NamedStyle, NumberFormat, StyleCatalog, StyleView};
 
 pub use crabxl_core::DateReadPolicy;
 
@@ -76,3 +76,5 @@ pub use crabxl_core::{
 pub use crabxl_core::FormulaReadPolicy;
 
 pub use crabxl_xlsx::SharedFormulaStats;
+
+pub use crabxl_core::{BUILTIN_NUMBER_FORMATS, builtin_number_format, builtin_number_format_id};
