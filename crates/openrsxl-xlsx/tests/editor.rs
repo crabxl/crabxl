@@ -5,7 +5,8 @@ use openrsxl_core::{
     RowIndex, StyleId,
 };
 use openrsxl_xlsx::{
-    EditorOptions, SaveOptions, WorkbookEditor, WorkbookReader, WorkbookWriter, WriteOptions,
+    CalculationChainPolicy, EditorOptions, SaveOptions, WorkbookEditor, WorkbookReader,
+    WorkbookWriter, WriteOptions,
 };
 use std::{
     collections::BTreeMap,
@@ -309,7 +310,14 @@ fn patch_budgets_signed_sources_and_calculation_chain_edits_are_guarded() {
             );
         data.insert("[Content_Types].xml".into(), types.into_bytes());
         data.insert("custom/guard.xml".into(), b"<opaque/>".to_vec());
-        let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+        let mut editor = WorkbookEditor::with_options(
+            Cursor::new(packed(&data)),
+            EditorOptions {
+                calculation_chain: CalculationChainPolicy::RejectEdits,
+                ..EditorOptions::default()
+            },
+        )
+        .unwrap();
         assert_eq!(
             editor
                 .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
@@ -646,4 +654,199 @@ fn upserts_create_rows_in_empty_strict_sheet_and_reject_non_anchor_merges_atomic
         .upsert_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(7))
         .unwrap();
     assert!(editor.save_path(&target, SaveOptions::default()).is_ok());
+}
+
+fn calculation_chain_source() -> BTreeMap<String, Vec<u8>> {
+    let mut data = parts(&rich_source());
+    let types=String::from_utf8(data["[Content_Types].xml"].clone()).unwrap().replace("</Types>","<Override PartName=\"/custom/order.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml\"/></Types>");
+    data.insert("[Content_Types].xml".into(), types.into_bytes());
+    let rels=String::from_utf8(data["xl/_rels/workbook.xml.rels"].clone()).unwrap().replace("</Relationships>","<Relationship Id=\"order\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain\" Target=\"../custom/order.xml\"/></Relationships>");
+    data.insert("xl/_rels/workbook.xml.rels".into(), rels.into_bytes());
+    data.insert(
+        "custom/order.xml".into(),
+        format!("<calcChain xmlns=\"{MAIN}\"><c r=\"B1\" i=\"1\"/></calcChain>").into_bytes(),
+    );
+    data.insert(
+        "custom/_rels/order.xml.rels".into(),
+        b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"/>"
+            .to_vec(),
+    );
+    data
+}
+#[test]
+fn edited_chain_removes_part_and_package_refs_with_repeat_save_and_revert() {
+    let data = calculation_chain_source();
+    let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    let unchanged = editor
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    assert_eq!(parts(unchanged.0.get_ref()), data);
+    editor
+        .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
+        .unwrap();
+    for _ in 0..2 {
+        let (saved, stats) = editor
+            .save(
+                Cursor::new(Vec::new()),
+                SaveOptions {
+                    verify_unchanged: true,
+                },
+            )
+            .unwrap();
+        assert_eq!(stats.removed_parts, 2);
+        let changed = parts(saved.get_ref());
+        assert!(!changed.contains_key("custom/order.xml"));
+        assert!(!changed.contains_key("custom/_rels/order.xml.rels"));
+        assert!(
+            !String::from_utf8(changed["[Content_Types].xml"].clone())
+                .unwrap()
+                .contains("calcChain")
+        );
+        let rels = String::from_utf8(changed["xl/_rels/workbook.xml.rels"].clone()).unwrap();
+        assert!(
+            !rels.contains("calcChain") && rels.contains("worksheet") && rels.contains("styles")
+        );
+        for name in [
+            "xl/media/image1.png",
+            "xl/vbaProject.bin",
+            "custom/original.xml",
+        ] {
+            assert_eq!(changed[name], data[name]);
+        }
+        let xml = String::from_utf8(changed["xl/workbook.xml"].clone()).unwrap();
+        assert!(xml.contains("fullCalcOnLoad=\"1\"") && xml.contains("forceFullCalc=\"1\""));
+        let mut read = WorkbookReader::new(saved).unwrap();
+        assert_eq!(
+            read.read_sheet("Sheet").unwrap().rows[0].cells[0].value,
+            Value::Integer(9)
+        );
+    }
+    editor.clear_edits();
+    let (saved, stats) = editor
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    assert_eq!(stats.removed_parts, 0);
+    assert_eq!(parts(saved.get_ref()), data);
+}
+#[test]
+fn foreign_chain_consumers_and_chain_extensions_reject_edits_without_loss() {
+    for (name, xml) in [
+        (
+            "xl/worksheets/_rels/sheet1.xml.rels",
+            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"opaque\" Type=\"urn:unknown\" Target=\"../../custom/order.xml\"/></Relationships>",
+        ),
+        (
+            "custom/_rels/order.xml.rels",
+            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"opaque\" Type=\"urn:unknown\" Target=\"original.xml\"/></Relationships>",
+        ),
+    ] {
+        let mut data = calculation_chain_source();
+        data.insert(name.into(), xml.as_bytes().to_vec());
+        let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+        assert_eq!(
+            editor
+                .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
+                .unwrap_err()
+                .kind(),
+            ErrorKind::Unsupported
+        );
+        assert!(!editor.is_dirty());
+        let (saved, _) = editor
+            .save(Cursor::new(Vec::new()), SaveOptions::default())
+            .unwrap();
+        assert_eq!(parts(saved.get_ref()), data);
+    }
+}
+#[test]
+fn strict_chain_relationships_are_removed_but_untyped_targets_are_guarded() {
+    let mut data = calculation_chain_source();
+    data.remove("custom/_rels/order.xml.rels");
+    let rels = String::from_utf8(data["xl/_rels/workbook.xml.rels"].clone())
+        .unwrap()
+        .replace(
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain",
+            "http://purl.oclc.org/ooxml/officeDocument/relationships/calcChain",
+        );
+    data.insert("xl/_rels/workbook.xml.rels".into(), rels.into_bytes());
+    let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    editor
+        .set_value("Other", Address::new(0, 0).unwrap(), Value::Integer(3))
+        .unwrap();
+    let (saved, stats) = editor
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    assert_eq!(stats.removed_parts, 1);
+    assert!(
+        !String::from_utf8(parts(saved.get_ref())["xl/_rels/workbook.xml.rels"].clone())
+            .unwrap()
+            .contains("calcChain")
+    );
+    let types = String::from_utf8(data["[Content_Types].xml"].clone())
+        .unwrap()
+        .replace(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml",
+            "application/x-opaque",
+        );
+    data.insert("[Content_Types].xml".into(), types.into_bytes());
+    let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    assert_eq!(
+        editor
+            .set_value("Other", Address::new(0, 0).unwrap(), Value::Integer(3))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(
+        parts(
+            editor
+                .save(Cursor::new(Vec::new()), SaveOptions::default())
+                .unwrap()
+                .0
+                .get_ref()
+        ),
+        data
+    );
+}
+
+#[test]
+fn chain_graph_scan_is_bounded_and_alternate_consumers_guarded() {
+    let mut data = calculation_chain_source();
+    let xml = format!(
+        "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><!--{}--></Relationships>",
+        "x".repeat(9000)
+    );
+    data.insert("custom/_rels/original.xml.rels".into(), xml.into_bytes());
+    let error = WorkbookEditor::with_options(
+        Cursor::new(packed(&data)),
+        EditorOptions {
+            resources: ResourceLimits {
+                max_metadata_bytes: 8192,
+                ..ResourceLimits::default()
+            },
+            ..EditorOptions::default()
+        },
+    )
+    .err()
+    .unwrap();
+    assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+    data.remove("custom/_rels/original.xml.rels");
+    data.insert("custom/_rels/original.xml.rels".into(),b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice Requires=\"x\" xmlns:x=\"urn:unknown\"><Relationship Id=\"chain\" Type=\"urn:opaque\" Target=\"order.xml\"/></mc:Choice></mc:AlternateContent></Relationships>".to_vec());
+    let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    assert_eq!(
+        editor
+            .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(
+        parts(
+            editor
+                .save(Cursor::new(Vec::new()), SaveOptions::default())
+                .unwrap()
+                .0
+                .get_ref()
+        ),
+        data
+    );
 }

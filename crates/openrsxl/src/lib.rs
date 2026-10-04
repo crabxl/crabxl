@@ -42,7 +42,9 @@ pub use openrsxl_core::{
 
 pub use openrsxl_core::{CellRange, EditLimits, Worksheet};
 
-pub use openrsxl_xlsx::{EditorOptions, PartInfo, SaveOptions, SaveStats, WorkbookEditor};
+pub use openrsxl_xlsx::{
+    CalculationChainPolicy, EditorOptions, PartInfo, SaveOptions, SaveStats, WorkbookEditor,
+};
 
 pub use openrsxl_core::MemoryAllowance;
 pub use openrsxl_xlsx::memory_allowance;

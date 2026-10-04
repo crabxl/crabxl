@@ -602,13 +602,13 @@ fn read_workbook<R: Read + Seek>(
     }
 }
 
-fn relationship_is(value: &str, kind: &str) -> bool {
+pub(crate) fn relationship_is(value: &str, kind: &str) -> bool {
     value.strip_prefix("http://schemas.openxmlformats.org/officeDocument/2006/relationships/")
         == Some(kind)
         || value.strip_prefix("http://purl.oclc.org/ooxml/officeDocument/relationships/")
             == Some(kind)
 }
-fn relationship_part(part: &str) -> String {
+pub(crate) fn relationship_part(part: &str) -> String {
     match part.rsplit_once('/') {
         Some((folder, file)) => format!("{folder}/_rels/{file}.rels"),
         None => format!("_rels/{part}.rels"),
@@ -643,4 +643,21 @@ pub(crate) fn resolve_part(source: &str, target: &str) -> Result<String> {
         return Err(invalid("Empty internal part URI"));
     }
     Ok(segments.join("/"))
+}
+
+pub(crate) fn relationship_source(part: &str) -> Option<String> {
+    let (prefix, name) = if let Some(name) = part.strip_prefix("_rels/") {
+        ("", name)
+    } else {
+        part.rsplit_once("/_rels/")?
+    };
+    let name = name.strip_suffix(".rels")?;
+    if name.contains('/') {
+        return None;
+    }
+    Some(if prefix.is_empty() {
+        name.into()
+    } else {
+        format!("{prefix}/{name}")
+    })
 }

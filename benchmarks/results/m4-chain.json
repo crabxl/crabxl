@@ -1,0 +1,302 @@
+{
+  "scope": "Default derived calculation-chain discard, explicit rejection policy, coordinated part/relationship/content-type removal; not loaded structural editing",
+  "versions": "Rust 1.88 release, openpyxl 3.1.5, Python 3.12; before editor at 1f7e870/d576595 equivalent edit path",
+  "cases": [
+    {
+      "workload": "chain-edit",
+      "rows": 10000,
+      "columns": 10,
+      "chain_xml_bytes": 198983,
+      "runs": [
+        {
+          "seconds": 0.666810569,
+          "cpu_seconds": 0.666329,
+          "peak_rss_kib": 2616,
+          "stdout": "5 4 3639543 536",
+          "observed_extra_temp_bytes": 432827,
+          "engine": "openrsxl-native",
+          "checksum": "90000 4499989999",
+          "output_bytes": 444048,
+          "cleanup": true
+        },
+        {
+          "seconds": 1.146341192,
+          "cpu_seconds": 1.351375,
+          "peak_rss_kib": 84708,
+          "stdout": "Edited A1",
+          "observed_extra_temp_bytes": 3707194,
+          "engine": "openpyxl",
+          "checksum": "90000 4499989999",
+          "output_bytes": 367977,
+          "cleanup": true
+        },
+        {
+          "seconds": 1.203040309,
+          "cpu_seconds": 1.353907,
+          "peak_rss_kib": 84716,
+          "stdout": "Edited A1",
+          "observed_extra_temp_bytes": 3707194,
+          "engine": "openpyxl",
+          "checksum": "90000 4499989999",
+          "output_bytes": 367979,
+          "cleanup": true
+        },
+        {
+          "seconds": 0.679026613,
+          "cpu_seconds": 0.678757,
+          "peak_rss_kib": 2708,
+          "stdout": "5 4 3639543 536",
+          "observed_extra_temp_bytes": 432827,
+          "engine": "openrsxl-native",
+          "checksum": "90000 4499989999",
+          "output_bytes": 444048,
+          "cleanup": true
+        },
+        {
+          "seconds": 0.669747845,
+          "cpu_seconds": 0.669362,
+          "peak_rss_kib": 2680,
+          "stdout": "5 4 3639543 536",
+          "observed_extra_temp_bytes": 432827,
+          "engine": "openrsxl-native",
+          "checksum": "90000 4499989999",
+          "output_bytes": 444048,
+          "cleanup": true
+        },
+        {
+          "seconds": 1.159771726,
+          "cpu_seconds": 1.31454,
+          "peak_rss_kib": 84708,
+          "stdout": "Edited A1",
+          "observed_extra_temp_bytes": 3707194,
+          "engine": "openpyxl",
+          "checksum": "90000 4499989999",
+          "output_bytes": 367979,
+          "cleanup": true
+        }
+      ]
+    },
+    {
+      "workload": "editor-regression",
+      "rows": 10000,
+      "columns": 10,
+      "chain_xml_bytes": 198983,
+      "runs": [
+        {
+          "seconds": 0.723355184,
+          "cpu_seconds": 0.721233,
+          "peak_rss_kib": 2300,
+          "stdout": "7 2 3677939 536",
+          "observed_extra_temp_bytes": 404010,
+          "engine": "before",
+          "checksum": "100000 4999949999",
+          "output_bytes": 411715,
+          "cleanup": true
+        },
+        {
+          "seconds": 0.722478137,
+          "cpu_seconds": 0.717723,
+          "peak_rss_kib": 2448,
+          "stdout": "7 2 3677939 536",
+          "observed_extra_temp_bytes": 388072,
+          "engine": "current",
+          "checksum": "100000 4999949999",
+          "output_bytes": 411715,
+          "cleanup": true
+        },
+        {
+          "seconds": 0.674974017,
+          "cpu_seconds": 0.674756,
+          "peak_rss_kib": 2500,
+          "stdout": "7 2 3677939 536",
+          "observed_extra_temp_bytes": 404010,
+          "engine": "current",
+          "checksum": "100000 4999949999",
+          "output_bytes": 411715,
+          "cleanup": true
+        },
+        {
+          "seconds": 0.685064992,
+          "cpu_seconds": 0.684899,
+          "peak_rss_kib": 2448,
+          "stdout": "7 2 3677939 536",
+          "observed_extra_temp_bytes": 404010,
+          "engine": "before",
+          "checksum": "100000 4999949999",
+          "output_bytes": 411715,
+          "cleanup": true
+        },
+        {
+          "seconds": 0.683358699,
+          "cpu_seconds": 0.68315,
+          "peak_rss_kib": 2448,
+          "stdout": "7 2 3677939 536",
+          "observed_extra_temp_bytes": 404010,
+          "engine": "before",
+          "checksum": "100000 4999949999",
+          "output_bytes": 411715,
+          "cleanup": true
+        },
+        {
+          "seconds": 0.699404678,
+          "cpu_seconds": 0.69522,
+          "peak_rss_kib": 2364,
+          "stdout": "7 2 3677939 536",
+          "observed_extra_temp_bytes": 404010,
+          "engine": "current",
+          "checksum": "100000 4999949999",
+          "output_bytes": 411715,
+          "cleanup": true
+        }
+      ]
+    },
+    {
+      "workload": "chain-edit",
+      "rows": 100000,
+      "columns": 10,
+      "chain_xml_bytes": 2088984,
+      "runs": [
+        {
+          "seconds": 6.684896326,
+          "cpu_seconds": 6.680913,
+          "peak_rss_kib": 2708,
+          "stdout": "5 4 38469555 536",
+          "observed_extra_temp_bytes": 4109287,
+          "engine": "openrsxl-native",
+          "checksum": "900000 449999899999",
+          "output_bytes": 4123677,
+          "cleanup": true
+        },
+        {
+          "seconds": 12.588255397,
+          "cpu_seconds": 12.779094,
+          "peak_rss_kib": 545796,
+          "stdout": "Edited A1",
+          "observed_extra_temp_bytes": 39167207,
+          "engine": "openpyxl",
+          "checksum": "900000 449999899999",
+          "output_bytes": 3571469,
+          "cleanup": true
+        },
+        {
+          "seconds": 12.903503869,
+          "cpu_seconds": 13.089087,
+          "peak_rss_kib": 545676,
+          "stdout": "Edited A1",
+          "observed_extra_temp_bytes": 39167207,
+          "engine": "openpyxl",
+          "checksum": "900000 449999899999",
+          "output_bytes": 3571468,
+          "cleanup": true
+        },
+        {
+          "seconds": 6.725741247,
+          "cpu_seconds": 6.724598,
+          "peak_rss_kib": 2712,
+          "stdout": "5 4 38469555 536",
+          "observed_extra_temp_bytes": 4109287,
+          "engine": "openrsxl-native",
+          "checksum": "900000 449999899999",
+          "output_bytes": 4123677,
+          "cleanup": true
+        },
+        {
+          "seconds": 9.307550668,
+          "cpu_seconds": 6.750449,
+          "peak_rss_kib": 2572,
+          "stdout": "5 4 38469555 536",
+          "observed_extra_temp_bytes": 4109287,
+          "engine": "openrsxl-native",
+          "checksum": "900000 449999899999",
+          "output_bytes": 4123677,
+          "cleanup": true
+        },
+        {
+          "seconds": 12.668803494,
+          "cpu_seconds": 12.86612,
+          "peak_rss_kib": 545676,
+          "stdout": "Edited A1",
+          "observed_extra_temp_bytes": 39167207,
+          "engine": "openpyxl",
+          "checksum": "900000 449999899999",
+          "output_bytes": 3571466,
+          "cleanup": true
+        }
+      ]
+    },
+    {
+      "workload": "editor-regression",
+      "rows": 100000,
+      "columns": 10,
+      "chain_xml_bytes": 2088984,
+      "runs": [
+        {
+          "seconds": 6.803358996,
+          "cpu_seconds": 6.802865,
+          "peak_rss_kib": 2380,
+          "stdout": "7 2 38867950 536",
+          "observed_extra_temp_bytes": 3852249,
+          "engine": "before",
+          "checksum": "1000000 499999499999",
+          "output_bytes": 3868672,
+          "cleanup": true
+        },
+        {
+          "seconds": 6.518341372,
+          "cpu_seconds": 6.512862,
+          "peak_rss_kib": 2496,
+          "stdout": "7 2 38867950 536",
+          "observed_extra_temp_bytes": 3852249,
+          "engine": "current",
+          "checksum": "1000000 499999499999",
+          "output_bytes": 3868672,
+          "cleanup": true
+        },
+        {
+          "seconds": 6.725409973,
+          "cpu_seconds": 6.72489,
+          "peak_rss_kib": 2452,
+          "stdout": "7 2 38867950 536",
+          "observed_extra_temp_bytes": 3852249,
+          "engine": "current",
+          "checksum": "1000000 499999499999",
+          "output_bytes": 3868672,
+          "cleanup": true
+        },
+        {
+          "seconds": 6.693904016,
+          "cpu_seconds": 6.656204,
+          "peak_rss_kib": 2472,
+          "stdout": "7 2 38867950 536",
+          "observed_extra_temp_bytes": 3852249,
+          "engine": "before",
+          "checksum": "1000000 499999499999",
+          "output_bytes": 3868672,
+          "cleanup": true
+        },
+        {
+          "seconds": 6.894278469,
+          "cpu_seconds": 6.89157,
+          "peak_rss_kib": 2368,
+          "stdout": "7 2 38867950 536",
+          "observed_extra_temp_bytes": 3852249,
+          "engine": "before",
+          "checksum": "1000000 499999499999",
+          "output_bytes": 3868672,
+          "cleanup": true
+        },
+        {
+          "seconds": 6.679151745,
+          "cpu_seconds": 6.67654,
+          "peak_rss_kib": 2412,
+          "stdout": "7 2 38867950 536",
+          "observed_extra_temp_bytes": 3852249,
+          "engine": "current",
+          "checksum": "1000000 499999499999",
+          "output_bytes": 3868672,
+          "cleanup": true
+        }
+      ]
+    }
+  ]
+}
