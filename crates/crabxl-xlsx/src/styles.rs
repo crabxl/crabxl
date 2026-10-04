@@ -42,7 +42,7 @@ pub(crate) fn validate(style: &CellStyle, maximum: usize) -> Result<()> {
     }
     Ok(())
 }
-fn attr(value: &str) -> String {
+pub(crate) fn attr(value: &str) -> String {
     quick_xml::escape::escape(value)
         .replace('\r', "&#13;")
         .replace('\n', "&#10;")

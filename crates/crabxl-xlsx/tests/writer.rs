@@ -668,3 +668,242 @@ fn inline_escape_looking_literals_round_trip_without_changing_spelling() {
         expected.cells
     );
 }
+
+fn rich_value() -> CellValue {
+    use crabxl_core::{
+        Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText, RichTextRun,
+        RunFont, TextVerticalAlignment, Underline,
+    };
+    CellValue::RichText(Box::new(RichText {
+        runs: vec![
+            RichTextRun {
+                text: " <&> _x005F_x0041_ \r\n🦀 ".into(),
+                font: Some(Box::new(RunFont {
+                    name: Some("Quoted \" &\t\n\r".into()),
+                    size: Some(12.5),
+                    bold: Some(true),
+                    italic: Some(false),
+                    strike: Some(false),
+                    outline: Some(true),
+                    shadow: Some(true),
+                    condense: Some(false),
+                    extend: Some(true),
+                    underline: Some(Underline::DoubleAccounting),
+                    vertical: Some(TextVerticalAlignment::Superscript),
+                    charset: Some(128),
+                    family: Some(3),
+                    scheme: Some(FontScheme::Minor),
+                    color: Some(Color {
+                        kind: ColorKind::Argb(0x80445566),
+                        tint: Some(-0.25),
+                    }),
+                })),
+            },
+            RichTextRun {
+                text: "tail".into(),
+                font: None,
+            },
+            RichTextRun {
+                text: "".into(),
+                font: Some(Box::default()),
+            },
+        ],
+        phonetic_runs: vec![PhoneticRun {
+            start: 0,
+            end: 2,
+            text: " pronunciation ".into(),
+        }],
+        phonetic_properties: Some(Box::new(PhoneticProperties {
+            font_id: 0,
+            kind: Some("Hiragana".into()),
+            alignment: Some("center".into()),
+        })),
+    }))
+}
+
+#[test]
+fn typed_rich_runs_fonts_colors_phonetics_and_empty_style_round_trip() {
+    use crabxl_core::ReadOptions;
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let expected = row(0, vec![rich_value()]);
+    writer.write_row(&expected).unwrap();
+    let mut book = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    let typed = book
+        .rows_with_options(
+            "Sheet",
+            ReadOptions {
+                rich_text: true,
+                ..ReadOptions::default()
+            },
+        )
+        .unwrap()
+        .next_row()
+        .unwrap()
+        .unwrap();
+    let mut normalized = expected.cells.clone();
+    if let CellValue::RichText(value) = &mut normalized[0].value {
+        value.runs[0].text = value.runs[0].text.replace("x005F_", "").into_boxed_str();
+    }
+    assert_eq!(typed.cells, normalized);
+    let CellValue::RichText(value) = &expected.cells[0].value else {
+        panic!("Expected rich text")
+    };
+    assert_eq!(
+        book.read_sheet("Sheet").unwrap().rows[0].cells[0].value,
+        CellValue::text(value.plain_text().unwrap())
+    );
+    assert_eq!(size_of::<CellValue>(), 16);
+}
+
+#[test]
+fn rich_invalid_fonts_budgets_and_phonetic_references_are_atomic() {
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let before = writer.temporary_bytes();
+    for mode in 0..4 {
+        let CellValue::RichText(mut value) = rich_value() else {
+            unreachable!()
+        };
+        match mode {
+            0 => value.runs[0].font.as_mut().unwrap().size = Some(f64::NAN),
+            1 => value.phonetic_properties.as_mut().unwrap().font_id = 100,
+            2 => value.phonetic_runs[0].start = 3,
+            _ => value.runs[0].text = "bad\0text".into(),
+        }
+        assert_eq!(
+            writer
+                .write_row(&row(0, vec![CellValue::RichText(value)]))
+                .unwrap_err()
+                .kind(),
+            ErrorKind::InvalidData
+        );
+        assert_eq!(writer.temporary_bytes(), before);
+    }
+    writer.write_row(&row(0, vec![rich_value()])).unwrap();
+    assert!(writer.finish(Cursor::new(Vec::new())).is_ok());
+    assert!(crabxl_core::Formula::new("1", Some(rich_value())).is_err());
+    let mut limited = WorkbookWriter::new(WriteOptions {
+        max_cell_bytes: 100,
+        ..Default::default()
+    })
+    .unwrap();
+    limited.start_sheet("Sheet").unwrap();
+    let before = limited.temporary_bytes();
+    assert_eq!(
+        limited
+            .write_row(&row(0, vec![rich_value()]))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::LimitExceeded
+    );
+    assert_eq!(limited.temporary_bytes(), before);
+    limited
+        .write_row(&row(0, vec![CellValue::text("retry")]))
+        .unwrap();
+    assert!(limited.finish(Cursor::new(Vec::new())).is_ok());
+}
+
+#[test]
+fn rich_existing_literal_replacement_preserves_other_cells_and_repeats() {
+    use crabxl_core::ReadOptions;
+    use crabxl_xlsx::WorkbookEditor;
+    let CellValue::RichText(mut value) = rich_value() else {
+        unreachable!()
+    };
+    value.phonetic_properties = None;
+    value.phonetic_runs.clear();
+    let original = CellValue::RichText(value);
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    writer
+        .write_row(&row(0, vec![original, CellValue::Integer(42)]))
+        .unwrap();
+    let mut editor = WorkbookEditor::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    use crabxl_core::{RichText, RichTextRun};
+    let replacement = CellValue::RichText(Box::new(RichText {
+        runs: vec![RichTextRun {
+            text: "edited".into(),
+            font: None,
+        }],
+        ..RichText::default()
+    }));
+    editor
+        .set_value(
+            "Sheet",
+            CellAddress::new(0, 0).unwrap(),
+            replacement.clone(),
+        )
+        .unwrap();
+    for _ in 0..2 {
+        let (out, _) = editor
+            .save(Cursor::new(Vec::new()), crabxl_xlsx::SaveOptions::default())
+            .unwrap();
+        let mut book = WorkbookReader::new(out).unwrap();
+        let cells = book
+            .rows_with_options(
+                "Sheet",
+                ReadOptions {
+                    rich_text: true,
+                    ..ReadOptions::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap()
+            .cells;
+        assert_eq!(cells[0].value, replacement);
+        assert_eq!(cells[1].value, CellValue::Integer(42));
+    }
+}
+
+#[test]
+fn rich_color_references_and_absent_or_zero_tints_round_trip() {
+    use crabxl_core::{Color, ColorKind, ReadOptions, RichText, RichTextRun, RunFont};
+    let values: Vec<_> = [
+        ColorKind::Unspecified,
+        ColorKind::Argb(0x00112233),
+        ColorKind::Theme(7),
+        ColorKind::Indexed(64),
+        ColorKind::Auto(false),
+        ColorKind::Auto(true),
+    ]
+    .into_iter()
+    .flat_map(|kind| {
+        [None, Some(0.0), Some(1.0)]
+            .into_iter()
+            .map(move |tint| (kind, tint))
+    })
+    .map(|(kind, tint)| {
+        CellValue::RichText(Box::new(RichText {
+            runs: vec![RichTextRun {
+                text: "color".into(),
+                font: Some(Box::new(RunFont {
+                    color: Some(Color { kind, tint }),
+                    ..Default::default()
+                })),
+            }],
+            ..Default::default()
+        }))
+    })
+    .collect();
+    let expected = row(0, values);
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    writer.write_row(&expected).unwrap();
+    let mut book = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    let actual = book
+        .rows_with_options(
+            "Sheet",
+            ReadOptions {
+                rich_text: true,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .next_row()
+        .unwrap()
+        .unwrap();
+    assert_eq!(actual.cells, expected.cells);
+}

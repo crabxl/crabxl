@@ -16841,6 +16841,36 @@
         "crates/crabxl-xlsx/tests/streaming.rs::shared_string_crc_and_xml_failures_leave_no_prepared_table"
       ],
       "limitations": "Plain strings only; rich/phonetic entries explicitly reject selected access. Preparation validates the entire SST; component budgets and owned caller rows are additional. Not complete M2."
+    },
+    {
+      "id": "read.rich-text",
+      "description": "Bounded typed rich runs, run font/color references, phonetic annotations and explicit display-text projection",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "partial",
+        "preserve": "partial"
+      },
+      "modes": [
+        "streaming",
+        "materialized",
+        "sequential-write",
+        "original-package-edit"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/rich_text.html",
+      "modules": [
+        "crates/crabxl-core/src/rich_text.rs",
+        "crates/crabxl-xlsx/src/rich_text.rs",
+        "crates/crabxl-xlsx/src/strings.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/streaming.rs::shared_rich_metadata_upgrade_disk_cache_and_protected_run_boundaries",
+        "crates/crabxl-xlsx/tests/writer.rs::typed_rich_runs_fonts_colors_phonetics_and_empty_style_round_trip",
+        "crates/crabxl-xlsx/tests/writer.rs::rich_existing_literal_replacement_preserves_other_cells_and_repeats"
+      ],
+      "limitations": "Narrow checkpoint, not the full rich public baseline. Imported font/theme resolution and new phonetic font assignment in existing packages are staged. Unknown extensions reject typed access. Python rich_text=True remains explicitly unsupported until compatible rich classes/conversion exist."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

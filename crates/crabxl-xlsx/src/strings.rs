@@ -5,7 +5,7 @@
 
 use crate::{
     memory_allowance,
-    xml::{Scope, XmlStream, append_xml_text},
+    xml::{Scope, XmlStream},
 };
 use crabxl_core::{CellValue, Error, ErrorKind, MemoryPolicy, ResourceLimits, Result};
 use quick_xml::events::Event;
@@ -64,7 +64,9 @@ pub struct SharedStringStats {
     pub budget_bytes: usize,
     /// Bytes available for retained table/cache after parser reserve.
     pub retained_allowance_bytes: usize,
-    /// Number of actual parsed entries, including unsupported rich entries.
+    /// Whether the prepared table retains rich metadata.
+    pub rich_text_preserved: bool,
+    /// Number of actual parsed entries, including unsupported extension entries.
     pub entries: u64,
     /// Whether payloads and index were spilled to owned files.
     pub disk_backed: bool,
@@ -78,21 +80,60 @@ pub struct SharedStringStats {
     pub disk_reads: u64,
 }
 
+#[derive(Clone)]
 enum Entry {
     Text(Box<str>),
+    Rich(Box<crabxl_core::RichText>),
     Unsupported,
 }
 impl Entry {
     fn payload_bytes(&self) -> usize {
         match self {
             Self::Text(s) => s.len(),
+            Self::Rich(v) => v.memory_bytes(),
             Self::Unsupported => 0,
         }
     }
-    fn value(&self) -> Result<CellValue> {
+    fn view(&self) -> EntryView<'_> {
+        match self {
+            Self::Text(v) => EntryView::Text(v),
+            Self::Rich(v) => EntryView::Rich(v),
+            Self::Unsupported => EntryView::Unsupported,
+        }
+    }
+    fn value(&self, preserve: bool) -> Result<CellValue> {
         match self {
             Self::Text(s) => Ok(CellValue::text(s.as_ref())),
+            Self::Rich(v) if preserve => {
+                let mut value = (**v).clone();
+                for run in &mut value.runs {
+                    crate::rich_text::unprotect(&mut run.text);
+                }
+                Ok(CellValue::RichText(Box::new(value)))
+            }
+            Self::Rich(v) => {
+                let text = v.plain_text()?;
+                Ok(CellValue::text(if text.contains("x005F_") {
+                    text.replace("x005F_", "").into_boxed_str()
+                } else {
+                    text
+                }))
+            }
             Self::Unsupported => Err(unsupported()),
+        }
+    }
+}
+enum EntryView<'a> {
+    Text(&'a str),
+    Rich(&'a crabxl_core::RichText),
+    Unsupported,
+}
+impl EntryView<'_> {
+    fn payload_bytes(&self) -> usize {
+        match self {
+            Self::Text(v) => v.len(),
+            Self::Rich(v) => v.memory_bytes(),
+            Self::Unsupported => 0,
         }
     }
 }
@@ -118,8 +159,18 @@ impl Disk {
             payload_bytes: 0,
         })
     }
-    fn push(&mut self, entry: &Entry, maximum: u64) -> Result<()> {
-        let length = entry.payload_bytes() as u64;
+    fn push(&mut self, entry: EntryView<'_>, maximum: u64) -> Result<()> {
+        let length = if let EntryView::Rich(value) = entry {
+            let mut count = CountBytes(0);
+            crate::rich_text::write_stored(&mut count, value)
+                .map_err(|e| io_error("Cannot measure stored rich text", e))?;
+            if count.0 >= RICH_FLAG {
+                return Err(limit("Stored rich text is too large"));
+            }
+            count.0
+        } else {
+            entry.payload_bytes() as u64
+        };
         let next = self
             .bytes
             .checked_add(16)
@@ -129,18 +180,24 @@ impl Disk {
         self.index
             .write_all(&self.payload_bytes.to_le_bytes())
             .map_err(|e| io_error("Cannot write shared-string index", e))?;
-        let encoded_length = if matches!(entry, Entry::Unsupported) {
+        let encoded_length = if matches!(entry, EntryView::Unsupported) {
             u64::MAX
+        } else if matches!(entry, EntryView::Rich(_)) {
+            length | RICH_FLAG
         } else {
             length
         };
         self.index
             .write_all(&encoded_length.to_le_bytes())
             .map_err(|e| io_error("Cannot write shared-string index", e))?;
-        if let Entry::Text(text) = entry {
+        if let EntryView::Text(text) = entry {
             self.data
                 .write_all(text.as_bytes())
                 .map_err(|e| io_error("Cannot write shared-string payload", e))?;
+        }
+        if let EntryView::Rich(value) = entry {
+            crate::rich_text::write_stored(&mut self.data, value)
+                .map_err(|e| io_error("Cannot write rich shared-string payload", e))?;
         }
         self.payload_bytes += length;
         self.bytes = next;
@@ -158,15 +215,17 @@ impl Disk {
 }
 struct CacheEntry {
     id: u64,
-    text: Box<str>,
+    value: Entry,
 }
 pub(crate) struct SharedStrings {
     memory: Vec<Entry>,
+    plain_memory: Vec<Option<Box<str>>>,
     disk: Option<Disk>,
     cache: Vec<Option<CacheEntry>>,
     cache_payload: usize,
     cache_maximum: usize,
     stats: SharedStringStats,
+    limits: ResourceLimits,
 }
 impl SharedStrings {
     pub(crate) fn parse<B: BufRead>(
@@ -174,8 +233,9 @@ impl SharedStrings {
         part: String,
         limits: ResourceLimits,
         options: &SharedStringOptions,
+        preserve_rich: bool,
     ) -> Result<Self> {
-        let result = Self::parse_impl(input, part.clone(), limits, options);
+        let result = Self::parse_impl(input, part.clone(), limits, options, preserve_rich);
         result.map_err(|e| e.with_part(part))
     }
     fn parse_impl<B: BufRead>(
@@ -183,16 +243,20 @@ impl SharedStrings {
         part: String,
         limits: ResourceLimits,
         options: &SharedStringOptions,
+        preserve_rich: bool,
     ) -> Result<Self> {
         let allowance_details = memory_allowance(options.memory_policy, limits)?;
         let allowance = allowance_details.retained_data_bytes;
         let mut table = Self {
+            limits,
             memory: Vec::new(),
+            plain_memory: Vec::new(),
             disk: None,
             cache: Vec::new(),
             cache_payload: 0,
             cache_maximum: options.cache_bytes.min(allowance),
             stats: SharedStringStats {
+                rich_text_preserved: preserve_rich,
                 budget_bytes: allowance_details.budget_bytes,
                 retained_allowance_bytes: allowance,
                 ..SharedStringStats::default()
@@ -220,7 +284,7 @@ impl SharedStrings {
                     if table.stats.entries >= options.max_entries {
                         return Err(limit("Shared-string entry limit exceeded"));
                     }
-                    let entry = parse_entry(&mut xml, limits.max_cell_bytes)?;
+                    let entry = parse_entry(&mut xml, limits.max_cell_bytes, preserve_rich)?;
                     table.push(entry, options, allowance)?;
                 }
                 Event::Start(_) => return Err(invalid("Unexpected shared-string table element")),
@@ -264,17 +328,28 @@ impl SharedStrings {
         allowance: usize,
     ) -> Result<()> {
         if self.disk.is_none() {
-            let payload = self
-                .stats
-                .managed_bytes
-                .saturating_sub(self.memory.capacity() * size_of::<Entry>());
-            let capacity = if self.memory.len() == self.memory.capacity() {
-                self.memory.capacity().saturating_mul(2).max(16)
+            let rich = self.stats.rich_text_preserved;
+            let (len, capacity, slot) = if rich {
+                (
+                    self.memory.len(),
+                    self.memory.capacity(),
+                    size_of::<Entry>(),
+                )
             } else {
-                self.memory.capacity()
+                (
+                    self.plain_memory.len(),
+                    self.plain_memory.capacity(),
+                    size_of::<Option<Box<str>>>(),
+                )
             };
-            let required = capacity
-                .saturating_mul(size_of::<Entry>())
+            let payload = self.stats.managed_bytes.saturating_sub(capacity * slot);
+            let wanted = if len == capacity {
+                capacity.saturating_mul(2).max(16)
+            } else {
+                capacity
+            };
+            let required = wanted
+                .saturating_mul(slot)
                 .saturating_add(payload)
                 .saturating_add(entry.payload_bytes());
             if required > allowance {
@@ -285,26 +360,43 @@ impl SharedStrings {
                     ));
                 }
                 let mut disk = Disk::new(options)?;
-                for old in &self.memory {
-                    disk.push(old, options.max_temp_bytes)?;
+                if rich {
+                    for old in &self.memory {
+                        disk.push(old.view(), options.max_temp_bytes)?;
+                    }
+                } else {
+                    for old in &self.plain_memory {
+                        disk.push(
+                            old.as_deref()
+                                .map_or(EntryView::Unsupported, EntryView::Text),
+                            options.max_temp_bytes,
+                        )?;
+                    }
                 }
                 self.memory = Vec::new();
+                self.plain_memory = Vec::new();
                 self.disk = Some(disk);
                 self.stats.managed_bytes = 0;
             } else {
-                self.memory
-                    .try_reserve_exact(capacity - self.memory.len())
-                    .map_err(|e| {
-                        Error::caused_by(
-                            ErrorKind::MemoryBudgetExceeded,
-                            "Cannot allocate shared-string table",
-                            e,
-                        )
-                    })?;
-                let actual = self
-                    .memory
-                    .capacity()
-                    .saturating_mul(size_of::<Entry>())
+                let result = if rich {
+                    self.memory.try_reserve_exact(wanted - len)
+                } else {
+                    self.plain_memory.try_reserve_exact(wanted - len)
+                };
+                result.map_err(|e| {
+                    Error::caused_by(
+                        ErrorKind::MemoryBudgetExceeded,
+                        "Cannot allocate shared-string table",
+                        e,
+                    )
+                })?;
+                let actual_capacity = if rich {
+                    self.memory.capacity()
+                } else {
+                    self.plain_memory.capacity()
+                };
+                let actual = actual_capacity
+                    .saturating_mul(slot)
                     .saturating_add(payload)
                     .saturating_add(entry.payload_bytes());
                 if actual > allowance {
@@ -317,19 +409,33 @@ impl SharedStrings {
             }
         }
         if let Some(disk) = &mut self.disk {
-            disk.push(&entry, options.max_temp_bytes)?;
-        } else {
+            disk.push(entry.view(), options.max_temp_bytes)?;
+        } else if self.stats.rich_text_preserved {
             self.memory.push(entry);
+        } else {
+            self.plain_memory.push(match entry {
+                Entry::Text(v) => Some(v),
+                Entry::Unsupported => None,
+                Entry::Rich(_) => {
+                    return Err(invalid("Plain table received unprojected rich data"));
+                }
+            });
         }
         self.stats.entries += 1;
         Ok(())
     }
-    pub(crate) fn get(&mut self, id: u64) -> Result<CellValue> {
+    pub(crate) fn get(&mut self, id: u64, preserve: bool) -> Result<CellValue> {
         if id >= self.stats.entries {
             return Err(invalid("Shared-string ID is outside the actual table"));
         }
         if self.disk.is_none() {
-            return self.memory[id as usize].value();
+            return if self.stats.rich_text_preserved {
+                self.memory[id as usize].value(preserve)
+            } else {
+                self.plain_memory[id as usize]
+                    .as_ref()
+                    .map_or_else(|| Err(unsupported()), |v| Ok(CellValue::text(v.as_ref())))
+            };
         }
         let slot = if self.cache.is_empty() {
             None
@@ -341,7 +447,7 @@ impl SharedStrings {
             .filter(|e| e.id == id)
         {
             self.stats.cache_hits += 1;
-            return Ok(CellValue::text(cached.text.as_ref()));
+            return cached.value.value(preserve);
         }
         self.stats.disk_reads += 1;
         let disk = self
@@ -366,51 +472,75 @@ impl SharedStrings {
         if length == u64::MAX {
             return Err(unsupported());
         }
-        let length = usize::try_from(length)
-            .map_err(|_| limit("Shared-string length exceeds platform bounds"))?;
-        let mut bytes = Vec::new();
-        bytes.try_reserve_exact(length).map_err(|e| {
-            Error::caused_by(
-                ErrorKind::MemoryBudgetExceeded,
-                "Cannot allocate shared-string value",
-                e,
-            )
-        })?;
-        bytes.resize(length, 0);
+        let rich = length & RICH_FLAG != 0;
+        let length = length & !RICH_FLAG;
         disk.data
             .get_mut()
             .seek(SeekFrom::Start(offset))
             .map_err(|e| io_error("Cannot seek shared-string payload", e))?;
-        disk.data
-            .get_mut()
-            .read_exact(&mut bytes)
-            .map_err(|e| io_error("Cannot read shared-string payload", e))?;
-        let text = String::from_utf8(bytes).map_err(|e| {
-            Error::caused_by(
-                ErrorKind::InvalidData,
-                "Shared-string store contains invalid UTF-8",
-                e,
-            )
-        })?;
-        let value = CellValue::text(text.as_str());
+        let entry = if rich {
+            let input = std::io::BufReader::with_capacity(
+                self.limits.input_buffer_bytes,
+                disk.data.get_mut().take(length),
+            );
+            let mut xml =
+                XmlStream::new(input, "<shared-string-store>".into(), length, self.limits);
+            xml.next()?;
+            xml.next()?;
+            let value = crate::rich_text::read_container(
+                &mut xml,
+                2,
+                b"is",
+                self.limits.max_cell_bytes,
+                true,
+            )?;
+            while !matches!(xml.next()?.event, Event::Eof) {}
+            match value {
+                crate::rich_text::ParsedText::Rich(v) => Entry::Rich(v),
+                crate::rich_text::ParsedText::Plain(v) => Entry::Text(v),
+            }
+        } else {
+            let length = usize::try_from(length)
+                .map_err(|_| limit("Shared-string length exceeds platform bounds"))?;
+            let mut bytes = Vec::new();
+            bytes.try_reserve_exact(length).map_err(|e| {
+                Error::caused_by(
+                    ErrorKind::MemoryBudgetExceeded,
+                    "Cannot allocate shared-string value",
+                    e,
+                )
+            })?;
+            bytes.resize(length, 0);
+            disk.data
+                .get_mut()
+                .read_exact(&mut bytes)
+                .map_err(|e| io_error("Cannot read shared-string payload", e))?;
+            let text = String::from_utf8(bytes).map_err(|e| {
+                Error::caused_by(
+                    ErrorKind::InvalidData,
+                    "Shared-string store contains invalid UTF-8",
+                    e,
+                )
+            })?;
+            Entry::Text(text.into_boxed_str())
+        };
+        let value = entry.value(preserve)?;
+        let payload_bytes = entry.payload_bytes();
         if let Some(i) = slot {
             let slots_bytes = self.cache.capacity() * size_of::<Option<CacheEntry>>();
-            if text.len() <= self.cache_maximum.saturating_sub(slots_bytes) {
+            if payload_bytes <= self.cache_maximum.saturating_sub(slots_bytes) {
                 if let Some(old) = self.cache[i].take() {
-                    self.cache_payload -= old.text.len();
+                    self.cache_payload -= old.value.payload_bytes();
                 }
                 let mut candidate = (i + 1) % self.cache.len();
-                while self.cache_payload + text.len() > self.cache_maximum - slots_bytes {
+                while self.cache_payload + payload_bytes > self.cache_maximum - slots_bytes {
                     if let Some(old) = self.cache[candidate].take() {
-                        self.cache_payload -= old.text.len();
+                        self.cache_payload -= old.value.payload_bytes();
                     }
                     candidate = (candidate + 1) % self.cache.len();
                 }
-                self.cache_payload += text.len();
-                self.cache[i] = Some(CacheEntry {
-                    id,
-                    text: text.into_boxed_str(),
-                });
+                self.cache_payload += payload_bytes;
+                self.cache[i] = Some(CacheEntry { id, value: entry });
                 self.stats.managed_bytes = slots_bytes + self.cache_payload;
             }
         }
@@ -421,71 +551,58 @@ impl SharedStrings {
     }
 }
 
-fn parse_entry<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Entry> {
-    let mut text = String::new();
-    let mut seen = false;
-    let mut rich = false;
-    let mut in_text = false;
-    loop {
-        let frame = xml.next()?;
-        match frame.event {
-            Event::Start(e)
-                if frame.scope == Scope::Spreadsheet
-                    && frame.depth == 3
-                    && e.local_name().as_ref() == b"t"
-                    && !rich =>
-            {
-                if seen {
-                    return Err(invalid("Shared string has duplicate plain text elements"));
-                }
-                seen = true;
-                in_text = true;
-            }
-            Event::Start(e)
-                if frame.scope == Scope::Spreadsheet
-                    && frame.depth == 3
-                    && matches!(e.local_name().as_ref(), b"r" | b"rPh" | b"phoneticPr") =>
-            {
-                rich = true;
-            }
-            Event::Start(_) if rich => {}
-            Event::Start(_) => return Err(invalid("Unexpected shared-string entry element")),
-            event @ (Event::Text(_) | Event::CData(_) | Event::GeneralRef(_))
-                if in_text && frame.depth == 3 =>
-            {
-                append_xml_text(&mut text, &event, maximum)?;
-            }
-            Event::End(e)
-                if frame.scope == Scope::Spreadsheet
-                    && frame.depth == 2
-                    && e.local_name().as_ref() == b"t" =>
-            {
-                in_text = false
-            }
-            Event::End(e)
-                if frame.scope == Scope::Spreadsheet
-                    && frame.depth == 1
-                    && e.local_name().as_ref() == b"si" =>
-            {
-                // Match the pinned public shared-string reader's protected-literal behavior.
-                return Ok(if rich {
-                    Entry::Unsupported
-                } else {
-                    Entry::Text(if text.contains("x005F_") {
-                        text.replace("x005F_", "").into_boxed_str()
-                    } else {
-                        text.into_boxed_str()
-                    })
-                });
-            }
-            Event::End(_) if rich => {}
-            Event::Text(t) if rich || t.iter().all(u8::is_ascii_whitespace) => {}
-            Event::CData(_) | Event::GeneralRef(_) if rich => {}
-            Event::Comment(_) | Event::PI(_) => {}
-            _ => return Err(invalid("Invalid shared-string entry content")),
+fn parse_entry<B: BufRead>(
+    xml: &mut XmlStream<B>,
+    maximum: usize,
+    preserve_rich: bool,
+) -> Result<Entry> {
+    match crate::rich_text::read_container(xml, 2, b"si", maximum, preserve_rich) {
+        Ok(crate::rich_text::ParsedText::Plain(text)) => {
+            Ok(Entry::Text(if text.contains("x005F_") {
+                text.replace("x005F_", "").into_boxed_str()
+            } else {
+                text
+            }))
         }
+        Ok(crate::rich_text::ParsedText::Rich(v)) => Ok(Entry::Rich(v)),
+        Err(error) if error.kind() == ErrorKind::Unsupported => {
+            // Retain the ID of unsupported extension entries while validating XML.
+            loop {
+                let f = xml.next()?;
+                match f.event {
+                    Event::End(e)
+                        if f.scope == Scope::Spreadsheet
+                            && f.depth == 1
+                            && e.local_name().as_ref() == b"si" =>
+                    {
+                        break;
+                    }
+                    Event::Eof => {
+                        return Err(invalid("Incomplete unsupported shared-string entry"));
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Entry::Unsupported)
+        }
+        Err(error) => Err(error),
     }
 }
+const RICH_FLAG: u64 = 1 << 63;
+struct CountBytes(u64);
+impl Write for CountBytes {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 = self
+            .0
+            .checked_add(bytes.len() as u64)
+            .ok_or_else(|| std::io::Error::other("Rich-text byte count overflow"))?;
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 fn invalid(message: &str) -> Error {
     Error::new(ErrorKind::InvalidData, message)
 }
@@ -495,7 +612,7 @@ fn limit(message: &str) -> Error {
 fn unsupported() -> Error {
     Error::new(
         ErrorKind::Unsupported,
-        "Rich or phonetic shared strings are not supported yet",
+        "Selected shared-string extension is not supported yet",
     )
 }
 fn io_error(message: &str, cause: std::io::Error) -> Error {

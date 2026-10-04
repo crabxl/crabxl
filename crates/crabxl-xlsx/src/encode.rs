@@ -96,6 +96,19 @@ pub(crate) fn encode_cells<'a>(
         }
         validate_value(&cell.value, maximum_cell, epoch)
             .map_err(|error| error.with_cell(cell.address))?;
+        if let CellValue::RichText(value) = &cell.value {
+            if value
+                .phonetic_properties
+                .as_ref()
+                .is_some_and(|p| p.font_id as usize >= styles.len())
+            {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Phonetic font is not registered in the writer catalog",
+                )
+                .with_cell(cell.address));
+            }
+        }
         if let Some(date) = date_value(&cell.value) {
             let expected = if date.kind() == crabxl_core::DateKind::Duration {
                 crabxl_core::DateKind::Duration
@@ -135,11 +148,13 @@ pub(crate) fn encode_cells<'a>(
                 value => (Some(value), None),
             };
             match literal {
-                Some(CellValue::Text(_)) => buffer.write_all(if formula.is_some() {
-                    b" t=\"str\""
-                } else {
-                    b" t=\"inlineStr\""
-                })?,
+                Some(CellValue::Text(_) | CellValue::RichText(_)) => {
+                    buffer.write_all(if formula.is_some() {
+                        b" t=\"str\""
+                    } else {
+                        b" t=\"inlineStr\""
+                    })?
+                }
                 Some(CellValue::Boolean(_)) => buffer.write_all(b" t=\"b\"")?,
                 Some(CellValue::Error(_)) => buffer.write_all(b" t=\"e\"")?,
                 _ => {}
@@ -156,6 +171,9 @@ pub(crate) fn encode_cells<'a>(
                     buffer.write_all(b"<is><t xml:space=\"preserve\">")?;
                     write_text(buffer, value.as_str())?;
                     buffer.write_all(b"</t></is>")?;
+                }
+                Some(CellValue::RichText(value)) if formula.is_none() => {
+                    crate::rich_text::write_container(buffer, value)?
                 }
                 Some(value) => {
                     buffer.write_all(b"<v>")?;
@@ -213,6 +231,7 @@ pub(crate) fn validate_value(
             "Cannot write a non-finite number",
         )),
         CellValue::Text(value) => validate_text(value.as_str(), maximum),
+        CellValue::RichText(value) => crate::rich_text::validate(value, maximum),
         CellValue::Error(value) => {
             if value.as_str().is_empty() {
                 return Err(Error::new(
@@ -249,7 +268,7 @@ pub(crate) fn validate_value(
     }
 }
 
-fn write_text(output: &mut impl Write, text: &str) -> io::Result<()> {
+pub(crate) fn write_text(output: &mut impl Write, text: &str) -> io::Result<()> {
     let mut start = 0;
     for (offset, ch) in text.char_indices() {
         let replacement = match ch {

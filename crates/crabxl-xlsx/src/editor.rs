@@ -344,6 +344,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             )
             .with_cell(address));
         }
+        if matches!(&value, CellValue::RichText(v) if v.phonetic_properties.is_some()) {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Editing phonetic font references requires the imported font catalog",
+            )
+            .with_cell(address));
+        }
         let epoch = if self.book.date_1904() {
             DateEpoch::Mac1904
         } else {
@@ -678,7 +685,7 @@ fn patched_start(e: &BytesStart<'_>, uri: &str, value: &CellValue) -> Result<Byt
         value => Some(value),
     };
     match literal {
-        Some(CellValue::Text(_)) => start.push_attribute((
+        Some(CellValue::Text(_) | CellValue::RichText(_)) => start.push_attribute((
             "t",
             if matches!(value, CellValue::Formula(_)) {
                 "str"
@@ -1071,6 +1078,20 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                                 if old.depth == 3 && end.local_name().as_ref() == b"c" =>
                             {
                                 break;
+                            }
+                            Event::Start(child)
+                                if old.scope == Scope::Spreadsheet
+                                    && old.depth == 5
+                                    && child.local_name().as_ref() == b"is" =>
+                            {
+                                crate::rich_text::read_container(
+                                    &mut xml,
+                                    5,
+                                    b"is",
+                                    limits.max_cell_bytes,
+                                    true,
+                                )
+                                .map_err(|e| e.with_cell(cell.address))?;
                             }
                             Event::Start(child) => {
                                 if old.scope != Scope::Spreadsheet

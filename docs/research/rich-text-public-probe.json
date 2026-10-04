@@ -1,0 +1,168 @@
+{
+  "reference": "openpyxl 3.1.5 public load_workbook API",
+  "implementation_inspected": false,
+  "cases": [
+    {
+      "location": "shared",
+      "case": "plain-protected",
+      "results": {
+        "False": {
+          "display": "_x0041_",
+          "type": "str"
+        },
+        "True": {
+          "display": "_x0041_",
+          "type": "str"
+        }
+      }
+    },
+    {
+      "location": "shared",
+      "case": "unformatted-protected-run",
+      "results": {
+        "False": {
+          "display": "_x0041_",
+          "type": "str"
+        },
+        "True": {
+          "display": "_x0041_",
+          "type": "str"
+        }
+      }
+    },
+    {
+      "location": "shared",
+      "case": "single-protected-run",
+      "results": {
+        "False": {
+          "display": "_x0041_",
+          "type": "str"
+        },
+        "True": {
+          "display": "_x0041_",
+          "type": "CellRichText",
+          "runs": [
+            "_x0041_"
+          ]
+        }
+      }
+    },
+    {
+      "location": "shared",
+      "case": "cross-run-protection",
+      "results": {
+        "False": {
+          "display": "_x0041_",
+          "type": "str"
+        },
+        "True": {
+          "display": "_x005F_x0041_",
+          "type": "CellRichText",
+          "runs": [
+            "_x005F",
+            "_x0041_"
+          ]
+        }
+      }
+    },
+    {
+      "location": "shared",
+      "case": "whitespace-empty-styled",
+      "results": {
+        "False": {
+          "display": "  ",
+          "type": "str"
+        },
+        "True": {
+          "display": "  ",
+          "type": "CellRichText",
+          "runs": [
+            "  ",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "location": "inline",
+      "case": "plain-protected",
+      "results": {
+        "False": {
+          "display": "_x005F_x0041_",
+          "type": "str"
+        },
+        "True": {
+          "display": "_x0041_",
+          "type": "str"
+        }
+      }
+    },
+    {
+      "location": "inline",
+      "case": "unformatted-protected-run",
+      "results": {
+        "False": {
+          "display": "_x005F_x0041_",
+          "type": "str"
+        },
+        "True": {
+          "display": "_x0041_",
+          "type": "str"
+        }
+      }
+    },
+    {
+      "location": "inline",
+      "case": "single-protected-run",
+      "results": {
+        "False": {
+          "display": "_x005F_x0041_",
+          "type": "str"
+        },
+        "True": {
+          "display": "_x0041_",
+          "type": "CellRichText",
+          "runs": [
+            "_x0041_"
+          ]
+        }
+      }
+    },
+    {
+      "location": "inline",
+      "case": "cross-run-protection",
+      "results": {
+        "False": {
+          "display": "_x005F_x0041_",
+          "type": "str"
+        },
+        "True": {
+          "display": "_x005F_x0041_",
+          "type": "CellRichText",
+          "runs": [
+            "_x005F",
+            "_x0041_"
+          ]
+        }
+      }
+    },
+    {
+      "location": "inline",
+      "case": "whitespace-empty-styled",
+      "results": {
+        "False": {
+          "display": "  ",
+          "type": "str"
+        },
+        "True": {
+          "display": "  ",
+          "type": "CellRichText",
+          "runs": [
+            "  ",
+            ""
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -25,6 +25,8 @@ pub enum CellValue {
     Text(Box<CellText>),
     /// A literal spreadsheet error token.
     Error(Box<CellError>),
+    /// Rich display runs and optional separate pronunciation annotations.
+    RichText(Box<crate::RichText>),
     /// Excel date/time serial with epoch and interpretation.
     DateTime(Box<ExcelDateTime>),
     /// Normal formula with optional typed cached result.
@@ -40,6 +42,7 @@ impl CellValue {
             Self::BigInteger(value) => value.memory_bytes(),
             Self::Text(value) => value.memory_bytes(),
             Self::Error(value) => value.memory_bytes(),
+            Self::RichText(value) => value.memory_bytes(),
             _ => 0,
         }
     }
@@ -142,6 +145,9 @@ pub struct ReadOptions {
     pub columns: Option<RangeInclusive<ColumnIndex>>,
     /// Return cached formula results instead of formulas. Missing caches are Empty.
     pub data_only: bool,
+    /// Preserve rich-text runs and pronunciation metadata rather than projecting
+    /// display text. Plain projection is the reference-compatible default.
+    pub rich_text: bool,
 }
 impl ReadOptions {
     /// Whether the selected row range includes this index.

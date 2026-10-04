@@ -318,6 +318,15 @@ impl<R: Read + Seek> WorkbookReader<R> {
             ));
         }
         let part = sheet.part.clone();
+        if options.rich_text
+            && self
+                .shared_strings
+                .as_ref()
+                .is_some_and(|s| !s.stats().rich_text_preserved)
+        {
+            // Rebuild once when upgrading a plain projection to metadata-preserving reads.
+            self.shared_strings = None;
+        }
         if self.shared_strings.is_none() {
             if let Some(string_part) = &self.shared_string_part {
                 let file = self.archive.by_name(string_part).map_err(|e| {
@@ -334,6 +343,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     string_part.clone(),
                     self.limits,
                     &self.shared_string_options,
+                    options.rich_text,
                 )?;
                 self.shared_strings = Some(strings);
             }

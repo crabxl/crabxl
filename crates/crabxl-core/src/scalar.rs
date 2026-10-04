@@ -16,6 +16,10 @@ impl CellText {
     pub fn as_str(&self) -> &str {
         &self.value
     }
+    /// Transfer the owned text without cloning its payload.
+    pub fn into_string(self) -> Box<str> {
+        self.value
+    }
     /// Heap allocation including the boxed wrapper when stored in CellValue.
     pub fn memory_bytes(&self) -> usize {
         size_of::<Self>() + self.value.len()
