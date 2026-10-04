@@ -1,9 +1,10 @@
-"""Public openpyxl equivalent of the owned sparse workbook/export workload."""
+"""Public compatible Python equivalent of the owned sparse workbook/export workload."""
 import sys
 import time
-import openpyxl
+import importlib
+engine = importlib.import_module(sys.argv[3] if len(sys.argv) > 3 else "openpyxl")
 rows, output = int(sys.argv[1]), sys.argv[2]
-book = openpyxl.Workbook()
+book = engine.Workbook()
 sheet = book.active
 sheet.title = 'Original'
 begin = time.perf_counter()

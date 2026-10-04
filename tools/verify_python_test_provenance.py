@@ -19,7 +19,13 @@ source = subprocess.run(["hg", "--cwd", str(args.reference_checkout), "cat", "-r
 assert hashlib.sha256(source.encode()).hexdigest() == record["source_sha256"]
 
 def methods(text):
-    return {node.name: node for group in ast.parse(text).body if isinstance(group, ast.ClassDef) for node in group.body if isinstance(node, ast.FunctionDef)}
+    result = {}
+    for group in ast.parse(text).body:
+        nodes = group.body if isinstance(group, ast.ClassDef) else [group]
+        for node in nodes:
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+                result[node.name] = node
+    return result
 
 original = methods(source)
 selected = methods((root / record["destination"]).read_text())

@@ -16,10 +16,12 @@ WorkbookWriter borrows bank models through the existing cell encoder; it does no
 
 ## Binding and existing-file boundaries
 
-The Python compatibility adapter now reads and writes active-sheet metadata through existing compatible calls. Its owned sheets still use the earlier native sheet handles with per-model allowances; migration to the aggregate bank remains required. Do not claim that max_memory_bytes currently caps all Python sheets together.
+The Python compatibility adapter now reads and writes active-sheet metadata through existing compatible calls. The subsequent adapter checkpoint migrates registered new-workbook sheets into the aggregate bank using safe owned stable-ID handles. Every mutation borrows the same guarded Rust facade. Removal transfers a model into the retained worksheet handle, preserving Python aliases without charging caller-owned detached data to the bank. Direct standalone Worksheet construction remains separate. Loaded models still use per-model/overlay allowances rather than the aggregate bank; do not claim a loaded all-sheet or whole-process RSS cap.
 
 WorkbookEditor remains the lazy original-package preservation path, using the same core values. Structural changes to existing feature/reference graphs are not implemented by exporting a newly created bank: doing that would lose unsupported original parts. Existing-file structural editing needs coordinated part/relationship changes and typed feature handling before it can be advertised.
 
 ## Verification
 
 Tests cover independent copies, logical extent, owner/removed-handle rejection, rename/reorder, epoch/active output, global bytes/cell limits, transient-operation failure, failed mutation atomicity, and reuse of freed capacity. Python parity covers active selection and readback. Release evidence includes explicit model-copy costs and default writer regression rather than claiming copying is constant memory.
+
+The adapter exposes compatible copy_worksheet, move_sheet, index and deletion. Python list-insertion and active-index semantics are mapped in the compatibility layer; they do not change the Rust stable-ID contract. Long copies release the GIL with only the native bank locked, and release handle locks before reacquiring the GIL. Writer export borrows handle-selected models without cloning cell payloads.

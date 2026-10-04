@@ -399,6 +399,17 @@ impl Drop for WorksheetEditor<'_> {
         self.sheet.set_edit_limits(self.original);
     }
 }
+impl Worksheet {
+    /// Borrow the same checked mutation facade used by owned workbook sheets.
+    /// A standalone sheet enforces its own configured limits.
+    pub fn edit(&mut self) -> WorksheetEditor<'_> {
+        let original = self.edit_limits();
+        WorksheetEditor {
+            sheet: self,
+            original,
+        }
+    }
+}
 impl WorksheetEditor<'_> {
     /// Insert or replace a shared-model cell within aggregate/per-sheet limits.
     pub fn set(&mut self, cell: Cell) -> Result<()> {

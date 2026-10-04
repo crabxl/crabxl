@@ -11,8 +11,9 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--before-python-path', type=Path, required=True)
+parser.add_argument("--python-adapter", action="store_true", help="Compare the same public Python calls against openpyxl")
 args = parser.parse_args()
-report = {'scope': 'Owned sparse workbook, stable sheet IDs, aggregate allowances and active-tab metadata; not loaded structural editing', 'baseline': 'Python writer before owned-workbook checkpoint at c50eca7', 'cases': []}
+report = {'scope': 'Owned sparse workbook, stable sheet IDs, aggregate allowances and active-tab metadata; not loaded structural editing', 'baseline': 'Python writer before owned-workbook checkpoint at c50eca7' if not args.python_adapter else 'Python writer before aggregate adapter at 1f7e870', 'cases': []}
 def measure(command, env, directory):
     p = subprocess.Popen([str(ROOT/'benchmarks/measure'), *map(str, command)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
     peak = 0
@@ -33,6 +34,8 @@ for rows in (10000, 100000):
         directory = Path(name); output = directory/'output.xlsx'
         env = dict(os.environ, TMPDIR=name)
         commands = {'openrsxl-native': [ROOT/'target/release/examples/workbook_demo', rows, output], 'openpyxl': [sys.executable, ROOT/'benchmarks/workbook_reference_run.py', rows, output]}
+        if args.python_adapter:
+            commands = {engine: [sys.executable, ROOT/'benchmarks/workbook_reference_run.py', rows, output, engine] for engine in ('openrsxl', 'openpyxl')}
         for command in commands.values(): measure(command, env, directory)
         runs = []
         for iteration in range(3):
@@ -65,4 +68,4 @@ for rows in (10000, 100000):
                 run.update(version=version,checksum=checksum,output_bytes=output.stat().st_size,cleanup=list(directory.iterdir())==[output]);assert run['cleanup'];runs.append(run)
         report['cases'].append({'workload':'writer-regression','rows':rows,'columns':10,'runs':runs})
         print(rows,'writer',[(v,statistics.median(r['seconds'] for r in runs if r['version']==v)) for v in envs],flush=True)
-(ROOT/'benchmarks/results/m4-workbook.json').write_text(json.dumps(report,indent=2)+'\n')
+(ROOT/('benchmarks/results/m4-python-bank.json' if args.python_adapter else 'benchmarks/results/m4-workbook.json')).write_text(json.dumps(report,indent=2)+'\n')

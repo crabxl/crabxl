@@ -139,4 +139,4 @@ M4 now separates an I/O-free sparse `Worksheet` from a lazy `WorkbookEditor` hol
 
 ## Owned workbook bank
 
-[ADR 0007](decisions/0007-owned-workbook.md) adds the I/O-free shared Workbook bank, stable sheet IDs, aggregate mutation allowances and borrowed writer export. Existing-package preservation retains its lazy editor path. Python active selection uses the common XLSX metadata codec; Python model handles have not yet migrated to aggregate bank ownership.
+[ADR 0007](decisions/0007-owned-workbook.md) adds the I/O-free shared Workbook bank, stable sheet IDs, aggregate mutation allowances and borrowed writer export. Existing-package preservation retains its lazy editor path. Python active selection uses the common XLSX metadata codec; Registered new Python Workbook sheets now use aggregate bank ownership through stable owned handles; loaded models remain in the original-package path with per-model/overlay allowances.

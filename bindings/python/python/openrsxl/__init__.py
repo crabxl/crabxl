@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 from weakref import WeakValueDictionary
 
-from ._native import NativeEditor, NativeReader, NativeSheet, cell_address, column_index, column_letters, finite_range, resolve_model_budget, save_models
+from ._native import NativeBook, NativeEditor, NativeReader, NativeSheet, cell_address, column_index, column_letters, finite_range, resolve_model_budget, save_models
 
 __version__ = "0.1.0"
 _ERRORS = {"#NULL!", "#DIV/0!", "#VALUE!", "#REF!", "#NAME?", "#NUM!", "#N/A", "#GETTING_DATA"}
@@ -148,11 +148,11 @@ class Worksheet:
     """Sparse worksheet using the same public call conventions as openpyxl."""
     __slots__ = ("parent", "_title", "_existing", "_native", "_cells")
 
-    def __init__(self, parent, title=None, *, _existing=False):
+    def __init__(self, parent, title=None, *, _existing=False, _native=None):
         self.parent = parent
         self._title = (title or "Sheet") if _existing else parent._unique_title(title or "Sheet")
         self._existing = _existing
-        self._native = None if _existing else NativeSheet(self._title, parent._max_bytes)
+        self._native = None if _existing else _native if _native is not None else NativeSheet(self._title, parent._max_bytes)
         self._cells = WeakValueDictionary()
         self._validate_title(self._title)
 
@@ -363,7 +363,7 @@ class Worksheet:
 
 class Workbook:
     """Workbook-compatible entry point; models and package editing remain Rust-owned."""
-    __slots__ = ("_max_bytes", "_closed", "_reader", "_editor", "data_only", "read_only", "write_only", "_active", "_sheets")
+    __slots__ = ("_max_bytes", "_closed", "_reader", "_editor", "data_only", "read_only", "write_only", "_active", "_sheets", "_book")
     def __init__(self, write_only=False, iso_dates=False, *, max_memory_bytes=None):
         if write_only or iso_dates:
             raise NotImplementedError("Write-only binding and ISO-date output are not implemented")
@@ -373,7 +373,8 @@ class Workbook:
         self.data_only = self.read_only = self.write_only = False
         self._active = 0
         self._sheets = []
-        self._sheets.append(Worksheet(self, "Sheet"))
+        self._book = NativeBook(self._max_bytes)
+        self.create_sheet("Sheet")
 
     def _check_open(self):
         if self._closed:
@@ -384,14 +385,18 @@ class Workbook:
     @property
     def sheetnames(self): return [sheet.title for sheet in self._sheets]
     @property
-    def active(self): return self._sheets[self._active] if self._active is not None and 0 <= self._active < len(self._sheets) else None
+    def active(self):
+        try:
+            return self._sheets[self._active] if self._active is not None else None
+        except IndexError:
+            return None
     @active.setter
     def active(self, value):
         if self._editor is not None:
             raise NotImplementedError("Changing loaded workbook views is not implemented")
         index = self._sheets.index(value) if isinstance(value, Worksheet) else value
-        if not isinstance(index, int) or not 0 <= index < len(self._sheets):
-            raise ValueError("Active sheet is outside the workbook")
+        if not isinstance(index, int):
+            raise TypeError("Active sheet must be a worksheet or integer index")
         self._active = index
 
     def __getitem__(self, key):
@@ -413,16 +418,58 @@ class Workbook:
         if self._editor is not None:
             raise NotImplementedError("Adding existing-file sheets is not implemented")
         title = self._unique_title(title or "Sheet")
-        sheet = Worksheet(self, title)
-        if index is None: self._sheets.append(sheet)
-        else: self._sheets.insert(index, sheet)
+        Worksheet._validate_title(title)
+        if index is not None and not isinstance(index, int):
+            raise TypeError("Sheet position must be an integer")
+        position = len(self._sheets) if index is None else max(0, min(len(self._sheets), index if index >= 0 else len(self._sheets) + index))
+        native = self._book.create_sheet(title)
+        sheet = Worksheet(self, title, _native=native)
+        if position != len(self._sheets):
+            self._book.move_sheet(native, position)
+        self._sheets.insert(position, sheet)
         return sheet
+
+    def index(self, worksheet):
+        return self._sheets.index(worksheet)
+
+    def move_sheet(self, sheet, offset=0):
+        if self._editor is not None:
+            raise NotImplementedError("Moving existing-file sheets is not implemented")
+        if not isinstance(sheet, Worksheet):
+            sheet = self[sheet]
+        if not isinstance(offset, int):
+            raise TypeError("Sheet offset must be an integer")
+        old = self.index(sheet)
+        remaining = len(self._sheets) - 1
+        index = old + offset
+        # Match list.insert after removing the source, including negative offsets.
+        position = max(0, min(remaining, index if index >= 0 else remaining + index))
+        self._book.move_sheet(sheet._native, position)
+        self._sheets.pop(old)
+        self._sheets.insert(position, sheet)
+
+    def copy_worksheet(self, from_worksheet):
+        if self._editor is not None:
+            raise NotImplementedError("Copying existing-file feature graphs is not implemented")
+        if not isinstance(from_worksheet, Worksheet) or from_worksheet.parent is not self:
+            raise ValueError("Cannot copy between workbooks")
+        self.index(from_worksheet)
+        title = self._unique_title(from_worksheet.title + " Copy")
+        Worksheet._validate_title(title)
+        native = self._book.copy_sheet(from_worksheet._native, title)
+        copied = Worksheet(self, title, _native=native)
+        self._sheets.append(copied)
+        return copied
 
     def remove(self, worksheet):
         if self._editor is not None:
             raise NotImplementedError("Removing existing-file sheets is not implemented")
+        self.index(worksheet)
+        self._book.remove_sheet(worksheet._native)
         self._sheets.remove(worksheet)
-        self._active = 0
+
+    def __delitem__(self, key):
+        self.remove(self[key])
 
     def save(self, filename):
         self._check_open()
@@ -433,7 +480,7 @@ class Workbook:
                 raise NotImplementedError("Saving data-only loaded workbooks is not implemented")
             self._editor.save(Path(filename), False)
         else:
-            save_models(Path(filename), [sheet._model() for sheet in self._sheets], self._active or 0)
+            save_models(Path(filename), [sheet._model() for sheet in self._sheets], self.index(self.active) if self.active is not None else 0)
 
     def close(self):
         if self._reader is not None:
@@ -458,6 +505,7 @@ def load_workbook(filename, read_only=False, keep_vba=False, data_only=False, ke
         workbook.data_only = data_only
         workbook._sheets = [Worksheet(workbook, name, _existing=True) for name in workbook._reader.names()]
         workbook._active = workbook._reader.active_index()
+        workbook._book = None  # Loaded models remain in the original-package path.
     except BaseException:
         workbook._reader.close()
         raise
