@@ -40,11 +40,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             })),
         },
     )?;
+    let empty_input_table = Formula::with_metadata(
+        "",
+        None,
+        FormulaMetadata {
+            kind: FormulaType::DataTable,
+            reference: Some(FormulaRange::from_xml("I1:J2")?),
+            data_table: Some(Box::new(DataTableOptions {
+                two_dimensions: Some(false.into()),
+                row_table: Some(false.into()),
+                input1: Some("".into()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )?;
     let formulas = [
         (0, array),
         (3, table),
         (5, Formula::from_source("=1", None, None)?),
         (6, Formula::from_source("", None, None)?),
+        (8, empty_input_table),
     ];
     let mut row = Row::new(RowIndex::new(0)?);
     for (column, formula) in formulas {

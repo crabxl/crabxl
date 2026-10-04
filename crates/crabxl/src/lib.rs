@@ -34,7 +34,8 @@ pub use crabxl_xlsx::{AdaptiveRead, ReadData};
 pub use crabxl_xlsx::{Rows, SheetInfo, SheetKind, WorkbookReader};
 
 pub use crabxl_xlsx::{
-    NonFiniteWritePolicy, StyleWritePolicy, WorkbookWriter, WriteOptions, WriteStats,
+    FormulaWritePolicy, NonFiniteWritePolicy, StyleWritePolicy, WorkbookWriter, WriteOptions,
+    WriteStats,
 };
 
 pub use crabxl_core::{

@@ -1,0 +1,71 @@
+{
+  "reference": "3.1.5",
+  "inspection": "Public constructors and generated save/reload only; no implementation inspection",
+  "before": {
+    "D1": {
+      "ref": "D1:E2",
+      "ca": false,
+      "dt2D": true,
+      "dtr": false,
+      "r1": "$A$1",
+      "r2": "B1",
+      "del1": false,
+      "del2": true
+    },
+    "I1": {
+      "ref": "I1:J2",
+      "ca": false,
+      "dt2D": false,
+      "dtr": false,
+      "r1": "",
+      "r2": null,
+      "del1": false,
+      "del2": false
+    }
+  },
+  "reference_reloaded": {
+    "D1": {
+      "ref": "D1:E2",
+      "ca": false,
+      "dt2D": "1",
+      "dtr": false,
+      "r1": "$A$1",
+      "r2": "B1",
+      "del1": false,
+      "del2": "1"
+    },
+    "I1": {
+      "ref": "I1:J2",
+      "ca": false,
+      "dt2D": false,
+      "dtr": false,
+      "r1": null,
+      "r2": null,
+      "del1": false,
+      "del2": false
+    }
+  },
+  "native_reloaded": {
+    "D1": {
+      "ref": "D1:E2",
+      "ca": false,
+      "dt2D": "1",
+      "dtr": false,
+      "r1": "$A$1",
+      "r2": "B1",
+      "del1": false,
+      "del2": "1"
+    },
+    "I1": {
+      "ref": "I1:J2",
+      "ca": false,
+      "dt2D": false,
+      "dtr": false,
+      "r1": null,
+      "r2": null,
+      "del1": false,
+      "del2": false
+    }
+  },
+  "native_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\"><c r=\"A1\"><f t=\"array\" ref=\"$A$1:$B$2\">SUM(C1:C2)</f><v>5</v></c><c r=\"D1\"><f t=\"dataTable\" ref=\"D1:E2\" dt2D=\"1\" del2=\"1\" r1=\"$A$1\" r2=\"B1\"></f><v>0</v></c><c r=\"F1\"><f>=1</f></c><c r=\"G1\"><f></f></c><c r=\"I1\"><f t=\"dataTable\" ref=\"I1:J2\"></f></c></row></sheetData></worksheet>"
+}

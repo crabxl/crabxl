@@ -987,3 +987,59 @@ fn replacing_annotated_cells_drops_only_target_references_and_preserves_metadata
         assert_eq!(values.rows[0].cells[1].value, Value::Integer(42));
     }
 }
+
+#[test]
+fn assigned_formula_attributes_follow_the_same_writer_policy_on_repeated_saves() {
+    use crabxl_core::{DataTableOptions, FormulaMetadata, FormulaRange, FormulaType};
+    use crabxl_xlsx::FormulaWritePolicy;
+    for policy in [
+        FormulaWritePolicy::Compatible,
+        FormulaWritePolicy::RetainExplicit,
+    ] {
+        let mut editor = WorkbookEditor::with_options(
+            Cursor::new(source()),
+            EditorOptions {
+                formula_attributes: policy,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let formula = Formula::with_metadata(
+            "",
+            None,
+            FormulaMetadata {
+                kind: FormulaType::DataTable,
+                reference: Some(FormulaRange::from_xml("A1:B2").unwrap()),
+                data_table: Some(Box::new(DataTableOptions {
+                    two_dimensions: Some(false.into()),
+                    input1: Some("".into()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        editor
+            .set_value(
+                "Sheet",
+                Address::new(0, 0).unwrap(),
+                Value::Formula(Box::new(formula)),
+            )
+            .unwrap();
+        for _ in 0..2 {
+            let (output, _) = editor
+                .save(Cursor::new(Vec::new()), SaveOptions::default())
+                .unwrap();
+            let entries = parts(output.get_ref());
+            let xml = std::str::from_utf8(&entries["xl/worksheets/sheet1.xml"]).unwrap();
+            assert_eq!(
+                xml.contains("dt2D=\"0\""),
+                policy == FormulaWritePolicy::RetainExplicit
+            );
+            assert_eq!(
+                xml.contains("r1=\"\""),
+                policy == FormulaWritePolicy::RetainExplicit
+            );
+        }
+    }
+}

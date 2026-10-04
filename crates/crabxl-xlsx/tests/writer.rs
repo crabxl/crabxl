@@ -1657,3 +1657,62 @@ fn theme_and_styles_share_metadata_input_allowance_in_either_order() {
         }
     }
 }
+
+#[test]
+fn formula_attribute_policies_distinguish_owned_false_from_source_spellings() {
+    use crabxl_core::{DataTableOptions, Formula, FormulaFlag, FormulaMetadata, FormulaType};
+    use crabxl_xlsx::FormulaWritePolicy;
+    use std::io::Read;
+    let formula = Formula::with_metadata(
+        "",
+        None,
+        FormulaMetadata {
+            kind: FormulaType::DataTable,
+            reference: Some(crabxl_core::FormulaRange::from_xml("A1:B2").unwrap()),
+            data_table: Some(Box::new(DataTableOptions {
+                two_dimensions: Some(FormulaFlag::new(false)),
+                row_table: Some(FormulaFlag::from_xml("0").unwrap()),
+                deleted1: Some(FormulaFlag::from_xml("false").unwrap()),
+                deleted2: Some(FormulaFlag::new(true)),
+                input1: Some("".into()),
+                input2: Some("B1".into()),
+            })),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    for policy in [
+        FormulaWritePolicy::Compatible,
+        FormulaWritePolicy::RetainExplicit,
+    ] {
+        let mut writer = WorkbookWriter::new(WriteOptions {
+            formula_attributes: policy,
+            ..Default::default()
+        })
+        .unwrap();
+        writer.start_sheet("Sheet").unwrap();
+        writer
+            .write_row(&row(0, vec![CellValue::Formula(Box::new(formula.clone()))]))
+            .unwrap();
+        let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+        let mut archive = zip::ZipArchive::new(output).unwrap();
+        let mut xml = String::new();
+        archive
+            .by_name("xl/worksheets/sheet1.xml")
+            .unwrap()
+            .read_to_string(&mut xml)
+            .unwrap();
+        assert!(xml.contains("dtr=\"0\""));
+        assert!(xml.contains("del1=\"false\""));
+        assert!(xml.contains("del2=\"1\""));
+        assert!(xml.contains("r2=\"B1\""));
+        assert_eq!(
+            xml.contains("dt2D=\"0\""),
+            policy == FormulaWritePolicy::RetainExplicit
+        );
+        assert_eq!(
+            xml.contains("r1=\"\""),
+            policy == FormulaWritePolicy::RetainExplicit
+        );
+    }
+}

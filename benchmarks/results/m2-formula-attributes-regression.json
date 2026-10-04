@@ -1,0 +1,258 @@
+{
+  "reference": "3.1.5",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "measurement": "One warmup and 5 rotating serial wall/CPU/RSS samples including process baseline",
+  "semantics": "Both readers stream and verify every expanded formula. Native also verifies every cached integer in the same pass; public openpyxl cache verification uses a separate untimed data_only pass. Shared template accounting is a conservative managed-storage estimate, not exact RSS. No temporary storage is used for this read workload. calamine comparison is deferred until equivalent streaming formula/cache APIs are validated.",
+  "cases": [
+    {
+      "rows": 10000,
+      "cells": 20000,
+      "input_bytes": 168975,
+      "shared_templates": 1,
+      "accounted_template_bytes": 355,
+      "samples": {
+        "crabxl": [
+          {
+            "seconds": 0.030659688,
+            "cpu_seconds": 0.030497,
+            "peak_rss_kib": 1956,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.031300497,
+            "cpu_seconds": 0.03122,
+            "peak_rss_kib": 1996,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.030767237,
+            "cpu_seconds": 0.030665,
+            "peak_rss_kib": 1976,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.030366915,
+            "cpu_seconds": 0.030264,
+            "peak_rss_kib": 1896,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.029789301,
+            "cpu_seconds": 0.029713,
+            "peak_rss_kib": 1996,
+            "sampled_temp_peak_bytes": 0
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 0.345793676,
+            "cpu_seconds": 0.546956,
+            "peak_rss_kib": 36584,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.327980847,
+            "cpu_seconds": 0.534365,
+            "peak_rss_kib": 36588,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.371714487,
+            "cpu_seconds": 0.510888,
+            "peak_rss_kib": 36584,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.358724996,
+            "cpu_seconds": 0.517786,
+            "peak_rss_kib": 36584,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.337266708,
+            "cpu_seconds": 0.537387,
+            "peak_rss_kib": 36592,
+            "sampled_temp_peak_bytes": 0
+          }
+        ],
+        "crabxl-before": [
+          {
+            "seconds": 0.030173809,
+            "cpu_seconds": 0.0301,
+            "peak_rss_kib": 2080,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.030629784,
+            "cpu_seconds": 0.03055,
+            "peak_rss_kib": 2072,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.032631937,
+            "cpu_seconds": 0.032515,
+            "peak_rss_kib": 2060,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.029813607,
+            "cpu_seconds": 0.029671,
+            "peak_rss_kib": 1924,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.029267759,
+            "cpu_seconds": 0.029125,
+            "peak_rss_kib": 1896,
+            "sampled_temp_peak_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "crabxl": {
+          "seconds": 0.030659688,
+          "cpu_seconds": 0.030497,
+          "peak_rss_kib": 1976,
+          "sampled_temp_peak_bytes": 0
+        },
+        "openpyxl": {
+          "seconds": 0.345793676,
+          "cpu_seconds": 0.534365,
+          "peak_rss_kib": 36584,
+          "sampled_temp_peak_bytes": 0
+        },
+        "crabxl-before": {
+          "seconds": 0.030173809,
+          "cpu_seconds": 0.0301,
+          "peak_rss_kib": 2060,
+          "sampled_temp_peak_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "cells": 200000,
+      "input_bytes": 1659159,
+      "shared_templates": 1,
+      "accounted_template_bytes": 355,
+      "samples": {
+        "crabxl": [
+          {
+            "seconds": 0.310430271,
+            "cpu_seconds": 0.310192,
+            "peak_rss_kib": 1952,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.297447561,
+            "cpu_seconds": 0.297335,
+            "peak_rss_kib": 1928,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.312208966,
+            "cpu_seconds": 0.311976,
+            "peak_rss_kib": 1936,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.324828236,
+            "cpu_seconds": 0.324642,
+            "peak_rss_kib": 1996,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.296870163,
+            "cpu_seconds": 0.295922,
+            "peak_rss_kib": 1952,
+            "sampled_temp_peak_bytes": 0
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 2.062690603,
+            "cpu_seconds": 2.219859,
+            "peak_rss_kib": 44428,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 2.173766216,
+            "cpu_seconds": 2.331737,
+            "peak_rss_kib": 44448,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 1.997536978,
+            "cpu_seconds": 2.192104,
+            "peak_rss_kib": 44448,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 2.225713136,
+            "cpu_seconds": 2.370338,
+            "peak_rss_kib": 44520,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 2.214873623,
+            "cpu_seconds": 2.412434,
+            "peak_rss_kib": 44452,
+            "sampled_temp_peak_bytes": 0
+          }
+        ],
+        "crabxl-before": [
+          {
+            "seconds": 0.308589825,
+            "cpu_seconds": 0.308283,
+            "peak_rss_kib": 2056,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.300178559,
+            "cpu_seconds": 0.299978,
+            "peak_rss_kib": 1992,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.30556252,
+            "cpu_seconds": 0.303694,
+            "peak_rss_kib": 1928,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.302296295,
+            "cpu_seconds": 0.302076,
+            "peak_rss_kib": 2068,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.293270862,
+            "cpu_seconds": 0.293051,
+            "peak_rss_kib": 1992,
+            "sampled_temp_peak_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "crabxl": {
+          "seconds": 0.310430271,
+          "cpu_seconds": 0.310192,
+          "peak_rss_kib": 1952,
+          "sampled_temp_peak_bytes": 0
+        },
+        "openpyxl": {
+          "seconds": 2.173766216,
+          "cpu_seconds": 2.331737,
+          "peak_rss_kib": 44448,
+          "sampled_temp_peak_bytes": 0
+        },
+        "crabxl-before": {
+          "seconds": 0.302296295,
+          "cpu_seconds": 0.302076,
+          "peak_rss_kib": 1992,
+          "sampled_temp_peak_bytes": 0
+        }
+      }
+    }
+  ]
+}

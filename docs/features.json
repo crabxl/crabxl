@@ -17230,6 +17230,33 @@
         "benchmarks/formula_cache_checkpoint.py"
       ],
       "limitations": "Does not evaluate formulas or interpret typed metadata graphs. ValidateGroups explicitly validates formulas even in data-only mode; XML-event and cache-value limits remain enforced. No milestone completion claimed."
+    },
+    {
+      "id": "formula.attribute-write-policies",
+      "description": "Compatible omission of owned false flags and empty table inputs with independent explicit retention and source spelling preservation",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "sequential-write",
+        "original-package-edit"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/formula_metadata.rs",
+        "crates/crabxl-xlsx/src/formula_codec.rs",
+        "crates/crabxl-xlsx/src/encode.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/writer.rs::formula_attribute_policies_distinguish_owned_false_from_source_spellings",
+        "crates/crabxl-xlsx/tests/editor.rs::assigned_formula_attributes_follow_the_same_writer_policy_on_repeated_saves",
+        "benchmarks/probe_formula_attributes.py"
+      ],
+      "limitations": "Physical formula replacement only; array spill/shared/metadata graph synchronization remains staged. Source flags differ deliberately from assigned boolean values. No milestone completion claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."
