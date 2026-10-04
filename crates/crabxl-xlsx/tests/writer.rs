@@ -1915,3 +1915,33 @@ fn consuming_bank_export_transfers_style_ids_components_and_theme() {
     assert_eq!(style.font.size, Some(410.0));
     assert_eq!(style.number_format, Some("0.000"));
 }
+
+#[test]
+fn absent_array_expression_and_reference_serialize_as_empty_source_body() {
+    use crabxl_core::{Formula, FormulaMetadata, FormulaType};
+    let formula = Formula::with_optional_expression(
+        None,
+        None,
+        FormulaMetadata {
+            kind: FormulaType::Array,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(formula.optional_expression(), None);
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Array").unwrap();
+    writer
+        .write_row(&row(0, vec![CellValue::Formula(Box::new(formula))]))
+        .unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    let values = reader.read_sheet("Array").unwrap();
+    let CellValue::Formula(source) = &values.rows[0].cells[0].value else {
+        panic!("Expected array");
+    };
+    assert_eq!(source.formula_type(), FormulaType::Array);
+    assert_eq!(source.optional_expression(), Some(""));
+    assert!(source.metadata().unwrap().reference.is_none());
+    assert!(source.cached().is_none());
+}

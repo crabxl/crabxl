@@ -1,5 +1,6 @@
 """Equivalent expanded-expression workloads; native additionally validates every cache."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -47,6 +48,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=int, nargs="+", default=[10000, 100000])
     parser.add_argument("--baseline", type=Path, help="Optional exact prior native binary for rotating regression samples")
+    parser.add_argument("--baseline-core", help="Pinned prior core revision when a preserved baseline is supplied")
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--output", type=Path, default=HERE / "results/m2-shared-formulas.json")
     args = parser.parse_args()
@@ -57,6 +59,9 @@ def main():
     run(["cargo", "build", "--release", "--locked", "-p", "crabxl", "--example", "shared_formula_read"])
     target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
     report = {"reference": openpyxl.__version__, "platform": platform.platform(), "measurement": f"One warmup and {args.runs} rotating serial wall/CPU/RSS samples including process baseline", "semantics": "Both readers stream and verify every expanded formula. Native also verifies every cached integer in the same pass; public openpyxl cache verification uses a separate untimed data_only pass. Shared template accounting is a conservative managed-storage estimate, not exact RSS. No temporary storage is used for this read workload. calamine comparison is deferred until equivalent streaming formula/cache APIs are validated.", "cases": []}
+    if args.baseline:
+        report["baseline_core"] = args.baseline_core
+        report["baseline_sha256"] = hashlib.sha256(args.baseline.read_bytes()).hexdigest()
     (HERE / "data").mkdir(exist_ok=True)
     for size in args.rows:
         path = HERE / "data" / f"shared-formulas-{size}.xlsx"

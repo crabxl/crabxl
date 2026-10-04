@@ -295,3 +295,25 @@ fn number_format_classification_stays_consistent_when_the_owned_code_changes() {
         assert_eq!(classify_number_format(code), None, "{code}");
     }
 }
+
+#[test]
+fn optional_structured_expression_preserves_absence_without_a_dummy_literal() {
+    use crabxl_core::{FormulaMetadata, FormulaType};
+    for kind in [FormulaType::Array, FormulaType::DataTable] {
+        let metadata = FormulaMetadata {
+            kind,
+            ..Default::default()
+        };
+        let absent = Formula::with_optional_expression(None, None, metadata.clone()).unwrap();
+        let empty =
+            Formula::with_optional_expression(Some("".into()), None, metadata.clone()).unwrap();
+        assert_eq!(absent.expression(), "");
+        assert_eq!(absent.optional_expression(), None);
+        assert_eq!(absent.clone().optional_expression(), None);
+        assert_eq!(empty.optional_expression(), Some(""));
+        assert_ne!(absent, empty);
+        let source = Formula::from_source("", None, Some(metadata)).unwrap();
+        assert_eq!(source.optional_expression(), Some(""));
+    }
+    assert!(Formula::with_optional_expression(None, None, FormulaMetadata::default()).is_err());
+}
