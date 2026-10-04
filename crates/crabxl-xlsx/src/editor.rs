@@ -1106,19 +1106,17 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                                     return Err(Error::new(ErrorKind::Unsupported,"Replacing unknown or rich cell content requires typed support").with_cell(cell.address));
                                 }
                                 if child.local_name().as_ref() == b"f" {
-                                    for attribute in child.attributes() {
-                                        let attribute = attribute.map_err(|error| {
-                                            Error::caused_by(
-                                                ErrorKind::Xml,
-                                                "Invalid formula metadata",
-                                                error,
-                                            )
-                                        })?;
-                                        if attribute.key.as_ref() != b"t"
-                                            || attribute.value.as_ref() != b"normal"
-                                        {
-                                            return Err(Error::new(ErrorKind::Unsupported,"Replacing non-normal formula metadata is not supported").with_cell(cell.address));
-                                        }
+                                    let metadata = crate::formula_codec::header(
+                                        child,
+                                        old.decoder,
+                                        limits.max_cell_bytes,
+                                    )
+                                    .map_err(|error| error.with_cell(cell.address))?;
+                                    if matches!(
+                                        metadata.kind,
+                                        crabxl_core::FormulaType::Shared { .. }
+                                    ) {
+                                        return Err(Error::new(ErrorKind::Unsupported, "Replacing shared formula records requires group normalization").with_cell(cell.address));
                                     }
                                 }
                             }

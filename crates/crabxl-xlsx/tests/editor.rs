@@ -850,3 +850,62 @@ fn chain_graph_scan_is_bounded_and_alternate_consumers_guarded() {
         data
     );
 }
+
+#[test]
+fn structured_formula_targets_replace_without_rewriting_unrelated_cells() {
+    use crabxl_core::{FormulaMetadata, FormulaRange, FormulaType};
+    for (kind, xml_type) in [
+        (FormulaType::Array, "array"),
+        (FormulaType::DataTable, "dataTable"),
+    ] {
+        let mut data = parts(&source());
+        data.insert("xl/worksheets/sheet1.xml".into(), format!("<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\"><c r=\"A1\"><f t=\"{xml_type}\" ref=\"A1:B2\"/><v>5</v></c><c r=\"B1\"><v>7</v></c></row></sheetData></worksheet>").into_bytes());
+        data.insert("xl/worksheets/sheet2.xml".into(), format!("<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\"><c r=\"A1\"><v>19</v></c></row></sheetData></worksheet>").into_bytes());
+        let untouched = data["xl/worksheets/sheet2.xml"].clone();
+        let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+        let formula = Formula::with_metadata(
+            "",
+            None,
+            FormulaMetadata {
+                kind,
+                reference: Some(FormulaRange::from_xml("A1:B3").unwrap()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        editor
+            .set_value(
+                "Sheet",
+                Address::new(0, 0).unwrap(),
+                Value::Formula(Box::new(formula)),
+            )
+            .unwrap();
+        for _ in 0..2 {
+            let (output, _) = editor
+                .save(Cursor::new(Vec::new()), SaveOptions::default())
+                .unwrap();
+            assert_eq!(
+                parts(output.get_ref())["xl/worksheets/sheet2.xml"],
+                untouched
+            );
+            let mut reader = WorkbookReader::new(output).unwrap();
+            let sheet = reader.read_sheet("Sheet").unwrap();
+            let Value::Formula(formula) = &sheet.rows[0].cells[0].value else {
+                panic!("Expected structured formula");
+            };
+            assert_eq!(formula.formula_type(), kind);
+            assert_eq!(
+                formula
+                    .metadata()
+                    .unwrap()
+                    .reference
+                    .as_ref()
+                    .unwrap()
+                    .spelling(),
+                "A1:B3"
+            );
+            assert!(formula.cached().is_none());
+            assert_eq!(sheet.rows[0].cells[1].value, Value::Integer(7));
+        }
+    }
+}
