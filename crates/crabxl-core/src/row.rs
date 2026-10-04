@@ -34,6 +34,15 @@ pub enum CellValue {
 }
 
 impl CellValue {
+    /// Borrow a temporal literal or a formula's temporal cached result.
+    pub fn temporal_value(&self) -> Option<&ExcelDateTime> {
+        match self {
+            Self::DateTime(value) => Some(value),
+            Self::Formula(value) => value.cached().and_then(Self::temporal_value),
+            _ => None,
+        }
+    }
+
     /// Bytes retained outside the fixed-size cell value, excluding allocator overhead.
     pub fn heap_bytes(&self) -> usize {
         match self {

@@ -68,7 +68,7 @@ mod style_hash;
 mod style_validation;
 
 mod style_registry;
-pub use style_registry::{StyleLimits, StyleRegistry};
+pub use style_registry::{StyleLimits, StyleRegistry, TemporalStyleIds};
 
 mod theme;
 pub use theme::Theme;

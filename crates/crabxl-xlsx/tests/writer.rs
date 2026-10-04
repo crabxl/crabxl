@@ -2236,3 +2236,80 @@ fn indexed_palette_source_adoption_and_export_preserve_literal_spelling() {
         ["ff11aa22", "FF11AA22", "00abc123", "00AbC123", "00ff00FF"]
     );
 }
+
+#[test]
+fn default_owned_temporal_catalog_supports_repeated_borrowed_saves_without_reinterpreting_ids() {
+    use crabxl_core::{CellStyle, DateKind, ExcelDateTime, Workbook, WorkbookLimits};
+    let mut book = Workbook::new(WorkbookLimits::default()).unwrap();
+    let sheet = book.create_sheet("Sheet").unwrap();
+    book.sheet_mut(sheet)
+        .unwrap()
+        .append(vec![
+            CellValue::DateTime(Box::new(ExcelDateTime::from_ymd(2024, 1, 2).unwrap())),
+            CellValue::DateTime(Box::new(
+                ExcelDateTime::from_hms_micro(3, 4, 5, 678900).unwrap(),
+            )),
+        ])
+        .unwrap();
+    let date_style = book
+        .sheet(sheet)
+        .unwrap()
+        .get("A1".parse().unwrap())
+        .unwrap()
+        .style;
+    let time_style = book
+        .sheet(sheet)
+        .unwrap()
+        .get("B1".parse().unwrap())
+        .unwrap()
+        .style;
+    assert_eq!(date_style.get(), 4);
+    assert_eq!(time_style.get(), 2);
+    let charged = book.charged_bytes();
+    for _ in 0..2 {
+        let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+        assert_eq!(writer.style_catalog(), book.style_catalog());
+        writer.write_workbook(&book).unwrap();
+        let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+        let mut reader = WorkbookReader::new(output).unwrap();
+        let loaded = reader.read_sheet("Sheet").unwrap();
+        assert_eq!(loaded.rows[0].cells[0].style, date_style);
+        assert_eq!(loaded.rows[0].cells[1].style, time_style);
+        assert_eq!(
+            loaded.rows[0].cells[0]
+                .value
+                .temporal_value()
+                .unwrap()
+                .to_date()
+                .unwrap()
+                .to_string(),
+            "2024-01-02"
+        );
+        assert_eq!(
+            loaded.rows[0].cells[1]
+                .value
+                .temporal_value()
+                .unwrap()
+                .kind(),
+            DateKind::Time
+        );
+        assert_eq!(book.charged_bytes(), charged);
+    }
+    let custom = book
+        .register_style(CellStyle {
+            number_format: "0.00000".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    book.sheet_mut(sheet)
+        .unwrap()
+        .set(Cell {
+            address: "A2".parse().unwrap(),
+            value: CellValue::Number(1.25),
+            style: custom,
+        })
+        .unwrap();
+    let mut mismatched = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    assert!(mismatched.write_workbook(&book).is_err());
+    assert_eq!(mismatched.temporary_bytes(), 0);
+}

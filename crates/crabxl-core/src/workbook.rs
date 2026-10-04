@@ -144,13 +144,21 @@ impl Workbook {
             .saturating_sub(self.theme_bytes())
             .saturating_sub(self.style_bytes());
         let cells = self.limits.max_cells.saturating_sub(other_cells);
+        let allocation_allowance = remaining.saturating_add(self.style_bytes());
+        let style_ceiling = self.limits.max_bytes;
         let sheet = &mut self.entries[index].sheet;
         let original = sheet.edit_limits();
         sheet.set_edit_limits(EditLimits {
             max_bytes: original.max_bytes.min(remaining),
             max_cells: original.max_cells.min(cells),
         });
-        Ok(WorksheetEditor { sheet, original })
+        Ok(WorksheetEditor {
+            sheet,
+            original,
+            styles: Some(&mut self.styles),
+            allocation_allowance,
+            style_ceiling,
+        })
     }
     /// Create a uniquely named empty sheet at the end of display order.
     /// Names are case-insensitively unique; format naming rules apply on output.
@@ -515,6 +523,9 @@ fn missing() -> Error {
 pub struct WorksheetEditor<'a> {
     sheet: &'a mut Worksheet,
     original: EditLimits,
+    styles: Option<&'a mut Option<crate::StyleRegistry>>,
+    allocation_allowance: usize,
+    style_ceiling: usize,
 }
 impl Deref for WorksheetEditor<'_> {
     type Target = Worksheet;
@@ -535,17 +546,79 @@ impl Worksheet {
         WorksheetEditor {
             sheet: self,
             original,
+            styles: None,
+            allocation_allowance: 0,
+            style_ceiling: 0,
         }
     }
 }
 impl WorksheetEditor<'_> {
     /// Insert or replace a shared-model cell within aggregate/per-sheet limits.
-    pub fn set(&mut self, cell: Cell) -> Result<()> {
+    pub fn set(&mut self, mut cell: Cell) -> Result<()> {
+        let bytes = self.sheet.preflight_set(&cell)?;
+        if let Some(value) = cell.value.temporal_value() {
+            cell.style = self.prepare_temporal(cell.style, value.kind(), bytes)?;
+        }
         self.sheet.set(cell)
     }
-    /// Append one row, atomically validating aggregate/per-sheet allowances.
+    /// Append one row, prevalidating cell allowances and preparing shared temporal
+    /// styles before committing cells. Valid interned styles may remain after failure.
     pub fn append(&mut self, values: Vec<CellValue>) -> Result<RowIndex> {
-        self.sheet.append(values)
+        let bytes = self.sheet.preflight_append(&values)?;
+        let mut styles = [crate::StyleId::new(0); 4];
+        let mut prepared = [false; 4];
+        for value in &values {
+            if let Some(value) = value.temporal_value() {
+                let index = temporal_index(value.kind());
+                if !prepared[index] {
+                    styles[index] =
+                        self.prepare_temporal(crate::StyleId::new(0), value.kind(), bytes)?;
+                    prepared[index] = true;
+                }
+            }
+        }
+        self.sheet.append_with_styles(values, |value| {
+            value
+                .temporal_value()
+                .map_or(crate::StyleId::new(0), |value| {
+                    styles[temporal_index(value.kind())]
+                })
+        })
+    }
+    fn prepare_temporal(
+        &mut self,
+        base: crate::StyleId,
+        kind: crate::DateKind,
+        bytes: usize,
+    ) -> Result<crate::StyleId> {
+        let Some(bank) = self.styles.as_mut() else {
+            return Ok(base);
+        };
+        let maximum = self.allocation_allowance.saturating_sub(bytes);
+        let result = if let Some(registry) = bank.as_mut() {
+            registry.register_temporal_format_with_limit(base, kind, maximum)
+        } else {
+            let mut registry = crate::StyleRegistry::new(crate::StyleLimits {
+                max_bytes: maximum,
+                ..Default::default()
+            })?;
+            registry.register_temporal_presets_with_limit(maximum)?;
+            let id = registry.register_temporal_format_with_limit(base, kind, maximum)?;
+            registry.set_limits(crate::StyleLimits {
+                max_bytes: self.style_ceiling,
+                ..Default::default()
+            })?;
+            **bank = Some(registry);
+            Ok(id)
+        };
+        let style_bytes = bank.as_ref().map_or(0, crate::StyleRegistry::memory_bytes);
+        let mut limits = self.sheet.edit_limits();
+        limits.max_bytes = self
+            .original
+            .max_bytes
+            .min(self.allocation_allowance.saturating_sub(style_bytes));
+        self.sheet.set_edit_limits(limits);
+        result
     }
     /// Remove and transfer one physical cell.
     pub fn remove(&mut self, address: CellAddress) -> Option<Cell> {
@@ -583,6 +656,15 @@ impl WorksheetEditor<'_> {
     /// Copy a finite rectangle under retained and transient aggregate allowances.
     pub fn copy_range(&mut self, range: CellRange, rows: i32, columns: i32) -> Result<()> {
         self.sheet.copy_range(range, rows, columns)
+    }
+}
+
+fn temporal_index(kind: crate::DateKind) -> usize {
+    match kind {
+        crate::DateKind::Date => 0,
+        crate::DateKind::DateTime => 1,
+        crate::DateKind::Time => 2,
+        crate::DateKind::Duration => 3,
     }
 }
 

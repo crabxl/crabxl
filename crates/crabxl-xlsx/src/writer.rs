@@ -468,16 +468,24 @@ impl WorkbookWriter {
     }
     /// Spool an owned workbook's borrowed sheets in display order. The writer
     /// must be fresh; caller-registered style IDs are shared with the models.
+    /// An owned catalog must equal the writer's catalog before any output starts;
+    /// matching catalogs support repeated borrowed saves without payload cloning.
     /// Model epoch and active sheet are applied before any worksheet starts.
     pub fn write_workbook(&mut self, workbook: &crabxl_core::Workbook) -> Result<()> {
         self.ensure_open()?;
         if !self.sheets.is_empty() || self.active.is_some() {
             return Err(state("Workbook model export requires a fresh writer"));
         }
-        if workbook.style_catalog().is_some() {
-            return Err(state(
-                "Styled workbook export requires from_workbook ownership transfer",
-            ));
+        if let Some(catalog) = workbook.style_catalog() {
+            if self
+                .styles
+                .as_ref()
+                .is_none_or(|styles| styles.catalog() != catalog)
+            {
+                return Err(state(
+                    "Borrowed styled export requires an identical writer catalog or from_workbook ownership transfer",
+                ));
+            }
         }
         if workbook.is_empty() {
             return Err(state("A workbook requires at least one worksheet"));
@@ -769,28 +777,9 @@ impl WorkbookWriter {
     }
 }
 fn register_date_styles(styles: &mut StyleRegistry) -> Result<DateStyleIds> {
-    // Copy the small format record, retaining shared component IDs and raw overrides.
-    // Font names and gradient vectors are not cloned to derive automatic date formats.
-    let template = styles
-        .catalog()
-        .cell_formats
-        .first()
-        .ok_or_else(|| state("Writer has no normal cell format"))?
-        .clone();
-    let mut register = |code: &str| -> Result<StyleId> {
-        let mut format = template.clone();
-        format.number_format_id = styles
-            .register_number_format(code.into())
-            .map_err(writer_style_error)?;
-        format.apply_number_format = Some(true);
-        styles.register_format(format).map_err(writer_style_error)
-    };
-    Ok(DateStyleIds {
-        datetime: register(crabxl_core::DateKind::DateTime.default_number_format())?,
-        time: register(crabxl_core::DateKind::Time.default_number_format())?,
-        duration: register(crabxl_core::DateKind::Duration.default_number_format())?,
-        date: register(crabxl_core::DateKind::Date.default_number_format())?,
-    })
+    styles
+        .register_temporal_presets_with_limit(usize::MAX)
+        .map_err(writer_style_error)
 }
 
 impl Drop for WorkbookWriter {
