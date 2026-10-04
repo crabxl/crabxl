@@ -247,6 +247,88 @@ impl Worksheet {
         self.dirty = true;
         Ok(())
     }
+    /// Move a range while translating relative references in its normal formulas.
+    /// Validates every translation and retained/transient allowance before any
+    /// cell moves. New formulas discard old caches; other values/styles move as-is.
+    /// References outside the moved cells are not updated automatically.
+    pub fn move_range_translated(
+        &mut self,
+        range: CellRange,
+        rows: i32,
+        columns: i32,
+    ) -> Result<()> {
+        self.validate_range(range, rows, columns)?;
+        if rows == 0 && columns == 0 {
+            return Ok(());
+        }
+        let formulas = self
+            .cells
+            .values()
+            .filter(|cell| {
+                range.contains(cell.address) && matches!(cell.value, CellValue::Formula(_))
+            })
+            .count();
+        let mut translated = Vec::new();
+        self.work_allowance(
+            formulas.saturating_mul(size_of::<(CellAddress, Box<crate::Formula>)>()),
+        )?;
+        translated.try_reserve_exact(formulas).map_err(|error| {
+            Error::caused_by(
+                ErrorKind::MemoryBudgetExceeded,
+                "Cannot allocate formula move staging",
+                error,
+            )
+        })?;
+        let base = self
+            .charged
+            .saturating_add(self.len().saturating_mul(ENTRY_BYTES))
+            .saturating_add(
+                translated
+                    .capacity()
+                    .saturating_mul(size_of::<(CellAddress, Box<crate::Formula>)>()),
+            );
+        let mut staged = 0usize;
+        let mut retained = self.charged;
+        for cell in self
+            .cells
+            .values()
+            .filter(|cell| range.contains(cell.address))
+        {
+            if let CellValue::Formula(formula) = &cell.value {
+                let maximum = self
+                    .limits
+                    .max_bytes
+                    .saturating_sub(base)
+                    .saturating_sub(staged)
+                    .saturating_sub(size_of::<crate::Formula>());
+                let expression = crate::translate_expression(
+                    formula.expression(),
+                    i64::from(rows),
+                    i64::from(columns),
+                    maximum,
+                )
+                .map_err(|error| error.with_cell(cell.address))?;
+                let value = crate::Formula::new(expression.into_boxed_str(), None)?;
+                staged = staged.saturating_add(value.memory_bytes());
+                retained = retained
+                    .saturating_sub(formula.memory_bytes())
+                    .saturating_add(value.memory_bytes());
+                self.check(base.saturating_add(staged), self.len())?;
+                self.check(retained, self.len())?;
+                translated.push((offset(cell.address, rows, columns)?, Box::new(value)));
+            }
+        }
+        self.move_range(range, rows, columns)?;
+        // Each staged address belongs to a physical source cell already moved
+        // by the validated operation; no further input/limit checks are needed.
+        for (address, formula) in translated {
+            if let Some(cell) = self.cells.get_mut(&key(address)) {
+                cell.value = CellValue::Formula(formula);
+            }
+        }
+        self.recount();
+        Ok(())
+    }
     /// Copy physical cells to an offset rectangle, retaining styles and formulas.
     /// Clones only selected payloads and checks transient work before mutation.
     pub fn copy_range(&mut self, range: CellRange, rows: i32, columns: i32) -> Result<()> {

@@ -1,0 +1,28 @@
+{
+  "project": "openpyxl",
+  "version": "3.1.5",
+  "repository": "https://foss.heptapod.net/openpyxl/openpyxl",
+  "revision": "13627b03ca25a1a98becf40e533b955615b13429",
+  "source": "openpyxl/formula/tests/test_translate.py",
+  "destination": "bindings/python/tests/test_upstream_translate.py",
+  "license": "MIT",
+  "notice": "Copyright (c) 2010-2024 openpyxl",
+  "license_file": "third_party/licenses/openpyxl-MIT.txt",
+  "selected_methods": [
+    "test_row_range_re",
+    "test_col_range_re",
+    "test_cell_ref_re",
+    "test_translate_row",
+    "test_translate_col",
+    "test_strip_ws_name",
+    "test_translate_range",
+    "test_translate_formula_range",
+    "test_translate_formula_coordinates"
+  ],
+  "changes": [
+    "Imports/fixtures target openrsxl",
+    "Original selected method bodies, decorators and assertions are unchanged",
+    "Tokenizer-dependent initialization/get_tokens tests are not selected; tokenizer API remains required M5 scope"
+  ],
+  "source_sha256": "79974eb5974e9847703de2665ccca1733619d39961edaed7ba7fb9c3f6fbac32"
+}

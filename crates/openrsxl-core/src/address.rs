@@ -114,17 +114,24 @@ impl FromStr for CellAddress {
 
 impl fmt::Display for CellAddress {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut column = self.column.get() + 1;
-        let mut letters = [0u8; 3];
-        let mut start = letters.len();
-        while column > 0 {
-            start -= 1;
-            letters[start] = b'A' + ((column - 1) % 26) as u8;
-            column = (column - 1) / 26;
-        }
-        for &letter in &letters[start..] {
-            write!(f, "{}", char::from(letter))?;
-        }
+        write_column_name(f, self.column.get())?;
         write!(f, "{}", self.row.get() + 1)
     }
+}
+
+// Shared by physical addresses and formula references (which can extend beyond
+// the worksheet's physical column boundary during baseline translation).
+pub(crate) fn write_column_name(output: &mut impl fmt::Write, column: u32) -> fmt::Result {
+    let mut column = column.checked_add(1).ok_or(fmt::Error)?;
+    let mut letters = [0u8; 8];
+    let mut start = letters.len();
+    while column > 0 {
+        start -= 1;
+        letters[start] = b'A' + ((column - 1) % 26) as u8;
+        column = (column - 1) / 26;
+    }
+    for &letter in &letters[start..] {
+        output.write_char(char::from(letter))?;
+    }
+    Ok(())
 }
