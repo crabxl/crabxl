@@ -16333,6 +16333,35 @@
       "sha256": "664c4c2d323541d6cc359b9764577586c2599edf07ebb30304b70d39bd71266e",
       "tests": [],
       "limitations": "Topic audit index; introductory/development documents do not imply file feature support. Cross-reference module entries and roadmap when verifying behavior."
+    },
+    {
+      "id": "read.boolean",
+      "description": "Typed boolean literals with zero/nonzero decimal integer behavior and absent values",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "streaming",
+        "batches",
+        "materialized",
+        "adaptive"
+      ],
+      "reference": "openpyxl.cell.cell and public openpyxl 3.1.5 load_workbook behavior",
+      "modules": [
+        "crates/openrsxl-core/src/row.rs",
+        "crates/openrsxl-xlsx/src/reader.rs"
+      ],
+      "tests": [
+        "boolean_literals_preserve_type_and_reuse_all_read_modes",
+        "malformed_boolean_values_have_context_and_projection_can_skip_them",
+        "boolean_payload_does_not_increase_cell_storage"
+      ],
+      "limitations": "Nonzero styles, formulas and metadata remain unsupported; M2 is incomplete. Accept signed ASCII decimal integers; do not promise permissive Python integer syntax for malformed OOXML."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

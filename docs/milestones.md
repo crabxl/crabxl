@@ -2,7 +2,7 @@
 
 ## M0: Complete architecture and baseline audit index
 
-- Pinned openpyxl 3.1.5, calamine, and rust_xlsxwriter references and license/provenance records: ports.json and THIRD_PARTY_NOTICES.md.
+- Pinned openpyxl 3.1.5, calamine, and rust_xlsxwriter references and license/provenance records: third_party/ports.json and third_party/README.md.
 - Public metadata catalog: 190 modules, 567 classes with inherited public members, public functions/exports, and 45 pinned release RST documents. No implementation source or bytecode was inspected to generate this catalog.
 - Reproduce with `python tools/catalog_openpyxl_baseline.py --reference-checkout /workspace/openpyxl` using openpyxl 3.1.5; map and validate coverage with `python tools/map_baseline_inventory.py`.
 - Every cataloged module and document has a separate staged inventory entry. Read/create/edit/preserve remain separately planned; narrow implemented checkpoints do not mark whole baseline modules verified. This completes the architecture audit index, not all semantic specifications or support.
@@ -21,4 +21,6 @@
 
 ## M2: In progress
 
-All value semantics, shared/inline/rich strings, styles/date systems, formula caches, and disk-backed high-cardinality strings remain required. Individual checkpoints update the verified feature matrix. M2 completion requires mixed-value correctness, large-string resource/cleanup evidence, and representative release benchmarks; M1 numeric results do not establish it.
+The first verified checkpoint adds typed booleans through the shared streaming path without increasing CellValue storage. Integer precision, errors, shared/inline/rich strings, styles/date systems, formula caches, and disk-backed high-cardinality strings remain required. Individual checkpoints update the verified feature matrix. M2 completion requires mixed-value correctness, large-string resource/cleanup evidence, and representative release benchmarks; M1 numeric results do not establish it.
+
+The boolean checkpoint has 42 passing tests (including the facade doc test), lint/documentation checks, and [release count/RSS/regression evidence](../benchmarks/m2-boolean.md). The measured numeric slowdown remains an optimization item; M2 is not accepted as complete.

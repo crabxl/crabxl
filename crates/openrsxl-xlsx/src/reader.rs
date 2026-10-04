@@ -81,7 +81,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         })
     }
 
-    /// Count selected cells sent through numeric decoding, useful for projection diagnostics.
+    /// Count selected cells sent through scalar decoding, useful for projection diagnostics.
     pub fn decoded_cells(&self) -> u64 {
         self.decoded_cells
     }
@@ -245,13 +245,23 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         self.skip_cell()?;
                         continue;
                     }
-                    if !header.numeric || header.styled || header.metadata {
-                        return Err(Error::new(ErrorKind::Unsupported, "Selected non-numeric, styled, or metadata-bearing cell is not supported yet").with_part(self.xml.part()).with_cell(header.address));
+                    if matches!(header.kind, ScalarKind::Unsupported)
+                        || header.styled
+                        || header.metadata
+                    {
+                        return Err(Error::new(
+                            ErrorKind::Unsupported,
+                            "Selected cell type, style, or metadata is not supported yet",
+                        )
+                        .with_part(self.xml.part())
+                        .with_cell(header.address));
                     }
                     self.decoded_cells += 1;
-                    let value = self
-                        .read_cell()
-                        .map_err(|e| e.with_part(self.xml.part()).with_cell(header.address))?;
+                    let value = match header.kind {
+                        ScalarKind::Boolean => self.read_cell::<true>(),
+                        _ => self.read_cell::<false>(),
+                    }
+                    .map_err(|e| e.with_part(self.xml.part()).with_cell(header.address))?;
                     self.push_cell(
                         row,
                         Cell {
@@ -311,7 +321,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         Ok(())
     }
 
-    fn read_cell(&mut self) -> Result<CellValue> {
+    fn read_cell<const BOOLEAN: bool>(&mut self) -> Result<CellValue> {
         let mut value = CellValue::Empty;
         let mut seen_value = false;
         loop {
@@ -326,7 +336,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         return Err(self.invalid("Cell has multiple value elements"));
                     }
                     seen_value = true;
-                    value = self.read_value()?;
+                    value = self.read_value::<BOOLEAN>()?;
                 }
                 Event::Start(_) => {
                     return Err(Error::new(
@@ -351,32 +361,33 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         }
     }
 
-    fn read_value(&mut self) -> Result<CellValue> {
+    fn read_value<const BOOLEAN: bool>(&mut self) -> Result<CellValue> {
         self.value_buffer.clear();
         loop {
             let frame = self.xml.next()?;
             match frame.event {
                 Event::Text(t) => {
                     let text = t.decode().map_err(|e| {
-                        Error::caused_by(ErrorKind::Xml, "Cannot decode numeric value", e)
+                        Error::caused_by(ErrorKind::Xml, "Cannot decode scalar value", e)
                     })?;
                     append_value(&mut self.value_buffer, &text, self.limits.max_cell_bytes)?;
                 }
                 Event::CData(t) => {
                     let text = t.decode().map_err(|e| {
-                        Error::caused_by(ErrorKind::Xml, "Cannot decode numeric value", e)
+                        Error::caused_by(ErrorKind::Xml, "Cannot decode scalar value", e)
                     })?;
                     append_value(&mut self.value_buffer, &text, self.limits.max_cell_bytes)?;
                 }
                 Event::GeneralRef(e) => {
                     let entity = e.decode().map_err(|e| {
-                        Error::caused_by(ErrorKind::Xml, "Cannot decode numeric entity", e)
+                        Error::caused_by(ErrorKind::Xml, "Cannot decode scalar entity", e)
                     })?;
                     if let Some(text) = quick_xml::escape::resolve_xml_entity(&entity) {
                         append_value(&mut self.value_buffer, text, self.limits.max_cell_bytes)?;
-                    } else if let Some(character) = e.resolve_char_ref().map_err(|e| {
-                        Error::caused_by(ErrorKind::Xml, "Invalid numeric entity", e)
-                    })? {
+                    } else if let Some(character) = e
+                        .resolve_char_ref()
+                        .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid scalar entity", e))?
+                    {
                         let mut bytes = [0; 4];
                         append_value(
                             &mut self.value_buffer,
@@ -395,12 +406,19 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     break;
                 }
                 Event::Comment(_) | Event::PI(_) => {}
-                _ => return Err(self.invalid("Invalid numeric value content")),
+                _ => return Err(self.invalid("Invalid scalar value content")),
             }
         }
         let value = self.value_buffer.trim_ascii();
         if value.is_empty() {
             return Ok(CellValue::Empty);
+        }
+        if BOOLEAN {
+            let digits = value.strip_prefix(['+', '-']).unwrap_or(value);
+            if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err(self.invalid("Invalid boolean cell value"));
+            }
+            return Ok(CellValue::Boolean(digits.bytes().any(|byte| byte != b'0')));
         }
         let number = fast_float2::parse::<f64, _>(value.as_bytes()).map_err(|e| {
             Error::caused_by(ErrorKind::InvalidData, "Invalid numeric cell value", e)
@@ -460,9 +478,16 @@ impl<R: Read + Seek> Iterator for Rows<'_, R> {
 }
 impl<R: Read + Seek> FusedIterator for Rows<'_, R> {}
 
+#[derive(Clone, Copy)]
+enum ScalarKind {
+    Numeric,
+    Boolean,
+    Unsupported,
+}
+
 struct CellHeader {
     address: CellAddress,
-    numeric: bool,
+    kind: ScalarKind,
     styled: bool,
     metadata: bool,
 }
@@ -474,7 +499,7 @@ impl CellHeader {
         column: u32,
     ) -> Result<Self> {
         let mut address = None;
-        let mut numeric = true;
+        let mut kind = ScalarKind::Numeric;
         let mut styled = false;
         let mut metadata = false;
         for attribute in e.attributes() {
@@ -495,10 +520,14 @@ impl CellHeader {
                     );
                 }
                 b"t" => {
-                    numeric = attribute
+                    let cell_type = attribute
                         .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
-                        .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid cell type", e))?
-                        == "n";
+                        .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid cell type", e))?;
+                    kind = match cell_type.as_ref() {
+                        "n" => ScalarKind::Numeric,
+                        "b" => ScalarKind::Boolean,
+                        _ => ScalarKind::Unsupported,
+                    };
                 }
                 b"s" => {
                     styled = attribute
@@ -518,7 +547,7 @@ impl CellHeader {
         }
         Ok(Self {
             address: address.map_or_else(|| CellAddress::new(row.get(), column), Ok)?,
-            numeric,
+            kind,
             styled,
             metadata,
         })

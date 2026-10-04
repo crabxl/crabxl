@@ -790,3 +790,70 @@ fn rejected_archive_releases_owned_source() {
     assert!(WorkbookReader::new(source).is_err());
     assert_eq!(drops.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+fn boolean_literals_preserve_type_and_reuse_all_read_modes() {
+    let content = "<row><c t=\"b\"><v>0</v></c><c t=\"b\"><v>&#49;</v></c><c t=\"b\"><v> -00 </v></c><c t=\"b\"><v>+002</v></c><c t=\"b\"><v/></c><c><v>1</v></c></row>";
+    let mut book = open(content);
+    let expected = vec![
+        CellValue::Boolean(false),
+        CellValue::Boolean(true),
+        CellValue::Boolean(false),
+        CellValue::Boolean(true),
+        CellValue::Empty,
+        CellValue::Number(1.0),
+    ];
+    let streamed = book
+        .rows("A & B")
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(
+        streamed[0]
+            .cells
+            .iter()
+            .map(|cell| cell.value.clone())
+            .collect::<Vec<_>>(),
+        expected
+    );
+    assert_eq!(book.read_sheet("A & B").unwrap().rows, streamed);
+    let output = book
+        .read_with_policy(
+            "A & B",
+            AccessPattern::RepeatedAccess,
+            MemoryPolicy::Budget(64 * 1024 * 1024),
+        )
+        .unwrap();
+    match output.data {
+        ReadData::Materialized(data) => assert_eq!(data.rows, streamed),
+        ReadData::Streaming(_) => panic!("Small boolean sheet should materialize"),
+    }
+}
+#[test]
+fn malformed_boolean_values_have_context_and_projection_can_skip_them() {
+    for literal in ["true", "false", "1.0", "1e0", "+", "01x"] {
+        let mut book = open(&format!(
+            "<row><c t=\"b\"><v>{literal}</v></c><c><v>2</v></c></row>"
+        ));
+        let error = book.rows("A & B").unwrap().next_row().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        assert_eq!(error.part(), Some("data/values.xml"));
+        assert_eq!(error.cell().unwrap().to_string(), "A1");
+        let mut rows = book.rows_with_options("A & B", columns(1, 1)).unwrap();
+        assert_eq!(
+            rows.next_row().unwrap().unwrap().cells[0].value,
+            CellValue::Number(2.0)
+        );
+        assert_eq!(rows.decoded_cells(), 1);
+    }
+}
+#[test]
+fn boolean_payload_does_not_increase_cell_storage() {
+    assert_eq!(size_of::<CellValue>(), 16);
+    let mut book = open("<row><c t=\"b\"><v>1</v></c></row><row><c t=\"b\"><v>0</v></c></row>");
+    let mut rows = book.rows("A & B").unwrap();
+    let batch = rows.read_batch().unwrap().unwrap();
+    drop(rows);
+    drop(book);
+    assert_eq!(batch.rows[1].cells[0].value, CellValue::Boolean(false));
+}

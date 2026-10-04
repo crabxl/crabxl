@@ -1,0 +1,161 @@
+{
+  "rust": "1.88.0",
+  "openpyxl": "3.1.5",
+  "m1_revision": "74c082a58e8b",
+  "runs": 3,
+  "warmup": 1,
+  "temporary_storage_bytes": 0,
+  "note": "Numeric comparison uses identical sum executables/workloads before and after boolean dispatch; booleans generated through public write-only API. Inputs and retained results reside on disk, no runtime temporary files.",
+  "workloads": [
+    {
+      "type": "booleans",
+      "rows": 10000,
+      "columns": 10,
+      "input_bytes": 231373,
+      "results": [
+        {
+          "seconds": 0.077791736,
+          "cpu_seconds": 0.077272,
+          "peak_rss_kib": 1536,
+          "output": "0 100000 50000 0"
+        },
+        {
+          "seconds": 0.079062444,
+          "cpu_seconds": 0.078653,
+          "peak_rss_kib": 1516,
+          "output": "0 100000 50000 0"
+        },
+        {
+          "seconds": 0.078631258,
+          "cpu_seconds": 0.078453,
+          "peak_rss_kib": 1596,
+          "output": "0 100000 50000 0"
+        }
+      ]
+    },
+    {
+      "type": "booleans",
+      "rows": 100000,
+      "columns": 10,
+      "input_bytes": 2322665,
+      "results": [
+        {
+          "seconds": 0.734224412,
+          "cpu_seconds": 0.733413,
+          "peak_rss_kib": 1524,
+          "output": "0 1000000 500000 0"
+        },
+        {
+          "seconds": 0.752131771,
+          "cpu_seconds": 0.75189,
+          "peak_rss_kib": 1424,
+          "output": "0 1000000 500000 0"
+        },
+        {
+          "seconds": 0.732043634,
+          "cpu_seconds": 0.731184,
+          "peak_rss_kib": 1516,
+          "output": "0 1000000 500000 0"
+        }
+      ]
+    },
+    {
+      "type": "numeric-regression",
+      "rows": 100000,
+      "columns": 10,
+      "results": [
+        {
+          "implementation": "before",
+          "seconds": 0.736910483,
+          "cpu_seconds": 0.736675,
+          "peak_rss_kib": 1580,
+          "output": "1000000 499999500000"
+        },
+        {
+          "implementation": "after",
+          "seconds": 0.742946306,
+          "cpu_seconds": 0.742103,
+          "peak_rss_kib": 1620,
+          "output": "1000000 499999500000"
+        },
+        {
+          "implementation": "after",
+          "seconds": 0.752121407,
+          "cpu_seconds": 0.751209,
+          "peak_rss_kib": 1608,
+          "output": "1000000 499999500000"
+        },
+        {
+          "implementation": "before",
+          "seconds": 0.698419698,
+          "cpu_seconds": 0.697719,
+          "peak_rss_kib": 1544,
+          "output": "1000000 499999500000"
+        },
+        {
+          "implementation": "before",
+          "seconds": 0.684520454,
+          "cpu_seconds": 0.683662,
+          "peak_rss_kib": 1544,
+          "output": "1000000 499999500000"
+        },
+        {
+          "implementation": "after",
+          "seconds": 0.751582471,
+          "cpu_seconds": 0.751269,
+          "peak_rss_kib": 1544,
+          "output": "1000000 499999500000"
+        }
+      ]
+    },
+    {
+      "type": "numeric-regression",
+      "rows": 1000000,
+      "columns": 10,
+      "results": [
+        {
+          "implementation": "before",
+          "seconds": 7.089484578,
+          "cpu_seconds": 7.08698,
+          "peak_rss_kib": 1608,
+          "output": "10000000 49999995000000"
+        },
+        {
+          "implementation": "after",
+          "seconds": 7.401039059,
+          "cpu_seconds": 7.394008,
+          "peak_rss_kib": 1620,
+          "output": "10000000 49999995000000"
+        },
+        {
+          "implementation": "after",
+          "seconds": 7.294170587,
+          "cpu_seconds": 7.293403,
+          "peak_rss_kib": 1700,
+          "output": "10000000 49999995000000"
+        },
+        {
+          "implementation": "before",
+          "seconds": 6.917142369,
+          "cpu_seconds": 6.91133,
+          "peak_rss_kib": 1616,
+          "output": "10000000 49999995000000"
+        },
+        {
+          "implementation": "before",
+          "seconds": 6.917442087,
+          "cpu_seconds": 6.916811,
+          "peak_rss_kib": 1672,
+          "output": "10000000 49999995000000"
+        },
+        {
+          "implementation": "after",
+          "seconds": 7.405934109,
+          "cpu_seconds": 7.401305,
+          "peak_rss_kib": 1620,
+          "output": "10000000 49999995000000"
+        }
+      ]
+    }
+  ]
+}

@@ -25,10 +25,22 @@
         "Kept namespace and end-tag validation enabled and added bounded input per XML event",
         "Added checked coordinate arithmetic, sparse row ordering, projection before decoding, reusable rows and owned batches",
         "Unsupported selected features fail explicitly; numeric decoding rejects invalid and non-finite values instead of falling back to strings",
-        "Added contextual errors and resource budgets; retained no global or interpreter-exit resource registry"
+        "Added contextual errors and resource budgets; retained no global or interpreter-exit resource registry",
+        "M2 boolean branch uses shared CellValue::Boolean and validates zero/nonzero signed decimal integer literals instead of calamine literal-string comparison; no per-cell heap payload added"
       ],
       "tests": "New in-memory OOXML fixtures in crates/openrsxl-xlsx/tests/streaming.rs; no upstream binary fixture copies",
-      "inventory_items": ["package.discovery", "sheets.catalog", "read.numeric", "read.sparse", "read.projection", "read.row-reuse", "read.batches", "resources.xml", "resources.rows"]
+      "inventory_items": [
+        "package.discovery",
+        "sheets.catalog",
+        "read.numeric",
+        "read.sparse",
+        "read.projection",
+        "read.row-reuse",
+        "read.batches",
+        "resources.xml",
+        "resources.rows",
+        "read.boolean"
+      ]
     }
   ]
 }
