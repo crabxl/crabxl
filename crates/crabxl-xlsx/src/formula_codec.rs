@@ -37,8 +37,47 @@ pub(crate) fn header(
     e: &BytesStart<'_>,
     decoder: Decoder,
     maximum: usize,
+    policy: FormulaReadPolicy,
 ) -> Result<FormulaMetadata> {
-    let mut metadata = FormulaMetadata::default();
+    let compatible = policy == FormulaReadPolicy::Compatible;
+    // Select semantics before reading hints: attribute order has no meaning.
+    let mut kind = FormulaType::Normal;
+    for attribute in e.attributes() {
+        let attribute = attribute
+            .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid formula attribute", e))?;
+        if attribute.key.as_ref() != b"t" {
+            continue;
+        }
+        let value = attribute
+            .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
+            .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid formula type", e))?;
+        if value.len() > maximum {
+            return Err(Error::new(
+                ErrorKind::LimitExceeded,
+                "Formula attribute exceeds cell byte limit",
+            ));
+        }
+        kind = match value.as_ref() {
+            "normal" => FormulaType::Normal,
+            "shared" => FormulaType::Shared {
+                index: 0,
+                master: false,
+            },
+            "array" => FormulaType::Array,
+            "dataTable" => FormulaType::DataTable,
+            _ if compatible => FormulaType::Normal,
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::Unsupported,
+                    "Unknown formula encoding type",
+                ));
+            }
+        };
+    }
+    let mut metadata = FormulaMetadata {
+        kind,
+        ..Default::default()
+    };
     let mut index = None;
     let mut table = DataTableOptions::default();
     let mut table_seen = false;
@@ -57,25 +96,18 @@ pub(crate) fn header(
                 "Formula attribute exceeds cell byte limit",
             ));
         }
+        if compatible
+            && (kind == FormulaType::Normal
+                || (matches!(kind, FormulaType::Shared { .. })
+                    && !matches!(attribute.key.as_ref(), b"t" | b"si" | b"ref")))
+        {
+            // These hints are not public normal/shared values. Decode their XML
+            // above, but do not allocate or impose unused schema semantics.
+            continue;
+        }
         let flag = |value: &str| FormulaFlag::from_xml(value);
         match attribute.key.as_ref() {
-            b"t" => {
-                metadata.kind = match value.as_ref() {
-                    "normal" => FormulaType::Normal,
-                    "shared" => FormulaType::Shared {
-                        index: 0,
-                        master: false,
-                    },
-                    "array" => FormulaType::Array,
-                    "dataTable" => FormulaType::DataTable,
-                    _ => {
-                        return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Unknown formula encoding type",
-                        ));
-                    }
-                }
-            }
+            b"t" => {}
             b"si" => {
                 index = Some(
                     value

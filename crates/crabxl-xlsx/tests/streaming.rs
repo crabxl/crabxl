@@ -497,7 +497,15 @@ fn foreign_cell_namespace_is_not_decoded_as_spreadsheet_data() {
 fn selected_unsupported_features_fail_with_cell_context() {
     let content = "<c><f t=\"futureFormula\">1</f></c>";
     let mut book = open(&format!("<row>{content}</row>"));
-    let mut rows = book.rows("A & B").unwrap();
+    let mut rows = book
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                formula_policy: crabxl_core::FormulaReadPolicy::ValidateGroups,
+                ..Default::default()
+            },
+        )
+        .unwrap();
     let error = rows.next_row().unwrap_err();
     assert_eq!(error.kind(), ErrorKind::Unsupported);
     assert_eq!(error.cell().unwrap().to_string(), "A1");
@@ -3026,4 +3034,42 @@ fn literal_array_table_and_shared_references_do_not_require_geometry() {
         .next_row()
         .unwrap_err();
     assert!(error.to_string().contains("data/values.xml"));
+}
+
+#[test]
+fn compatible_normal_and_shared_headers_ignore_unused_semantics_after_xml_checks() {
+    use crabxl_core::FormulaReadPolicy;
+    for attributes in [
+        "t=\"future\" ref=\"invalid\"",
+        "ca=\"invalid\" si=\"invalid\" r1=\"opaque\" t=\"normal\"",
+        "unknown=\"value\" t=\"normal\"",
+        "ca=\"invalid\" unknown=\"value\" si=\"3\" ref=\"opaque\" t=\"shared\"",
+    ] {
+        let content = format!("<row><c><f {attributes}>A1+1</f><v>2</v></c></row>");
+        let mut book = open(&content);
+        let loaded = book.read_sheet("A & B").unwrap();
+        let CellValue::Formula(formula) = &loaded.rows[0].cells[0].value else {
+            panic!("Expected formula")
+        };
+        assert_eq!(formula.expression(), "A1+1");
+        assert_eq!(formula.cached(), Some(&CellValue::Integer(2)));
+        let mut strict = open(&content);
+        assert!(
+            strict
+                .rows_with_options(
+                    "A & B",
+                    ReadOptions {
+                        formula_policy: FormulaReadPolicy::ValidateGroups,
+                        ..Default::default()
+                    }
+                )
+                .unwrap()
+                .next_row()
+                .is_err()
+        );
+    }
+    for attributes in ["unknown=\"&invalid;\"", "t=\"future\" ca=\"&invalid;\""] {
+        let mut book = open(&format!("<row><c><f {attributes}>1</f></c></row>"));
+        assert!(book.rows("A & B").unwrap().next_row().is_err());
+    }
 }

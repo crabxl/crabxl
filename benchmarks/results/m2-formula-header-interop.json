@@ -1,0 +1,30 @@
+{
+  "reference": "3.1.5",
+  "cases": [
+    {
+      "source_attributes": "t=\"future\" ref=\"invalid\"",
+      "formula": "=A1+1",
+      "cache": 2,
+      "native_verified": true
+    },
+    {
+      "source_attributes": "ca=\"invalid\" si=\"invalid\" r1=\"opaque\" t=\"normal\"",
+      "formula": "=A1+1",
+      "cache": 2,
+      "native_verified": true
+    },
+    {
+      "source_attributes": "unknown=\"value\" t=\"normal\"",
+      "formula": "=A1+1",
+      "cache": 2,
+      "native_verified": true
+    },
+    {
+      "source_attributes": "ca=\"invalid\" unknown=\"value\" si=\"3\" ref=\"opaque\" t=\"shared\"",
+      "formula": "=A1+1",
+      "cache": 2,
+      "native_verified": true
+    }
+  ],
+  "scope": "Visible normal/shared formulas only; structured array/table raw flag properties remain separate work. Typed compatible reads discard unused source hints; original-package preservation remains separate."
+}
