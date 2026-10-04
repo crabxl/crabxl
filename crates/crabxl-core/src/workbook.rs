@@ -62,6 +62,7 @@ pub struct Workbook {
     active: Option<SheetId>,
     epoch: DateEpoch,
     theme: Option<crate::Theme>,
+    styles: Option<crate::StyleRegistry>,
 }
 impl Workbook {
     /// Create an empty workbook with aggregate and per-sheet allowances.
@@ -90,6 +91,7 @@ impl Workbook {
             active: None,
             epoch: DateEpoch::Windows1900,
             theme: None,
+            styles: None,
         })
     }
     /// Number of sheets in display order.
@@ -139,7 +141,8 @@ impl Workbook {
             .max_bytes
             .saturating_sub(self.slot_bytes())
             .saturating_sub(other_bytes)
-            .saturating_sub(self.theme_bytes());
+            .saturating_sub(self.theme_bytes())
+            .saturating_sub(self.style_bytes());
         let cells = self.limits.max_cells.saturating_sub(other_cells);
         let sheet = &mut self.entries[index].sheet;
         let original = sheet.edit_limits();
@@ -267,6 +270,108 @@ impl Workbook {
     pub fn set_epoch(&mut self, epoch: DateEpoch) {
         self.epoch = epoch;
     }
+    /// Borrow canonical workbook-local style identities, if explicitly initialized.
+    pub fn style_catalog(&self) -> Option<&crate::StyleCatalog> {
+        self.styles.as_ref().map(crate::StyleRegistry::catalog)
+    }
+    /// Adopt source style identities before registering styles. Existing cells must
+    /// refer to the imported table. Failure preserves this workbook's model state.
+    pub fn import_style_catalog(
+        &mut self,
+        catalog: crate::StyleCatalog,
+        mut limits: crate::StyleLimits,
+    ) -> Result<()> {
+        if self.styles.is_some() {
+            return Err(Error::new(
+                ErrorKind::InvalidState,
+                "Workbook styles already initialized",
+            ));
+        }
+        for (_, sheet) in self.sheets() {
+            for row in sheet.row_indices() {
+                for cell in sheet.row_cells(row) {
+                    catalog.cell_style(cell.style)?;
+                }
+            }
+        }
+        let requested = limits;
+        limits.max_bytes = limits
+            .max_bytes
+            .min(self.limits.max_bytes.saturating_sub(self.charged_bytes()));
+        let mut styles = crate::StyleRegistry::from_catalog(catalog, limits)?;
+        styles.set_limits(requested)?;
+        self.styles = Some(styles);
+        Ok(())
+    }
+    /// Register appearance using the same aggregate allowance as all worksheets.
+    /// An initial default registry is created lazily; existing source IDs are retained.
+    pub fn register_style(&mut self, style: crate::CellStyle) -> Result<crate::StyleId> {
+        let maximum = self.style_allowance();
+        if let Some(styles) = &mut self.styles {
+            return styles.register_with_limit(style, maximum);
+        }
+        let mut styles = crate::StyleRegistry::new(crate::StyleLimits {
+            max_bytes: maximum,
+            ..Default::default()
+        })?;
+        let id = styles.register(style)?;
+        styles.set_limits(crate::StyleLimits {
+            max_bytes: self.limits.max_bytes,
+            ..Default::default()
+        })?;
+        self.styles = Some(styles);
+        Ok(id)
+    }
+    /// Register a raw format referencing this bank's imported/shared components.
+    pub fn register_format(&mut self, format: crate::CellFormat) -> Result<crate::StyleId> {
+        let maximum = self.style_allowance();
+        self.styles
+            .as_mut()
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidState,
+                    "Workbook styles are not initialized",
+                )
+            })?
+            .register_format_with_limit(format, maximum)
+    }
+    /// Intern a literal number-format code without rebuilding component payloads.
+    pub fn register_number_format(&mut self, code: Box<str>) -> Result<u32> {
+        let maximum = self.style_allowance();
+        self.styles
+            .as_mut()
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidState,
+                    "Workbook styles are not initialized",
+                )
+            })?
+            .register_number_format_with_limit(code, maximum)
+    }
+    fn style_allowance(&self) -> usize {
+        self.limits
+            .max_bytes
+            .saturating_sub(self.charged_bytes().saturating_sub(self.style_bytes()))
+    }
+    fn style_bytes(&self) -> usize {
+        self.styles
+            .as_ref()
+            .map_or(0, crate::StyleRegistry::memory_bytes)
+    }
+    /// Transfer catalogs and sheets without cloning cell or style payloads.
+    /// This consumes stable handles' owner; the returned sheets retain display order.
+    pub fn into_parts(self) -> WorkbookParts {
+        let active_sheet = self.active_index();
+        WorkbookParts {
+            epoch: self.epoch,
+            active_sheet,
+            theme: self.theme,
+            styles: self.styles,
+            sheets: OwnedWorksheets {
+                entries: self.entries.into_iter(),
+            },
+        }
+    }
     /// Borrow the canonical custom theme bytes, if explicitly assigned or imported.
     pub fn theme(&self) -> Option<&crate::Theme> {
         self.theme.as_ref()
@@ -302,6 +407,7 @@ impl Workbook {
             .map(|entry| entry.sheet.charged_bytes())
             .sum::<usize>()
             .saturating_add(self.theme_bytes())
+            .saturating_add(self.style_bytes())
     }
     fn index(&self, id: SheetId) -> Result<usize> {
         if id.owner != self.owner {
@@ -479,3 +585,32 @@ impl WorksheetEditor<'_> {
         self.sheet.copy_range(range, rows, columns)
     }
 }
+
+/// Ownership transfer for exporting a canonical workbook without catalog snapshots.
+pub struct WorkbookParts {
+    /// Numeric date epoch shared by all sheets.
+    pub epoch: DateEpoch,
+    /// Active display index, absent for an empty workbook.
+    pub active_sheet: Option<usize>,
+    /// Shared immutable custom theme, if present.
+    pub theme: Option<crate::Theme>,
+    /// Canonical editable registry with source identities and existing indices.
+    pub styles: Option<crate::StyleRegistry>,
+    /// Sheets consumed in display order without a second collection allocation.
+    pub sheets: OwnedWorksheets,
+}
+/// Consuming sheet iterator backed by the workbook's original entry allocation.
+pub struct OwnedWorksheets {
+    entries: std::vec::IntoIter<Entry>,
+}
+impl Iterator for OwnedWorksheets {
+    type Item = Worksheet;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.entries.next().map(|entry| entry.sheet)
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.entries.size_hint()
+    }
+}
+impl ExactSizeIterator for OwnedWorksheets {}
+impl std::iter::FusedIterator for OwnedWorksheets {}

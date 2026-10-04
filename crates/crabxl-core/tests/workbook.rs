@@ -183,3 +183,189 @@ fn themes_share_immutable_bytes_and_obey_the_bank_allowance_atomically() {
     assert!(book.theme().is_none());
     book.sheet_mut(id).unwrap().set(cell(0, 7)).unwrap();
 }
+
+#[test]
+fn canonical_styles_share_bank_budgets_and_transfer_without_payload_clones() {
+    use crabxl_core::{CellStyle, StyleLimits, StyleRegistry, Theme};
+    let mut source = StyleRegistry::new(StyleLimits::default()).unwrap();
+    let mut style = CellStyle::default();
+    style.font.name = Some("Imported".into());
+    style.number_format = "0.000".into();
+    let id = source.register(style.clone()).unwrap();
+    let catalog = source.catalog().clone();
+    let font_pointer = catalog.fonts[1].name.as_ref().unwrap().as_ptr();
+    let mut bank = Workbook::new(WorkbookLimits::default()).unwrap();
+    let sheet = bank.create_sheet("Imported").unwrap();
+    let mut styled = cell(0, 1);
+    styled.style = id;
+    bank.sheet_mut(sheet).unwrap().set(styled).unwrap();
+    bank.import_style_catalog(catalog, StyleLimits::default())
+        .unwrap();
+    assert_eq!(bank.register_style(style).unwrap(), id);
+    assert_eq!(
+        bank.style_catalog().unwrap().fonts[1]
+            .name
+            .as_ref()
+            .unwrap()
+            .as_ptr(),
+        font_pointer
+    );
+    assert!(
+        bank.import_style_catalog(source.catalog().clone(), StyleLimits::default())
+            .is_err()
+    );
+    let mut tight = Workbook::new(WorkbookLimits {
+        max_bytes: bank.charged_bytes(),
+        ..Default::default()
+    })
+    .unwrap();
+    let tight_sheet = tight.create_sheet("Imported").unwrap();
+    let mut styled = cell(0, 1);
+    styled.style = id;
+    tight.sheet_mut(tight_sheet).unwrap().set(styled).unwrap();
+    tight
+        .import_style_catalog(source.catalog().clone(), StyleLimits::default())
+        .unwrap();
+    let before = tight.charged_bytes();
+    assert!(
+        tight
+            .set_theme(Some(Theme::from_bytes(vec![1; 4096].into_boxed_slice())))
+            .is_err()
+    );
+    assert!(
+        tight
+            .sheet_mut(tight_sheet)
+            .unwrap()
+            .set(cell(1, 2))
+            .is_err()
+    );
+    assert_eq!(tight.charged_bytes(), before);
+    assert_eq!(tight.cell_count(), 1);
+    let mut parts = bank.into_parts();
+    assert_eq!(parts.active_sheet, Some(0));
+    assert_eq!(
+        parts.styles.as_ref().unwrap().catalog().fonts[1]
+            .name
+            .as_ref()
+            .unwrap()
+            .as_ptr(),
+        font_pointer
+    );
+    assert_eq!(parts.sheets.len(), 1);
+    assert_eq!(
+        parts
+            .sheets
+            .next()
+            .unwrap()
+            .get(CellAddress::new(0, 0).unwrap())
+            .unwrap()
+            .style,
+        id
+    );
+    assert!(parts.sheets.next().is_none());
+}
+
+#[test]
+fn failed_style_import_and_registration_leave_owned_cells_usable() {
+    use crabxl_core::{CellStyle, StyleLimits, StyleRegistry};
+    let mut bank = Workbook::new(WorkbookLimits::default()).unwrap();
+    let sheet = bank.create_sheet("Sheet").unwrap();
+    let mut wrong = cell(0, 1);
+    wrong.style = StyleId::new(100);
+    bank.sheet_mut(sheet).unwrap().set(wrong).unwrap();
+    let source = StyleRegistry::new(StyleLimits::default()).unwrap();
+    assert!(
+        bank.import_style_catalog(source.catalog().clone(), StyleLimits::default())
+            .is_err()
+    );
+    assert!(bank.style_catalog().is_none());
+    bank.sheet_mut(sheet).unwrap().set(cell(0, 1)).unwrap();
+    let mut invalid = CellStyle::default();
+    invalid.font.size = Some(f64::NAN);
+    assert!(bank.register_style(invalid).is_err());
+    assert!(bank.style_catalog().is_none());
+    assert_eq!(
+        bank.register_style(CellStyle::default()).unwrap(),
+        StyleId::new(0)
+    );
+    assert_eq!(bank.cell_count(), 1);
+}
+
+#[test]
+fn imported_bank_raw_format_edits_reuse_components_and_source_identities() {
+    use crabxl_core::{CellStyle, StyleLimits, StyleRegistry};
+    let mut bank = Workbook::new(WorkbookLimits::default()).unwrap();
+    assert!(bank.register_number_format("0.00".into()).is_err());
+    let mut source = StyleRegistry::new(StyleLimits::default()).unwrap();
+    let mut style = CellStyle::default();
+    style.font.name = Some("SharedComponent".into());
+    let id = source.register(style).unwrap();
+    bank.import_style_catalog(source.catalog().clone(), StyleLimits::default())
+        .unwrap();
+    let pointer = bank.style_catalog().unwrap().fonts[1]
+        .name
+        .as_ref()
+        .unwrap()
+        .as_ptr();
+    let mut format = bank
+        .style_catalog()
+        .unwrap()
+        .cell_format(id)
+        .unwrap()
+        .clone();
+    format.number_format_id = bank.register_number_format("0.0000".into()).unwrap();
+    let edited = bank.register_format(format.clone()).unwrap();
+    assert_eq!(bank.register_format(format).unwrap(), edited);
+    let catalog = bank.style_catalog().unwrap();
+    assert_eq!(catalog.fonts.len(), 2);
+    assert_eq!(catalog.fonts[1].name.as_ref().unwrap().as_ptr(), pointer);
+    assert_eq!(
+        catalog.cell_style(id).unwrap().number_format,
+        Some("General")
+    );
+    assert_eq!(
+        catalog.cell_style(edited).unwrap().number_format,
+        Some("0.0000")
+    );
+}
+
+#[test]
+fn releasing_sheet_storage_restores_style_registration_allowance() {
+    use crabxl_core::{CellStyle, StyleLimits, StyleRegistry};
+    let mut bank = Workbook::new(WorkbookLimits {
+        max_bytes: 64 * 1024,
+        ..Default::default()
+    })
+    .unwrap();
+    let sheet = bank.create_sheet("Large").unwrap();
+    bank.sheet_mut(sheet)
+        .unwrap()
+        .set(Cell {
+            address: CellAddress::new(0, 0).unwrap(),
+            value: CellValue::text("x".repeat(48 * 1024)),
+            style: StyleId::new(0),
+        })
+        .unwrap();
+    let source = StyleRegistry::new(StyleLimits::default()).unwrap();
+    bank.import_style_catalog(source.catalog().clone(), StyleLimits::default())
+        .unwrap();
+    let mut appearance = CellStyle::default();
+    appearance.font.name = Some("y".repeat(20 * 1024).into());
+    assert!(bank.register_style(appearance.clone()).is_err());
+    let removed = bank.remove_sheet(sheet).unwrap();
+    drop(removed);
+    let id = bank.register_style(appearance).unwrap();
+    assert_eq!(
+        bank.style_catalog()
+            .unwrap()
+            .cell_style(id)
+            .unwrap()
+            .font
+            .name
+            .as_ref()
+            .unwrap()
+            .len(),
+        20 * 1024
+    );
+    assert!(bank.charged_bytes() <= 64 * 1024);
+}

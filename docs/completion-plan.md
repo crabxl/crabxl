@@ -64,6 +64,8 @@ M2 acceptance: all assigned value/string/date/formula read cases pass in streami
 
 ## M4.1: Loaded workbook ownership
 
+Checkpoint: canonical owned-bank style import/registration, aggregate theme/style/sheet budgeting and consuming registry/sheet export are verified in ADR 0030 and benchmarks/m4-bank-styles.md. Lazy loading, repeated non-consuming styled save and original feature graphs remain open; this checkpoint does not complete M4.1.
+
 - Load selected worksheets lazily into the existing owner-scoped Workbook bank with stable SheetId handles. New and loaded sheets must not become unrelated public model systems.
 - Aggregate catalog, retained sheet models, overlays, caches and transient editing allowances; distinguish managed accounting from a hard process RSS limit.
 - Preserve source ownership and allow explicit full materialization. File/path/seekable input and output lifetimes, repeated saves, close, cancellation and failed-save retry must be documented.

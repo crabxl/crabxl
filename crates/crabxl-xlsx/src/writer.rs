@@ -154,18 +154,53 @@ pub struct WorkbookWriter {
     poisoned: bool,
     cleanup_paths: Vec<PathBuf>,
 }
+// Constructor-only ownership transfer: keep this bounded stack value unboxed
+// rather than adding a heap allocation that is immediately moved into the writer.
+#[allow(clippy::large_enum_variant)]
+enum StyleSource {
+    Default,
+    Catalog(StyleCatalog),
+    Registry(StyleRegistry),
+}
 impl WorkbookWriter {
     /// Create a writer with explicit resource and temporary-directory options.
     pub fn new(options: WriteOptions) -> Result<Self> {
-        Self::new_with_catalog(options, None)
+        Self::new_with_styles(options, StyleSource::Default)
     }
     /// Adopt source tables and preserve their component/format IDs in a new package.
     /// Automatic date formats register after existing records rather than using fixed IDs.
     /// Unmodeled extensions require original-package preservation and are rejected here.
     pub fn from_style_catalog(options: WriteOptions, catalog: StyleCatalog) -> Result<Self> {
-        Self::new_with_catalog(options, Some(catalog))
+        Self::new_with_styles(options, StyleSource::Catalog(catalog))
     }
-    fn new_with_catalog(options: WriteOptions, catalog: Option<StyleCatalog>) -> Result<Self> {
+    /// Consume an owned workbook into sequential output without cloning its styles
+    /// or cells. Original-package preservation remains a separate editor operation.
+    pub fn from_workbook(
+        mut options: WriteOptions,
+        workbook: crabxl_core::Workbook,
+    ) -> Result<Self> {
+        let parts = workbook.into_parts();
+        options.active_sheet = parts
+            .active_sheet
+            .ok_or_else(|| state("A workbook requires at least one worksheet"))?;
+        options.date_1904 = parts.epoch == DateEpoch::Mac1904;
+        if let Some(theme) = parts.theme {
+            options.theme = if matches!(options.theme, crate::ThemeWritePolicy::Validated(_)) {
+                crate::ThemeWritePolicy::Validated(theme)
+            } else {
+                crate::ThemeWritePolicy::Custom(theme)
+            };
+        }
+        let source = parts
+            .styles
+            .map_or(StyleSource::Default, StyleSource::Registry);
+        let mut writer = Self::new_with_styles(options, source)?;
+        for sheet in parts.sheets {
+            writer.write_worksheet(&sheet)?;
+        }
+        Ok(writer)
+    }
+    fn new_with_styles(options: WriteOptions, source: StyleSource) -> Result<Self> {
         if options.max_styles < 5
             || options.max_styles > u32::MAX as usize
             || options.buffer_bytes == 0
@@ -209,19 +244,25 @@ impl WorkbookWriter {
                 .saturating_sub(options.theme.memory_bytes()),
             max_records: options.max_styles,
         };
-        let mut styles = if let Some(catalog) = catalog {
-            crate::styles::validate_catalog(&catalog)?;
-            let mut registry =
-                StyleRegistry::from_catalog(catalog, style_limits).map_err(writer_style_error)?;
-            if registry.catalog().cell_formats.is_empty() {
-                registry
-                    .register(CellStyle::default())
-                    .map_err(writer_style_error)?;
+        let mut styles = match source {
+            StyleSource::Default => StyleRegistry::new(style_limits).map_err(writer_style_error)?,
+            StyleSource::Catalog(catalog) => {
+                crate::styles::validate_catalog(&catalog)?;
+                StyleRegistry::from_catalog(catalog, style_limits).map_err(writer_style_error)?
             }
-            registry
-        } else {
-            StyleRegistry::new(style_limits).map_err(writer_style_error)?
+            StyleSource::Registry(mut registry) => {
+                crate::styles::validate_catalog(registry.catalog())?;
+                registry
+                    .set_limits(style_limits)
+                    .map_err(writer_style_error)?;
+                registry
+            }
         };
+        if styles.catalog().cell_formats.is_empty() {
+            styles
+                .register(CellStyle::default())
+                .map_err(writer_style_error)?;
+        }
         let date_styles = register_date_styles(&mut styles)?;
         let writer = Self {
             options,
@@ -432,6 +473,11 @@ impl WorkbookWriter {
         self.ensure_open()?;
         if !self.sheets.is_empty() || self.active.is_some() {
             return Err(state("Workbook model export requires a fresh writer"));
+        }
+        if workbook.style_catalog().is_some() {
+            return Err(state(
+                "Styled workbook export requires from_workbook ownership transfer",
+            ));
         }
         if workbook.is_empty() {
             return Err(state("A workbook requires at least one worksheet"));

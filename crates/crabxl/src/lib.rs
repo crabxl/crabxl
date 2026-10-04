@@ -54,7 +54,9 @@ pub use crabxl_xlsx::memory_allowance;
 
 pub use crabxl_core::{formula_position, translate_axis, translate_expression};
 
-pub use crabxl_core::{SheetId, Workbook, WorkbookLimits, WorksheetEditor};
+pub use crabxl_core::{
+    OwnedWorksheets, SheetId, Workbook, WorkbookLimits, WorkbookParts, WorksheetEditor,
+};
 
 pub use crabxl_xlsx::{SharedStringOptions, SharedStringStats, SharedStringStorage};
 
