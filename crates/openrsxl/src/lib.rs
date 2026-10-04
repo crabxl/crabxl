@@ -1,6 +1,7 @@
 //! Rust spreadsheet processing with bounded streaming XLSX reads.
 //!
-//! This checkpoint reads sparse, unstyled scalar values and plain inline text. Other
+//! This checkpoint reads sparse, unstyled scalars, plain inline text and normal formulas.
+//! The sequential writer adds dates and basic styles. Other
 //! spreadsheet features remain planned; unsupported selected cells fail loudly.
 //!
 //! ```no_run
@@ -31,3 +32,10 @@ pub use openrsxl_core::{
 pub use openrsxl_core::{CellError, CellText, ExactInteger, StyleId};
 pub use openrsxl_xlsx::{AdaptiveRead, ReadData};
 pub use openrsxl_xlsx::{Rows, SheetInfo, SheetKind, WorkbookReader};
+
+pub use openrsxl_xlsx::{WorkbookWriter, WriteOptions, WriteStats};
+
+pub use openrsxl_core::{
+    BorderLine, BorderSide, CellStyle, DateEpoch, DateKind, ExcelDateTime, Font, Formula,
+    HorizontalAlignment, VerticalAlignment,
+};

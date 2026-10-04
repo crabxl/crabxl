@@ -4,8 +4,8 @@
 
 use crate::xml::{Scope, XmlStream};
 use openrsxl_core::{
-    Cell, CellAddress, CellValue, Error, ErrorKind, ExactInteger, ReadOptions, ResourceLimits,
-    Result, Row, RowBatch, RowIndex,
+    Cell, CellAddress, CellValue, Error, ErrorKind, ExactInteger, Formula, ReadOptions,
+    ResourceLimits, Result, Row, RowBatch, RowIndex,
 };
 use quick_xml::events::{BytesStart, Event};
 use std::{
@@ -270,6 +270,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         Cell {
                             address: header.address,
                             value,
+                            style: openrsxl_core::StyleId::new(0),
                         },
                     )?;
                 }
@@ -337,6 +338,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     fn read_cell<const BOOLEAN: bool>(&mut self, kind: ScalarKind) -> Result<CellValue> {
         let mut value = CellValue::Empty;
         let mut seen_value = false;
+        let mut formula = None;
         loop {
             let frame = self.xml.next()?;
             match frame.event {
@@ -366,10 +368,34 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     seen_value = true;
                     value = self.read_inline_text()?;
                 }
+                Event::Start(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 5
+                        && e.local_name().as_ref() == b"f" =>
+                {
+                    if formula.is_some() || matches!(kind, ScalarKind::InlineText) {
+                        return Err(self.invalid("Invalid or duplicate formula element"));
+                    }
+                    for attribute in e.attributes() {
+                        let attribute = attribute.map_err(|error| {
+                            Error::caused_by(ErrorKind::Xml, "Invalid formula attribute", error)
+                        })?;
+                        if attribute.key.as_ref() != b"t" || attribute.value.as_ref() != b"normal" {
+                            return Err(Error::new(
+                                ErrorKind::Unsupported,
+                                "Shared, array or other formula metadata is not supported yet",
+                            ));
+                        }
+                    }
+                    formula = Some(match self.read_value::<false>(ScalarKind::Text)? {
+                        CellValue::Text(value) => value.as_str().to_owned(),
+                        _ => return Err(self.invalid("Normal formula expression is empty")),
+                    });
+                }
                 Event::Start(_) => {
                     return Err(Error::new(
                         ErrorKind::Unsupported,
-                        "Formula or other cell content is not supported yet",
+                        "Other cell content is not supported yet",
                     )
                     .with_part(self.xml.part()));
                 }
@@ -378,6 +404,21 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         && frame.depth == 3
                         && e.local_name().as_ref() == b"c" =>
                 {
+                    if let Some(expression) = formula {
+                        if seen_value
+                            && matches!(kind, ScalarKind::Text)
+                            && matches!(value, CellValue::Empty)
+                        {
+                            value = CellValue::text("");
+                        }
+                        if self.options.data_only {
+                            return Ok(value);
+                        }
+                        return Ok(CellValue::Formula(Box::new(Formula::new(
+                            expression.into_boxed_str(),
+                            seen_value.then_some(value),
+                        )?)));
+                    }
                     return Ok(value);
                 }
                 Event::Text(t) if !t.iter().all(u8::is_ascii_whitespace) => {
@@ -395,13 +436,13 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             let frame = self.xml.next()?;
             match frame.event {
                 Event::Text(t) => {
-                    let text = t.decode().map_err(|e| {
+                    let text = t.xml10_content().map_err(|e| {
                         Error::caused_by(ErrorKind::Xml, "Cannot decode scalar value", e)
                     })?;
                     append_value(&mut self.value_buffer, &text, self.limits.max_cell_bytes)?;
                 }
                 Event::CData(t) => {
-                    let text = t.decode().map_err(|e| {
+                    let text = t.xml10_content().map_err(|e| {
                         Error::caused_by(ErrorKind::Xml, "Cannot decode scalar value", e)
                     })?;
                     append_value(&mut self.value_buffer, &text, self.limits.max_cell_bytes)?;
@@ -430,7 +471,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     if frame.scope == Scope::Spreadsheet
                         && (frame.depth == 4
                             || (matches!(kind, ScalarKind::InlineText) && frame.depth == 5))
-                        && (e.local_name().as_ref() == b"v" || e.local_name().as_ref() == b"t") =>
+                        && (e.local_name().as_ref() == b"v"
+                            || e.local_name().as_ref() == b"t"
+                            || e.local_name().as_ref() == b"f") =>
                 {
                     break;
                 }

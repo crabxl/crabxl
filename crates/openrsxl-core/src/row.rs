@@ -1,4 +1,7 @@
-use crate::{CellAddress, CellError, CellText, ColumnIndex, ExactInteger, RowIndex};
+use crate::{
+    CellAddress, CellError, CellText, ColumnIndex, ExactInteger, ExcelDateTime, Formula, RowIndex,
+    StyleId,
+};
 use std::ops::RangeInclusive;
 
 /// Values supported by the current scalar reader.
@@ -22,12 +25,18 @@ pub enum CellValue {
     Text(Box<CellText>),
     /// A literal spreadsheet error token.
     Error(Box<CellError>),
+    /// Excel date/time serial with epoch and interpretation.
+    DateTime(Box<ExcelDateTime>),
+    /// Normal formula with optional typed cached result.
+    Formula(Box<Formula>),
 }
 
 impl CellValue {
     /// Bytes retained outside the fixed-size cell value, excluding allocator overhead.
     pub fn heap_bytes(&self) -> usize {
         match self {
+            Self::DateTime(_) => size_of::<ExcelDateTime>(),
+            Self::Formula(value) => value.memory_bytes(),
             Self::BigInteger(value) => value.memory_bytes(),
             Self::Text(value) => value.memory_bytes(),
             Self::Error(value) => value.memory_bytes(),
@@ -49,8 +58,10 @@ impl CellValue {
 pub struct Cell {
     /// Actual worksheet position.
     pub address: CellAddress,
-    /// Literal value.
+    /// Value or formula with its optional cache.
     pub value: CellValue,
+    /// Workbook-local cell format (zero selects the default record).
+    pub style: StyleId,
 }
 
 /// An owned sparse row. Missing columns are not expanded into empty cells.
@@ -129,6 +140,8 @@ pub struct ReadOptions {
     pub rows: Option<RangeInclusive<RowIndex>>,
     /// Optional inclusive zero-based column bounds.
     pub columns: Option<RangeInclusive<ColumnIndex>>,
+    /// Return cached formula results instead of formulas. Missing caches are Empty.
+    pub data_only: bool,
 }
 impl ReadOptions {
     /// Whether the selected row range includes this index.

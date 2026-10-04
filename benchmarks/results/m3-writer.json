@@ -1,0 +1,334 @@
+{
+  "rust": "1.88.0",
+  "openpyxl": "3.1.5",
+  "measurement": "Linux native wait4, one warmup and three Rust runs; Python numeric writer warmup plus one measured run; TMPDIR sampled every 25ms, Rust also reports exact logical spooled XML bytes",
+  "cases": [
+    {
+      "workload": "numeric",
+      "rows": 10000,
+      "columns": 10,
+      "rust_runs": [
+        {
+          "observed_temp_bytes": 3076891,
+          "seconds": 0.079512108,
+          "cpu_seconds": 0.079335,
+          "peak_rss_kib": 2140,
+          "temp_bytes": 3076891,
+          "output_bytes": 303503
+        },
+        {
+          "observed_temp_bytes": 3076891,
+          "seconds": 0.082676926,
+          "cpu_seconds": 0.082591,
+          "peak_rss_kib": 2084,
+          "temp_bytes": 3076891,
+          "output_bytes": 303503
+        },
+        {
+          "observed_temp_bytes": 3076891,
+          "seconds": 0.085252543,
+          "cpu_seconds": 0.085069,
+          "peak_rss_kib": 2156,
+          "temp_bytes": 3076891,
+          "output_bytes": 303503
+        }
+      ],
+      "python_run": {
+        "observed_temp_bytes": 3677160,
+        "seconds": 0.850371744,
+        "cpu_seconds": 0.605402,
+        "peak_rss_kib": 33280,
+        "output_bytes": 325475
+      },
+      "python_warmup": true,
+      "cross_tool_python_verified": true
+    },
+    {
+      "workload": "numeric",
+      "rows": 100000,
+      "columns": 10,
+      "rust_runs": [
+        {
+          "observed_temp_bytes": 32866902,
+          "seconds": 0.882225962,
+          "cpu_seconds": 0.881942,
+          "peak_rss_kib": 2112,
+          "temp_bytes": 32866902,
+          "output_bytes": 2941295
+        },
+        {
+          "observed_temp_bytes": 32866902,
+          "seconds": 0.886647744,
+          "cpu_seconds": 0.886206,
+          "peak_rss_kib": 2156,
+          "temp_bytes": 32866902,
+          "output_bytes": 2941295
+        },
+        {
+          "observed_temp_bytes": 32866902,
+          "seconds": 0.886323456,
+          "cpu_seconds": 0.886112,
+          "peak_rss_kib": 2084,
+          "temp_bytes": 32866902,
+          "output_bytes": 2941295
+        }
+      ],
+      "python_run": {
+        "observed_temp_bytes": 38867171,
+        "seconds": 3.998520765,
+        "cpu_seconds": 4.168833,
+        "peak_rss_kib": 33196,
+        "output_bytes": 3140976
+      },
+      "python_warmup": true,
+      "cross_tool_python_verified": true
+    },
+    {
+      "workload": "numeric",
+      "rows": 1000000,
+      "columns": 10,
+      "rust_runs": [
+        {
+          "observed_temp_bytes": 349666913,
+          "seconds": 7.679303687,
+          "cpu_seconds": 7.677293,
+          "peak_rss_kib": 2140,
+          "temp_bytes": 349666913,
+          "output_bytes": 30665133
+        },
+        {
+          "observed_temp_bytes": 349666913,
+          "seconds": 7.729052415,
+          "cpu_seconds": 7.723708,
+          "peak_rss_kib": 2120,
+          "temp_bytes": 349666913,
+          "output_bytes": 30665133
+        },
+        {
+          "observed_temp_bytes": 349666913,
+          "seconds": 7.367362395,
+          "cpu_seconds": 7.361905,
+          "peak_rss_kib": 2104,
+          "temp_bytes": 349666913,
+          "output_bytes": 30665133
+        }
+      ],
+      "python_run": {
+        "observed_temp_bytes": 409667182,
+        "seconds": 38.933695621,
+        "cpu_seconds": 39.038332,
+        "peak_rss_kib": 33136,
+        "output_bytes": 31582579
+      },
+      "python_warmup": false,
+      "cross_tool_python_verified": false
+    },
+    {
+      "workload": "mixed",
+      "rows": 10000,
+      "columns": 10,
+      "rust_runs": [
+        {
+          "observed_temp_bytes": 4745781,
+          "seconds": 0.060276787,
+          "cpu_seconds": 0.060162,
+          "peak_rss_kib": 2148,
+          "temp_bytes": 4745781,
+          "output_bytes": 372418
+        },
+        {
+          "observed_temp_bytes": 4745781,
+          "seconds": 0.061835201,
+          "cpu_seconds": 0.061735,
+          "peak_rss_kib": 2152,
+          "temp_bytes": 4745781,
+          "output_bytes": 372418
+        },
+        {
+          "observed_temp_bytes": 4745781,
+          "seconds": 0.060294213,
+          "cpu_seconds": 0.060214,
+          "peak_rss_kib": 2136,
+          "temp_bytes": 4745781,
+          "output_bytes": 372418
+        }
+      ],
+      "cross_tool_python_verified": true
+    },
+    {
+      "workload": "mixed",
+      "rows": 100000,
+      "columns": 10,
+      "rust_runs": [
+        {
+          "observed_temp_bytes": 48755792,
+          "seconds": 0.611025043,
+          "cpu_seconds": 0.610933,
+          "peak_rss_kib": 2156,
+          "temp_bytes": 48755792,
+          "output_bytes": 3630461
+        },
+        {
+          "observed_temp_bytes": 48755792,
+          "seconds": 0.617557524,
+          "cpu_seconds": 0.61716,
+          "peak_rss_kib": 2120,
+          "temp_bytes": 48755792,
+          "output_bytes": 3630461
+        },
+        {
+          "observed_temp_bytes": 48755792,
+          "seconds": 0.614932059,
+          "cpu_seconds": 0.614734,
+          "peak_rss_kib": 2156,
+          "temp_bytes": 48755792,
+          "output_bytes": 3630461
+        }
+      ],
+      "cross_tool_python_verified": true
+    },
+    {
+      "workload": "features",
+      "rows": 10000,
+      "columns": 10,
+      "rust_runs": [
+        {
+          "observed_temp_bytes": 4708001,
+          "seconds": 0.060648147,
+          "cpu_seconds": 0.060566,
+          "peak_rss_kib": 2084,
+          "temp_bytes": 4708001,
+          "output_bytes": 328836
+        },
+        {
+          "observed_temp_bytes": 4708001,
+          "seconds": 0.061490156,
+          "cpu_seconds": 0.061369,
+          "peak_rss_kib": 2156,
+          "temp_bytes": 4708001,
+          "output_bytes": 328836
+        },
+        {
+          "observed_temp_bytes": 4708001,
+          "seconds": 0.062441729,
+          "cpu_seconds": 0.062357,
+          "peak_rss_kib": 2076,
+          "temp_bytes": 4708001,
+          "output_bytes": 328836
+        }
+      ],
+      "cross_tool_python_verified": true,
+      "formula_and_data_only_verified": true,
+      "basic_style_attributes_verified": true,
+      "relationship_targets_and_collection_counts_verified": true
+    },
+    {
+      "workload": "features",
+      "rows": 100000,
+      "columns": 10,
+      "rust_runs": [
+        {
+          "observed_temp_bytes": 48178012,
+          "seconds": 0.663925676,
+          "cpu_seconds": 0.663783,
+          "peak_rss_kib": 2076,
+          "temp_bytes": 48178012,
+          "output_bytes": 3267638
+        },
+        {
+          "observed_temp_bytes": 48178012,
+          "seconds": 0.618496176,
+          "cpu_seconds": 0.618038,
+          "peak_rss_kib": 2076,
+          "temp_bytes": 48178012,
+          "output_bytes": 3267638
+        },
+        {
+          "observed_temp_bytes": 48178012,
+          "seconds": 0.632441955,
+          "cpu_seconds": 0.632332,
+          "peak_rss_kib": 2076,
+          "temp_bytes": 48178012,
+          "output_bytes": 3267638
+        }
+      ],
+      "cross_tool_python_verified": true,
+      "formula_and_data_only_verified": true,
+      "basic_style_attributes_verified": true,
+      "relationship_targets_and_collection_counts_verified": true
+    },
+    {
+      "workload": "features1904",
+      "rows": 10000,
+      "columns": 10,
+      "rust_runs": [
+        {
+          "observed_temp_bytes": 4708001,
+          "seconds": 0.062264154,
+          "cpu_seconds": 0.062172,
+          "peak_rss_kib": 2024,
+          "temp_bytes": 4708001,
+          "output_bytes": 328835
+        },
+        {
+          "observed_temp_bytes": 4708001,
+          "seconds": 0.064069232,
+          "cpu_seconds": 0.063928,
+          "peak_rss_kib": 2140,
+          "temp_bytes": 4708001,
+          "output_bytes": 328835
+        },
+        {
+          "observed_temp_bytes": 4708001,
+          "seconds": 0.060915841,
+          "cpu_seconds": 0.060778,
+          "peak_rss_kib": 2076,
+          "temp_bytes": 4708001,
+          "output_bytes": 328835
+        }
+      ],
+      "cross_tool_python_verified": true,
+      "formula_and_data_only_verified": true,
+      "basic_style_attributes_verified": true,
+      "relationship_targets_and_collection_counts_verified": true
+    },
+    {
+      "workload": "features1904",
+      "rows": 100000,
+      "columns": 10,
+      "rust_runs": [
+        {
+          "observed_temp_bytes": 48178012,
+          "seconds": 0.633250545,
+          "cpu_seconds": 0.633132,
+          "peak_rss_kib": 2024,
+          "temp_bytes": 48178012,
+          "output_bytes": 3267637
+        },
+        {
+          "observed_temp_bytes": 48178012,
+          "seconds": 0.63226695,
+          "cpu_seconds": 0.632143,
+          "peak_rss_kib": 2152,
+          "temp_bytes": 48178012,
+          "output_bytes": 3267637
+        },
+        {
+          "observed_temp_bytes": 48178012,
+          "seconds": 0.64886829,
+          "cpu_seconds": 0.64802,
+          "peak_rss_kib": 2024,
+          "temp_bytes": 48178012,
+          "output_bytes": 3267637
+        }
+      ],
+      "cross_tool_python_verified": true,
+      "formula_and_data_only_verified": true,
+      "basic_style_attributes_verified": true,
+      "relationship_targets_and_collection_counts_verified": true
+    }
+  ],
+  "scope": "M3 sequential creation; core shared date/formula/basic-style types; M2 full style/date/shared-string reading remains staged",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "cpu": "AMD EPYC 9V74 80-Core Processor"
+}

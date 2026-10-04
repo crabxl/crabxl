@@ -10,14 +10,16 @@
       "license_file": "third_party/licenses/calamine-MIT.txt",
       "source_symbols": [
         "src/xlsx/cells_reader.rs: XlsxCellReader::new, next_cell, read_value, read_v",
-        "src/xlsx/mod.rs: xml_reader, read_workbook, read_relationships, get_row_and_optional_column"
+        "src/xlsx/mod.rs: xml_reader, read_workbook, read_relationships, get_row_and_optional_column",
+        "src/formats.rs: detect_custom_number_format (quoted/escaped first-section date/duration detection)"
       ],
       "destinations": [
         "crates/openrsxl-core/src/address.rs",
         "crates/openrsxl-xlsx/src/xml.rs",
         "crates/openrsxl-xlsx/src/package.rs",
         "crates/openrsxl-xlsx/src/reader.rs",
-        "crates/openrsxl-core/src/scalar.rs"
+        "crates/openrsxl-core/src/scalar.rs",
+        "crates/openrsxl-xlsx/src/styles.rs"
       ],
       "changes": [
         "Adapted event-driven cell and workbook parsing to shared openrsxl types without Range materialization",
@@ -28,7 +30,9 @@
         "Unsupported selected features fail explicitly; numeric decoding rejects invalid and non-finite values instead of falling back to strings",
         "Added contextual errors and resource budgets; retained no global or interpreter-exit resource registry",
         "M2 boolean branch uses shared CellValue::Boolean and validates zero/nonzero signed decimal integer literals instead of calamine literal-string comparison; no per-cell heap payload added",
-        "M2 scalar port preserves integer/float lexemes and arbitrary decimal integer literals; adds plain inline/value text and literal errors with shared compact owned models and heap-payload accounting"
+        "M2 scalar port preserves integer/float lexemes and arbitrary decimal integer literals; adds plain inline/value text and literal errors with shared compact owned models and heap-payload accounting",
+        "Normal formula and optional typed cache decoding integrated with shared Formula; data-only projection and owned expression/cache accounting; non-normal metadata remains explicitly unsupported",
+        "Date-format classifier validates explicit date styles before writing; bounded bracket depth and coherent duration interpretation"
       ],
       "tests": "New in-memory OOXML fixtures in crates/openrsxl-xlsx/tests/streaming.rs; no upstream binary fixture copies",
       "inventory_items": [
@@ -45,6 +49,51 @@
         "read.exact-integers",
         "read.plain-text-errors",
         "resources.scalar-payloads"
+      ]
+    },
+    {
+      "project": "rust_xlsxwriter",
+      "repository": "https://github.com/jmcnamara/rust_xlsxwriter",
+      "commit": "902609b2e0fbc3cfa20fec5b464328479e29dbef",
+      "license": "MIT (selected from upstream MIT/Apache-2.0 dual license)",
+      "notice": "Copyright 2022-2026 John McNamara <jmcnamara@cpan.org>",
+      "license_file": "third_party/licenses/rust_xlsxwriter-MIT.txt",
+      "source_symbols": [
+        "src/worksheet.rs: write_number_cell, write_inline_string_cell, write_boolean_cell, insert_cell/flush_to_row constant-memory flow",
+        "src/packager.rs: write_worksheet_file constant-memory sections and bounded io::copy",
+        "src/workbook.rs: write_workbook, write_sheets, write_sheet",
+        "src/content_types.rs: write_types/defaults/overrides",
+        "src/relationship.rs: write_relationship",
+        "src/xmlwriter.rs: escape_xml_data, match_xml_char, escape_xml_escapes (inspection; unsupported text escape cases explicitly deferred)",
+        "src/worksheet.rs: write_formula_cell (typed cache XML layout)",
+        "src/styles.rs: write_fonts/write_font, write_fill, write_border, write_cell_xf, write_alignment, write_protection, write_num_fmt",
+        "src/datetime.rs: chrono_date_to_excel, chrono_datetime_to_excel (epoch/leapday conversion)"
+      ],
+      "destinations": [
+        "crates/openrsxl-xlsx/src/writer.rs",
+        "crates/openrsxl-xlsx/src/encode.rs",
+        "crates/openrsxl-core/src/date.rs",
+        "crates/openrsxl-core/src/formula.rs",
+        "crates/openrsxl-core/src/style.rs",
+        "crates/openrsxl-xlsx/src/styles.rs"
+      ],
+      "changes": [
+        "Adapted selected sequential spooling, scalar cell layouts and OPC packaging into the existing shared core rather than importing an upstream workbook model",
+        "Propagate typed I/O/validation/state errors instead of expect/unwrap or silently ignoring flushed rows",
+        "Encode one bounded reusable row before spooling; stream completed temporary worksheet files into ZIP; no whole-sheet XML buffer",
+        "Use owned temporary files with explicit finish/abort and all-resource cleanup; create next-sheet temporary resource before committing the state transition",
+        "Preserve exact integer literals and float lexical distinctions; text escapes XML and retains whitespace; reject unsupported OOXML escape-looking text instead of corrupting it",
+        "Finish uses caller-selected seekable output and may leave partial output on failure; no implicit workbook save on Drop",
+        "Adapt initial basic styles to a shared core model with deduplicated complete format IDs and bounded tables; advanced/named/theme styles remain M5",
+        "Adapt formula XML to typed optional caches, preserving missing/zero/false/text/error/date results without upstream fabricated default zero; shared/array/data-table metadata remains staged",
+        "Adapt Gregorian epoch/leapday conversion via foundational chrono with explicit fictitious-leapday epoch conversion errors, baseline millisecond calendar rounding and epoch-independent time/duration serials"
+      ],
+      "tests": "New generated scalar round-trip and injected failure/cleanup tests in crates/openrsxl-xlsx/tests/writer.rs; Python public-API readback and benchmark inputs generated by benchmarks/writer_checkpoint.py",
+      "inventory_items": [
+        "write.scalar-streaming",
+        "resources.writer-lifecycle",
+        "write.dates-formulas-basic-styles",
+        "read.normal-formulas"
       ]
     }
   ]

@@ -1,0 +1,163 @@
+{
+  "rust": "1.88.0",
+  "openpyxl": "3.1.5",
+  "before_revision": "74c082a58e8b",
+  "measurement": "Native Linux wait4 RSS; three alternating measured runs, one warmup; fixture generation/public API verification excluded",
+  "runtime_temporary_bytes": 0,
+  "cases": [
+    {
+      "workload": "mixed",
+      "rows": 10000,
+      "columns": 10,
+      "input_bytes": 87992,
+      "runs": [
+        {
+          "output": "40000 10000 5000 10000 30000 10000",
+          "seconds": 0.064599657,
+          "cpu_seconds": 0.064419,
+          "peak_rss_kib": 1452
+        },
+        {
+          "output": "40000 10000 5000 10000 30000 10000",
+          "seconds": 0.065208086,
+          "cpu_seconds": 0.065127,
+          "peak_rss_kib": 1604
+        },
+        {
+          "output": "40000 10000 5000 10000 30000 10000",
+          "seconds": 0.064437477,
+          "cpu_seconds": 0.064315,
+          "peak_rss_kib": 1452
+        }
+      ]
+    },
+    {
+      "workload": "mixed",
+      "rows": 100000,
+      "columns": 10,
+      "input_bytes": 823647,
+      "runs": [
+        {
+          "output": "400000 100000 50000 100000 300000 100000",
+          "seconds": 0.65174712,
+          "cpu_seconds": 0.651554,
+          "peak_rss_kib": 1600
+        },
+        {
+          "output": "400000 100000 50000 100000 300000 100000",
+          "seconds": 0.642301673,
+          "cpu_seconds": 0.641777,
+          "peak_rss_kib": 1604
+        },
+        {
+          "output": "400000 100000 50000 100000 300000 100000",
+          "seconds": 0.653107155,
+          "cpu_seconds": 0.65291,
+          "peak_rss_kib": 1532
+        }
+      ]
+    },
+    {
+      "workload": "numeric",
+      "rows": 100000,
+      "columns": 10,
+      "runs": [
+        {
+          "version": "M1",
+          "output": "1000000 499999500000",
+          "seconds": 0.71140584,
+          "cpu_seconds": 0.710997,
+          "peak_rss_kib": 1544
+        },
+        {
+          "version": "M3",
+          "output": "1000000 499999500000",
+          "seconds": 0.730723544,
+          "cpu_seconds": 0.730214,
+          "peak_rss_kib": 1532
+        },
+        {
+          "version": "M3",
+          "output": "1000000 499999500000",
+          "seconds": 0.732144505,
+          "cpu_seconds": 0.73163,
+          "peak_rss_kib": 1708
+        },
+        {
+          "version": "M1",
+          "output": "1000000 499999500000",
+          "seconds": 0.692750077,
+          "cpu_seconds": 0.692047,
+          "peak_rss_kib": 1608
+        },
+        {
+          "version": "M1",
+          "output": "1000000 499999500000",
+          "seconds": 0.69857809,
+          "cpu_seconds": 0.69797,
+          "peak_rss_kib": 1616
+        },
+        {
+          "version": "M3",
+          "output": "1000000 499999500000",
+          "seconds": 0.718142898,
+          "cpu_seconds": 0.717957,
+          "peak_rss_kib": 1624
+        }
+      ]
+    },
+    {
+      "workload": "numeric",
+      "rows": 1000000,
+      "columns": 10,
+      "runs": [
+        {
+          "version": "M1",
+          "output": "10000000 49999995000000",
+          "seconds": 7.051839738,
+          "cpu_seconds": 7.05076,
+          "peak_rss_kib": 1672
+        },
+        {
+          "version": "M3",
+          "output": "10000000 49999995000000",
+          "seconds": 7.121698951,
+          "cpu_seconds": 7.117159,
+          "peak_rss_kib": 1608
+        },
+        {
+          "version": "M3",
+          "output": "10000000 49999995000000",
+          "seconds": 7.12894453,
+          "cpu_seconds": 7.127973,
+          "peak_rss_kib": 1648
+        },
+        {
+          "version": "M1",
+          "output": "10000000 49999995000000",
+          "seconds": 7.088775947,
+          "cpu_seconds": 7.086954,
+          "peak_rss_kib": 1604
+        },
+        {
+          "version": "M1",
+          "output": "10000000 49999995000000",
+          "seconds": 6.979526999,
+          "cpu_seconds": 6.972915,
+          "peak_rss_kib": 1616
+        },
+        {
+          "version": "M3",
+          "output": "10000000 49999995000000",
+          "seconds": 7.009331166,
+          "cpu_seconds": 7.008335,
+          "peak_rss_kib": 1652
+        }
+      ]
+    }
+  ],
+  "after_checkpoint": "M3",
+  "scope": "M3 normal formula/read newline codecs and Cell style identity; no full date/style interpretation on read",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "cpu": "AMD EPYC 9V74 80-Core Processor"
+}

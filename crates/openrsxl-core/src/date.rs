@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: MIT
+// Epoch/leapday conversion adapted from rust_xlsxwriter's chrono_date_to_excel,
+// Copyright 2022-2026 John McNamara. See third_party/ports.json.
+use crate::{Error, ErrorKind, Result};
+use chrono::{NaiveDate, NaiveDateTime, Timelike};
+
+/// Workbook serial-date origin.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DateEpoch {
+    /// Excel's Windows origin, including its fictitious 1900 leap day.
+    Windows1900,
+    /// Excel's Mac origin, 1904-01-01.
+    Mac1904,
+}
+/// Interpretation of a date/time serial value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DateKind {
+    /// Calendar date and time without a timezone.
+    DateTime,
+    /// Time within one day.
+    Time,
+    /// Elapsed time, potentially negative or longer than one day.
+    Duration,
+}
+/// Exact finite XLSX serial and its interpretation. No timezone is implied.
+/// Serial 60 in the Windows epoch is retained as Excel's fictitious leap day;
+/// converting that value to another calendar epoch is rejected.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ExcelDateTime {
+    serial: f64,
+    epoch: DateEpoch,
+    kind: DateKind,
+}
+impl ExcelDateTime {
+    /// Construct a serial; time values must lie in [0, 1).
+    pub fn from_serial(serial: f64, epoch: DateEpoch, kind: DateKind) -> Result<Self> {
+        if !serial.is_finite() || (kind == DateKind::Time && !(0.0..1.0).contains(&serial)) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Invalid date/time serial",
+            ));
+        }
+        Ok(Self {
+            serial,
+            epoch,
+            kind,
+        })
+    }
+    /// Construct a Gregorian calendar date and millisecond-resolution time.
+    /// Invalid dates, leap seconds and years outside 1..=9999 are rejected.
+    pub fn from_ymd_hms_milli(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        minute: u32,
+        second: u32,
+        millisecond: u32,
+    ) -> Result<Self> {
+        let date = NaiveDate::from_ymd_opt(year, month, day)
+            .filter(|_| (1..=9999).contains(&year))
+            .and_then(|date| date.and_hms_milli_opt(hour, minute, second, millisecond))
+            .filter(|date| date.nanosecond() < 1_000_000_000)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid calendar date/time"))?;
+        let epoch = NaiveDate::from_ymd_opt(1899, 12, 30)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid date epoch"))?;
+        let mut days = (date.date() - epoch).num_days();
+        // Match public openpyxl conversion, including dates before 1900-03-01.
+        if days > 0 && days <= 60 {
+            days -= 1;
+        }
+        let fraction =
+            (date.num_seconds_from_midnight() as f64 + millisecond as f64 / 1000.0) / 86400.0;
+        Self::from_serial(
+            days as f64 + fraction,
+            DateEpoch::Windows1900,
+            DateKind::DateTime,
+        )
+    }
+    /// The retained source serial.
+    pub const fn serial(self) -> f64 {
+        self.serial
+    }
+    /// The retained source epoch.
+    pub const fn epoch(self) -> DateEpoch {
+        self.epoch
+    }
+    /// The serial's interpretation.
+    pub const fn kind(self) -> DateKind {
+        self.kind
+    }
+    /// Convert the calendar serial to a destination workbook epoch. Times and
+    /// durations are epoch-independent. Conversion preserves fractional days.
+    pub fn serial_in(self, epoch: DateEpoch) -> Result<f64> {
+        if self.epoch == epoch || self.kind != DateKind::DateTime {
+            return Ok(self.serial);
+        }
+        if self.epoch == DateEpoch::Windows1900 && self.serial.floor() == 60.0 {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Fictitious 1900-02-29 cannot change epoch",
+            ));
+        }
+        Ok(match self.epoch {
+            DateEpoch::Windows1900 => {
+                self.serial - 1462.0
+                    + if self.serial > 0.0 && self.serial < 60.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+            }
+            DateEpoch::Mac1904 => {
+                let days = self.serial + 1462.0;
+                days - if days.floor() > 0.0 && days.floor() <= 60.0 {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+        })
+    }
+    /// Convert to a calendar datetime rounded to milliseconds, matching the
+    /// pinned public baseline. Windows serial 60 maps to 1900-02-28.
+    /// Time and duration kinds have no calendar datetime.
+    pub fn to_datetime(self) -> Result<NaiveDateTime> {
+        if self.kind != DateKind::DateTime {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Value is not a calendar datetime",
+            ));
+        }
+        let epoch = match self.epoch {
+            DateEpoch::Windows1900 => NaiveDate::from_ymd_opt(1899, 12, 30),
+            DateEpoch::Mac1904 => NaiveDate::from_ymd_opt(1904, 1, 1),
+        }
+        .and_then(|date| date.and_hms_opt(0, 0, 0))
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid date epoch"))?;
+        let adjusted = self.serial
+            + if self.epoch == DateEpoch::Windows1900 && self.serial > 0.0 && self.serial < 60.0 {
+                1.0
+            } else {
+                0.0
+            };
+        let millis = adjusted * 86_400_000.0;
+        if millis < i64::MIN as f64 || millis >= i64::MAX as f64 {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Calendar serial out of range",
+            ));
+        }
+        chrono::Duration::try_milliseconds(millis.round() as i64)
+            .and_then(|duration| epoch.checked_add_signed(duration))
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Calendar serial out of range"))
+    }
+}
