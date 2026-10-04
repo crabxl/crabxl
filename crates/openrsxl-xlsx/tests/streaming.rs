@@ -1,9 +1,10 @@
 //! Small OOXML fixtures generated in memory; no copied upstream binary fixtures.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use openrsxl_core::{
-    CellAddress, CellValue, ColumnIndex, ErrorKind, ReadOptions, ResourceLimits, Row, RowIndex,
+    AccessPattern, AutoMemory, CellAddress, CellValue, ColumnIndex, DecisionReason, ErrorKind,
+    MemoryPolicy, MemorySource, ReadMode, ReadOptions, ResourceLimits, Row, RowIndex,
 };
-use openrsxl_xlsx::WorkbookReader;
+use openrsxl_xlsx::{ReadData, WorkbookReader};
 use std::io::{Cursor, Write};
 use zip::{ZipWriter, write::SimpleFileOptions};
 
@@ -148,7 +149,7 @@ fn materialization_budget_fails_and_releases_reader() {
     };
     let mut book = WorkbookReader::with_limits(Cursor::new(fixture(&refs)), limits).unwrap();
     let error = book.read_sheet("A & B").unwrap_err();
-    assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+    assert_eq!(error.kind(), ErrorKind::MemoryBudgetExceeded);
     assert_eq!(error.part(), Some("data/values.xml"));
     assert_eq!(
         book.rows("A & B")
@@ -178,7 +179,7 @@ fn materialization_budget_counts_outer_capacity_and_empty_sheets() {
     let mut book = WorkbookReader::with_limits(Cursor::new(fixture(&refs)), limits).unwrap();
     assert_eq!(
         book.read_sheet("A & B").unwrap_err().kind(),
-        ErrorKind::LimitExceeded
+        ErrorKind::MemoryBudgetExceeded
     );
     let parts = entries(&format!(
         "<worksheet xmlns=\"{MAIN}\"><sheetData>{}</sheetData></worksheet>",
@@ -195,7 +196,7 @@ fn materialization_budget_counts_outer_capacity_and_empty_sheets() {
     let mut book = WorkbookReader::with_limits(Cursor::new(fixture(&refs)), limits).unwrap();
     assert_eq!(
         book.read_sheet("A & B").unwrap_err().kind(),
-        ErrorKind::LimitExceeded
+        ErrorKind::MemoryBudgetExceeded
     );
     let mut book = open(&"<row/>".repeat(50));
     assert_eq!(book.read_sheet("A & B").unwrap().rows.len(), 50);
@@ -228,6 +229,123 @@ fn configured_input_buffers_work_and_zero_is_rejected() {
     };
     assert!(
         matches!(WorkbookReader::with_limits(Cursor::new(data), limits), Err(error) if error.kind() == ErrorKind::InvalidData)
+    );
+}
+
+#[test]
+fn adaptive_scan_streams_without_sampling_and_respects_fixed_budget() {
+    let mut book = open("<row><c><v>3</v></c></row>");
+    let output = book
+        .read_with_policy(
+            "A & B",
+            AccessPattern::Scan,
+            MemoryPolicy::Budget(16 * 1024 * 1024),
+        )
+        .unwrap();
+    assert_eq!(output.decision.mode, ReadMode::Streaming);
+    assert_eq!(output.decision.reason, DecisionReason::SequentialAccess);
+    assert_eq!(output.decision.memory_source, MemorySource::ExplicitBudget);
+    assert_eq!(output.decision.estimated_data_bytes, None);
+    assert_eq!(output.decision.budget_bytes, 16 * 1024 * 1024);
+    match output.data {
+        ReadData::Streaming(mut rows) => assert_eq!(
+            rows.next_row().unwrap().unwrap().cells[0].value,
+            CellValue::Number(3.0)
+        ),
+        ReadData::Materialized(_) => panic!("Scan must stream"),
+    }
+}
+
+#[test]
+fn adaptive_repeated_access_materializes_using_available_memory() {
+    let mut book = open("<row><c><v>3</v></c></row><row><c><v>4</v></c></row>");
+    let policy = MemoryPolicy::Auto(AutoMemory {
+        available_bytes: Some(32 * 1024 * 1024 * 1024),
+        ..AutoMemory::default()
+    });
+    let snapshot = {
+        let output = book
+            .read_with_policy("A & B", AccessPattern::RepeatedAccess, policy)
+            .unwrap();
+        assert_eq!(output.decision.mode, ReadMode::Materialized);
+        assert_eq!(output.decision.reason, DecisionReason::SampleFits);
+        assert!(output.decision.budget_bytes > 1024 * 1024 * 1024);
+        match output.data {
+            ReadData::Materialized(sheet) => sheet,
+            ReadData::Streaming(_) => panic!("Small repeated-access input should fit"),
+        }
+    };
+    drop(book);
+    assert_eq!(snapshot.rows.len(), 2);
+    assert_eq!(snapshot.rows[1].cells[0].value, CellValue::Number(4.0));
+}
+
+#[test]
+fn adaptive_estimate_rejects_materialization_before_loading_whole_sheet() {
+    let mut book = open(&"<row><c><v>1</v></c></row>".repeat(4000));
+    let output = book
+        .read_with_policy(
+            "A & B",
+            AccessPattern::RepeatedAccess,
+            MemoryPolicy::Budget(2 * 1024 * 1024),
+        )
+        .unwrap();
+    assert_eq!(
+        output.decision.reason,
+        DecisionReason::EstimateExceedsBudget
+    );
+    assert_eq!(output.decision.mode, ReadMode::Streaming);
+    match output.data {
+        ReadData::Streaming(mut rows) => {
+            assert_eq!(rows.decoded_cells(), 0);
+            assert_eq!(rows.next_row().unwrap().unwrap().index.get(), 0);
+        }
+        ReadData::Materialized(_) => panic!("Data should not fit"),
+    }
+}
+
+#[test]
+fn adaptive_heterogeneous_input_falls_back_at_actual_budget() {
+    let long = format!("<row><c><v>{}</v></c></row>", "0".repeat(5000));
+    let content = long.repeat(128) + &"<row><c><v>1</v></c></row>".repeat(3000);
+    let mut book = open(&content);
+    let output = book
+        .read_with_policy(
+            "A & B",
+            AccessPattern::RepeatedAccess,
+            MemoryPolicy::Budget(2 * 1024 * 1024),
+        )
+        .unwrap();
+    assert_eq!(
+        output.decision.reason,
+        DecisionReason::ActualDataExceedsBudget
+    );
+    assert_eq!(output.decision.mode, ReadMode::Streaming);
+    match output.data {
+        ReadData::Streaming(rows) => {
+            assert_eq!(rows.collect::<Result<Vec<_>, _>>().unwrap().len(), 3128)
+        }
+        ReadData::Materialized(_) => panic!("Later rows must exceed the allowance"),
+    }
+}
+
+#[test]
+fn adaptive_errors_are_not_hidden_by_streaming_fallback() {
+    let mut book = open("<row><c t=\"s\"><v>0</v></c></row>");
+    assert!(
+        matches!(book.read_with_policy("A & B", AccessPattern::RepeatedAccess, MemoryPolicy::default()), Err(error) if error.kind() == ErrorKind::Unsupported)
+    );
+    let mut book = open("<row/>");
+    assert!(
+        matches!(book.read_with_policy("A & B", AccessPattern::Scan, MemoryPolicy::Budget(1)), Err(error) if error.kind() == ErrorKind::MemoryBudgetExceeded)
+    );
+    assert!(
+        matches!(book.read_with_policy("missing", AccessPattern::Scan, MemoryPolicy::Budget(16 * 1024 * 1024)), Err(error) if error.kind() == ErrorKind::SheetNotFound)
+    );
+    let content = "<row><c><v>1</v></c></row>".repeat(128) + "<row><c t=\"s\"><v>0</v></c></row>";
+    let mut book = open(&content);
+    assert!(
+        matches!(book.read_with_policy("A & B", AccessPattern::RepeatedAccess, MemoryPolicy::Budget(16 * 1024 * 1024)), Err(error) if error.kind() == ErrorKind::Unsupported)
     );
 }
 #[test]

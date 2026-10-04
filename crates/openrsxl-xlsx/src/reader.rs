@@ -85,6 +85,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     pub fn decoded_cells(&self) -> u64 {
         self.decoded_cells
     }
+    pub(crate) fn bytes_consumed(&self) -> u64 {
+        self.xml.bytes_consumed()
+    }
 
     /// Fill a caller-owned sparse row buffer, retaining its allocation for reuse.
     ///

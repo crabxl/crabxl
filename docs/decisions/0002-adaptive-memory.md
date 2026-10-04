@@ -1,6 +1,12 @@
 # ADR 0002: Adaptive allocation must buy useful throughput
 
-Status: required design; automatic allocation is not implemented yet.
+Status: initial numeric mode/budget policy implemented; cache/concurrency tuning and full-feature acceptance remain open.
+
+`WorkbookReader::read_with_policy` accepts `AccessPattern` and `MemoryPolicy`. Scans stream. Repeated access samples at most 128 actual rows without retaining them and estimates total capacity from consumed XML versus the declared part size, including outer-vector growth and a safety margin. Dimensions are not trusted. Estimates are advisory: collection enforces the actual retained-data allowance, and only `MemoryBudgetExceeded` causes discard/reopen as streaming. XML, archive, and unsupported-value errors propagate. Diagnostics report effective budget, working reserve, retained allowance, estimate, source, final mode, and reason.
+
+Default Auto uses 250 per mille of availability after 256 MiB preferred headroom (headroom is capped at half availability). Fraction, maximum budget, headroom, and caller-supplied availability are configurable. Linux discovery takes the minimum of `MemAvailable`, cgroup v2 headroom at the current group and ancestors, and remaining finite address-space/data limits. Missing or malformed constraint discovery uses at most 256 MiB fallback availability; cgroup v1 and other OS discovery are not implemented. Caller overrides must already account for effective constraints. Availability is a snapshot and does not reserve memory.
+
+The per-operation working reserve includes configured input buffer, twice the XML-event budget, decoded-value buffer, one row budget, and 64 KiB overhead allowance. The rest bounds retained row/vector capacity. Catalog/metadata already owned by the workbook, dependency/allocator overhead, and external outputs are outside this accounting. This is deliberately not a whole-process RSS guarantee. Direct `read_sheet` retains its configured limit; automatic reads use the policy-derived allowance without changing the workbook's stored limits. Batches retain their existing component controls.
 
 The library must offer intelligent Auto, a caller-specified managed-memory budget, and advanced buffer/batch/cache/concurrency settings. Optimize useful throughput within that budget, rather than minimizing RSS or filling all available RAM. A 32 GiB host should be able to trade more memory for measured faster strategies. A large allocation with no measurable benefit is not a speed strategy.
 

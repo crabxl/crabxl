@@ -1,0 +1,100 @@
+{
+  "workload": "Same ten-million-cell numeric input as numeric-results.json",
+  "measurement": "Native Linux wait4; one warmup per case, three rotating serial measured runs; generation/build excluded; each sum verified; no temporary read storage",
+  "cases": {
+    "auto_scan_once": {
+      "mode": "auto-scan",
+      "policy_budget": "auto",
+      "passes": 1
+    },
+    "auto_repeat_three": {
+      "mode": "auto-repeat",
+      "policy_budget": "auto",
+      "passes": 3
+    },
+    "limited_repeat_three": {
+      "mode": "auto-repeat",
+      "policy_budget": "67108864",
+      "passes": 3
+    }
+  },
+  "samples": {
+    "auto_scan_once": [
+      {
+        "seconds": 7.478321005,
+        "cpu_seconds": 7.46919,
+        "peak_rss_kib": 1528,
+        "decision": "ReadDecision { mode: Streaming, budget_bytes: 1546624000, working_reserve_bytes: 1343488, retained_data_bytes: 1545280512, estimated_data_bytes: None, available_bytes: Some(6454931456), memory_source: Linux, reason: SequentialAccess }"
+      },
+      {
+        "seconds": 6.983888203,
+        "cpu_seconds": 6.981413,
+        "peak_rss_kib": 1612,
+        "decision": "ReadDecision { mode: Streaming, budget_bytes: 1546630144, working_reserve_bytes: 1343488, retained_data_bytes: 1545286656, estimated_data_bytes: None, available_bytes: Some(6454956032), memory_source: Linux, reason: SequentialAccess }"
+      },
+      {
+        "seconds": 6.991733137,
+        "cpu_seconds": 6.989116,
+        "peak_rss_kib": 1528,
+        "decision": "ReadDecision { mode: Streaming, budget_bytes: 1546436608, working_reserve_bytes: 1343488, retained_data_bytes: 1545093120, estimated_data_bytes: None, available_bytes: Some(6454181888), memory_source: Linux, reason: SequentialAccess }"
+      }
+    ],
+    "auto_repeat_three": [
+      {
+        "seconds": 7.441542101,
+        "cpu_seconds": 7.437919,
+        "peak_rss_kib": 423332,
+        "decision": "ReadDecision { mode: Materialized, budget_bytes: 1546619904, working_reserve_bytes: 1343488, retained_data_bytes: 1545276416, estimated_data_bytes: Some(831593274), available_bytes: Some(6454915072), memory_source: Linux, reason: SampleFits }"
+      },
+      {
+        "seconds": 7.594642028,
+        "cpu_seconds": 7.59265,
+        "peak_rss_kib": 423288,
+        "decision": "ReadDecision { mode: Materialized, budget_bytes: 1546669056, working_reserve_bytes: 1343488, retained_data_bytes: 1545325568, estimated_data_bytes: Some(831593274), available_bytes: Some(6455111680), memory_source: Linux, reason: SampleFits }"
+      },
+      {
+        "seconds": 8.041524724,
+        "cpu_seconds": 8.039341,
+        "peak_rss_kib": 423324,
+        "decision": "ReadDecision { mode: Materialized, budget_bytes: 1546676224, working_reserve_bytes: 1343488, retained_data_bytes: 1545332736, estimated_data_bytes: Some(831593274), available_bytes: Some(6455140352), memory_source: Linux, reason: SampleFits }"
+      }
+    ],
+    "limited_repeat_three": [
+      {
+        "seconds": 21.280477791,
+        "cpu_seconds": 21.274062,
+        "peak_rss_kib": 1652,
+        "decision": "ReadDecision { mode: Streaming, budget_bytes: 67108864, working_reserve_bytes: 1343488, retained_data_bytes: 65765376, estimated_data_bytes: Some(831593274), available_bytes: None, memory_source: ExplicitBudget, reason: EstimateExceedsBudget }"
+      },
+      {
+        "seconds": 21.038435416,
+        "cpu_seconds": 21.02782,
+        "peak_rss_kib": 1528,
+        "decision": "ReadDecision { mode: Streaming, budget_bytes: 67108864, working_reserve_bytes: 1343488, retained_data_bytes: 65765376, estimated_data_bytes: Some(831593274), available_bytes: None, memory_source: ExplicitBudget, reason: EstimateExceedsBudget }"
+      },
+      {
+        "seconds": 21.317609758,
+        "cpu_seconds": 21.296422,
+        "peak_rss_kib": 1528,
+        "decision": "ReadDecision { mode: Streaming, budget_bytes: 67108864, working_reserve_bytes: 1343488, retained_data_bytes: 65765376, estimated_data_bytes: Some(831593274), available_bytes: None, memory_source: ExplicitBudget, reason: EstimateExceedsBudget }"
+      }
+    ]
+  },
+  "medians": {
+    "auto_scan_once": {
+      "seconds": 6.991733137,
+      "cpu_seconds": 6.989116,
+      "peak_rss_kib": 1528
+    },
+    "auto_repeat_three": {
+      "seconds": 7.594642028,
+      "cpu_seconds": 7.59265,
+      "peak_rss_kib": 423324
+    },
+    "limited_repeat_three": {
+      "seconds": 21.280477791,
+      "cpu_seconds": 21.274062,
+      "peak_rss_kib": 1528
+    }
+  }
+}

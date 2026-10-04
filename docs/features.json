@@ -255,6 +255,34 @@
       "limitations": "Same raw numeric restrictions as streaming; retained-data budget excludes parser/catalog and one current row. Auto and the full editable workbook remain planned."
     },
     {
+      "id": "memory.adaptive",
+      "description": "Numeric access-pattern mode selection, effective availability/budget controls, bounded row sampling, actual-allocation fallback and diagnostics",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming",
+        "numeric-materialized"
+      ],
+      "reference": "docs/decisions/0002-adaptive-memory.md",
+      "modules": [
+        "crates/openrsxl-core/src/memory.rs",
+        "crates/openrsxl-xlsx/src/adaptive.rs"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::adaptive_scan_streams_without_sampling_and_respects_fixed_budget",
+        "crates/openrsxl-xlsx/tests/streaming.rs::adaptive_repeated_access_materializes_using_available_memory",
+        "crates/openrsxl-xlsx/tests/streaming.rs::adaptive_heterogeneous_input_falls_back_at_actual_budget",
+        "crates/openrsxl-xlsx/tests/streaming.rs::adaptive_errors_are_not_hidden_by_streaming_fallback"
+      ],
+      "limitations": "Initial raw numeric policy only; Linux cgroup v2/host/process probes and portable caller override. Other OS/cgroup v1 use conservative fallback. Budgets exclude existing catalog, dependency overhead and caller-owned outputs; not a global RSS cap. String/style caches and concurrent strategies remain planned."
+    },
+    {
       "id": "planned.workbook",
       "description": "Full workbook lifecycle, properties, names, visibility, templates and macros",
       "status": "planned",

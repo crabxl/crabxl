@@ -25,7 +25,7 @@ The same ten-million-cell input was measured with one warmup per size and three 
 | 1 MiB | 7.153 s | 7.147 s | 2.40 MiB |
 | 8 MiB | 6.941 s | 6.940 s | 9.41 MiB |
 
-This path is primarily CPU-bound on this host: CPU and wall time are close. The largest buffer's roughly 2% median difference is small compared with sample variation; do not infer a reliable speedup from three runs. Adding RAM to this buffer is not enough to solve the throughput gap. Larger caches, compact layouts, indexes, parallel work, and parser improvements need separate profiling/measurement. Intelligent Auto remains planned, with its requirements in [ADR 0002](../docs/decisions/0002-adaptive-memory.md).
+This path is primarily CPU-bound on this host: CPU and wall time are close. The largest buffer's roughly 2% median difference is small compared with sample variation; do not infer a reliable speedup from three runs. Adding RAM to this buffer is not enough to solve the throughput gap. Larger caches, compact layouts, indexes, parallel work, and parser improvements need separate profiling/measurement. The initial numeric Auto policy below uses measured useful materialization for repeated access; further cache/concurrency strategies remain in [ADR 0002](../docs/decisions/0002-adaptive-memory.md).
 
 ## Streaming versus owned sheet materialization
 
@@ -38,6 +38,22 @@ The non-streaming public operation `read_sheet()` uses the same incremental pars
 
 Materialization does not accelerate the first scan here. Its benefit is retaining data for later access without rereading ZIP/XML; repeated-query performance is not measured in this experiment. It is a numeric snapshot, not the future editable workbook model. The specified budget covers retained row/vector capacity, not total process RSS; parser/catalog memory and one current row are additional.
 
+## Adaptive numeric reads
+
+[adaptive-results.json](adaptive-results.json) records one warmup and three rotating serial runs on the same input. A repeated-access workload sums the ten-million-cell sheet three times, including initial load. Every pass contributes to the verified count/checksum. Default Auto discovered approximately 6.0 GiB effective availability under an 8 GiB cgroup limit, then derived an operation budget of about 1.44 GiB after headroom/fraction controls. It estimated 831,593,274 retained bytes and selected materialization; actual RSS was lower. The 64 MiB explicit policy selected streaming before materialization.
+
+| Policy / workload | Selected mode | Median wall time | Median peak RSS |
+|---|---|---|---|
+| Auto, one scan | Streaming | 6.992 s | 1.49 MiB |
+| Auto, three repeated passes | Materialized | 7.595 s | 413.40 MiB |
+| 64 MiB budget, three repeated passes | Streaming | 21.280 s | 1.49 MiB |
+
+For this repeated-access workload, retaining data is about 2.8 times faster than rereading under the small budget. This does not accelerate the first XML parse. Auto defaults do not fill spare RAM or enlarge the input buffer without measured benefit. These are raw numeric scans/sums, not a general cache, editing, or text/style benchmark. Operation budgets reserve working components and constrain retained vector capacities, not whole-process RSS. The failed-estimate fallback is verified separately with deterministic heterogeneous fixtures.
+
+## Cumulative layer probe
+
+[layer-results.json](layer-results.json) profiles the original `345ae8fc50ea` reader on this input. Three measured runs after a warmup gave median 0.234 s for ZIP decompression/CRC alone, 4.264 s for decompression plus namespace-aware XML events, and 6.968 s for complete numeric streaming. These are cumulative diagnostic paths, not isolated function percentages. XML-only mode deliberately omits spreadsheet/value/resource validation and is not a production reader. The results direct future profiling toward XML and cell processing; they do not justify removing validation.
+
 ## Reproduction
 
 Require Linux, `cc`, Rust 1.88.0 with Cargo available on PATH, and `python` with `openpyxl==3.1.5`. From the repository root:
@@ -46,6 +62,8 @@ Require Linux, `cc`, Rust 1.88.0 with Cargo available on PATH, and `python` with
 python benchmarks/run.py --output benchmarks/results.local.json
 python benchmarks/tune.py
 python benchmarks/read_modes.py
+python benchmarks/adaptive.py
+python benchmarks/layer_profile.py
 ```
 
 Generated inputs, native launcher, and Cargo targets are ignored. Input SHA-256 values record the actual measured files; regeneration may change ZIP timestamps while retaining the same cells. There are no fixed timing thresholds in correctness tests.

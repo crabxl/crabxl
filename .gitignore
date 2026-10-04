@@ -2,5 +2,5 @@
 /benchmarks/calamine/target/
 /benchmarks/measure
 /benchmarks/data/
-/benchmarks/results.local.json
+/benchmarks/*.local.json
 __pycache__/
