@@ -1,0 +1,66 @@
+{
+  "reference": "3.1.5",
+  "inspection": "Public APIs and generated OOXML only; opaque indices are not interpreted",
+  "checked": [
+    {
+      "source_metadata": "1",
+      "array_expression": "=_xlfn.SEQUENCE(1)",
+      "array_range": "A1",
+      "cached_values": [
+        1,
+        1
+      ],
+      "native_read": "checked",
+      "native_target_replacement": "checked",
+      "unaffected_metadata_part": "preserved"
+    },
+    {
+      "source_metadata": "0",
+      "array_expression": "=_xlfn.SEQUENCE(1)",
+      "array_range": "A1",
+      "cached_values": [
+        1,
+        1
+      ],
+      "native_read": "checked",
+      "native_target_replacement": "checked",
+      "unaffected_metadata_part": "preserved"
+    },
+    {
+      "source_metadata": "-1",
+      "array_expression": "=_xlfn.SEQUENCE(1)",
+      "array_range": "A1",
+      "cached_values": [
+        1,
+        1
+      ],
+      "native_read": "checked",
+      "native_target_replacement": "checked",
+      "unaffected_metadata_part": "preserved"
+    },
+    {
+      "source_metadata": "4294967295",
+      "array_expression": "=_xlfn.SEQUENCE(1)",
+      "array_range": "A1",
+      "cached_values": [
+        1,
+        1
+      ],
+      "native_read": "checked",
+      "native_target_replacement": "checked",
+      "unaffected_metadata_part": "preserved"
+    },
+    {
+      "source_metadata": "not-an-index",
+      "array_expression": "=_xlfn.SEQUENCE(1)",
+      "array_range": "A1",
+      "cached_values": [
+        1,
+        1
+      ],
+      "native_read": "checked",
+      "native_target_replacement": "checked",
+      "unaffected_metadata_part": "preserved"
+    }
+  ]
+}

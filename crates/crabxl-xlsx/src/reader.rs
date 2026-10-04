@@ -29,6 +29,7 @@ pub struct Rows<'a, R: Read + Seek> {
     pending: Option<Row>,
     value_buffer: String,
     decoded_cells: u64,
+    projected_metadata_cells: u64,
     row_payload_bytes: usize,
     shared_strings: Option<&'a mut crate::strings::SharedStrings>,
     styles: Option<&'a crate::style_reader::ImportedStyles>,
@@ -86,6 +87,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             pending: None,
             value_buffer: String::with_capacity(64.min(limits.max_cell_bytes)),
             decoded_cells: 0,
+            projected_metadata_cells: 0,
             row_payload_bytes: 0,
             shared_strings,
             styles,
@@ -101,6 +103,12 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     pub fn decoded_cells(&self) -> u64 {
         self.decoded_cells
     }
+    /// Successfully returned selected cells whose opaque cm/vm references were projected.
+    /// Formula/visible value semantics are retained; metadata graphs are not interpreted.
+    pub fn projected_metadata_cells(&self) -> u64 {
+        self.projected_metadata_cells
+    }
+
     /// Borrow the immutable prepared catalog while holding this row stream.
     /// Missing style parts retain the implicit General behavior of style zero.
     pub fn style_catalog(&self) -> Option<&crabxl_core::StyleCatalog> {
@@ -271,7 +279,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         self.skip_cell(header.address)?;
                         continue;
                     }
-                    if matches!(header.kind, ScalarKind::Unsupported) || header.metadata {
+                    if matches!(header.kind, ScalarKind::Unsupported)
+                        || (header.metadata
+                            && self.options.cell_metadata_policy
+                                == crabxl_core::CellMetadataReadPolicy::Reject)
+                    {
                         return Err(Error::new(
                             ErrorKind::Unsupported,
                             "Selected cell type, style, or metadata is not supported yet",
@@ -301,6 +313,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                             style: header.style,
                         },
                     )?;
+                    if header.metadata {
+                        self.projected_metadata_cells += 1;
+                    }
                 }
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet

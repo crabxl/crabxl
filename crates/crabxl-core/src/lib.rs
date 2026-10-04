@@ -26,7 +26,8 @@ pub use memory::{
     ReadDecision, ReadMode,
 };
 pub use row::{
-    Cell, CellValue, DateReadPolicy, FormulaReadPolicy, ReadOptions, Row, RowBatch, SheetData,
+    Cell, CellMetadataReadPolicy, CellValue, DateReadPolicy, FormulaReadPolicy, ReadOptions, Row,
+    RowBatch, SheetData,
 };
 pub use scalar::{CellError, CellText, ExactInteger};
 pub use style::{CellStyle, Font, StyleId};

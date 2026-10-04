@@ -154,6 +154,15 @@ pub enum FormulaReadPolicy {
     /// Reject unresolved/duplicate masters and followers outside declared ranges.
     ValidateGroups,
 }
+/// Treatment of opaque cell/value metadata references during value projection.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CellMetadataReadPolicy {
+    /// Match reference values/formulas without interpreting cm/vm graphs.
+    #[default]
+    Compatible,
+    /// Reject selected annotated cells instead of projecting their visible value.
+    Reject,
+}
 /// Projection performed before expensive cell-value decoding.
 #[derive(Clone, Debug, Default)]
 pub struct ReadOptions {
@@ -173,6 +182,8 @@ pub struct ReadOptions {
     pub formula_metadata: bool,
     /// Reference-compatible shared groups or explicit structural validation.
     pub formula_policy: FormulaReadPolicy,
+    /// Reference-compatible value projection or explicit rejection of opaque cm/vm references.
+    pub cell_metadata_policy: CellMetadataReadPolicy,
 }
 impl ReadOptions {
     /// Whether the selected row range includes this index.

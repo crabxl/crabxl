@@ -17138,6 +17138,35 @@
         "crates/crabxl-xlsx/tests/streaming.rs::lazy_themes_resolve_custom_parts_keep_opaque_bytes_and_enforce_limits"
       ],
       "limitations": "Opaque bytes are the reference public baseline; typed palette/fonts, theme rendering and loaded mutation remain staged. Default validation is not imposed on reference-compatible opaque theme access. No M2/M4 completion is claimed."
+    },
+    {
+      "id": "formula.dynamic-visible-projection",
+      "description": "Reference-compatible cm/vm annotated scalar/array/cache projections and physical target replacement",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "streaming-read",
+        "data-only",
+        "original-package-target-edit"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/simple_formulae.html",
+      "modules": [
+        "crates/crabxl-core/src/row.rs",
+        "crates/crabxl-xlsx/src/reader.rs",
+        "crates/crabxl-xlsx/src/editor.rs"
+      ],
+      "tests": [
+        "benchmarks/probe_dynamic_formulas.py",
+        "crates/crabxl-xlsx/tests/streaming.rs::dynamic_array_and_opaque_metadata_project_visible_values_or_explicitly_reject",
+        "crates/crabxl-xlsx/tests/editor.rs::replacing_annotated_cells_drops_only_target_references_and_preserves_metadata_parts"
+      ],
+      "limitations": "Visible reference projections do not retain typed cm/vm identities or implement metadata graph/spill editing. Only overwritten physical target references are removed; others and opaque parts remain. No core milestone completion is claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

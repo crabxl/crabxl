@@ -223,7 +223,6 @@ fn unsupported_targets_and_missing_cells_leave_atomic_path_target_unchanged() {
     let target = directory.path().join("target.xlsx");
     std::fs::write(&target, b"original target").unwrap();
     for cell in [
-        "<c r=\"A1\" vm=\"1\"><v>1</v></c>",
         "<c r=\"A1\"><f t=\"shared\" si=\"0\">A1+1</f><v>2</v></c>",
         "<c r=\"A1\"><extLst><ext/></extLst><v>1</v></c>",
         "<c r=\"B1\"><v>1</v></c>",
@@ -955,4 +954,36 @@ fn nonfinite_editor_policy_is_atomic_and_compatible_blanks_read_back() {
         reader.read_sheet("Sheet").unwrap().rows[0].cells[0].value,
         Value::Empty
     );
+}
+
+#[test]
+fn replacing_annotated_cells_drops_only_target_references_and_preserves_metadata_parts() {
+    let mut data = parts(&source());
+    data.insert("xl/worksheets/sheet1.xml".into(), format!("<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\"><c r=\"A1\" cm=\"1\" vm=\"2\"><f t=\"array\" ref=\"A1:A2\">_xlfn.SEQUENCE(2)</f><v>7</v></c><c r=\"B1\" cm=\"1\" vm=\"2\"><v>42</v></c></row></sheetData></worksheet>").into_bytes());
+    let metadata = format!(
+        "<metadata xmlns=\"{MAIN}\"><extLst><ext uri=\"opaque-source\"/></extLst></metadata>"
+    )
+    .into_bytes();
+    data.insert("xl/metadata.xml".into(), metadata.clone());
+    data.insert("xl/worksheets/sheet2.xml".into(), format!("<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\"><c><v>11</v></c></row></sheetData></worksheet>").into_bytes());
+    let other = data["xl/worksheets/sheet2.xml"].clone();
+    let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    editor
+        .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(88))
+        .unwrap();
+    for _ in 0..2 {
+        let (output, _) = editor
+            .save(Cursor::new(Vec::new()), SaveOptions::default())
+            .unwrap();
+        let actual = parts(output.get_ref());
+        assert_eq!(actual["xl/metadata.xml"], metadata);
+        assert_eq!(actual["xl/worksheets/sheet2.xml"], other);
+        let xml = String::from_utf8(actual["xl/worksheets/sheet1.xml"].clone()).unwrap();
+        assert_eq!(xml.matches("cm=\"1\"").count(), 1);
+        assert_eq!(xml.matches("vm=\"2\"").count(), 1);
+        let mut book = WorkbookReader::new(output).unwrap();
+        let values = book.read_sheet("Sheet").unwrap();
+        assert_eq!(values.rows[0].cells[0].value, Value::Integer(88));
+        assert_eq!(values.rows[0].cells[1].value, Value::Integer(42));
+    }
 }
