@@ -185,6 +185,9 @@ impl DataTableOptions {
 /// installing flags/ranges or fabricated cached results.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FormulaMetadata {
+    /// The owned expression stores the public literal array text, including its
+    /// first character. XML output removes that character; source records are false.
+    pub literal_array_text: bool,
     /// Encoding category.
     pub kind: FormulaType,
     /// Source array/table/shared range, when present.
@@ -197,6 +200,12 @@ pub struct FormulaMetadata {
 impl FormulaMetadata {
     /// Validate shared typed models before I/O/model mutation.
     pub fn validate(&self) -> Result<()> {
+        if self.literal_array_text && self.kind != FormulaType::Array {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Literal array text requires an array formula",
+            ));
+        }
         if let Some(reference) = &self.reference {
             CellRange::new(reference.range.start, reference.range.end)?;
         }

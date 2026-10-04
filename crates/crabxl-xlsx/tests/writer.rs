@@ -1197,6 +1197,7 @@ fn array_table_metadata_and_verbatim_source_formulas_round_trip() {
         "",
         Some(CellValue::Integer(0)),
         FormulaMetadata {
+            literal_array_text: false,
             kind: FormulaType::DataTable,
             reference: Some(FormulaRange::from_xml("D1:E2").unwrap()),
             flags: FormulaFlags {

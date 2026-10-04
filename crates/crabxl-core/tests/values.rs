@@ -317,3 +317,55 @@ fn optional_structured_expression_preserves_absence_without_a_dummy_literal() {
     }
     assert!(Formula::with_optional_expression(None, None, FormulaMetadata::default()).is_err());
 }
+
+#[test]
+fn literal_array_text_borrows_original_property_and_slices_one_unicode_character() {
+    use crabxl_core::{FormulaMetadata, FormulaType};
+    use std::borrow::Cow;
+    for (literal, body) in [
+        ("", ""),
+        ("=", ""),
+        ("=1", "1"),
+        ("1", ""),
+        ("abc", "bc"),
+        ("==1", "=1"),
+        ("\u{3b1}x", "x"),
+    ] {
+        let formula = Formula::from_array_text(
+            Some(literal.into()),
+            None,
+            FormulaMetadata {
+                kind: FormulaType::Array,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(formula.expression(), body);
+        assert_eq!(formula.optional_expression(), Some(body));
+        assert!(matches!(formula.array_text(), Some(Cow::Borrowed(value)) if value == literal));
+        assert_eq!(formula.clone().array_text().as_deref(), Some(literal));
+    }
+    let source = Formula::from_source(
+        "abc",
+        None,
+        Some(FormulaMetadata {
+            kind: FormulaType::Array,
+            literal_array_text: true,
+            ..Default::default()
+        }),
+    )
+    .unwrap();
+    assert_eq!(source.expression(), "abc");
+    assert_eq!(source.array_text().as_deref(), Some("=abc"));
+    let absent = Formula::from_array_text(
+        None,
+        None,
+        FormulaMetadata {
+            kind: FormulaType::Array,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(absent.array_text().is_none());
+    assert!(Formula::from_array_text(None, None, FormulaMetadata::default()).is_err());
+}

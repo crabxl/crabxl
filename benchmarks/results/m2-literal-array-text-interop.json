@@ -1,0 +1,147 @@
+{
+  "reference": "3.1.5",
+  "literal_expression_presence": [
+    null,
+    "",
+    "=",
+    "=1",
+    "1",
+    "abc",
+    "==1",
+    "\u03b1x"
+  ],
+  "xml_records_equal": [
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": null
+    },
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": null
+    },
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": null
+    },
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": "1"
+    },
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": null
+    },
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": "bc"
+    },
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": "=1"
+    },
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": "x"
+    }
+  ],
+  "public_readback": [
+    [
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "=1"
+      },
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "=bc"
+      },
+      {
+        "ref": null,
+        "text": "==1"
+      },
+      {
+        "ref": null,
+        "text": "=x"
+      }
+    ],
+    [
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "=1"
+      },
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "=bc"
+      },
+      {
+        "ref": null,
+        "text": "==1"
+      },
+      {
+        "ref": null,
+        "text": "=x"
+      }
+    ]
+  ],
+  "cache_projection": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "missing_data_table_ref_reference_defect": {
+    "exception": "TypeError",
+    "message": "DataTableFormula.__init__() missing 1 required positional argument: 'ref'"
+  }
+}
