@@ -1,0 +1,194 @@
+{
+  "reference": "3.1.5",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "measurement": "One warmup plus five rotating serial cold-process wall/CPU/RSS samples including process baseline; generation and public verification excluded",
+  "semantics": "Both replace A1 from a known data-table formula containing five opaque flags to -1 and save, retaining all other flag properties. Native edits lazily and preserves original parts; openpyxl explicitly owns a full editable model. This demonstrates feature/output overlap with different models, not identical mode or arbitrary graph editing. Output ZIP and native atomic ZIP staging live outside monitored TMPDIR; worksheet temporary samples are reported separately.",
+  "cases": [
+    {
+      "cells": 5000,
+      "samples": {
+        "crabxl": [
+          {
+            "seconds": 0.033854553,
+            "cpu_seconds": 0.033759,
+            "peak_rss_kib": 2688,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 21472
+          },
+          {
+            "seconds": 0.03291905,
+            "cpu_seconds": 0.032829,
+            "peak_rss_kib": 2572,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 21472
+          },
+          {
+            "seconds": 0.034342727,
+            "cpu_seconds": 0.034233,
+            "peak_rss_kib": 2652,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 21472
+          },
+          {
+            "seconds": 0.034797018,
+            "cpu_seconds": 0.034673,
+            "peak_rss_kib": 2656,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 21472
+          },
+          {
+            "seconds": 0.033995002,
+            "cpu_seconds": 0.033872,
+            "peak_rss_kib": 2604,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 21472
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 0.254654251,
+            "cpu_seconds": 0.399046,
+            "peak_rss_kib": 39240,
+            "sampled_temp_peak_bytes": 560293,
+            "output_bytes": 19546
+          },
+          {
+            "seconds": 0.253690501,
+            "cpu_seconds": 0.405947,
+            "peak_rss_kib": 39240,
+            "sampled_temp_peak_bytes": 502599,
+            "output_bytes": 19546
+          },
+          {
+            "seconds": 0.268390542,
+            "cpu_seconds": 0.420457,
+            "peak_rss_kib": 39240,
+            "sampled_temp_peak_bytes": 424293,
+            "output_bytes": 19546
+          },
+          {
+            "seconds": 0.282254821,
+            "cpu_seconds": 0.461073,
+            "peak_rss_kib": 39240,
+            "sampled_temp_peak_bytes": 350115,
+            "output_bytes": 19546
+          },
+          {
+            "seconds": 0.290016566,
+            "cpu_seconds": 0.460879,
+            "peak_rss_kib": 39240,
+            "sampled_temp_peak_bytes": 366599,
+            "output_bytes": 19546
+          }
+        ]
+      },
+      "medians": {
+        "crabxl": {
+          "seconds": 0.033995002,
+          "cpu_seconds": 0.033872,
+          "peak_rss_kib": 2652,
+          "sampled_temp_peak_bytes": 0
+        },
+        "openpyxl": {
+          "seconds": 0.268390542,
+          "cpu_seconds": 0.420457,
+          "peak_rss_kib": 39240,
+          "sampled_temp_peak_bytes": 424293
+        }
+      }
+    },
+    {
+      "cells": 50000,
+      "samples": {
+        "crabxl": [
+          {
+            "seconds": 0.327268069,
+            "cpu_seconds": 0.327139,
+            "peak_rss_kib": 2656,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 168409
+          },
+          {
+            "seconds": 0.322658935,
+            "cpu_seconds": 0.3224,
+            "peak_rss_kib": 2700,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 168409
+          },
+          {
+            "seconds": 0.323895666,
+            "cpu_seconds": 0.323552,
+            "peak_rss_kib": 2648,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 168409
+          },
+          {
+            "seconds": 0.326990466,
+            "cpu_seconds": 0.326573,
+            "peak_rss_kib": 2656,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 168409
+          },
+          {
+            "seconds": 0.322837986,
+            "cpu_seconds": 0.322255,
+            "peak_rss_kib": 2536,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 168409
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 1.103555301,
+            "cpu_seconds": 1.283325,
+            "peak_rss_kib": 80812,
+            "sampled_temp_peak_bytes": 6393736,
+            "output_bytes": 148053
+          },
+          {
+            "seconds": 1.136586324,
+            "cpu_seconds": 1.322125,
+            "peak_rss_kib": 80780,
+            "sampled_temp_peak_bytes": 6393736,
+            "output_bytes": 148053
+          },
+          {
+            "seconds": 1.113139133,
+            "cpu_seconds": 1.260829,
+            "peak_rss_kib": 80916,
+            "sampled_temp_peak_bytes": 6393736,
+            "output_bytes": 148053
+          },
+          {
+            "seconds": 1.137185622,
+            "cpu_seconds": 1.326573,
+            "peak_rss_kib": 80912,
+            "sampled_temp_peak_bytes": 6393736,
+            "output_bytes": 148052
+          },
+          {
+            "seconds": 1.142280581,
+            "cpu_seconds": 1.315675,
+            "peak_rss_kib": 80920,
+            "sampled_temp_peak_bytes": 6393736,
+            "output_bytes": 148053
+          }
+        ]
+      },
+      "medians": {
+        "crabxl": {
+          "seconds": 0.323895666,
+          "cpu_seconds": 0.323552,
+          "peak_rss_kib": 2656,
+          "sampled_temp_peak_bytes": 0
+        },
+        "openpyxl": {
+          "seconds": 1.136586324,
+          "cpu_seconds": 1.315675,
+          "peak_rss_kib": 80912,
+          "sampled_temp_peak_bytes": 6393736
+        }
+      }
+    }
+  ]
+}

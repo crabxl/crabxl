@@ -1043,3 +1043,72 @@ fn assigned_formula_attributes_follow_the_same_writer_policy_on_repeated_saves()
         }
     }
 }
+
+#[test]
+fn known_structured_literal_flags_can_be_replaced_without_relaxing_graph_guards() {
+    use crabxl_core::{FormulaFlag, FormulaFlags, FormulaMetadata, FormulaReference, FormulaType};
+    for (kind, hints, allowed) in [
+        ("dataTable", "ca=\"opaque\"", true),
+        ("dataTable", "ca=\"quoted &amp; value\"", true),
+        ("array", "aca=\"opaque\"", true),
+        ("dataTable", "ca=\"opaque\" custom=\"unknown\"", false),
+        ("future", "", false),
+        ("shared", "si=\"1\"", false),
+    ] {
+        let mut data = parts(&source());
+        data.insert("xl/worksheets/sheet1.xml".into(), format!("<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\"><c r=\"A1\"><f t=\"{kind}\" ref=\"A1:B2\" {hints}>1</f></c><c r=\"B1\"><v>7</v></c></row></sheetData></worksheet>").into_bytes());
+        data.insert("xl/worksheets/sheet2.xml".into(), format!("<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\"><c r=\"A1\"><v>19</v></c></row></sheetData></worksheet>").into_bytes());
+        let untouched = data["xl/worksheets/sheet2.xml"].clone();
+        let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+        let formula = Formula::with_optional_expression(
+            None,
+            None,
+            FormulaMetadata {
+                kind: FormulaType::DataTable,
+                reference: Some(FormulaReference::from_literal("A1:B3")),
+                flags: FormulaFlags {
+                    calculate_cell: Some(FormulaFlag::from_literal("updated flag")),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        editor
+            .set_value(
+                "Sheet",
+                Address::new(0, 0).unwrap(),
+                Value::Formula(Box::new(formula)),
+            )
+            .unwrap();
+        for _ in 0..2 {
+            let output = editor.save(Cursor::new(Vec::new()), SaveOptions::default());
+            if !allowed {
+                assert!(output.is_err());
+                continue;
+            }
+            let (output, _) = output.unwrap();
+            assert_eq!(
+                parts(output.get_ref())["xl/worksheets/sheet2.xml"],
+                untouched
+            );
+            let mut reader = WorkbookReader::new(output).unwrap();
+            let loaded = reader.read_sheet("Sheet").unwrap();
+            let Value::Formula(formula) = &loaded.rows[0].cells[0].value else {
+                panic!("Lost table")
+            };
+            assert_eq!(
+                formula
+                    .metadata()
+                    .unwrap()
+                    .flags
+                    .calculate_cell
+                    .as_ref()
+                    .unwrap()
+                    .source(),
+                Some("updated flag")
+            );
+            assert_eq!(loaded.rows[0].cells[1].value, Value::Integer(7));
+        }
+    }
+}

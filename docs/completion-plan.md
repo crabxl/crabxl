@@ -91,6 +91,8 @@ Acceptance: repeatable existing-file sheet mutation retains unaffected assets, n
 
 ## M4.3: Structural edits and feature interactions
 
+Checkpoint: known array/data-table replacement accepts canonical literal flags while unknown-record/attribute and shared-group guards remain intact (ADR 0037). This does not implement structured formula range transformations or the broader feature interactions below.
+
 - Implement loaded append, row/column insert/delete, copy and move using sparse bounded transformations. Update dimensions and affected feature coordinates according to explicit reference-compatible behavior.
 - Define behavior separately for formulas, merges, tables, names, validation, conditional formatting, comments, hyperlinks and drawing anchors. Do not invent automatic reference updates that openpyxl itself does not promise.
 - Validate all affected ranges, budgets and references before applying an atomic edit. Avoid cloning an entire worksheet as a rollback strategy.
