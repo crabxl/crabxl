@@ -1,0 +1,177 @@
+{
+  "baseline_core": "9a13237f06b349eef12ac2f358b4eee4c66f1d19",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "semantics": "64 immutable holders cloned from one theme. Source is dropped before verifying every byte in every holder. New ownership shares the immutable payload; old ownership copies it. Caller-held snapshots are distinct from library-owned workbook allowances. Native ownership extension only: no cross-package speed or binding claim. One warmup and five rotating serial cold-process samples; no builds or temporary storage.",
+  "cases": [
+    {
+      "payload_bytes": 65536,
+      "holders": 64,
+      "verified_bytes": 4194304,
+      "samples": {
+        "crabxl": [
+          {
+            "seconds": 0.00338989,
+            "cpu_seconds": 0.003307,
+            "peak_rss_kib": 948,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.003454666,
+            "cpu_seconds": 0.003383,
+            "peak_rss_kib": 1096,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.003614673,
+            "cpu_seconds": 0.003513,
+            "peak_rss_kib": 1096,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.00321978,
+            "cpu_seconds": 0.003164,
+            "peak_rss_kib": 932,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.003740969,
+            "cpu_seconds": 0.003676,
+            "peak_rss_kib": 1088,
+            "sampled_temp_peak_bytes": 0
+          }
+        ],
+        "crabxl-before": [
+          {
+            "seconds": 0.00353823,
+            "cpu_seconds": 0.003333,
+            "peak_rss_kib": 5136,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.003785726,
+            "cpu_seconds": 0.00371,
+            "peak_rss_kib": 5052,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.003404092,
+            "cpu_seconds": 0.003329,
+            "peak_rss_kib": 4940,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.003431793,
+            "cpu_seconds": 0.003364,
+            "peak_rss_kib": 4924,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.003639319,
+            "cpu_seconds": 0.003572,
+            "peak_rss_kib": 5180,
+            "sampled_temp_peak_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "crabxl": {
+          "seconds": 0.003454666,
+          "cpu_seconds": 0.003383,
+          "peak_rss_kib": 1088,
+          "sampled_temp_peak_bytes": 0
+        },
+        "crabxl-before": {
+          "seconds": 0.00353823,
+          "cpu_seconds": 0.003364,
+          "peak_rss_kib": 5052,
+          "sampled_temp_peak_bytes": 0
+        }
+      }
+    },
+    {
+      "payload_bytes": 1048576,
+      "holders": 64,
+      "verified_bytes": 67108864,
+      "samples": {
+        "crabxl": [
+          {
+            "seconds": 0.040862176,
+            "cpu_seconds": 0.040716,
+            "peak_rss_kib": 2968,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.040799919,
+            "cpu_seconds": 0.040693,
+            "peak_rss_kib": 2968,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.042174495,
+            "cpu_seconds": 0.042053,
+            "peak_rss_kib": 2968,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.039552615,
+            "cpu_seconds": 0.039438,
+            "peak_rss_kib": 3000,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.039960498,
+            "cpu_seconds": 0.039863,
+            "peak_rss_kib": 3008,
+            "sampled_temp_peak_bytes": 0
+          }
+        ],
+        "crabxl-before": [
+          {
+            "seconds": 0.042641571,
+            "cpu_seconds": 0.042538,
+            "peak_rss_kib": 66700,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.042874099,
+            "cpu_seconds": 0.042712,
+            "peak_rss_kib": 66636,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.043131945,
+            "cpu_seconds": 0.043029,
+            "peak_rss_kib": 66748,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.04420329,
+            "cpu_seconds": 0.043926,
+            "peak_rss_kib": 66636,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.041633461,
+            "cpu_seconds": 0.041514,
+            "peak_rss_kib": 66748,
+            "sampled_temp_peak_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "crabxl": {
+          "seconds": 0.040799919,
+          "cpu_seconds": 0.040693,
+          "peak_rss_kib": 2968,
+          "sampled_temp_peak_bytes": 0
+        },
+        "crabxl-before": {
+          "seconds": 0.042874099,
+          "cpu_seconds": 0.042712,
+          "peak_rss_kib": 66700,
+          "sampled_temp_peak_bytes": 0
+        }
+      }
+    }
+  ]
+}

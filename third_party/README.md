@@ -16,3 +16,5 @@ Composable managed ReadOptions and projected shared-template tail retention are 
 Cache-only formula projection is an original change to the attributed scalar reader, verified through synthetic fixtures and public openpyxl 3.1.5 observations; see ADR 0023 and benchmarks/m2-formula-cache.md. No additional upstream implementation was inspected.
 
 Formula attribute write policies are original shared-model/codec integration changes to the previously attributed formula layouts. Public constructor/save/reload evidence and synthetic fixtures verify omission versus source retention without additional upstream implementation inspection; see ADR 0024.
+
+Owned bank theme integration and immutable shared ownership are original Rust model/resource work, with synthetic lifecycle/limit fixtures and native snapshot verification; existing opaque theme serialization provenance remains unchanged. See ADR 0026 and benchmarks/m4-bank-themes.md.

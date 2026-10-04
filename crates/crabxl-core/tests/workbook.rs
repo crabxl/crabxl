@@ -140,3 +140,46 @@ fn freed_space_is_reusable_and_slot_capacity_remains_accounted() {
     assert_eq!(book.charged_bytes(), 1537);
     assert_eq!(book.active_sheet(), Some(b));
 }
+
+#[test]
+fn themes_share_immutable_bytes_and_obey_the_bank_allowance_atomically() {
+    use crabxl_core::Theme;
+    let mut book = Workbook::new(WorkbookLimits {
+        max_bytes: 8192,
+        ..Default::default()
+    })
+    .unwrap();
+    let id = book.create_sheet("Sheet").unwrap();
+    let base = book.charged_bytes();
+    let theme = Theme::from_bytes(vec![b'x'; 4096].into_boxed_slice());
+    let shared = theme.clone();
+    assert!(std::ptr::eq(
+        theme.bytes().as_ptr(),
+        shared.bytes().as_ptr()
+    ));
+    book.set_theme(Some(theme)).unwrap();
+    assert_eq!(book.charged_bytes(), base + shared.memory_bytes());
+    let before = book.charged_bytes();
+    assert_eq!(
+        book.set_theme(Some(Theme::from_bytes(vec![b'y'; 8192].into_boxed_slice())))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    assert_eq!(book.charged_bytes(), before);
+    assert_eq!(book.theme().unwrap().bytes(), shared.bytes());
+    assert!(
+        book.sheet_mut(id)
+            .unwrap()
+            .set(Cell {
+                address: CellAddress::new(0, 0).unwrap(),
+                value: CellValue::text("z".repeat(5000)),
+                style: StyleId::new(0)
+            })
+            .is_err()
+    );
+    assert!(book.copy_sheet(id, "Copy").is_ok());
+    book.set_theme(None).unwrap();
+    assert!(book.theme().is_none());
+    book.sheet_mut(id).unwrap().set(cell(0, 7)).unwrap();
+}

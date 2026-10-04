@@ -140,3 +140,5 @@ the [standalone Python repository](https://github.com/crabxl/crabxl-python) is a
 ## Owned workbook bank
 
 [ADR 0007](decisions/0007-owned-workbook.md) adds the I/O-free shared Workbook bank, stable sheet IDs, aggregate mutation allowances and borrowed writer export. Existing-package preservation retains its lazy editor path. Python active selection uses the common XLSX metadata codec; Registered new Python Workbook sheets now use aggregate bank ownership through stable owned handles; loaded models remain in the original-package path with per-model/overlay allowances.
+
+The owned workbook bank now owns an optional canonical immutable shared Theme. Aggregate mutation allowances include its conservative holder charge; writer export shares its bytes after preflight rather than copying serialized payloads. This does not yet integrate complete loaded style/theme catalogs or typed DrawingML edits. See ADR 0026.
