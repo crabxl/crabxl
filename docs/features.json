@@ -16993,6 +16993,29 @@
         "benchmarks/verify_structured_formula_fixture.py"
       ],
       "limitations": "Narrow checkpoint; resolved shared write output is normalized, not a group-creation API. Dynamic cm/vm graphs, complete expression parsing, nonfinite numeric caches, shared graph editing and aggregate adaptive budgets remain staged. See ADR 0014 and benchmarks/m2-formulas.md."
+    },
+    {
+      "id": "edit.structured-formula-records",
+      "description": "Direct array/data-table source-cell replacement with independent unchanged-part preservation",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "original-package-editor"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/simple_formulae.html",
+      "modules": [
+        "crates/crabxl-xlsx/src/editor.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/editor.rs::structured_formula_targets_replace_without_rewriting_unrelated_cells"
+      ],
+      "limitations": "Existing physical target cells only. Direct record replacement does not move/update dependents. Shared-group replacement and cm/vm targets remain explicitly unsupported. This narrow checkpoint does not complete M4 or formula graph editing."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."
