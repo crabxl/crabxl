@@ -1,0 +1,176 @@
+"""One public-API test body runs against both implementations."""
+from datetime import datetime, time, timedelta
+import zipfile
+
+import openpyxl
+import openrsxl
+import pytest
+
+
+@pytest.fixture(params=[openpyxl, openrsxl], ids=["openpyxl", "openrsxl"])
+def engine(request):
+    return request.param
+
+
+def test_scalar_types_formulas_dimensions_and_live_views(engine):
+    workbook = engine.Workbook()
+    sheet = workbook.active
+    values = [None, True, False, 5, 1.25, " whitespace ", "#DIV/0!", "=1+2"]
+    sheet.append(values)
+    assert list(sheet.values) == [tuple(values)]
+    assert [sheet.cell(1, column).data_type for column in range(1, 9)] == ["n", "b", "b", "n", "n", "s", "e", "f"]
+    cell = sheet["D1"]
+    assert sheet["D1"] is cell
+    sheet.insert_rows(1, 2)
+    assert cell.coordinate == "D3" and cell.value == 5
+    sheet.delete_cols(1, 2)
+    assert cell.coordinate == "B3" and sheet["B3"] is cell
+    sheet.move_range("B3:C3", rows=1, cols=2)
+    assert cell.coordinate == "D4" and sheet["D4"] is cell
+    del sheet["D4"]
+    assert cell.value == 5 and sheet["D4"].value is None
+    cell.value = 42
+    assert sheet["D4"].value is None
+
+
+def test_new_save_public_readback_and_repeat(engine, tmp_path):
+    workbook = engine.Workbook()
+    sheet = workbook.active
+    sheet.title = "Data"
+    sheet.append([True, 5, 1.25, " text ", "#N/A", "=SUM(B1:C1)", datetime(2020, 2, 29, 12, 3, 4, 123000), time(12, 3, 4), timedelta(days=2, seconds=3)])
+    workbook.create_sheet("Other").append(["second"])
+    path = tmp_path / "new.xlsx"
+    workbook.save(path)
+    book = openpyxl.load_workbook(path)
+    assert book.sheetnames == ["Data", "Other"]
+    row = tuple(book["Data"].values)[0]
+    assert row[:6] == (True, 5, 1.25, " text ", "#N/A", "=SUM(B1:C1)")
+    assert row[6:] == (datetime(2020, 2, 29, 12, 3, 4, 123000), time(12, 3, 4), timedelta(days=2, seconds=3))
+    book.close()
+    workbook.save(tmp_path / "repeat.xlsx")
+    assert set(tmp_path.iterdir()) == {path, tmp_path / "repeat.xlsx"}
+
+
+def test_loaded_numeric_edit_and_sparse_insertion(engine, tmp_path):
+    source = tmp_path / "source.xlsx"
+    original = openpyxl.Workbook()
+    original.active.append([1, 2, "=A1+B1"])
+    original.save(source)
+    workbook = engine.load_workbook(source)
+    sheet = workbook.active
+    assert sheet["B1"].value == 2
+    sheet["A1"] = 5
+    sheet["D5"] = "new"
+    assert sheet["A1"].value == 5 and sheet["D5"].value == "new"
+    assert sheet.max_row == 5 and sheet.max_column == 4
+    assert list(sheet.iter_rows(min_row=5, max_row=5, values_only=True)) == [(None, None, None, "new")]
+    output = tmp_path / "output.xlsx"
+    workbook.save(output)
+    workbook.save(tmp_path / "repeat.xlsx")
+    workbook.close()
+    verified = openpyxl.load_workbook(output)
+    assert verified.active["A1"].value == 5 and verified.active["D5"].value == "new"
+    assert verified.active["C1"].value == "=A1+B1"
+    verified.close()
+
+
+def test_loaded_formula_data_only(engine, tmp_path):
+    source = tmp_path / "formula.xlsx"
+    workbook = openpyxl.Workbook()
+    workbook.active.append(["=1+2"])
+    workbook.save(source)
+    loaded = engine.load_workbook(source, data_only=True)
+    assert loaded.active["A1"].value is None
+    loaded.close()
+
+
+def test_empty_append_cursor_and_dictionary_columns(engine):
+    workbook = engine.Workbook()
+    sheet = workbook.active
+    sheet.append([])
+    sheet.append({"C": 3})
+    assert sheet["C2"].value == 3
+    sheet.delete_rows(1, 2)
+    sheet.append([5])
+    assert sheet["A1"].value == 5
+
+
+def test_loaded_style_image_comment_and_unknown_parts_are_preserved(tmp_path):
+    from PIL import Image
+    from openpyxl.drawing.image import Image as DrawingImage
+    from openpyxl.styles import Font
+    from openpyxl.comments import Comment
+    image_path = tmp_path / "image.png"
+    Image.new("RGB", (8, 8), "red").save(image_path)
+    source = tmp_path / "source.xlsx"
+    workbook = openpyxl.Workbook()
+    workbook.active["A1"] = 1
+    workbook.active["A1"].font = Font(bold=True)
+    workbook.active["A1"].comment = Comment("comment", "author")
+    workbook.active.add_image(DrawingImage(image_path), "D1")
+    workbook.save(source)
+    with zipfile.ZipFile(source, "a") as archive:
+        archive.writestr("custom/unknown.xml", '<x xmlns="urn:custom">keep</x>')
+    loaded = openrsxl.load_workbook(source)
+    loaded.active["A1"] = 9
+    for filename in ("first.xlsx", "second.xlsx"):
+        target = tmp_path / filename
+        loaded.save(target)
+        with zipfile.ZipFile(source) as original, zipfile.ZipFile(target) as saved:
+            for name in ("xl/media/image1.png", "xl/styles.xml", "custom/unknown.xml"):
+                assert original.read(name) == saved.read(name)
+        verified = openpyxl.load_workbook(target)
+        assert verified.active["A1"].value == 9
+        assert verified.active["A1"].font.bold
+        assert verified.active["A1"].comment.text == "comment"
+        verified.close()
+    loaded.close()
+
+
+def test_adapter_limits_exact_integers_closed_sources_and_unsupported_operations(tmp_path):
+    workbook = openrsxl.Workbook(max_memory_bytes=1000)
+    sheet = workbook.active
+    sheet["A1"] = 10**100
+    assert sheet["A1"].value == 10**100
+    with pytest.raises(MemoryError):
+        sheet["A1"] = "x" * 2000
+    assert sheet["A1"].value == 10**100
+    with pytest.raises(AttributeError):
+        sheet["A1"].font = object()
+    with pytest.raises(AttributeError):
+        sheet.freeze_panes = "A1"
+    with pytest.raises(NotImplementedError):
+        sheet.move_range("A1", translate=True)
+    source = tmp_path / "source.xlsx"
+    workbook.save(source)
+    loaded = openrsxl.load_workbook(source)
+    loaded.close()
+    with pytest.raises(ValueError, match="closed"):
+        loaded.active["A1"].value
+    assert len(list(tmp_path.iterdir())) == 1
+
+
+def test_atomic_new_output_failure_preserves_existing_target(tmp_path):
+    target = tmp_path / "target.xlsx"
+    target.write_bytes(b"original")
+    workbook = openrsxl.Workbook()
+    # All sheets removed is invalid for the writer. The target must survive.
+    workbook.remove(workbook.active)
+    with pytest.raises((ValueError, RuntimeError)):
+        workbook.save(target)
+    assert target.read_bytes() == b"original"
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_sheet_names_and_order_match(engine):
+    workbook = engine.Workbook()
+    workbook.create_sheet("Sheet2")
+    next_sheet = workbook.create_sheet()
+    assert next_sheet.title == "Sheet3"
+    next_sheet.title = "Data"
+    workbook.create_sheet("data", index=0)
+    assert workbook.sheetnames == ["data1", "Sheet", "Sheet2", "Data"]
+    assert "Data" in workbook
+    assert [sheet.title for sheet in workbook] == workbook.sheetnames
+    workbook.remove(workbook["Sheet2"])
+    assert workbook.sheetnames == ["data1", "Sheet", "Data"]

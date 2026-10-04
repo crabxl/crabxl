@@ -1,6 +1,6 @@
 # Architecture
 
-Status: M0 architecture/inventory and M1 raw numeric streaming and M3 sequential writer acceptance complete; M2 remains in progress. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. Language bindings are deferred. Reader ownership is recorded in [ADR 0001](decisions/0001-numeric-streaming.md); the sequential writer uses [ADR 0004](decisions/0004-sequential-scalar-writer.md).
+Status: M0 architecture/inventory and M1 raw numeric streaming and M3 sequential writer acceptance complete; M2 remains in progress. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. An optional Python compatibility adapter is now authorized for shared tests; other language adapters remain deferred. Reader ownership is recorded in [ADR 0001](decisions/0001-numeric-streaming.md); the sequential writer uses [ADR 0004](decisions/0004-sequential-scalar-writer.md).
 
 ## Reference scope
 
@@ -33,7 +33,7 @@ The public documentation distinguishes a general editable model, lazy read-only 
 - Use mature foundational ZIP, XML, date, and temporary-file crates as normal dependencies.
 - Share a single value, formula, style, address, error, and feature model across readers and writers.
 - Internals may use ownership, borrowing, enums, traits, iterators, builders, and typed IDs extensively. Public Rust names and syntax may differ, but functionality and observable semantics must meet openpyxl expectations.
-- Binding adapters can map call names and language-specific behavior later; they must not have to reconstruct missing core spreadsheet capabilities.
+- The Python adapter must use openpyxl-compatible calls and observable behavior; other adapters can map language-specific behavior later; they must not have to reconstruct missing core spreadsheet capabilities.
 - Correctness, memory use, and performance are joint acceptance criteria. Avoid unnecessary allocation, copying, and per-cell metadata duplication, and measure relevant changes.
 
 ## Workspace
@@ -132,3 +132,7 @@ The earlier feasibility benchmark compared openpyxl and calamine only. Current o
 ## Initial editable/preservation implementation
 
 M4 now separates an I/O-free sparse `Worksheet` from a lazy `WorkbookEditor` holding original parts and bounded cell overlays. Both use the shared core values and existing XLSX codecs. See [ADR 0005](decisions/0005-sparse-preserving-editor.md) for ownership, budgets, cache invalidation, atomic path output and unsupported edits. This first checkpoint does not complete M4 existing-file structural editing.
+
+## Optional Python adapter
+
+`bindings/python` is a separate, excluded Cargo workspace and Maturin/PyO3 package. Python objects and compatibility naming live there; the three core Rust crates do not depend on Python. The adapter targets openpyxl call compatibility and is staged by capability. [ADR 0006](decisions/0006-python-compatibility-adapter.md) records the test and ownership contract.

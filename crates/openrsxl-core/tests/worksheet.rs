@@ -161,3 +161,26 @@ fn bounds_and_data_work_limits_fail_without_partial_mutation() {
     assert_eq!(values(&sheet), before);
     assert!(!sheet.is_dirty());
 }
+
+#[test]
+fn model_rename_obeys_budget_and_preserves_cells_on_failure() {
+    let mut sheet = Worksheet::new(
+        "A",
+        EditLimits {
+            max_bytes: 300,
+            max_cells: 1,
+        },
+    )
+    .unwrap();
+    set(&mut sheet, 0, 0, Value::Integer(5));
+    sheet.mark_clean();
+    let before = sheet.charged_bytes();
+    assert!(sheet.rename("x".repeat(100)).is_err());
+    assert_eq!(sheet.name(), "A");
+    assert_eq!(sheet.charged_bytes(), before);
+    assert!(!sheet.is_dirty());
+    sheet.rename("Data").unwrap();
+    assert_eq!(sheet.name(), "Data");
+    assert_eq!(sheet.charged_bytes(), before + 3);
+    assert!(sheet.is_dirty());
+}

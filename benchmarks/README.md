@@ -75,3 +75,5 @@ M2 exact scalar fidelity, mixed inline text, and owned-payload budgets: [m2-scal
 Completed M3 sequential writer, public openpyxl readback and temporary-disk cost: [m3-writer.md](m3-writer.md).
 
 M4 sparse/editor checkpoint: [report](m4-editor.md), [raw results](results/m4-editor.json), and `editor_checkpoint.py`. Existing-cell edit/save is compared directly with openpyxl general-mode load/edit/save; preservation, explicit sparse-model costs and reader regression are separate workloads.
+
+Optional Python adapter: [same-call creation/edit comparison](python-adapter.md) includes interpreter/conversion costs, three alternating runs per engine and native RSS/temp/output measurements.
