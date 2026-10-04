@@ -447,3 +447,30 @@ fn borrowed_number_format_variants_share_components_and_preserve_source_properti
     expected.apply_number_format = Some(true);
     assert_eq!(registry.register_format(expected).unwrap(), variant);
 }
+
+#[test]
+fn palette_literal_payloads_are_accounted_during_source_adoption() {
+    use crabxl_core::ArgbLiteral;
+    let source = StyleRegistry::new(StyleLimits::default()).unwrap();
+    let mut catalog = source.catalog().clone();
+    let base = StyleRegistry::from_catalog(catalog.clone(), StyleLimits::default())
+        .unwrap()
+        .memory_bytes();
+    catalog.indexed_colors = vec![ArgbLiteral::parse("ff11aa22").unwrap(); 512];
+    assert!(
+        StyleRegistry::from_catalog(
+            catalog.clone(),
+            StyleLimits {
+                max_bytes: base + 512 * 4,
+                max_records: 1000
+            }
+        )
+        .is_err()
+    );
+    let registry = StyleRegistry::from_catalog(catalog, StyleLimits::default()).unwrap();
+    assert_eq!(registry.catalog().indexed_colors[0].to_string(), "ff11aa22");
+    assert_eq!(
+        ArgbLiteral::from(0x00aabbcc),
+        ArgbLiteral::parse("00AABBCC").unwrap()
+    );
+}

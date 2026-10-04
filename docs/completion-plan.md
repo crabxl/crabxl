@@ -44,6 +44,8 @@ Acceptance: repeated-string and high-cardinality tables work under small managed
 
 ## M2.3: Read-side styles and dates
 
+Checkpoint: indexed palette entries share ArgbLiteral, preserving mixed case and six-digit alpha normalization through source adoption and export with actual-capacity accounting (ADR 0039). The additional four bytes per palette slot are disclosed and measured; complete style mutation remains open.
+
 Checkpoint: temporal output preserves any existing date/duration format and derives shared variants for non-date styles, using public default codes and the existing borrowed deduplication index (ADR 0038). Owned-bank pre-save style assignment/views and complete style mutation remain open.
 
 Checkpoint: typed differential overrides and table/pivot definitions/defaults are verified in ADR 0033, including all 28 region tokens and bounded deferred reference checks. Extension payloads, full style mutation/assignment semantics and worksheet rule/table graph integration remain required.

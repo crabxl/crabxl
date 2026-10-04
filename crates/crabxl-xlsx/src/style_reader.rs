@@ -427,8 +427,12 @@ fn read_colors<B: BufRead>(
                             let color = crate::style_codec::read_color(&e, item.decoder)?;
                             crate::formatting::consume_property(xml, 4)?;
                             if indexed {
-                                let ColorKind::Argb(rgb) = color.kind else {
-                                    return Err(invalid("Indexed palette entry is not ARGB"));
+                                let rgb = match color.kind {
+                                    ColorKind::Argb(value) => {
+                                        crabxl_core::ArgbLiteral::from_channels(value)
+                                    }
+                                    ColorKind::ArgbLiteral(value) => value,
+                                    _ => return Err(invalid("Indexed palette entry is not ARGB")),
                                 };
                                 if color.tint.is_some() {
                                     return Err(invalid("Indexed palette entry has tint"));

@@ -1899,7 +1899,10 @@ fn imported_style_components_keep_ids_optional_overrides_palettes_and_staged_sec
     assert_eq!(format.protection.unwrap().locked, Some(false));
     assert_eq!(catalog.named_styles[0].name.as_ref(), "Visible");
     assert_eq!(catalog.named_styles[0].hidden, Some(false));
-    assert_eq!(catalog.indexed_colors, [0xFFAABBCC]);
+    assert_eq!(
+        catalog.indexed_colors,
+        [crabxl_core::ArgbLiteral::from_channels(0xFFAABBCC)]
+    );
     assert_eq!(catalog.recent_colors[0].tint, Some(0.0));
     assert!(catalog.unmodeled_sections.is_empty());
     assert!(catalog.differential_styles.is_empty());
@@ -3129,4 +3132,44 @@ fn compatible_structured_headers_retain_literal_flags_and_ignore_unused_hints() 
             .next_row()
             .is_err()
     );
+}
+
+#[test]
+fn indexed_palette_literals_preserve_case_and_normalize_six_digit_alpha() {
+    let styles = basic_styles("<xf/>")
+        + "<colors><indexedColors><rgbColor rgb=\"ff11aa22\"/><rgbColor rgb=\"FF11AA22\"/><rgbColor rgb=\"abc123\"/><rgbColor rgb=\"AbC123\"/><rgbColor rgb=\"00ff00FF\"/></indexedColors></colors>";
+    let mut book = WorkbookReader::new(Cursor::new(with_styles(
+        "<row><c><v>1</v></c></row>",
+        &styles,
+        false,
+    )))
+    .unwrap();
+    let catalog = book.style_catalog().unwrap().unwrap();
+    assert_eq!(
+        catalog
+            .indexed_colors
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        ["ff11aa22", "FF11AA22", "00abc123", "00AbC123", "00ff00FF"]
+    );
+    assert_eq!(catalog.indexed_colors[0].channels(), 0xff11aa22);
+    assert_ne!(catalog.indexed_colors[0], catalog.indexed_colors[1]);
+    for entry in [
+        "<rgbColor/>",
+        "<rgbColor rgb=\"invalid\"/>",
+        "<rgbColor theme=\"1\"/>",
+        "<rgbColor rgb=\"ff11aa22\" tint=\"0\"/>",
+    ] {
+        let styles = basic_styles("<xf/>")
+            + &format!("<colors><indexedColors>{entry}</indexedColors></colors>");
+        let mut invalid = WorkbookReader::new(Cursor::new(with_styles(
+            "<row><c><v>1</v></c></row>",
+            &styles,
+            false,
+        )))
+        .unwrap();
+        assert!(invalid.style_catalog().is_err());
+        assert_eq!(invalid.style_memory_bytes(), 0);
+    }
 }

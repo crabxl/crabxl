@@ -2200,3 +2200,39 @@ fn derived_temporal_formats_reuse_components_and_validate_rows_before_interning(
         Some("yyyy-mm-dd h:mm:ss")
     );
 }
+
+#[test]
+fn indexed_palette_source_adoption_and_export_preserve_literal_spelling() {
+    use crabxl_core::{ArgbLiteral, StyleLimits, StyleRegistry};
+    let mut catalog = StyleRegistry::new(StyleLimits::default())
+        .unwrap()
+        .catalog()
+        .clone();
+    let literals = ["ff11aa22", "FF11AA22", "abc123", "AbC123", "00ff00FF"];
+    catalog.indexed_colors = literals
+        .iter()
+        .map(|value| ArgbLiteral::parse(value).unwrap())
+        .collect();
+    let pointer = catalog.indexed_colors.as_ptr();
+    let mut writer = WorkbookWriter::from_style_catalog(WriteOptions::default(), catalog).unwrap();
+    assert_eq!(
+        writer.style_catalog().unwrap().indexed_colors.as_ptr(),
+        pointer
+    );
+    writer.start_sheet("Sheet").unwrap();
+    writer
+        .write_row(&row(0, vec![CellValue::Integer(1)]))
+        .unwrap();
+    let mut reader = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    assert_eq!(
+        reader
+            .style_catalog()
+            .unwrap()
+            .unwrap()
+            .indexed_colors
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        ["ff11aa22", "FF11AA22", "00abc123", "00AbC123", "00ff00FF"]
+    );
+}

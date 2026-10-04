@@ -25,6 +25,13 @@ pub struct ArgbLiteral {
     lowercase_mask: u8,
 }
 impl ArgbLiteral {
+    /// Construct canonical uppercase spelling from numeric channels.
+    pub const fn from_channels(channels: u32) -> Self {
+        Self {
+            channels,
+            lowercase_mask: 0,
+        }
+    }
     /// Parse six RGB or eight ARGB hexadecimal digits, preserving letter casing.
     /// Six-digit RGB receives the reference's zero alpha prefix.
     pub fn parse(value: &str) -> crate::Result<Self> {
@@ -60,6 +67,11 @@ impl ArgbLiteral {
         } else {
             ColorKind::ArgbLiteral(self)
         }
+    }
+}
+impl From<u32> for ArgbLiteral {
+    fn from(channels: u32) -> Self {
+        Self::from_channels(channels)
     }
 }
 impl std::fmt::Display for ArgbLiteral {
