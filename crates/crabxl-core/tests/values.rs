@@ -84,3 +84,36 @@ fn distant_calendar_rounding_uses_fractional_day_precision() {
     let elapsed = Date::from_serial(-1.25, Mac1904, Duration).unwrap();
     assert_eq!(elapsed.to_duration().unwrap().num_seconds(), -108000);
 }
+
+#[test]
+fn literal_calendar_clock_and_duration_keep_microseconds_and_ambiguous_dates() {
+    let literal = Date::from_ymd_hms_micro(1899, 12, 31, 0, 0, 0, 123456).unwrap();
+    assert_eq!(
+        literal.to_datetime().unwrap().to_string(),
+        "1899-12-31 00:00:00.123456"
+    );
+    // The literal Gregorian day disambiguates equal early Windows serials.
+    assert!((literal.serial_in(Mac1904).unwrap() + 1461.0 - 0.123456 / 86400.0).abs() < 1e-10);
+    let loaded = Date::from_serial(literal.serial(), Windows1900, DateTime).unwrap();
+    assert_eq!(
+        loaded.to_datetime().unwrap().to_string(),
+        "1899-12-31 00:00:00.123"
+    );
+    let clock = Date::from_hms_micro(2, 57, 46, 666570).unwrap();
+    assert_eq!(clock.to_time().unwrap().to_string(), "02:57:46.666570");
+    let loaded_clock = Date::from_serial(clock.serial(), Windows1900, Time).unwrap();
+    assert_eq!(loaded_clock.to_time().unwrap().to_string(), "02:57:46.667");
+    let elapsed = Date::from_duration_parts(-1, 86399, 999999).unwrap();
+    assert_eq!(elapsed.to_duration().unwrap().num_microseconds(), Some(-1));
+    let loaded_elapsed = Date::from_serial(elapsed.serial(), Windows1900, Duration).unwrap();
+    assert_eq!(
+        loaded_elapsed.to_duration().unwrap().num_microseconds(),
+        Some(0)
+    );
+    let huge = Date::from_duration_parts(999999999, 86399, 999999).unwrap();
+    assert!(huge.is_reference_representable());
+    assert!(Date::from_hms_micro(0, 0, 59, 1000000).is_err());
+    assert!(Date::from_ymd_hms_micro(10000, 1, 1, 0, 0, 0, 0).is_err());
+    assert!(Date::from_duration_parts(1000000000, 0, 0).is_err());
+    assert!(Date::from_duration_parts(0, 86400, 0).is_err());
+}

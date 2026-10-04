@@ -2,7 +2,7 @@
 // Epoch/leapday conversion adapted from rust_xlsxwriter's chrono_date_to_excel,
 // Copyright 2022-2026 John McNamara. See third_party/ports.json.
 use crate::{Error, ErrorKind, Result};
-use chrono::{NaiveDate, NaiveDateTime, Timelike};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, Timelike};
 
 /// Workbook serial-date origin.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,6 +30,17 @@ pub struct ExcelDateTime {
     serial: f64,
     epoch: DateEpoch,
     kind: DateKind,
+    source: DateSource,
+}
+
+// Literal values keep their native precision/calendar identity; loaded serials
+// retain their exact source and use the baseline conversion policy.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DateSource {
+    Serial,
+    Calendar(NaiveDateTime),
+    Clock(NaiveTime),
+    Elapsed(TimeDelta),
 }
 impl ExcelDateTime {
     /// Construct a serial; time values must lie in [0, 1).
@@ -44,6 +55,7 @@ impl ExcelDateTime {
             serial,
             epoch,
             kind,
+            source: DateSource::Serial,
         })
     }
     /// Construct a Gregorian calendar date and millisecond-resolution time.
@@ -57,25 +69,77 @@ impl ExcelDateTime {
         second: u32,
         millisecond: u32,
     ) -> Result<Self> {
+        let microsecond = millisecond
+            .checked_mul(1000)
+            .filter(|_| millisecond < 1000)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid millisecond field"))?;
+        Self::from_ymd_hms_micro(year, month, day, hour, minute, second, microsecond)
+    }
+    /// Construct a literal Gregorian datetime preserving microsecond precision
+    /// and original calendar identity, including early ambiguous serial dates.
+    pub fn from_ymd_hms_micro(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        minute: u32,
+        second: u32,
+        microsecond: u32,
+    ) -> Result<Self> {
         let date = NaiveDate::from_ymd_opt(year, month, day)
             .filter(|_| (1..=9999).contains(&year))
-            .and_then(|date| date.and_hms_milli_opt(hour, minute, second, millisecond))
+            .and_then(|date| date.and_hms_micro_opt(hour, minute, second, microsecond))
             .filter(|date| date.nanosecond() < 1_000_000_000)
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid calendar date/time"))?;
-        let epoch = NaiveDate::from_ymd_opt(1899, 12, 30)
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid date epoch"))?;
-        let mut days = (date.date() - epoch).num_days();
-        // Match public openpyxl conversion, including dates before 1900-03-01.
-        if days > 0 && days <= 60 {
-            days -= 1;
+        Ok(Self {
+            serial: calendar_serial(date, DateEpoch::Windows1900)?,
+            epoch: DateEpoch::Windows1900,
+            kind: DateKind::DateTime,
+            source: DateSource::Calendar(date),
+        })
+    }
+    /// Construct a literal clock time preserving microsecond precision.
+    pub fn from_hms_micro(hour: u32, minute: u32, second: u32, microsecond: u32) -> Result<Self> {
+        let time = NaiveTime::from_hms_micro_opt(hour, minute, second, microsecond)
+            .filter(|time| time.nanosecond() < 1_000_000_000)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid clock time"))?;
+        let serial = (f64::from(time.num_seconds_from_midnight())
+            + f64::from(microsecond) / 1_000_000.0)
+            / 86400.0;
+        Ok(Self {
+            serial,
+            epoch: DateEpoch::Windows1900,
+            kind: DateKind::Time,
+            source: DateSource::Clock(time),
+        })
+    }
+    /// Construct a literal elapsed duration from normalized Python-compatible
+    /// days, seconds within a day, and microseconds within a second.
+    pub fn from_duration_parts(days: i64, seconds: u32, microseconds: u32) -> Result<Self> {
+        if !(-999_999_999..=999_999_999).contains(&days)
+            || seconds >= 86400
+            || microseconds >= 1_000_000
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Invalid elapsed duration components",
+            ));
         }
-        let fraction =
-            (date.num_seconds_from_midnight() as f64 + millisecond as f64 / 1000.0) / 86400.0;
-        Self::from_serial(
-            days as f64 + fraction,
-            DateEpoch::Windows1900,
-            DateKind::DateTime,
-        )
+        let duration = TimeDelta::try_days(days)
+            .and_then(|value| value.checked_add(&TimeDelta::seconds(i64::from(seconds))))
+            .and_then(|value| value.checked_add(&TimeDelta::microseconds(i64::from(microseconds))))
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Elapsed duration overflows"))?;
+        // Match public timedelta.total_seconds/day conversion while retaining
+        // exact literal components for language adapters and subsequent edits.
+        let serial =
+            (days as f64 * 86400.0 + f64::from(seconds) + f64::from(microseconds) / 1_000_000.0)
+                / 86400.0;
+        Ok(Self {
+            serial,
+            epoch: DateEpoch::Windows1900,
+            kind: DateKind::Duration,
+            source: DateSource::Elapsed(duration),
+        })
     }
     /// The retained source serial.
     pub const fn serial(self) -> f64 {
@@ -92,6 +156,9 @@ impl ExcelDateTime {
     /// Convert the calendar serial to a destination workbook epoch. Times and
     /// durations are epoch-independent. Conversion preserves fractional days.
     pub fn serial_in(self, epoch: DateEpoch) -> Result<f64> {
+        if let DateSource::Calendar(date) = self.source {
+            return calendar_serial(date, epoch);
+        }
         if self.epoch == epoch || self.kind != DateKind::DateTime {
             return Ok(self.serial);
         }
@@ -129,6 +196,9 @@ impl ExcelDateTime {
                 ErrorKind::InvalidData,
                 "Value is not a calendar datetime",
             ));
+        }
+        if let DateSource::Calendar(value) = self.source {
+            return Ok(value);
         }
         let epoch = match self.epoch {
             DateEpoch::Windows1900 => NaiveDate::from_ymd_opt(1899, 12, 30),
@@ -171,6 +241,9 @@ impl ExcelDateTime {
                 "Value is not a clock time",
             ));
         }
+        if let DateSource::Clock(value) = self.source {
+            return Ok(value);
+        }
         let millis = self.fraction_milliseconds();
         if !(0..86_400_000).contains(&millis) {
             return Err(Error::new(
@@ -191,6 +264,9 @@ impl ExcelDateTime {
                 ErrorKind::InvalidData,
                 "Value is not an elapsed duration",
             ));
+        }
+        if let DateSource::Elapsed(value) = self.source {
+            return Ok(value);
         }
         let millis = (self.serial * 86_400_000.0).round_ties_even();
         if millis < i64::MIN as f64 || millis >= i64::MAX as f64 {
@@ -216,4 +292,20 @@ impl ExcelDateTime {
             }),
         }
     }
+}
+
+fn calendar_serial(date: NaiveDateTime, epoch: DateEpoch) -> Result<f64> {
+    let origin = match epoch {
+        DateEpoch::Windows1900 => NaiveDate::from_ymd_opt(1899, 12, 30),
+        DateEpoch::Mac1904 => NaiveDate::from_ymd_opt(1904, 1, 1),
+    }
+    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid date epoch"))?;
+    let mut days = (date.date() - origin).num_days();
+    if epoch == DateEpoch::Windows1900 && days > 0 && days <= 60 {
+        days -= 1;
+    }
+    let fraction = (f64::from(date.num_seconds_from_midnight())
+        + f64::from(date.nanosecond()) / 1_000_000_000.0)
+        / 86400.0;
+    Ok(days as f64 + fraction)
 }
