@@ -1,0 +1,24 @@
+{
+  "reference": "3.1.5",
+  "inspection": "Native creation followed by pinned public load API",
+  "modes": [
+    {
+      "data_only": false,
+      "values": [
+        null,
+        null,
+        null,
+        "=1"
+      ]
+    },
+    {
+      "data_only": true,
+      "values": [
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  ]
+}

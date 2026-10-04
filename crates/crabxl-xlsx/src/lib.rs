@@ -13,7 +13,7 @@ pub use adaptive::{AdaptiveRead, ReadData};
 pub use package::{SheetInfo, SheetKind, WorkbookReader};
 pub use reader::Rows;
 
-pub use writer::{WorkbookWriter, WriteOptions, WriteStats};
+pub use writer::{NonFiniteWritePolicy, WorkbookWriter, WriteOptions, WriteStats};
 
 mod editor;
 pub use editor::{

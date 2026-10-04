@@ -13,7 +13,7 @@ use std::ops::RangeInclusive;
 pub enum CellValue {
     /// A physically present cell without a literal value.
     Empty,
-    /// A finite IEEE-754 numeric value.
+    /// An IEEE-754 numeric value, including overflow infinities from numeric lexemes.
     Number(f64),
     /// A literal spreadsheet boolean, distinct from numeric zero or one.
     Boolean(bool),

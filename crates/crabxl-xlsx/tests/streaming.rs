@@ -513,7 +513,6 @@ fn selected_unsupported_features_fail_with_cell_context() {
 fn malformed_numeric_values_and_coordinates_fail() {
     for content in [
         "<c><v>NaN</v></c>",
-        "<c><v>1e999</v></c>",
         "<c><v>broken</v></c>",
         "<c r=\"XFE1\"><v>1</v></c>",
         "<c r=\"A0\"><v>1</v></c>",
@@ -2258,4 +2257,41 @@ fn array_table_source_properties_caches_and_empty_bodies_remain_distinct() {
     assert_eq!(cached.rows[0].cells[1].value, CellValue::Integer(0));
     assert_eq!(cached.rows[0].cells[2].value, CellValue::Integer(1));
     assert_eq!(cached.rows[0].cells[3].value, CellValue::Empty);
+}
+
+#[test]
+fn overflow_numeric_lexemes_and_cached_results_retain_infinities() {
+    let mut book =
+        open("<row><c><v>1e999</v></c><c><v>-1e999</v></c><c><f>1</f><v>1e999</v></c></row>");
+    let sheet = book.read_sheet("A & B").unwrap();
+    assert!(
+        matches!(sheet.rows[0].cells[0].value, CellValue::Number(value) if value == f64::INFINITY)
+    );
+    assert!(
+        matches!(sheet.rows[0].cells[1].value, CellValue::Number(value) if value == f64::NEG_INFINITY)
+    );
+    let CellValue::Formula(formula) = &sheet.rows[0].cells[2].value else {
+        panic!("Expected formula");
+    };
+    assert_eq!(formula.cached(), Some(&CellValue::Number(f64::INFINITY)));
+    let cached = book
+        .read_sheet_with_options(
+            "A & B",
+            ReadOptions {
+                data_only: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        cached.rows[0].cells[2].value,
+        CellValue::Number(f64::INFINITY)
+    );
+    for invalid in ["Infinity", "-inf", "NaN", "NaN.e", "1e999garbage"] {
+        assert!(
+            open(&format!("<row><c><v>{invalid}</v></c></row>"))
+                .read_sheet("A & B")
+                .is_err()
+        );
+    }
 }

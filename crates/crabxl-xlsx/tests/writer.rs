@@ -80,7 +80,11 @@ fn scalar_round_trip_sparse_rows_empty_sheet_and_epoch() {
 #[test]
 fn rejected_rows_do_not_commit_and_sequential_state_is_explicit() {
     let directory = tempfile::tempdir().unwrap();
-    let mut writer = WorkbookWriter::new(options(&directory)).unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        non_finite: crabxl_xlsx::NonFiniteWritePolicy::Reject,
+        ..options(&directory)
+    })
+    .unwrap();
     assert_eq!(
         writer.write_row(&row(0, vec![])).unwrap_err().kind(),
         ErrorKind::InvalidState
@@ -396,6 +400,7 @@ fn shared_styles_are_deduplicated_bounded_and_references_are_checked() {
     let directory = tempfile::tempdir().unwrap();
     let mut writer = WorkbookWriter::new(WriteOptions {
         max_styles: 6,
+        non_finite: crabxl_xlsx::NonFiniteWritePolicy::Reject,
         ..options(&directory)
     })
     .unwrap();
@@ -1330,5 +1335,64 @@ fn structured_formula_payload_and_input_validation_are_atomic() {
         .write_row(&row(0, vec![CellValue::Integer(1)]))
         .unwrap();
     writer.finish(Cursor::new(Vec::new())).unwrap();
+    assert_eq!(files(&directory), 0);
+}
+
+#[test]
+fn compatible_nonfinite_numbers_emit_blank_values_without_losing_formulas() {
+    use crabxl_core::{Formula, ReadOptions};
+    let directory = tempfile::tempdir().unwrap();
+    let mut writer = WorkbookWriter::new(options(&directory)).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    writer
+        .write_row(&row(
+            0,
+            vec![
+                CellValue::Number(f64::NAN),
+                CellValue::Number(f64::INFINITY),
+                CellValue::Number(f64::NEG_INFINITY),
+                CellValue::Formula(Box::new(
+                    Formula::new("=1", Some(CellValue::Number(f64::INFINITY))).unwrap(),
+                )),
+            ],
+        ))
+        .unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut archive = zip::ZipArchive::new(output.clone()).unwrap();
+    let mut xml = String::new();
+    use std::io::Read;
+    archive
+        .by_name("xl/worksheets/sheet1.xml")
+        .unwrap()
+        .read_to_string(&mut xml)
+        .unwrap();
+    assert_eq!(xml.matches("<v></v>").count(), 4);
+    assert!(!xml.contains("NaN"));
+    assert!(!xml.contains("inf"));
+    let mut reader = WorkbookReader::new(output).unwrap();
+    let sheet = reader.read_sheet("Sheet").unwrap();
+    for cell in &sheet.rows[0].cells[..3] {
+        assert_eq!(cell.value, CellValue::Empty);
+    }
+    let CellValue::Formula(formula) = &sheet.rows[0].cells[3].value else {
+        panic!("Expected formula");
+    };
+    assert_eq!(formula.expression(), "1");
+    assert_eq!(formula.cached(), Some(&CellValue::Empty));
+    let cached = reader
+        .read_sheet_with_options(
+            "Sheet",
+            ReadOptions {
+                data_only: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(
+        cached.rows[0]
+            .cells
+            .iter()
+            .all(|cell| cell.value == CellValue::Empty)
+    );
     assert_eq!(files(&directory), 0);
 }

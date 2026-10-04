@@ -909,3 +909,50 @@ fn structured_formula_targets_replace_without_rewriting_unrelated_cells() {
         }
     }
 }
+
+#[test]
+fn nonfinite_editor_policy_is_atomic_and_compatible_blanks_read_back() {
+    let mut strict = WorkbookEditor::with_options(
+        Cursor::new(source()),
+        EditorOptions {
+            non_finite: crabxl_xlsx::NonFiniteWritePolicy::Reject,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        strict
+            .set_value(
+                "Sheet",
+                Address::new(0, 0).unwrap(),
+                Value::Number(f64::INFINITY)
+            )
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+    let (unchanged, _) = strict
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    let mut reader = WorkbookReader::new(unchanged).unwrap();
+    assert_eq!(
+        reader.read_sheet("Sheet").unwrap().rows[0].cells[0].value,
+        Value::Integer(1)
+    );
+    let mut compatible = WorkbookEditor::new(Cursor::new(source())).unwrap();
+    compatible
+        .set_value(
+            "Sheet",
+            Address::new(0, 0).unwrap(),
+            Value::Number(f64::NEG_INFINITY),
+        )
+        .unwrap();
+    let (output, _) = compatible
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    assert_eq!(
+        reader.read_sheet("Sheet").unwrap().rows[0].cells[0].value,
+        Value::Empty
+    );
+}

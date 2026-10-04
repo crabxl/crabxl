@@ -18,7 +18,8 @@ def parse_output(output):
         if kind == "integer":
             value = int(fields[0])
         elif kind == "number":
-            value = float(fields[0])
+            number = float(fields[0])
+            value = {"type": "float", "value": str(number)} if abs(number) == float("inf") else number
         elif kind == "boolean":
             value = fields[0] == "true"
         elif kind in ("text", "error"):
@@ -51,9 +52,6 @@ def main():
             parts = {name: archive.read(name) for name in archive.namelist()}
         for case in reference["cases"]:
             name = case["name"]
-            if name == "overflow-numeric":
-                deferred.append({"name": name, "data_only": case["data_only"], "reason": "Nonfinite numeric compatibility remains a separate M2 value checkpoint"})
-                continue
             parts["xl/worksheets/sheet1.xml"] = f'<worksheet xmlns="{MAIN}"><sheetData>{CASES[name]}</sheetData></worksheet>'.encode()
             with zipfile.ZipFile(path, "w") as archive:
                 for member, value in parts.items():
