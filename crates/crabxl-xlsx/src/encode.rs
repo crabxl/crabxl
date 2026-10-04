@@ -5,6 +5,35 @@
 use crabxl_core::{CellValue, Error, ErrorKind, Result};
 use std::io::{self, Write};
 
+pub(crate) enum StyleContext<'a> {
+    Catalog(&'a crabxl_core::StyleCatalog),
+    Appearance(&'a [crabxl_core::CellStyle]),
+}
+impl StyleContext<'_> {
+    fn len(&self) -> usize {
+        match self {
+            Self::Catalog(catalog) => catalog.cell_formats.len(),
+            Self::Appearance(styles) => styles.len(),
+        }
+    }
+    fn fonts(&self) -> usize {
+        match self {
+            Self::Catalog(catalog) => catalog.fonts.len(),
+            Self::Appearance(styles) => styles.len(),
+        }
+    }
+    fn number_format(&self, id: u32) -> Option<&str> {
+        match self {
+            Self::Catalog(catalog) => catalog
+                .cell_format(crabxl_core::StyleId::new(id))
+                .and_then(|format| catalog.number_format(format.number_format_id)),
+            Self::Appearance(styles) => styles
+                .get(id as usize)
+                .map(|style| style.number_format.as_ref()),
+        }
+    }
+}
+
 pub(crate) struct DateEncoding {
     pub(crate) epoch: crabxl_core::DateEpoch,
     pub(crate) iso_dates: bool,
@@ -71,7 +100,7 @@ pub(crate) fn encode_cells<'a>(
     cells: impl Iterator<Item = &'a crabxl_core::Cell> + Clone,
     maximum_cell: usize,
     maximum_cells: usize,
-    styles: &[crabxl_core::CellStyle],
+    styles: StyleContext<'_>,
     date_encoding: DateEncoding,
 ) -> Result<()> {
     let DateEncoding {
@@ -127,7 +156,7 @@ pub(crate) fn encode_cells<'a>(
             if value
                 .phonetic_properties
                 .as_ref()
-                .is_some_and(|p| p.font_id as usize >= styles.len())
+                .is_some_and(|p| p.font_id as usize >= styles.fonts())
             {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
@@ -143,7 +172,9 @@ pub(crate) fn encode_cells<'a>(
                 crabxl_core::DateKind::DateTime
             };
             if cell.style.get() != 0
-                && crate::styles::date_format(&styles[cell.style.get() as usize].number_format)
+                && styles
+                    .number_format(cell.style.get())
+                    .and_then(crate::styles::date_format)
                     != Some(expected)
             {
                 return Err(Error::new(

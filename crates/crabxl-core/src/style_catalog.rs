@@ -11,7 +11,7 @@ pub struct NumberFormat {
     pub code: Box<str>,
 }
 /// A format record referring to workbook component tables.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Hash)]
 pub struct CellFormat {
     /// Number-format identity, default zero.
     pub number_format_id: u32,

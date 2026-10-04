@@ -1,5 +1,5 @@
 //! Lazy original-package preservation and bounded existing-cell value overlays.
-use crate::encode::{DateEncoding, RowBuffer, encode_cells, validate_value};
+use crate::encode::{DateEncoding, RowBuffer, StyleContext, encode_cells, validate_value};
 use crate::writer::{io_error, zip_error};
 use crate::xml::{Scope, XmlStream, attribute};
 use crate::{SheetInfo, SheetKind, WorkbookReader};
@@ -716,7 +716,7 @@ fn write_body<W: Write>(
         std::slice::from_ref(cell).iter(),
         limits.max_cell_bytes,
         1,
-        &[CellStyle::default()],
+        StyleContext::Appearance(&[CellStyle::default()]),
         DateEncoding {
             epoch: DateEpoch::Windows1900,
             iso_dates: false,

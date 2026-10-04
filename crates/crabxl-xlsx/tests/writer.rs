@@ -1048,10 +1048,7 @@ fn complete_style_components_round_trip_through_shared_catalog_without_flattenin
     );
     assert_eq!(record.alignment.as_deref(), Some(&expected.alignment));
     assert_eq!(record.protection, Some(expected.protection));
-    assert_eq!(
-        catalog.declared_number_format(record.number_format_id),
-        Some("0.00")
-    );
+    assert_eq!(catalog.number_format(record.number_format_id), Some("0.00"));
 }
 
 #[test]
@@ -1395,4 +1392,118 @@ fn compatible_nonfinite_numbers_emit_blank_values_without_losing_formulas() {
             .all(|cell| cell.value == CellValue::Empty)
     );
     assert_eq!(files(&directory), 0);
+}
+
+#[test]
+fn normalized_writer_components_use_actual_font_ids_and_release_on_abort() {
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    for code in ["0.000", "0.0000"] {
+        writer
+            .register_style(crabxl_core::CellStyle {
+                number_format: code.into(),
+                ..Default::default()
+            })
+            .unwrap();
+    }
+    let catalog = writer.style_catalog().unwrap();
+    assert_eq!(catalog.fonts.len(), 1);
+    assert_eq!(catalog.fills.len(), 2);
+    assert_eq!(catalog.borders.len(), 1);
+    assert_eq!(catalog.cell_formats.len(), 7);
+    assert_eq!(catalog.number_formats.len(), 6);
+    writer.start_sheet("Sheet").unwrap();
+    let before = writer.temporary_bytes();
+    let CellValue::RichText(mut value) = rich_value() else {
+        unreachable!();
+    };
+    value.phonetic_properties.as_mut().unwrap().font_id = 6;
+    assert_eq!(
+        writer
+            .write_row(&row(0, vec![CellValue::RichText(value)]))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+    assert_eq!(writer.temporary_bytes(), before);
+    writer.write_row(&row(0, vec![rich_value()])).unwrap();
+    assert!(writer.style_memory_bytes() > 0);
+    writer.abort().unwrap();
+    assert!(writer.style_catalog().is_none());
+    assert_eq!(writer.style_memory_bytes(), 0);
+}
+
+#[test]
+fn registered_font_attributes_stream_escaped_payloads_and_recover_original_text() {
+    let name = "&<\"'\r\n\t".repeat(2000);
+    let mut style = crabxl_core::CellStyle::default();
+    style.font.name = Some(name.clone().into());
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    let id = writer.register_style(style).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let mut input = row(0, vec![CellValue::Integer(1)]);
+    input.cells[0].style = id;
+    writer.write_row(&input).unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut bounded = WorkbookReader::new(output.clone()).unwrap();
+    assert_eq!(
+        bounded.style_catalog().unwrap_err().kind(),
+        ErrorKind::LimitExceeded
+    );
+    let mut book = WorkbookReader::with_limits(
+        output,
+        crabxl_core::ResourceLimits {
+            max_xml_event_bytes: 128 * 1024,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let catalog = book.style_catalog().unwrap().unwrap();
+    assert_eq!(
+        catalog.cell_style(id).unwrap().font.name.as_deref(),
+        Some(name.as_str())
+    );
+}
+
+#[test]
+fn alignment_zero_serialization_has_compatible_and_explicit_policies() {
+    use crabxl_core::{Alignment, CellStyle};
+    for policy in [
+        crabxl_xlsx::StyleWritePolicy::Compatible,
+        crabxl_xlsx::StyleWritePolicy::RetainExplicit,
+    ] {
+        let mut writer = WorkbookWriter::new(WriteOptions {
+            style_attributes: policy,
+            ..Default::default()
+        })
+        .unwrap();
+        let alignment = Alignment {
+            rotation: Some(0),
+            wrap_text: Some(false),
+            shrink_to_fit: Some(false),
+            indent: Some(0.0),
+            relative_indent: Some(-0.0),
+            reading_order: Some(0.0),
+            justify_last_line: Some(false),
+            ..Default::default()
+        };
+        let id = writer
+            .register_style(CellStyle {
+                alignment: alignment.clone(),
+                ..Default::default()
+            })
+            .unwrap();
+        writer.start_sheet("Sheet").unwrap();
+        let mut input = row(0, vec![CellValue::Integer(1)]);
+        input.cells[0].style = id;
+        writer.write_row(&input).unwrap();
+        let mut reader =
+            WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+        let catalog = reader.style_catalog().unwrap().unwrap();
+        let loaded = catalog.cell_style(id).unwrap().alignment.unwrap();
+        if policy == crabxl_xlsx::StyleWritePolicy::Compatible {
+            assert_eq!(loaded, &Alignment::default());
+        } else {
+            assert_eq!(loaded, &alignment);
+        }
+    }
 }

@@ -57,3 +57,9 @@ pub use style_catalog::{CellFormat, NamedStyle, NumberFormat, StyleCatalog, Styl
 
 mod number_formats;
 pub use number_formats::{BUILTIN_NUMBER_FORMATS, builtin_number_format, builtin_number_format_id};
+
+mod style_hash;
+mod style_validation;
+
+mod style_registry;
+pub use style_registry::{StyleLimits, StyleRegistry};
