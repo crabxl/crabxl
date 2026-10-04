@@ -137,18 +137,40 @@
         "C1": false,
         "D1": "#DIV/0!"
       }
-    }
-  ],
-  "deferred": [
+    },
     {
       "name": "overflow-numeric",
       "data_only": false,
-      "reason": "Nonfinite numeric compatibility remains a separate M2 value checkpoint"
+      "values": {
+        "A1": {
+          "type": "float",
+          "value": "inf"
+        },
+        "B1": {
+          "type": "float",
+          "value": "-inf"
+        },
+        "C1": "=1"
+      }
     },
     {
       "name": "overflow-numeric",
       "data_only": true,
-      "reason": "Nonfinite numeric compatibility remains a separate M2 value checkpoint"
+      "values": {
+        "A1": {
+          "type": "float",
+          "value": "inf"
+        },
+        "B1": {
+          "type": "float",
+          "value": "-inf"
+        },
+        "C1": {
+          "type": "float",
+          "value": "inf"
+        }
+      }
     }
-  ]
+  ],
+  "deferred": []
 }

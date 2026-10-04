@@ -8,6 +8,7 @@ use std::io::{self, Write};
 pub(crate) struct DateEncoding {
     pub(crate) epoch: crabxl_core::DateEpoch,
     pub(crate) iso_dates: bool,
+    pub(crate) non_finite: crate::NonFiniteWritePolicy,
 }
 
 pub(crate) struct RowBuffer {
@@ -73,7 +74,11 @@ pub(crate) fn encode_cells<'a>(
     styles: &[crabxl_core::CellStyle],
     date_encoding: DateEncoding,
 ) -> Result<()> {
-    let DateEncoding { epoch, iso_dates } = date_encoding;
+    let DateEncoding {
+        epoch,
+        iso_dates,
+        non_finite,
+    } = date_encoding;
     buffer.data.clear();
     let mut next_column = 0;
     let mut count = 0;
@@ -108,6 +113,8 @@ pub(crate) fn encode_cells<'a>(
         } else {
             epoch
         };
+        validate_non_finite(&cell.value, non_finite)
+            .map_err(|error| error.with_cell(cell.address))?;
         validate_value(&cell.value, maximum_cell, validation_epoch)
             .map_err(|error| error.with_cell(cell.address))?;
         if iso_date {
@@ -206,7 +213,10 @@ pub(crate) fn encode_cells<'a>(
                         CellValue::BigInteger(value) => {
                             buffer.write_all(value.as_str().as_bytes())?
                         }
-                        CellValue::Number(value) => write!(buffer, "{value:?}")?,
+                        CellValue::Number(value) if value.is_finite() => {
+                            write!(buffer, "{value:?}")?
+                        }
+                        CellValue::Number(_) => {}
                         CellValue::Boolean(value) => write!(buffer, "{}", u8::from(*value))?,
                         CellValue::Text(value) => write_text(buffer, value.as_str())?,
                         CellValue::Error(value) => write_text(buffer, value.as_str())?,
@@ -252,16 +262,30 @@ fn date_value(value: &CellValue) -> Option<&crabxl_core::ExcelDateTime> {
         _ => None,
     }
 }
+pub(crate) fn validate_non_finite(
+    value: &CellValue,
+    policy: crate::NonFiniteWritePolicy,
+) -> Result<()> {
+    if policy == crate::NonFiniteWritePolicy::Reject {
+        let literal = match value {
+            CellValue::Formula(formula) => formula.cached(),
+            other => Some(other),
+        };
+        if matches!(literal, Some(CellValue::Number(number)) if !number.is_finite()) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Cannot write a non-finite number under Reject policy",
+            ));
+        }
+    }
+    Ok(())
+}
 pub(crate) fn validate_value(
     value: &CellValue,
     maximum: usize,
     epoch: crabxl_core::DateEpoch,
 ) -> Result<()> {
     match value {
-        CellValue::Number(number) if !number.is_finite() => Err(Error::new(
-            ErrorKind::InvalidData,
-            "Cannot write a non-finite number",
-        )),
         CellValue::Text(value) => validate_text(value.as_str(), maximum),
         CellValue::RichText(value) => crate::rich_text::validate(value, maximum),
         CellValue::Error(value) => {

@@ -46,6 +46,7 @@ def reference(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=int, nargs="+", default=[10000, 100000])
+    parser.add_argument("--baseline", type=Path, help="Optional exact prior native binary for rotating regression samples")
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--output", type=Path, default=HERE / "results/m2-shared-formulas.json")
     args = parser.parse_args()
@@ -68,6 +69,8 @@ def main():
         book.close()
         assert checked == size * 2
         commands = {"crabxl": [target / "release/examples/shared_formula_read", path], "openpyxl": [sys.executable, __file__, "--reference", path]}
+        if args.baseline:
+            commands["crabxl-before"] = [args.baseline.resolve(), path]
         samples = {name: [] for name in commands}
         with tempfile.TemporaryDirectory() as directory:
             for command in commands.values():
@@ -75,7 +78,7 @@ def main():
                 assert output == str(checked)
             names = list(commands)
             for iteration in range(args.runs):
-                for name in names[iteration % 2:] + names[:iteration % 2]:
+                for name in names[iteration % len(names):] + names[:iteration % len(names)]:
                     output, sample = measure(commands[name], Path(directory))
                     assert output == str(checked)
                     assert sample["sampled_temp_peak_bytes"] == 0

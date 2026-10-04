@@ -50,7 +50,8 @@
         "Retain unsupported extension entry IDs for projection; the subsequent shared rich codec adds default display-text projection and explicit typed metadata without changing ID order",
         "Match pinned public shared-string x005F_ protection removal separately from unchanged inline literal spelling; do not import calamine general escape decoding",
         "Share bounded XML character/entity accumulation across scalar and shared-string codecs",
-        "Replace dense shared-ID Vec allocation with a bounded sparse HashMap; use actual template-cell anchor rather than declared range.start; retain first definition and unresolved placeholders under public reference policy, with explicit stricter validation. Share typed array/data-table/range/flag models, bounded streaming attribute escaping and projected-template dependency scanning. Cache-only compatible mode avoids template retention. Dynamic cm/vm graphs and nonfinite scalars remain staged."
+        "Replace dense shared-ID Vec allocation with a bounded sparse HashMap; use actual template-cell anchor rather than declared range.start; retain first definition and unresolved placeholders under public reference policy, with explicit stricter validation. Share typed array/data-table/range/flag models, bounded streaming attribute escaping and projected-template dependency scanning. Cache-only compatible mode avoids template retention. Dynamic cm/vm graphs and nonfinite scalars remain staged.",
+        "Follow-up nonfinite compatibility retains numeric-scientific overflow infinities; rejects invalid numeric tokens. Compatible writes use present empty numeric values, with explicit strict policy before row/overlay mutation. Former two deferred public overflow cases now pass."
       ],
       "tests": "New in-memory OOXML fixtures in crates/crabxl-xlsx/tests/streaming.rs; no upstream binary fixture copies",
       "inventory_items": [

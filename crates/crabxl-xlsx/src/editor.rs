@@ -62,6 +62,8 @@ pub struct EditorOptions {
     pub max_patch_cells: usize,
     /// How to handle the original derived calculation order during edits.
     pub calculation_chain: CalculationChainPolicy,
+    /// Nonfinite value/caches use compatible blanks unless strict rejection is requested.
+    pub non_finite: crate::NonFiniteWritePolicy,
 }
 impl Default for EditorOptions {
     fn default() -> Self {
@@ -71,6 +73,7 @@ impl Default for EditorOptions {
             memory_policy: MemoryPolicy::default(),
             max_patch_cells: 10_000_000,
             calculation_chain: CalculationChainPolicy::default(),
+            non_finite: crate::NonFiniteWritePolicy::default(),
         }
     }
 }
@@ -356,6 +359,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         } else {
             DateEpoch::Windows1900
         };
+        crate::encode::validate_non_finite(&value, self.options.non_finite)
+            .map_err(|error| error.with_cell(address))?;
         validate_value(&value, self.options.resources.max_cell_bytes, epoch)
             .map_err(|error| error.with_cell(address))?;
         let key = (address.row.get(), address.column.get());
@@ -715,6 +720,7 @@ fn write_body<W: Write>(
         DateEncoding {
             epoch: DateEpoch::Windows1900,
             iso_dates: false,
+            non_finite: crate::NonFiniteWritePolicy::Blank,
         },
     )
     .map_err(|error| error.with_cell(cell.address))?;

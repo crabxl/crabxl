@@ -17,6 +17,16 @@ use crate::xml::{MAIN_URI as MAIN, OFFICE_REL_URI as REL};
 const HEADER: &[u8] = b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>";
 const FOOTER: &[u8] = b"</sheetData></worksheet>";
 
+/// XLSX serialization of nonfinite numeric values and formula caches.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum NonFiniteWritePolicy {
+    /// Match the public baseline: write a present blank numeric value.
+    #[default]
+    Blank,
+    /// Reject the row before committing any temporary XML.
+    Reject,
+}
+
 /// Configurable resource limits for sequential worksheet spooling.
 /// These bound managed buffers/metadata and temporary XML, not process RSS.
 #[derive(Clone, Debug)]
@@ -45,6 +55,8 @@ pub struct WriteOptions {
     pub date_1904: bool,
     /// Encode calendar and clock values as ISO date cells; durations remain numeric.
     pub iso_dates: bool,
+    /// Nonfinite serialization is compatible by default, with explicit strict rejection.
+    pub non_finite: NonFiniteWritePolicy,
     /// Zero-based active display sheet, checked against the completed catalog.
     pub active_sheet: usize,
 }
@@ -62,6 +74,7 @@ impl Default for WriteOptions {
             max_sheet_bytes: 2 * 1024 * 1024 * 1024,
             date_1904: false,
             iso_dates: false,
+            non_finite: NonFiniteWritePolicy::default(),
             active_sheet: 0,
             max_styles: 8192,
         }
@@ -363,6 +376,7 @@ impl WorkbookWriter {
                     DateEpoch::Windows1900
                 },
                 iso_dates: self.options.iso_dates,
+                non_finite: self.options.non_finite,
             },
         )
         .map_err(|error| error.with_part(&part))?;

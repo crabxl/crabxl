@@ -563,9 +563,6 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             Error::caused_by(ErrorKind::InvalidData, "Invalid numeric cell value", e)
                 .with_part(self.xml.part())
         })?;
-        if !number.is_finite() {
-            return Err(self.invalid("Non-finite numeric value"));
-        }
         Ok(CellValue::Number(number))
     }
 

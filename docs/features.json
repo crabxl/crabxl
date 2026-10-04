@@ -17016,6 +17016,37 @@
         "crates/crabxl-xlsx/tests/editor.rs::structured_formula_targets_replace_without_rewriting_unrelated_cells"
       ],
       "limitations": "Existing physical target cells only. Direct record replacement does not move/update dependents. Shared-group replacement and cm/vm targets remain explicitly unsupported. This narrow checkpoint does not complete M4 or formula graph editing."
+    },
+    {
+      "id": "values.nonfinite-compatibility",
+      "description": "Scientific overflow reads and compatible blank serialization of nonfinite literals/caches with optional strict rejection",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "planned"
+      },
+      "modes": [
+        "streaming-read",
+        "materialized-read",
+        "sequential-write",
+        "original-package-editor"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
+      "modules": [
+        "crates/crabxl-xlsx/src/reader.rs",
+        "crates/crabxl-xlsx/src/encode.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/streaming.rs::overflow_numeric_lexemes_and_cached_results_retain_infinities",
+        "crates/crabxl-xlsx/tests/writer.rs::compatible_nonfinite_numbers_emit_blank_values_without_losing_formulas",
+        "crates/crabxl-xlsx/tests/editor.rs::nonfinite_editor_policy_is_atomic_and_compatible_blanks_read_back",
+        "benchmarks/probe_nonfinite.py",
+        "benchmarks/verify_formula_probe.py"
+      ],
+      "limitations": "Compatible serialization deliberately converts nonfinite values to blanks; it is not exact IEEE-754 round-trip storage. Nonfinite datetime/style fields remain invalid. Aggregate budgets, complete style/theme catalogs and dynamic formula graphs remain staged."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."
