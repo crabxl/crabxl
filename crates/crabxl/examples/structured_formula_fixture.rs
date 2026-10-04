@@ -25,6 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(CellValue::Integer(0)),
         FormulaMetadata {
             kind: FormulaType::DataTable,
+            literal_array_text: false,
             reference: Some(FormulaRange::from_xml("D1:E2")?),
             flags: FormulaFlags {
                 calculate_cell: Some(false.into()),

@@ -28,3 +28,5 @@ Finite style domain corrections, public color identity selection and gradient pr
 Canonical owned-bank styles, aggregate registration wrappers and consuming bank/registry transfer are original ownership/resource integration changes. Shared style-combination benchmark fixtures are original generated data. Public full-model save/reload checks use openpyxl 3.1.5 without implementation inspection; existing attributed models/codecs remain canonical. See ADR 0030 and benchmarks/m4-bank-styles.md.
 
 Optional structured expression ownership is an original canonical model change. Tests and public constructor/save/reload probes use generated array formulas and record the pinned missing data-table reference reload defect, without further reference implementation inspection. Existing formula codec/translation attribution remains unchanged; see ADR 0031.
+
+Single-payload literal array text ownership and source/body views are original canonical model changes verified through public constructor/save/reload fixtures, including Unicode prefix slicing. No additional reference implementation was inspected; existing formula codec attribution is unchanged. See ADR 0032.
