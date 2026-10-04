@@ -131,4 +131,6 @@ fn edit(source: &str, target: &str) -> openrsxl::Result<()> {
 
 `EditorOptions` offers Auto/explicit memory policy and patch byte/cell caps; resolved allowances are inspectable. `SaveOptions::verify_unchanged` enables full CRC checking of unchanged parts, at decompression cost. The default compressed copy does not validate their payload CRC. Core `Worksheet` separately provides sparse random access, append and bounded insert/delete/move/copy operations; `WorkbookWriter::write_worksheet` exports borrowed cells into a new package.
 
-M4 remains in progress. Missing-cell insertion, existing-file structural edits, sheet mutations and typed date/style/string catalogs remain staged. Unsafe metadata/signature/calculation-chain edits are rejected. See [ownership and limitations](docs/decisions/0005-sparse-preserving-editor.md) and [Rust/openpyxl edit measurements](benchmarks/m4-editor.md).
+M4 remains in progress. Existing-file structural edits, sheet mutations and typed date/style/string catalogs remain staged. Unsafe metadata/signature/calculation-chain edits are rejected. See [ownership and limitations](docs/decisions/0005-sparse-preserving-editor.md) and [Rust/openpyxl edit measurements](benchmarks/m4-editor.md).
+
+For missing cells use `WorkbookEditor::upsert_value`; it inserts sparse cells/rows with default style, keeps inferred original positions and expands an existing dimension. Non-anchor merged targets are rejected. [Insertion measurements](benchmarks/m4-insertion.md) include public readback and temporary-output costs.

@@ -16627,7 +16627,32 @@
         "crates/openrsxl-xlsx/tests/editor.rs",
         "benchmarks/editor_checkpoint.py"
       ],
-      "limitations": "Physical target checked on save. Missing cells, date values, cm/vm and non-normal target formulas are unsupported. Old caches cleared globally; automatic recalculation requested. M4 remains in progress."
+      "limitations": "Physical target checked on save. set_value rejects missing cells; upsert_value inserts them. Date values, cm/vm and non-normal target formulas are unsupported. Old caches cleared globally; automatic recalculation requested. M4 remains in progress."
+    },
+    {
+      "id": "edit.sparse-existing-insertion",
+      "description": "Explicit missing-cell insertion with inferred coordinate and dimension preservation",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "original-package"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
+      "modules": [
+        "crates/openrsxl-xlsx/src/editor.rs"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/editor.rs::upserts_fill_sparse_gaps_and_preserve_inferred_positions_and_row_metadata",
+        "crates/openrsxl-xlsx/tests/editor.rs::upserts_create_rows_in_empty_strict_sheet_and_reject_non_anchor_merges_atomically",
+        "benchmarks/insertion_checkpoint.py"
+      ],
+      "limitations": "Explicit upsert_value; default style for new cells. set_value remains existing-only. Non-anchor merged targets are rejected at save. Existing structural edits remain planned."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."
