@@ -21,7 +21,11 @@ use std::{
 use zip::{ZipWriter, write::SimpleFileOptions};
 
 const PATCH_BYTES: usize = 256;
-type Patches = BTreeMap<(u32, u32), Cell>;
+struct Patch {
+    cell: Cell,
+    insert_missing: bool,
+}
+type Patches = BTreeMap<(u32, u32), Patch>;
 
 /// Owned original-part inventory; content is not loaded into RAM.
 #[derive(Clone, Debug)]
@@ -79,8 +83,8 @@ pub struct SaveStats {
 /// images/macros and never consume the original or the pending edits.
 ///
 /// This checkpoint changes existing scalar/normal-formula cells only. It keeps
-/// cell styles and relationships; date/style registration, inserting missing
-/// cells and structural edits in existing packages remain staged. Any edited
+/// cell styles and relationships; upsert_value also inserts missing cells.
+/// Date/style registration and structural edits in existing packages remain staged. Any edited
 /// workbook has worksheet formula caches invalidated and recalculation requested.
 pub struct WorkbookEditor<R: Read + Seek = File> {
     book: WorkbookReader<R>,
@@ -247,6 +251,27 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// Original dates/shared/rich strings can be retained opaquely; creating a
     /// typed date here requires the later read-side style catalog.
     pub fn set_value(&mut self, sheet: &str, address: CellAddress, value: CellValue) -> Result<()> {
+        self.queue_value(sheet, address, value, false)
+    }
+    /// Replace an existing cell or insert a missing physical cell. Existing
+    /// cells retain their style; new cells use the default style. Insertions
+    /// update an existing dimension and make inferred coordinates explicit.
+    /// Non-anchor cells of merged ranges are rejected during save.
+    pub fn upsert_value(
+        &mut self,
+        sheet: &str,
+        address: CellAddress,
+        value: CellValue,
+    ) -> Result<()> {
+        self.queue_value(sheet, address, value, true)
+    }
+    fn queue_value(
+        &mut self,
+        sheet: &str,
+        address: CellAddress,
+        value: CellValue,
+        insert_missing: bool,
+    ) -> Result<()> {
         if self.signed {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -291,7 +316,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .get(info.part())
             .and_then(|patches| patches.get(&key));
         let old_bytes = old.map_or(0, |cell| {
-            PATCH_BYTES.saturating_add(cell.value.heap_bytes())
+            PATCH_BYTES.saturating_add(cell.cell.value.heap_bytes())
         });
         let new_part = !self.patches.contains_key(info.part());
         let bytes = self
@@ -314,10 +339,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         self.patches.entry(info.part().into()).or_default().insert(
             key,
-            Cell {
-                address,
-                value,
-                style: StyleId::new(0),
+            Patch {
+                cell: Cell {
+                    address,
+                    value,
+                    style: StyleId::new(0),
+                },
+                insert_missing,
             },
         );
         self.patch_bytes = bytes;
@@ -335,7 +363,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.patches
             .get(part)?
             .get(&(address.row.get(), address.column.get()))
-            .map(|cell| &cell.value)
+            .map(|patch| &patch.cell.value)
     }
     /// Revert all overlays to the original source; releases owned payloads.
     /// This does not adopt a previously saved file as the new source.
@@ -592,6 +620,135 @@ fn patched_start(e: &BytesStart<'_>, uri: &str, value: &CellValue) -> Result<Byt
     }
     Ok(start)
 }
+fn write_body<W: Write>(
+    writer: &mut Writer<PartOutput<W>>,
+    cell: &Cell,
+    buffer: &mut RowBuffer,
+    limits: ResourceLimits,
+) -> Result<()> {
+    encode_cells(
+        buffer,
+        cell.address.row,
+        std::slice::from_ref(cell).iter(),
+        limits.max_cell_bytes,
+        1,
+        &[CellStyle::default()],
+        DateEpoch::Windows1900,
+    )
+    .map_err(|error| error.with_cell(cell.address))?;
+    // Reuse the shared cell body under a namespace-aware original/new header.
+    let begin = buffer
+        .data
+        .iter()
+        .position(|byte| *byte == b'>')
+        .and_then(|row_end| {
+            buffer.data[row_end + 1..]
+                .iter()
+                .position(|byte| *byte == b'>')
+                .map(|cell_end| row_end + cell_end + 2)
+        })
+        .ok_or_else(|| invalid("Encoded cell header is missing"))?;
+    let end = buffer
+        .data
+        .len()
+        .checked_sub(b"</c></row>".len())
+        .ok_or_else(|| invalid("Encoded cell footer is missing"))?;
+    writer
+        .get_mut()
+        .write_all(&buffer.data[begin..end])
+        .map_err(|error| {
+            Error::caused_by(
+                if error.kind() == io::ErrorKind::FileTooLarge {
+                    ErrorKind::LimitExceeded
+                } else {
+                    ErrorKind::Io
+                },
+                "Cannot write replacement cell body",
+                error,
+            )
+        })
+}
+fn write_inserted_cell<W: Write>(
+    writer: &mut Writer<PartOutput<W>>,
+    patch: &Patch,
+    uri: &str,
+    buffer: &mut RowBuffer,
+    limits: ResourceLimits,
+) -> Result<()> {
+    if !patch.insert_missing {
+        return Err(
+            invalid("Pending replacement targets a missing physical cell")
+                .with_cell(patch.cell.address),
+        );
+    }
+    let mut base = BytesStart::new("c");
+    let reference = patch.cell.address.to_string();
+    base.push_attribute(("r", reference.as_str()));
+    let start = patched_start(&base, uri, &patch.cell.value)?;
+    emit(writer, Event::Start(start))?;
+    write_body(writer, &patch.cell, buffer, limits)?;
+    emit(writer, Event::End(quick_xml::events::BytesEnd::new("c")))
+}
+fn positioned_start(
+    e: &BytesStart<'_>,
+    position: &str,
+    omit_spans: bool,
+) -> Result<BytesStart<'static>> {
+    let mut start = e.to_owned();
+    start.clear_attributes();
+    for attribute in e.attributes() {
+        let attribute = attribute.map_err(|error| {
+            Error::caused_by(ErrorKind::Xml, "Invalid coordinate attribute", error)
+        })?;
+        if attribute.key.as_ref() != b"r" && !(omit_spans && attribute.key.as_ref() == b"spans") {
+            start.push_attribute(attribute);
+        }
+    }
+    start.push_attribute(("r", position));
+    Ok(start)
+}
+fn expanded_dimension(
+    e: &BytesStart<'_>,
+    decoder: quick_xml::encoding::Decoder,
+    patches: &Patches,
+) -> Result<BytesStart<'static>> {
+    let reference = attribute(e, b"ref", decoder)?
+        .ok_or_else(|| invalid("Worksheet dimension has no reference"))?;
+    let (first, last) = reference
+        .split_once(':')
+        .unwrap_or((&reference, &reference));
+    let first: CellAddress = first.parse()?;
+    let last: CellAddress = last.parse()?;
+    let mut low = (first.row.get(), first.column.get());
+    let mut high = (last.row.get(), last.column.get());
+    if low.0 > high.0 || low.1 > high.1 {
+        return Err(invalid("Worksheet dimension is reversed"));
+    }
+    for patch in patches.values().filter(|patch| patch.insert_missing) {
+        let address = patch.cell.address;
+        low.0 = low.0.min(address.row.get());
+        low.1 = low.1.min(address.column.get());
+        high.0 = high.0.max(address.row.get());
+        high.1 = high.1.max(address.column.get());
+    }
+    let reference = format!(
+        "{}:{}",
+        CellAddress::new(low.0, low.1)?,
+        CellAddress::new(high.0, high.1)?
+    );
+    let mut start = e.to_owned();
+    start.clear_attributes();
+    for attribute in e.attributes() {
+        let attribute = attribute.map_err(|error| {
+            Error::caused_by(ErrorKind::Xml, "Invalid dimension attribute", error)
+        })?;
+        if attribute.key.as_ref() != b"ref" {
+            start.push_attribute(attribute);
+        }
+    }
+    start.push_attribute(("ref", reference.as_str()));
+    Ok(start)
+}
 fn patch_worksheet<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
     output: PartOutput<W>,
@@ -611,6 +768,12 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
     let mut next_column = 0u32;
     let mut last_row = None;
     let mut selected_row = false;
+    let mut pending = patches
+        .into_iter()
+        .flat_map(|patches| patches.values())
+        .peekable();
+    let mut data_uri = None;
+    let mut row_tail = false;
     let mut seen_data = false;
     let mut found = 0usize;
     let mut in_data = false;
@@ -622,7 +785,6 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
         data: Vec::new(),
         maximum: limits.max_row_bytes,
     };
-    let styles = [CellStyle::default()];
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
@@ -642,6 +804,48 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
+                    && e.local_name().as_ref() == b"dimension"
+                    && patches.is_some() =>
+            {
+                let start = expanded_dimension(
+                    &e,
+                    frame.decoder,
+                    patches.ok_or_else(|| invalid("Missing overlays"))?,
+                )?;
+                emit(&mut writer, Event::Start(start))?;
+            }
+            Event::Start(e)
+                if frame.scope == Scope::Spreadsheet
+                    && frame.depth == 3
+                    && e.local_name().as_ref() == b"mergeCell"
+                    && patches.is_some() =>
+            {
+                let reference = attribute(&e, b"ref", frame.decoder)?
+                    .ok_or_else(|| invalid("Merged range has no reference"))?;
+                let (first, last) = reference
+                    .split_once(':')
+                    .unwrap_or((&reference, &reference));
+                let start: CellAddress = first.parse()?;
+                let end: CellAddress = last.parse()?;
+                let range = openrsxl_core::CellRange::new(start, end)?;
+                for patch in patches.into_iter().flat_map(|patches| {
+                    patches
+                        .range((start.row.get(), 0)..=(end.row.get(), u32::MAX))
+                        .map(|(_, patch)| patch)
+                }) {
+                    if range.contains(patch.cell.address) && patch.cell.address != start {
+                        return Err(Error::new(
+                            ErrorKind::Unsupported,
+                            "Editing a non-anchor merged cell is not supported",
+                        )
+                        .with_cell(patch.cell.address));
+                    }
+                }
+                emit(&mut writer, Event::Start(e))?;
+            }
+            Event::Start(e)
+                if frame.scope == Scope::Spreadsheet
+                    && frame.depth == 2
                     && e.local_name().as_ref() == b"sheetData" =>
             {
                 if seen_data {
@@ -649,6 +853,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 }
                 seen_data = true;
                 in_data = true;
+                data_uri = frame.spreadsheet_uri;
                 emit(&mut writer, Event::Start(e))?;
             }
             Event::Start(e)
@@ -667,6 +872,39 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     .transpose()?
                     .unwrap_or(next_row);
                 openrsxl_core::RowIndex::new(row)?;
+                while pending
+                    .peek()
+                    .is_some_and(|patch| patch.cell.address.row.get() < row)
+                {
+                    let inserted_row = pending
+                        .peek()
+                        .ok_or_else(|| invalid("Missing pending row"))?
+                        .cell
+                        .address
+                        .row
+                        .get();
+                    let uri = data_uri.ok_or_else(|| invalid("Worksheet namespace is missing"))?;
+                    let mut start = BytesStart::new("row");
+                    let reference = (inserted_row + 1).to_string();
+                    start.push_attribute(("r", reference.as_str()));
+                    start.push_attribute(("xmlns", uri));
+                    emit(&mut writer, Event::Start(start))?;
+                    while pending
+                        .peek()
+                        .is_some_and(|patch| patch.cell.address.row.get() == inserted_row)
+                    {
+                        let patch = pending
+                            .next()
+                            .ok_or_else(|| invalid("Missing pending cell"))?;
+                        write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                        found += 1;
+                    }
+                    emit(
+                        &mut writer,
+                        Event::End(quick_xml::events::BytesEnd::new("row")),
+                    )?;
+                }
+                row_tail = false;
                 if last_row.is_some_and(|last| row <= last) {
                     return Err(invalid("Affected worksheet rows are not ordered"));
                 }
@@ -676,6 +914,27 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 selected_row = patches.is_some_and(|patches| {
                     patches.range((row, 0)..=(row, u32::MAX)).next().is_some()
                 });
+                let start = positioned_start(&e, &(row + 1).to_string(), selected_row)?;
+                emit(&mut writer, Event::Start(start))?;
+            }
+            Event::Start(e)
+                if in_row
+                    && frame.scope == Scope::Spreadsheet
+                    && frame.depth == 4
+                    && e.local_name().as_ref() == b"extLst" =>
+            {
+                row_tail = true;
+                while pending
+                    .peek()
+                    .is_some_and(|patch| patch.cell.address.row.get() == row)
+                {
+                    let patch = pending
+                        .next()
+                        .ok_or_else(|| invalid("Missing pending cell"))?;
+                    let uri = data_uri.ok_or_else(|| invalid("Worksheet namespace is missing"))?;
+                    write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                    found += 1;
+                }
                 emit(&mut writer, Event::Start(e))?;
             }
             Event::Start(e)
@@ -684,6 +943,9 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     && frame.depth == 4
                     && e.local_name().as_ref() == b"c" =>
             {
+                if row_tail {
+                    return Err(invalid("Cell follows row extension list"));
+                }
                 in_cell = true;
                 formula = false;
                 seen_v = false;
@@ -697,8 +959,27 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                             invalid("Affected cell coordinates are not ordered").with_cell(address)
                         );
                     }
+                    while pending.peek().is_some_and(|patch| {
+                        patch.cell.address.row.get() == row
+                            && patch.cell.address.column.get() < address.column.get()
+                    }) {
+                        let patch = pending
+                            .next()
+                            .ok_or_else(|| invalid("Missing pending cell"))?;
+                        let uri =
+                            data_uri.ok_or_else(|| invalid("Worksheet namespace is missing"))?;
+                        write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                        found += 1;
+                    }
                     next_column = address.column.get() + 1;
-                    patches.and_then(|patches| patches.get(&(row, address.column.get())))
+                    if pending
+                        .peek()
+                        .is_some_and(|patch| patch.cell.address == address)
+                    {
+                        pending.next().map(|patch| &patch.cell)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 };
@@ -706,37 +987,10 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     let uri = frame
                         .spreadsheet_uri
                         .ok_or_else(|| invalid("Affected cell namespace is missing"))?;
-                    let start = patched_start(&e, uri, &cell.value)
+                    let positioned = positioned_start(&e, &cell.address.to_string(), false)?;
+                    let start = patched_start(&positioned, uri, &cell.value)
                         .map_err(|error| error.with_cell(cell.address))?;
                     let name = start.name().as_ref().to_vec();
-                    encode_cells(
-                        &mut buffer,
-                        cell.address.row,
-                        std::slice::from_ref(cell).iter(),
-                        limits.max_cell_bytes,
-                        1,
-                        &styles,
-                        DateEpoch::Windows1900,
-                    )
-                    .map_err(|error| error.with_cell(cell.address))?;
-                    // Shared encoder emits a row and one cell; only the inner
-                    // body is reused under the original namespace-aware header.
-                    let begin = buffer
-                        .data
-                        .iter()
-                        .position(|byte| *byte == b'>')
-                        .and_then(|row_end| {
-                            buffer.data[row_end + 1..]
-                                .iter()
-                                .position(|byte| *byte == b'>')
-                                .map(|cell_end| row_end + cell_end + 2)
-                        })
-                        .ok_or_else(|| invalid("Encoded cell header is missing"))?;
-                    let end = buffer
-                        .data
-                        .len()
-                        .checked_sub(b"</c></row>".len())
-                        .ok_or_else(|| invalid("Encoded cell footer is missing"))?;
                     // Validate the old cell before replacing its body.
                     loop {
                         let old = xml.next()?;
@@ -777,10 +1031,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                         }
                     }
                     emit(&mut writer, Event::Start(start))?;
-                    writer
-                        .get_mut()
-                        .write_all(&buffer.data[begin..end])
-                        .map_err(|error| io_error("Cannot write replacement cell body", error))?;
+                    write_body(&mut writer, cell, &mut buffer, limits)?;
                     let name = std::str::from_utf8(&name).map_err(|error| {
                         Error::caused_by(ErrorKind::Xml, "Invalid cell name", error)
                     })?;
@@ -790,6 +1041,10 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     )?;
                     in_cell = false;
                     found += 1;
+                } else if selected_row {
+                    let address = CellAddress::new(row, next_column - 1)?;
+                    let start = positioned_start(&e, &address.to_string(), false)?;
+                    emit(&mut writer, Event::Start(start))?;
                 } else {
                     emit(&mut writer, Event::Start(e))?;
                 }
@@ -843,6 +1098,17 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     && frame.depth == 2
                     && e.local_name().as_ref() == b"row" =>
             {
+                while pending
+                    .peek()
+                    .is_some_and(|patch| patch.cell.address.row.get() == row)
+                {
+                    let patch = pending
+                        .next()
+                        .ok_or_else(|| invalid("Missing pending cell"))?;
+                    let uri = data_uri.ok_or_else(|| invalid("Worksheet namespace is missing"))?;
+                    write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                    found += 1;
+                }
                 in_row = false;
                 emit(&mut writer, Event::End(e))?;
             }
@@ -852,6 +1118,29 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     && frame.depth == 1
                     && e.local_name().as_ref() == b"sheetData" =>
             {
+                while let Some(patch) = pending.peek() {
+                    let inserted_row = patch.cell.address.row.get();
+                    let uri = data_uri.ok_or_else(|| invalid("Worksheet namespace is missing"))?;
+                    let mut start = BytesStart::new("row");
+                    let reference = (inserted_row + 1).to_string();
+                    start.push_attribute(("r", reference.as_str()));
+                    start.push_attribute(("xmlns", uri));
+                    emit(&mut writer, Event::Start(start))?;
+                    while pending
+                        .peek()
+                        .is_some_and(|patch| patch.cell.address.row.get() == inserted_row)
+                    {
+                        let patch = pending
+                            .next()
+                            .ok_or_else(|| invalid("Missing pending cell"))?;
+                        write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                        found += 1;
+                    }
+                    emit(
+                        &mut writer,
+                        Event::End(quick_xml::events::BytesEnd::new("row")),
+                    )?;
+                }
                 in_data = false;
                 emit(&mut writer, Event::End(e))?;
             }

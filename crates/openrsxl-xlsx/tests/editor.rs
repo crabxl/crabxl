@@ -530,5 +530,120 @@ fn shared_string_ids_rich_runs_and_optional_reference_counts_remain_consistent()
     assert!(strings.contains("x:flag=\"keep\""));
     let sheet = String::from_utf8(actual["xl/worksheets/sheet1.xml"].clone()).unwrap();
     assert!(sheet.contains("new inline text"));
-    assert!(sheet.contains("t=\"s\"><v>0</v>"));
+    assert!(sheet.contains("t=\"s\" r=\"B1\"><v>0</v>"));
+}
+
+#[test]
+fn upserts_fill_sparse_gaps_and_preserve_inferred_positions_and_row_metadata() {
+    let mut data = parts(&source());
+    data.insert("xl/worksheets/sheet1.xml".into(),format!("<worksheet xmlns=\"{MAIN}\" xmlns:x=\"urn:opaque\"><dimension ref=\"C2:D3\"/><sheetData><row r=\"2\" spans=\"3:4\" ht=\"22\"><c r=\"C2\"><v>3</v></c><c><v>4</v></c><extLst><x:keep/></extLst></row><row><c><v>5</v></c></row></sheetData></worksheet>").into_bytes());
+    let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    for (row, column, value) in [
+        (0, 0, 10),
+        (1, 0, 20),
+        (1, 1, 21),
+        (1, 4, 24),
+        (2, 2, 32),
+        (999_999, 16_383, 99),
+    ] {
+        editor
+            .upsert_value(
+                "Sheet",
+                Address::new(row, column).unwrap(),
+                Value::Integer(value),
+            )
+            .unwrap();
+    }
+    let before = editor.patch_bytes();
+    let (saved, _) = editor
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    let output = parts(saved.get_ref());
+    let xml = String::from_utf8(output["xl/worksheets/sheet1.xml"].clone()).unwrap();
+    assert!(xml.contains("ref=\"A1:XFD1000000\""));
+    assert!(xml.contains("ht=\"22\" r=\"2\""));
+    assert!(!xml.contains("spans="));
+    assert!(xml.find("r=\"E2\"").unwrap() < xml.find("<extLst>").unwrap());
+    assert!(xml.contains("<x:keep>"));
+    // Row extension decoding is still staged. Its preservation is asserted
+    // above; omit that opaque subtree only from the scalar readback fixture.
+    let mut readable = output.clone();
+    readable.insert(
+        "xl/worksheets/sheet1.xml".into(),
+        xml.replace("<extLst><x:keep></x:keep></extLst>", "")
+            .into_bytes(),
+    );
+    let mut reader = WorkbookReader::new(Cursor::new(packed(&readable))).unwrap();
+    let sheet = reader.read_sheet("Sheet").unwrap();
+    let actual: Vec<_> = sheet
+        .rows
+        .iter()
+        .flat_map(|row| row.cells.iter())
+        .map(|cell| (cell.address.to_string(), cell.value.clone()))
+        .collect();
+    let expected = [
+        ("A1", 10),
+        ("A2", 20),
+        ("B2", 21),
+        ("C2", 3),
+        ("D2", 4),
+        ("E2", 24),
+        ("A3", 5),
+        ("C3", 32),
+        ("XFD1000000", 99),
+    ];
+    assert_eq!(
+        actual,
+        expected
+            .into_iter()
+            .map(|(address, value)| (address.to_string(), Value::Integer(value)))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(editor.patch_bytes(), before);
+    let (second, _) = editor
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    assert_eq!(parts(second.get_ref()), output);
+}
+#[test]
+fn upserts_create_rows_in_empty_strict_sheet_and_reject_non_anchor_merges_atomically() {
+    let mut data = parts(&source());
+    let strict = "http://purl.oclc.org/ooxml/spreadsheetml/main";
+    data.insert(
+        "xl/worksheets/sheet1.xml".into(),
+        format!("<s:worksheet xmlns:s=\"{strict}\"><s:sheetData/></s:worksheet>").into_bytes(),
+    );
+    let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    editor
+        .upsert_value("Sheet", Address::new(2, 3).unwrap(), Value::text(" new "))
+        .unwrap();
+    let (saved, _) = editor
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    let mut reader = WorkbookReader::new(saved).unwrap();
+    let sheet = reader.read_sheet("Sheet").unwrap();
+    assert_eq!(sheet.rows[0].cells[0].address, Address::new(2, 3).unwrap());
+    assert_eq!(sheet.rows[0].cells[0].value, Value::text(" new "));
+    data.insert("xl/worksheets/sheet1.xml".into(),format!("<worksheet xmlns=\"{MAIN}\"><sheetData/><mergeCells count=\"1\"><mergeCell ref=\"A1:C3\"/></mergeCells></worksheet>").into_bytes());
+    let directory = tempfile::tempdir().unwrap();
+    let target = directory.path().join("output.xlsx");
+    std::fs::write(&target, b"original").unwrap();
+    let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    editor
+        .upsert_value("Sheet", Address::new(1, 1).unwrap(), Value::Integer(7))
+        .unwrap();
+    assert_eq!(
+        editor
+            .save_path(&target, SaveOptions::default())
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(std::fs::read(&target).unwrap(), b"original");
+    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    editor.clear_edits();
+    editor
+        .upsert_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(7))
+        .unwrap();
+    assert!(editor.save_path(&target, SaveOptions::default()).is_ok());
 }

@@ -1,0 +1,95 @@
+{
+  "baseline": "openpyxl 3.1.5 public readback",
+  "scope": "Insert K1 and A1000001 into ten-column numeric files; no dense gap allocation",
+  "measurement": "Native wait4 wall/CPU/RSS; one warmup and three runs; no worksheet XML temporary files; adjacent output ZIP space equals output bytes",
+  "cases": [
+    {
+      "rows": 10000,
+      "runs": [
+        {
+          "seconds": 0.704361284,
+          "cpu_seconds": 0.70367,
+          "peak_rss_kib": 2448,
+          "copied_parts": 7,
+          "rewritten_parts": 2,
+          "rewritten_bytes": 3678149,
+          "patch_bytes": 792,
+          "output_bytes": 411822,
+          "logical_output_temp_bytes": 411822,
+          "worksheet_temp_bytes": 0
+        },
+        {
+          "seconds": 0.701904479,
+          "cpu_seconds": 0.701597,
+          "peak_rss_kib": 2412,
+          "copied_parts": 7,
+          "rewritten_parts": 2,
+          "rewritten_bytes": 3678149,
+          "patch_bytes": 792,
+          "output_bytes": 411822,
+          "logical_output_temp_bytes": 411822,
+          "worksheet_temp_bytes": 0
+        },
+        {
+          "seconds": 0.750395284,
+          "cpu_seconds": 0.74985,
+          "peak_rss_kib": 2412,
+          "copied_parts": 7,
+          "rewritten_parts": 2,
+          "rewritten_bytes": 3678149,
+          "patch_bytes": 792,
+          "output_bytes": 411822,
+          "logical_output_temp_bytes": 411822,
+          "worksheet_temp_bytes": 0
+        }
+      ],
+      "checksum": "100002 4999950016",
+      "public_readback": true,
+      "cleanup": true
+    },
+    {
+      "rows": 100000,
+      "runs": [
+        {
+          "seconds": 6.769818189,
+          "cpu_seconds": 6.765222,
+          "peak_rss_kib": 2324,
+          "copied_parts": 7,
+          "rewritten_parts": 2,
+          "rewritten_bytes": 38868160,
+          "patch_bytes": 792,
+          "output_bytes": 3868782,
+          "logical_output_temp_bytes": 3868782,
+          "worksheet_temp_bytes": 0
+        },
+        {
+          "seconds": 6.626502828,
+          "cpu_seconds": 6.621544,
+          "peak_rss_kib": 2448,
+          "copied_parts": 7,
+          "rewritten_parts": 2,
+          "rewritten_bytes": 38868160,
+          "patch_bytes": 792,
+          "output_bytes": 3868782,
+          "logical_output_temp_bytes": 3868782,
+          "worksheet_temp_bytes": 0
+        },
+        {
+          "seconds": 6.604761216,
+          "cpu_seconds": 6.602658,
+          "peak_rss_kib": 2492,
+          "copied_parts": 7,
+          "rewritten_parts": 2,
+          "rewritten_bytes": 38868160,
+          "patch_bytes": 792,
+          "output_bytes": 3868782,
+          "logical_output_temp_bytes": 3868782,
+          "worksheet_temp_bytes": 0
+        }
+      ],
+      "checksum": "1000002 499999500016",
+      "public_readback": true,
+      "cleanup": true
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "scope": "Namespace classification consolidation; raw numeric streaming with ten columns",
+  "baseline": "813ebbbe25b3",
+  "measurement": "Native wait4 CPU/wall/peak RSS; one warmup and three alternating measured runs per binary; no temporary files",
+  "cases": [
+    {
+      "rows": 100000,
+      "columns": 10,
+      "runs": [
+        {
+          "seconds": 0.778176407,
+          "cpu_seconds": 0.776468,
+          "peak_rss_kib": 1528,
+          "version": "initial-m4",
+          "checksum": "1000000 499999500000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 0.813768461,
+          "cpu_seconds": 0.81271,
+          "peak_rss_kib": 1608,
+          "version": "consolidated",
+          "checksum": "1000000 499999500000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 0.760904433,
+          "cpu_seconds": 0.760785,
+          "peak_rss_kib": 1708,
+          "version": "consolidated",
+          "checksum": "1000000 499999500000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 0.767904131,
+          "cpu_seconds": 0.766962,
+          "peak_rss_kib": 1616,
+          "version": "initial-m4",
+          "checksum": "1000000 499999500000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 0.747307847,
+          "cpu_seconds": 0.746963,
+          "peak_rss_kib": 1608,
+          "version": "initial-m4",
+          "checksum": "1000000 499999500000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 0.754997569,
+          "cpu_seconds": 0.754702,
+          "peak_rss_kib": 1708,
+          "version": "consolidated",
+          "checksum": "1000000 499999500000",
+          "temporary_bytes": 0
+        }
+      ]
+    },
+    {
+      "rows": 1000000,
+      "columns": 10,
+      "runs": [
+        {
+          "seconds": 7.287720511,
+          "cpu_seconds": 7.286215,
+          "peak_rss_kib": 1592,
+          "version": "initial-m4",
+          "checksum": "10000000 49999995000000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 7.49497826,
+          "cpu_seconds": 7.492303,
+          "peak_rss_kib": 1560,
+          "version": "consolidated",
+          "checksum": "10000000 49999995000000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 7.395875603,
+          "cpu_seconds": 7.388879,
+          "peak_rss_kib": 1536,
+          "version": "consolidated",
+          "checksum": "10000000 49999995000000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 7.666076526,
+          "cpu_seconds": 7.662675,
+          "peak_rss_kib": 1524,
+          "version": "initial-m4",
+          "checksum": "10000000 49999995000000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 7.381961539,
+          "cpu_seconds": 7.377553,
+          "peak_rss_kib": 1532,
+          "version": "initial-m4",
+          "checksum": "10000000 49999995000000",
+          "temporary_bytes": 0
+        },
+        {
+          "seconds": 7.609346545,
+          "cpu_seconds": 7.607013,
+          "peak_rss_kib": 1652,
+          "version": "consolidated",
+          "checksum": "10000000 49999995000000",
+          "temporary_bytes": 0
+        }
+      ]
+    }
+  ]
+}

@@ -134,26 +134,24 @@ impl<B: BufRead> XmlStream<B> {
             let limited = matches!(&cause, quick_xml::Error::Io(e) if e.get_ref().is_some_and(|source| source.is::<BudgetExceeded>()));
             Error::caused_by(if limited { ErrorKind::LimitExceeded } else { ErrorKind::Xml }, "Cannot parse XML", cause).with_part(self.part.clone())
         })?;
-        let spreadsheet_uri = match &namespace {
-            ResolveResult::Bound(ns) if ns.as_ref() == MAIN => Some(MAIN_URI),
-            ResolveResult::Bound(ns) if ns.as_ref() == STRICT_MAIN => Some(STRICT_MAIN_URI),
-            _ => None,
-        };
-        let scope = match namespace {
-            ResolveResult::Bound(ns) if ns.as_ref() == MAIN || ns.as_ref() == STRICT_MAIN => {
-                Scope::Spreadsheet
+        // Classify each resolved namespace once; preservation needs the exact
+        // spreadsheet URI while streaming only needs its semantic scope.
+        let (scope, spreadsheet_uri) = match namespace {
+            ResolveResult::Bound(ns) if ns.as_ref() == MAIN => (Scope::Spreadsheet, Some(MAIN_URI)),
+            ResolveResult::Bound(ns) if ns.as_ref() == STRICT_MAIN => {
+                (Scope::Spreadsheet, Some(STRICT_MAIN_URI))
             }
             ResolveResult::Bound(ns)
                 if ns.as_ref()
                     == b"http://schemas.openxmlformats.org/package/2006/relationships" =>
             {
-                Scope::Relationships
+                (Scope::Relationships, None)
             }
             ResolveResult::Bound(ns)
                 if ns.as_ref()
                     == b"http://schemas.openxmlformats.org/package/2006/content-types" =>
             {
-                Scope::ContentTypes
+                (Scope::ContentTypes, None)
             }
             ResolveResult::Unknown(_) => {
                 return Err(
@@ -161,7 +159,7 @@ impl<B: BufRead> XmlStream<B> {
                         .with_part(self.part.clone()),
                 );
             }
-            _ => Scope::Other,
+            _ => (Scope::Other, None),
         };
         match &event {
             Event::Start(_) => {
