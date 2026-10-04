@@ -49,7 +49,28 @@ fn load(path: &str, sheet: &str) -> openrsxl::Result<openrsxl::SheetData> {
 }
 ```
 
-The default retained-data budget is 256 MiB. Parser/catalog memory and one current row are additional. A budget failure discards partial output and releases the reader. `SheetData` is a numeric snapshot, not a saveable editable workbook. Intelligent `Auto` allocation and mode selection are planned in [ADR 0002](docs/decisions/0002-adaptive-memory.md); they are not implemented yet. Current component budgets are not a hard process RSS limit.
+The default direct `read_sheet` retained-data budget is 256 MiB. Parser/catalog memory and one current row are additional. A budget failure returns `MemoryBudgetExceeded`, discards partial output, and releases the reader. `SheetData` is a numeric snapshot, not a saveable editable workbook. Current component budgets are not a hard process RSS limit.
+
+For automatic numeric mode selection use `read_with_policy`. A scan streams; repeated access samples at most 128 rows and retains data when its estimate fits. If later rows exceed the actual allowance, partial materialization is discarded and the operation returns a fresh stream. Other input errors propagate. Inspect `output.decision` for budget, estimate, source, mode, and reason:
+
+```rust
+use openrsxl::{AccessPattern, MemoryPolicy, ReadData, WorkbookReader};
+
+fn count_rows(path: &str, sheet: &str) -> openrsxl::Result<usize> {
+    let mut workbook = WorkbookReader::open(path)?;
+    let output = workbook.read_with_policy(
+        sheet, AccessPattern::RepeatedAccess, MemoryPolicy::default(),
+    )?;
+    match output.data {
+        ReadData::Materialized(data) => Ok(data.rows.len()),
+        ReadData::Streaming(mut rows) => rows.try_fold(0, |count, row| row.map(|_| count + 1)),
+    }
+}
+```
+
+`MemoryPolicy::Budget(bytes)` specifies an operation ceiling. `MemoryPolicy::Auto(AutoMemory { .. })` tunes availability fraction, headroom, maximum budget, and a caller-supplied availability override. Default Auto uses 25% of effective availability after headroom. Linux probing includes host `MemAvailable`, cgroup v2 ancestors, and finite address/data limits. Other platforms, cgroup v1, and incomplete probes use a conservative fallback; callers can supply effective availability. The operation reserves parser working space and gives the remainder to retained row/vector capacities. Existing catalog, dependency/allocator overhead, and caller-retained outputs are additional: this is not a hard process RSS cap or a reservation against other processes.
+
+Auto overrides the retained-data allowance only for its operation; direct `rows` and `read_sheet` retain their explicit semantics. It keeps the configured input buffer instead of assuming larger buffers improve CPU-bound parsing. Adaptive string/style caches, concurrency and the full editable mode remain future work; see [ADR 0002](docs/decisions/0002-adaptive-memory.md).
 
 This checkpoint reads raw finite `f64` numbers and physically present empty cells. Integer literals beyond exact `f64` precision may round; exact baseline integer semantics remain a later value-model requirement. Selected strings, booleans, errors, formulas, nonzero style indices, and cm/vm metadata return `Unsupported`. Style tables are not loaded: style index zero is treated as raw numeric data even if an unusual workbook customizes its formatting. Date/style interpretation belongs to M2; use M1 only for known unstyled numeric input. This is not a general openpyxl replacement yet.
 

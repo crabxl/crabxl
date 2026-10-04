@@ -62,9 +62,9 @@ struct Relationship {
 /// releases its entry immediately without decompressing the remaining sheet.
 /// Dropping the workbook drops its owned source; no global cleanup registry exists.
 pub struct WorkbookReader<R: Read + Seek = File> {
-    archive: ZipArchive<R>,
+    pub(crate) archive: ZipArchive<R>,
     sheets: Vec<SheetInfo>,
-    limits: ResourceLimits,
+    pub(crate) limits: ResourceLimits,
     date_1904: bool,
 }
 impl WorkbookReader<File> {
@@ -191,14 +191,19 @@ impl<R: Read + Seek> WorkbookReader<R> {
     /// Useful for repeated in-memory access; first-pass decoding is not faster
     /// merely because all output is retained. Errors discard partial output.
     pub fn read_sheet(&mut self, name: &str) -> Result<SheetData> {
-        let maximum = self.limits.max_materialized_bytes;
+        self.collect_sheet(name, self.limits.max_materialized_bytes)
+    }
+    pub(crate) fn collect_sheet(&mut self, name: &str, maximum: usize) -> Result<SheetData> {
         let part = self
             .sheets
             .iter()
             .find(|sheet| sheet.name == name)
             .map(|sheet| sheet.part.clone());
         let materialization_limit = || {
-            let error = limit("Materialized sheet allocation exceeds the configured budget");
+            let error = Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Materialized sheet allocation exceeds the configured budget",
+            );
             match &part {
                 Some(part) => error.with_part(part),
                 None => error,

@@ -89,6 +89,7 @@ pub(crate) struct XmlStream<B> {
     buffer: Vec<u8>,
     limits: ResourceLimits,
     part: String,
+    byte_limit: u64,
     depth: usize,
     root_seen: bool,
 }
@@ -107,6 +108,7 @@ impl<B: BufRead> XmlStream<B> {
             buffer: Vec::with_capacity(1024.min(limits.max_xml_event_bytes)),
             limits,
             part,
+            byte_limit,
             depth: 0,
             root_seen: false,
         }
@@ -114,6 +116,9 @@ impl<B: BufRead> XmlStream<B> {
 
     pub fn part(&self) -> &str {
         &self.part
+    }
+    pub(crate) fn bytes_consumed(&self) -> u64 {
+        self.byte_limit - self.reader.get_ref().part_remaining
     }
 
     pub fn next(&mut self) -> Result<Frame<'_>> {

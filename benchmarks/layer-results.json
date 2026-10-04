@@ -1,0 +1,58 @@
+{
+  "workload": "Ten-million-cell generated numeric input; same environment as numeric-results.json",
+  "baseline_commit": "345ae8fc50ea",
+  "measurement": "Cumulative native wait4 timings, one warmup and three measured runs per layer; XML-only mode omits spreadsheet/budget/value validation and is diagnostic only",
+  "samples": {
+    "zip": [
+      {
+        "seconds": 0.23265209,
+        "cpu_seconds": 0.232332,
+        "peak_rss_kib": 1336
+      },
+      {
+        "seconds": 0.233686213,
+        "cpu_seconds": 0.233419,
+        "peak_rss_kib": 1348
+      },
+      {
+        "seconds": 0.238466651,
+        "cpu_seconds": 0.23821,
+        "peak_rss_kib": 1208
+      }
+    ],
+    "xml": [
+      {
+        "seconds": 4.26403458,
+        "cpu_seconds": 4.263509,
+        "peak_rss_kib": 1352
+      },
+      {
+        "seconds": 4.293379513,
+        "cpu_seconds": 4.292761,
+        "peak_rss_kib": 1264
+      },
+      {
+        "seconds": 4.225687031,
+        "cpu_seconds": 4.22508,
+        "peak_rss_kib": 1288
+      }
+    ],
+    "full": [
+      {
+        "seconds": 7.176621584,
+        "cpu_seconds": 7.174986,
+        "peak_rss_kib": 1608
+      },
+      {
+        "seconds": 6.913799268,
+        "cpu_seconds": 6.913438,
+        "peak_rss_kib": 1608
+      },
+      {
+        "seconds": 6.968196089,
+        "cpu_seconds": 6.967978,
+        "peak_rss_kib": 1544
+      }
+    ]
+  }
+}

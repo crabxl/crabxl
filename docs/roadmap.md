@@ -45,7 +45,7 @@ Acceptance: reproducible sources, traceable inventory, and one shared model; do 
 
 ## M1: Port streaming numeric reads
 
-Current checkpoint: relationship-based workbook/sheet discovery, sparse numeric/empty rows, strict/transitional namespaces, projection, reusable rows, owned batches, explicit numeric sheet materialization, configurable input buffers/data budgets, and cleanup/error tests. This is raw numeric reading; style-zero formatting is not interpreted. Results and reproduction commands are in [benchmarks](../benchmarks/README.md). The complete M0 inventory, adaptive Auto policy, and later value/style semantics remain open.
+Current checkpoint: relationship-based workbook/sheet discovery, sparse numeric/empty rows, strict/transitional namespaces, projection, reusable rows, owned batches, explicit numeric sheet materialization, configurable input buffers/data budgets, and cleanup/error tests. The initial numeric Auto policy now selects a useful mode from access pattern, availability, bounded sampling, and enforced retained-data allowance. This is raw numeric reading; style-zero formatting is not interpreted. Results and reproduction commands are in [benchmarks](../benchmarks/README.md). The complete M0 inventory, further adaptive caches/concurrency, and later value/style semantics remain open.
 
 - Extract package/metadata/cell parsing from calamine. Make row/batch output the streaming path and keep Range materialization separate.
 - Resolve workbook/sheet parts through relationships. Handle multiple sheets, sparse coordinates, incorrect dimensions, namespaces, malformed input, resource release, and error context.
@@ -56,7 +56,7 @@ Acceptance: correct counts/checksums, raw timing/RSS results, numeric streaming 
 
 ## M2: Complete value semantics and large strings
 
-- Add a portable `Auto` memory policy and an explicit memory budget with advanced buffer/batch/cache/concurrency overrides. Auto must account for host availability, container/process limits, headroom, workload, and measured speed benefits; it must not fill RAM without a useful strategy. Define budget accounting and diagnostics before claiming a global memory limit.
+- Extend the initial numeric Auto policy to strings/styles/caches and measured concurrent strategies; add native probes beyond Linux cgroup v2 while preserving the portable caller-availability override. Account for effective availability, headroom, workload, and measured benefits. Retain managed-allocation diagnostics and do not claim a hard global RSS limit without enforcing all dependency allocations.
 - Extend raw M1 `f64` numbers to preserve the baseline's integer/float distinctions and exact integer literals where required; document representation and overflow behavior without silent precision loss.
 - Port inline/shared strings, booleans, errors, rich text, dates/number formats, formula text, and cached values into the common representation.
 - Test both date systems, absent cached results, shared/array formula metadata, whitespace-only text, and empty runs.
