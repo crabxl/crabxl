@@ -16904,6 +16904,33 @@
         "benchmarks/verify_style_fixture.py"
       ],
       "limitations": "Narrow component/catalog and numeric-date checkpoint, not complete style/date baseline or M2. Theme resolution, differential/table/extension typed editing, normalized writer catalog integration, ISO dates/durations, calendar construction precision and aggregate/adaptive catalog accounting remain staged. Complete catalogs are additional retained allocations. Source preservation does not verify catalog export. Original-package date/new phonetic assignment remains guarded."
+    },
+    {
+      "id": "values.literal-date-precision",
+      "description": "Core literal calendar/clock/duration microseconds with separate imported serial conversion",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "partial",
+        "preserve": "planned"
+      },
+      "modes": [
+        "streaming",
+        "materialized",
+        "owned-model",
+        "sequential-write"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/datetime.html",
+      "modules": [
+        "crates/crabxl-core/src/date.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/values.rs::literal_calendar_clock_and_duration_keep_microseconds_and_ambiguous_dates",
+        "benchmarks/verify_date_fixture.py"
+      ],
+      "limitations": "Imported numeric values retain baseline millisecond conversion; literal values retain exact components. Numeric XLSX output does not promise literal microsecond readback. ISO/date-only codecs and original-package date assignment remain staged. Python integration is separately pinned and validated."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."
