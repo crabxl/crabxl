@@ -538,9 +538,9 @@ fn date_serials_formats_and_epoch_flags_are_encoded_consistently() {
 }
 
 #[test]
-fn explicit_date_formats_validate_literals_escapes_and_duration_kind() {
+fn assigned_temporal_values_derive_nondate_formats_and_preserve_any_existing_date_format() {
     use crabxl_core::{CellStyle, DateEpoch, DateKind, ExcelDateTime};
-    for (format, kind, valid) in [
+    for (format, kind, retained) in [
         ("yyyy-mm-dd", DateKind::DateTime, true),
         ("[Red]hh:mm:ss", DateKind::Time, true),
         ("[hh]:mm:ss", DateKind::Duration, true),
@@ -549,8 +549,8 @@ fn explicit_date_formats_validate_literals_escapes_and_duration_kind() {
         ("0.00_m", DateKind::DateTime, false),
         ("0.00*m", DateKind::DateTime, false),
         ("0.00;yyyy-mm-dd", DateKind::DateTime, false),
-        ("[h]:mm:ss", DateKind::DateTime, false),
-        ("hh:mm:ss", DateKind::Duration, false),
+        ("[h]:mm:ss", DateKind::DateTime, true),
+        ("hh:mm:ss", DateKind::Duration, true),
     ] {
         let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
         let style = writer
@@ -572,13 +572,22 @@ fn explicit_date_formats_validate_literals_escapes_and_duration_kind() {
             ))],
         );
         values.cells[0].style = style;
-        let result = writer.write_row(&values);
-        if valid {
-            result.unwrap();
-        } else {
-            assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
-        }
-        writer.abort().unwrap();
+        writer.write_row(&values).unwrap();
+        let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+        let mut reader = WorkbookReader::new(output).unwrap();
+        let loaded = reader.read_sheet("Sheet").unwrap();
+        let output_id = loaded.rows[0].cells[0].style;
+        assert_eq!(output_id == style, retained);
+        let catalog = reader.style_catalog().unwrap().unwrap();
+        let output_format = catalog.cell_format(output_id).unwrap();
+        assert_eq!(
+            catalog.number_format(output_format.number_format_id),
+            Some(if retained {
+                format
+            } else {
+                kind.default_number_format()
+            })
+        );
     }
     let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
     let style = CellStyle {
@@ -1419,7 +1428,7 @@ fn normalized_writer_components_use_actual_font_ids_and_release_on_abort() {
     assert_eq!(catalog.fills.len(), 2);
     assert_eq!(catalog.borders.len(), 1);
     assert_eq!(catalog.cell_formats.len(), 7);
-    assert_eq!(catalog.number_formats.len(), 6);
+    assert_eq!(catalog.number_formats.len(), 5);
     writer.start_sheet("Sheet").unwrap();
     let before = writer.temporary_bytes();
     let CellValue::RichText(mut value) = rich_value() else {
@@ -1826,7 +1835,7 @@ fn imported_style_ids_and_zero_date_formats_survive_export_with_derived_auto_ids
         assert_eq!(output.rows[0].cells[1].style.get(), 1);
         assert_eq!(output.rows[0].cells[2].style.get() == 0, zero_is_date);
         assert_eq!(output.rows[0].cells[3].style.get() == 0, zero_is_date);
-        assert!(output.rows[0].cells[4].style.get() >= 2);
+        assert_eq!(output.rows[0].cells[4].style.get() == 0, zero_is_date);
         let CellValue::DateTime(date) = &output.rows[0].cells[2].value else {
             panic!("Missing date")
         };
@@ -1841,7 +1850,14 @@ fn imported_style_ids_and_zero_date_formats_survive_export_with_derived_auto_ids
         let CellValue::DateTime(duration) = &output.rows[0].cells[4].value else {
             panic!("Missing duration")
         };
-        assert_eq!(duration.to_duration().unwrap().num_seconds(), 108000);
+        if zero_is_date {
+            assert_eq!(
+                duration.to_datetime().unwrap().to_string(),
+                "1900-01-01 06:00:00"
+            );
+        } else {
+            assert_eq!(duration.to_duration().unwrap().num_seconds(), 108000);
+        }
     }
 }
 
@@ -2115,4 +2131,72 @@ fn literal_formula_metadata_xml_validation_is_atomic_before_spooling() {
             .unwrap();
         writer.finish(Cursor::new(Vec::new())).unwrap();
     }
+}
+
+#[test]
+fn derived_temporal_formats_reuse_components_and_validate_rows_before_interning() {
+    use crabxl_core::{Alignment, CellStyle, ExcelDateTime, Font};
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    let source = writer
+        .register_style(CellStyle {
+            font: Font {
+                name: Some("Shared temporal font".into()),
+                bold: Some(true),
+                ..Default::default()
+            },
+            alignment: Alignment {
+                indent: Some(2.5),
+                ..Default::default()
+            },
+            number_format: "0.00".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let date = CellValue::DateTime(Box::new(
+        ExcelDateTime::from_ymd_hms_micro(2024, 1, 2, 3, 4, 5, 678900).unwrap(),
+    ));
+    let mut invalid = row(0, vec![date.clone(), CellValue::text("bad\0text")]);
+    invalid.cells[0].style = source;
+    let styles = writer.style_catalog().unwrap().cell_formats.len();
+    let bytes = writer.style_memory_bytes();
+    let temporary = writer.temporary_bytes();
+    assert!(writer.write_row(&invalid).is_err());
+    assert_eq!(writer.style_catalog().unwrap().cell_formats.len(), styles);
+    assert_eq!(writer.style_memory_bytes(), bytes);
+    assert_eq!(writer.temporary_bytes(), temporary);
+    let mut first = row(0, vec![date.clone()]);
+    first.cells[0].style = source;
+    writer.write_row(&first).unwrap();
+    assert_eq!(
+        writer.style_catalog().unwrap().cell_formats.len(),
+        styles + 1
+    );
+    let derived_bytes = writer.style_memory_bytes();
+    let mut next = row(1, vec![date]);
+    next.cells[0].style = source;
+    writer.write_row(&next).unwrap();
+    assert_eq!(writer.style_memory_bytes(), derived_bytes);
+    assert_eq!(
+        writer.style_catalog().unwrap().cell_formats.len(),
+        styles + 1
+    );
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    let loaded = reader.read_sheet("Sheet").unwrap();
+    let derived = loaded.rows[0].cells[0].style;
+    assert_eq!(loaded.rows[1].cells[0].style, derived);
+    assert_ne!(derived, source);
+    let catalog = reader.style_catalog().unwrap().unwrap();
+    let base = catalog.cell_format(source).unwrap();
+    let changed = catalog.cell_format(derived).unwrap();
+    assert_eq!(changed.font_id, base.font_id);
+    assert_eq!(changed.fill_id, base.fill_id);
+    assert_eq!(changed.border_id, base.border_id);
+    assert_eq!(changed.alignment, base.alignment);
+    assert_eq!(catalog.number_format(base.number_format_id), Some("0.00"));
+    assert_eq!(
+        catalog.number_format(changed.number_format_id),
+        Some("yyyy-mm-dd h:mm:ss")
+    );
 }

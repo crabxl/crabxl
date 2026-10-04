@@ -24,6 +24,18 @@ pub enum DateKind {
     /// Elapsed time, potentially negative or longer than one day.
     Duration,
 }
+impl DateKind {
+    /// Default public number format when assigning this temporal kind to a
+    /// non-date format. Existing date/duration formats remain caller-controlled.
+    pub const fn default_number_format(self) -> &'static str {
+        match self {
+            Self::Date => "yyyy-mm-dd",
+            Self::DateTime => "yyyy-mm-dd h:mm:ss",
+            Self::Time => "h:mm:ss",
+            Self::Duration => "[hh]:mm:ss",
+        }
+    }
+}
 /// Exact finite XLSX serial and its interpretation. No timezone is implied.
 /// Serial 60 in the Windows epoch is retained as Excel's fictitious leap day;
 /// converting that value to another calendar epoch is rejected.

@@ -689,6 +689,74 @@ impl StyleRegistry {
         self.formats.insert(hash, id, prepared);
         Ok(StyleId::new(id))
     }
+    fn number_format_variant_key(
+        &self,
+        base: StyleId,
+        number_format_id: u32,
+    ) -> Result<FormatKey<'_>> {
+        let source = self
+            .catalog
+            .cell_format(base)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown base cell format"))?;
+        if self.catalog.number_format(number_format_id).is_none() {
+            return Err(Error::new(ErrorKind::InvalidData, "Unknown number format"));
+        }
+        let mut key = format_key(source, source.alignment.as_deref());
+        key.number_format_id = number_format_id;
+        key.apply_number_format = Some(true);
+        Ok(key)
+    }
+    /// Find a number-format override without cloning shared component payloads or alignment.
+    pub fn find_format_with_number_format(
+        &self,
+        base: StyleId,
+        number_format_id: u32,
+    ) -> Result<Option<StyleId>> {
+        let key = self.number_format_variant_key(base, number_format_id)?;
+        Ok(self
+            .formats
+            .find_by(fingerprint(&key), |id| {
+                let existing = &self.catalog.cell_formats[id as usize];
+                format_key(existing, existing.alignment.as_deref()) == key
+            })
+            .map(StyleId::new))
+    }
+    /// Intern a number-format override, retaining all other format properties and
+    /// component IDs. The override explicitly applies its number format.
+    pub fn register_format_with_number_format(
+        &mut self,
+        base: StyleId,
+        number_format_id: u32,
+    ) -> Result<StyleId> {
+        self.register_format_with_number_format_limit(base, number_format_id, self.limits.max_bytes)
+    }
+    /// Intern an override under a smaller aggregate allowance. Existing variants
+    /// use a borrowed collision-checked key; only a new record clones alignment.
+    pub fn register_format_with_number_format_limit(
+        &mut self,
+        base: StyleId,
+        number_format_id: u32,
+        maximum: usize,
+    ) -> Result<StyleId> {
+        let maximum = maximum.min(self.limits.max_bytes);
+        if self.memory_bytes() > maximum {
+            return Err(limit());
+        }
+        if let Some(id) = self.find_format_with_number_format(base, number_format_id)? {
+            return Ok(id);
+        }
+        let source = self
+            .catalog
+            .cell_format(base)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown base cell format"))?;
+        if self.memory_bytes().saturating_add(source.heap_bytes()) > maximum {
+            return Err(limit());
+        }
+        let mut format = source.clone();
+        format.number_format_id = number_format_id;
+        format.apply_number_format = Some(true);
+        self.register_format_with_limit(format, maximum)
+    }
     /// Register with the registry's configured retained allowance.
     pub fn register(&mut self, style: CellStyle) -> Result<StyleId> {
         self.register_with_limit(style, self.limits.max_bytes)

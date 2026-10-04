@@ -44,6 +44,8 @@ Acceptance: repeated-string and high-cardinality tables work under small managed
 
 ## M2.3: Read-side styles and dates
 
+Checkpoint: temporal output preserves any existing date/duration format and derives shared variants for non-date styles, using public default codes and the existing borrowed deduplication index (ADR 0038). Owned-bank pre-save style assignment/views and complete style mutation remain open.
+
 Checkpoint: typed differential overrides and table/pivot definitions/defaults are verified in ADR 0033, including all 28 region tokens and bounded deferred reference checks. Extension payloads, full style mutation/assignment semantics and worksheet rule/table graph integration remain required.
 
 - Parse styles, number formats, fonts/fills/borders/alignment/protection, colors and themes into the shared core catalog, retaining imported style IDs and deduplicating new formats safely.

@@ -367,3 +367,83 @@ fn finite_font_sizes_gradient_edges_and_empty_formats_follow_public_domains() {
     invalid.font.size = Some(f64::NAN);
     assert!(styles.register(invalid).is_err());
 }
+
+#[test]
+fn borrowed_number_format_variants_share_components_and_preserve_source_properties() {
+    use crabxl_core::{Alignment, CellFormat, StyleId};
+    let mut registry = StyleRegistry::new(StyleLimits::default()).unwrap();
+    let mut source = registry
+        .catalog()
+        .cell_format(StyleId::new(0))
+        .unwrap()
+        .clone();
+    source.alignment = Some(Box::new(Alignment {
+        indent: Some(2.5),
+        ..Default::default()
+    }));
+    source.quote_prefix = Some(true);
+    let base = registry.register_format(source.clone()).unwrap();
+    let number = registry
+        .register_number_format("yyyy-mm-dd h:mm:ss".into())
+        .unwrap();
+    let before = registry.catalog().fonts[0]
+        .name
+        .as_ref()
+        .map(|v| v.as_ptr());
+    let variant = registry
+        .register_format_with_number_format(base, number)
+        .unwrap();
+    let format = registry.catalog().cell_format(variant).unwrap();
+    assert_eq!(format.font_id, source.font_id);
+    assert_eq!(format.fill_id, source.fill_id);
+    assert_eq!(format.border_id, source.border_id);
+    assert_eq!(format.alignment, source.alignment);
+    assert_eq!(format.quote_prefix, Some(true));
+    assert_eq!(format.number_format_id, number);
+    assert_eq!(format.apply_number_format, Some(true));
+    assert_eq!(
+        registry.catalog().fonts[0]
+            .name
+            .as_ref()
+            .map(|v| v.as_ptr()),
+        before
+    );
+    let bytes = registry.memory_bytes();
+    let records = registry.catalog().cell_formats.len();
+    for _ in 0..1000 {
+        assert_eq!(
+            registry
+                .find_format_with_number_format(base, number)
+                .unwrap(),
+            Some(variant)
+        );
+        assert_eq!(
+            registry
+                .register_format_with_number_format_limit(base, number, bytes)
+                .unwrap(),
+            variant
+        );
+    }
+    assert_eq!(registry.memory_bytes(), bytes);
+    assert_eq!(registry.catalog().cell_formats.len(), records);
+    assert!(
+        registry
+            .register_format_with_number_format_limit(base, 14, bytes)
+            .is_err()
+    );
+    assert_eq!(registry.catalog().cell_formats.len(), records);
+    assert!(
+        registry
+            .find_format_with_number_format(StyleId::new(u32::MAX), number)
+            .is_err()
+    );
+    assert!(
+        registry
+            .find_format_with_number_format(base, u32::MAX)
+            .is_err()
+    );
+    let mut expected: CellFormat = source;
+    expected.number_format_id = number;
+    expected.apply_number_format = Some(true);
+    assert_eq!(registry.register_format(expected).unwrap(), variant);
+}

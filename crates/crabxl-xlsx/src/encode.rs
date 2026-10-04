@@ -6,30 +6,104 @@ use crabxl_core::{CellValue, Error, ErrorKind, Result};
 use std::io::{self, Write};
 
 pub(crate) enum StyleContext<'a> {
-    Catalog(&'a crabxl_core::StyleCatalog),
+    Registry {
+        registry: &'a mut crabxl_core::StyleRegistry,
+        maximum: usize,
+    },
     Appearance(&'a [crabxl_core::CellStyle]),
 }
 impl StyleContext<'_> {
     fn len(&self) -> usize {
         match self {
-            Self::Catalog(catalog) => catalog.cell_formats.len(),
+            Self::Registry { registry, .. } => registry.catalog().cell_formats.len(),
             Self::Appearance(styles) => styles.len(),
         }
     }
     fn fonts(&self) -> usize {
         match self {
-            Self::Catalog(catalog) => catalog.fonts.len(),
+            Self::Registry { registry, .. } => registry.catalog().fonts.len(),
             Self::Appearance(styles) => styles.len(),
         }
     }
     fn number_format(&self, id: u32) -> Option<&str> {
         match self {
-            Self::Catalog(catalog) => catalog
+            Self::Registry { registry, .. } => registry
+                .catalog()
                 .cell_format(crabxl_core::StyleId::new(id))
-                .and_then(|format| catalog.number_format(format.number_format_id)),
+                .and_then(|format| registry.catalog().number_format(format.number_format_id)),
             Self::Appearance(styles) => styles
                 .get(id as usize)
                 .map(|style| style.number_format.as_ref()),
+        }
+    }
+    fn prepare_date_format(
+        &mut self,
+        id: u32,
+        date: &crabxl_core::ExcelDateTime,
+        dates: DateStyleIds,
+    ) -> Result<()> {
+        if id == 0
+            || self
+                .number_format(id)
+                .and_then(crabxl_core::classify_number_format)
+                .is_some()
+        {
+            return Ok(());
+        }
+        match self {
+            Self::Registry { registry, maximum } => {
+                let number = registry
+                    .catalog()
+                    .cell_format(crabxl_core::StyleId::new(dates.for_kind(date.kind())))
+                    .ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidState, "Date preset is unavailable")
+                    })?
+                    .number_format_id;
+                registry.register_format_with_number_format_limit(
+                    crabxl_core::StyleId::new(id),
+                    number,
+                    *maximum,
+                )?;
+                Ok(())
+            }
+            Self::Appearance(_) => Err(Error::new(
+                ErrorKind::InvalidData,
+                "Date requires an explicit date/time number format",
+            )),
+        }
+    }
+    fn resolved_style(&self, cell: &crabxl_core::Cell, dates: DateStyleIds) -> Result<u32> {
+        let id = cell.style.get();
+        let Some(date) = date_value(&cell.value) else {
+            return Ok(id);
+        };
+        if self
+            .number_format(id)
+            .and_then(crabxl_core::classify_number_format)
+            .is_some()
+        {
+            return Ok(id);
+        }
+        if id == 0 {
+            return Ok(dates.for_kind(date.kind()));
+        }
+        match self {
+            Self::Registry { registry, .. } => {
+                let number = registry
+                    .catalog()
+                    .cell_format(crabxl_core::StyleId::new(dates.for_kind(date.kind())))
+                    .ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidState, "Date preset is unavailable")
+                    })?
+                    .number_format_id;
+                registry
+                    .find_format_with_number_format(cell.style, number)?
+                    .map(|style| style.get())
+                    .ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidState, "Date format was not prepared")
+                    })
+            }
+            Self::Appearance(_) => Ok(id),
         }
     }
 }
@@ -120,7 +194,7 @@ pub(crate) fn encode_cells<'a>(
     cells: impl Iterator<Item = &'a crabxl_core::Cell> + Clone,
     maximum_cell: usize,
     maximum_cells: usize,
-    styles: StyleContext<'_>,
+    mut styles: StyleContext<'_>,
     date_encoding: ValueEncoding,
 ) -> Result<()> {
     let ValueEncoding {
@@ -187,49 +261,22 @@ pub(crate) fn encode_cells<'a>(
                 .with_cell(cell.address));
             }
         }
+    }
+    // Validate every input before interning any derived style. A later encoded
+    // byte-limit failure may retain a reusable variant, but commits no row bytes.
+    for cell in cells.clone() {
         if let Some(date) = date_value(&cell.value) {
-            let expected = if date.kind() == crabxl_core::DateKind::Duration {
-                crabxl_core::DateKind::Duration
-            } else {
-                crabxl_core::DateKind::DateTime
-            };
-            if cell.style.get() != 0
-                && styles
-                    .number_format(cell.style.get())
-                    .and_then(crabxl_core::classify_number_format)
-                    != Some(expected)
-            {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Date requires an explicit date/time number format",
-                )
-                .with_cell(cell.address));
-            }
+            styles
+                .prepare_date_format(cell.style.get(), date, date_styles)
+                .map_err(|error| error.with_cell(cell.address))?;
         }
     }
     let result = (|| -> io::Result<()> {
         write!(buffer, "<row r=\"{}\">", index.get() + 1)?;
         for cell in cells {
-            let style = if cell.style.get() == 0 {
-                date_value(&cell.value).map_or(0, |date| {
-                    let expected = if date.kind() == crabxl_core::DateKind::Duration {
-                        crabxl_core::DateKind::Duration
-                    } else {
-                        crabxl_core::DateKind::DateTime
-                    };
-                    if styles
-                        .number_format(0)
-                        .and_then(crabxl_core::classify_number_format)
-                        == Some(expected)
-                    {
-                        0
-                    } else {
-                        date_styles.for_kind(date.kind())
-                    }
-                })
-            } else {
-                cell.style.get()
-            };
+            let style = styles
+                .resolved_style(cell, date_styles)
+                .map_err(io::Error::other)?;
             write!(buffer, "<c r=\"{}\"", cell.address)?;
             if style != 0 {
                 write!(buffer, " s=\"{style}\"")?;
