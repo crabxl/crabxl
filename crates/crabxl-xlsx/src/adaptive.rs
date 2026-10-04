@@ -43,10 +43,21 @@ impl<R: Read + Seek> WorkbookReader<R> {
         access: AccessPattern,
         policy: MemoryPolicy,
     ) -> Result<AdaptiveRead<'_, R>> {
+        self.read_with_policy_options(name, crabxl_core::ReadOptions::default(), access, policy)
+    }
+    /// Compose projection, rich/cache/date/formula policies with the joint allocation policy.
+    /// Sampling, materialization and fallback retain the same read options.
+    pub fn read_with_policy_options(
+        &mut self,
+        name: &str,
+        options: crabxl_core::ReadOptions,
+        access: AccessPattern,
+        policy: MemoryPolicy,
+    ) -> Result<AdaptiveRead<'_, R>> {
         let mut decision = memory_decision(policy, self.limits)?;
         let retained_allowance = decision.retained_data_bytes;
         if access == AccessPattern::RepeatedAccess {
-            let estimate = self.estimate_sheet(name, retained_allowance)?;
+            let estimate = self.estimate_sheet(name, &options, retained_allowance)?;
             self.rebalance_strings_for_retained(estimate, retained_allowance)?;
             decision.catalog_bytes = self.policy_catalog_bytes();
             decision.cache_bytes = self.shared_cache_bytes();
@@ -63,7 +74,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 match self.collect_sheet_with_allowance(
                     name,
                     retained_allowance,
-                    crabxl_core::ReadOptions::default(),
+                    options.clone(),
                     Some(retained_allowance),
                 ) {
                     Ok(sheet) => {
@@ -87,11 +98,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 decision.reason = DecisionReason::EstimateExceedsBudget;
             }
         }
-        let stream = self.rows_with_allowance(
-            name,
-            crabxl_core::ReadOptions::default(),
-            Some(retained_allowance),
-        )?;
+        let stream = self.rows_with_allowance(name, options, Some(retained_allowance))?;
         decision.catalog_bytes = stream.policy_catalog_bytes();
         decision.cache_bytes = stream.shared_cache_bytes();
         decision.retained_data_bytes = retained_allowance
@@ -108,7 +115,12 @@ impl<R: Read + Seek> WorkbookReader<R> {
         })
     }
 
-    fn estimate_sheet(&mut self, name: &str, allowance: usize) -> Result<usize> {
+    fn estimate_sheet(
+        &mut self,
+        name: &str,
+        options: &crabxl_core::ReadOptions,
+        allowance: usize,
+    ) -> Result<usize> {
         let part = self
             .sheets()
             .iter()
@@ -124,8 +136,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     .with_part(&part)
             })?
             .size();
-        let mut rows =
-            self.rows_with_allowance(name, crabxl_core::ReadOptions::default(), Some(allowance))?;
+        let mut rows = self.rows_with_allowance(name, options.clone(), Some(allowance))?;
         let start = rows.bytes_consumed();
         let mut weight = 0u128;
         for _ in 0..128 {
