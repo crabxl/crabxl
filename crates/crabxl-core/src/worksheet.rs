@@ -47,6 +47,22 @@ impl CellRange {
             && (self.start.column..=self.end.column).contains(&address.column)
     }
 }
+impl std::str::FromStr for CellRange {
+    type Err = Error;
+    fn from_str(value: &str) -> Result<Self> {
+        let (start, end) = value.split_once(':').unwrap_or((value, value));
+        Self::new(start.parse()?, end.parse()?)
+    }
+}
+impl std::fmt::Display for CellRange {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.start == self.end {
+            write!(formatter, "{}", self.start)
+        } else {
+            write!(formatter, "{}:{}", self.start, self.end)
+        }
+    }
+}
 /// Sparse owned cell model. Structural edits move coordinates and preserve
 /// formulas verbatim; reference translation and feature graphs are separate.
 /// This is distinct from a lazy original-file editor and opaque preservation.
@@ -317,6 +333,16 @@ impl Worksheet {
             .filter(|cell| range.contains(cell.address))
         {
             if let CellValue::Formula(formula) = &cell.value {
+                if matches!(
+                    formula.formula_type(),
+                    crate::FormulaType::Array | crate::FormulaType::DataTable
+                ) {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Structured formula graph translation is not implemented",
+                    )
+                    .with_cell(cell.address));
+                }
                 let maximum = self
                     .limits
                     .max_bytes
@@ -330,7 +356,7 @@ impl Worksheet {
                     maximum,
                 )
                 .map_err(|error| error.with_cell(cell.address))?;
-                let value = crate::Formula::new(expression.into_boxed_str(), None)?;
+                let value = crate::Formula::from_source(expression.into_boxed_str(), None, None)?;
                 staged = staged.saturating_add(value.memory_bytes());
                 retained = retained
                     .saturating_sub(formula.memory_bytes())

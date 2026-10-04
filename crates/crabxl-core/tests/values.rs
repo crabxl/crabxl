@@ -183,3 +183,32 @@ fn iso_prefix_fraction_and_duration_behavior_matches_recorded_public_probe() {
         -0.000001 / 86400.0
     );
 }
+
+#[test]
+fn formula_ranges_and_literal_source_prefixes_keep_distinct_identities() {
+    use crabxl_core::{CellAddress, CellRange, FormulaRange};
+    let literal = Formula::new("==1", None).unwrap();
+    assert_eq!(literal.expression(), "=1");
+    let source = Formula::from_source("=1", None, None).unwrap();
+    assert_eq!(source.expression(), "=1");
+    assert!(Formula::new("", None).is_err());
+    assert_eq!(
+        Formula::from_source("", None, None).unwrap().expression(),
+        ""
+    );
+    let mut range = FormulaRange::from_xml("$A$1:$B$2").unwrap();
+    assert_eq!(range.spelling(), "$A$1:$B$2");
+    assert_eq!(range.range().start, CellAddress::new(0, 0).unwrap());
+    range
+        .set_range(
+            CellRange::new(
+                CellAddress::new(1, 1).unwrap(),
+                CellAddress::new(2, 2).unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    assert_eq!(range.spelling(), "B2:C3");
+    assert!("B2:A1".parse::<CellRange>().is_err());
+    assert!("A1:B2:C3".parse::<CellRange>().is_err());
+}

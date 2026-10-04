@@ -4,6 +4,7 @@ mod address;
 mod date;
 mod error;
 mod formula;
+mod formula_metadata;
 mod iso_date;
 mod limits;
 mod memory;
@@ -15,13 +16,18 @@ pub use address::{CellAddress, ColumnIndex, MAX_COLUMNS, MAX_ROWS, RowIndex};
 pub use date::{DateEpoch, DateKind, ExcelDateTime};
 pub use error::{Error, ErrorKind, Result};
 pub use formula::Formula;
+pub use formula_metadata::{
+    DataTableOptions, FormulaFlag, FormulaFlags, FormulaMetadata, FormulaRange, FormulaType,
+};
 pub use iso_date::parse_iso8601;
 pub use limits::ResourceLimits;
 pub use memory::{
     AccessPattern, AutoMemory, DecisionReason, MemoryAllowance, MemoryPolicy, MemorySource,
     ReadDecision, ReadMode,
 };
-pub use row::{Cell, CellValue, DateReadPolicy, ReadOptions, Row, RowBatch, SheetData};
+pub use row::{
+    Cell, CellValue, DateReadPolicy, FormulaReadPolicy, ReadOptions, Row, RowBatch, SheetData,
+};
 pub use scalar::{CellError, CellText, ExactInteger};
 pub use style::{CellStyle, Font, StyleId};
 

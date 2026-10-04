@@ -28,6 +28,10 @@ pub struct ResourceLimits {
     pub max_style_bytes: usize,
     /// Maximum actual records in each style table; declared counts are ignored.
     pub max_style_records: usize,
+    /// Managed shared-formula template table allowance; hash buckets are conservatively estimated.
+    pub max_formula_table_bytes: usize,
+    /// Maximum distinct worksheet-local shared template identities.
+    pub max_shared_formulas: usize,
     /// Maximum XML nesting depth.
     pub max_xml_depth: usize,
     /// Maximum worksheet catalog entries.
@@ -55,6 +59,8 @@ impl Default for ResourceLimits {
             max_cell_bytes: 64 * 1024,
             max_style_bytes: 16 * 1024 * 1024,
             max_style_records: 100_000,
+            max_formula_table_bytes: 16 * 1024 * 1024,
+            max_shared_formulas: 100_000,
             max_xml_depth: 64,
             max_sheets: 1024,
             max_row_cells: 16_384,

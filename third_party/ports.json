@@ -13,7 +13,8 @@
         "src/xlsx/mod.rs: xml_reader, read_workbook, read_relationships, get_row_and_optional_column",
         "src/formats.rs: detect_custom_number_format (quoted/escaped first-section date/duration detection)",
         "src/xlsx/mod.rs: Reference::parse/offset/format, offset_range, expand_shared_formula_with_offset_into (selected A1 translation logic)",
-        "src/xlsx/mod.rs: Xlsx::read_shared_strings (SST root/entry event flow)"
+        "src/xlsx/mod.rs: Xlsx::read_shared_strings (SST root/entry event flow)",
+        "src/xlsx/cells_reader.rs: XlsxFormulaMetadata, read_formula_record (selected shared formula attributes/template layout)"
       ],
       "destinations": [
         "crates/crabxl-core/src/address.rs",
@@ -23,7 +24,9 @@
         "crates/crabxl-core/src/scalar.rs",
         "crates/crabxl-xlsx/src/styles.rs",
         "crates/crabxl-core/src/translate.rs",
-        "crates/crabxl-xlsx/src/strings.rs"
+        "crates/crabxl-xlsx/src/strings.rs",
+        "crates/crabxl-core/src/formula_metadata.rs",
+        "crates/crabxl-xlsx/src/formula_codec.rs"
       ],
       "changes": [
         "Adapted event-driven cell and workbook parsing to shared crabxl types without Range materialization",
@@ -46,7 +49,8 @@
         "Replace eager Vec-only strings with shared Memory/Disk/Auto placement, bounded direct-slot decoded cache and complete disk-backed fixed-width index; actual over-budget data spills without sheet materialization",
         "Retain unsupported extension entry IDs for projection; the subsequent shared rich codec adds default display-text projection and explicit typed metadata without changing ID order",
         "Match pinned public shared-string x005F_ protection removal separately from unchanged inline literal spelling; do not import calamine general escape decoding",
-        "Share bounded XML character/entity accumulation across scalar and shared-string codecs"
+        "Share bounded XML character/entity accumulation across scalar and shared-string codecs",
+        "Replace dense shared-ID Vec allocation with a bounded sparse HashMap; use actual template-cell anchor rather than declared range.start; retain first definition and unresolved placeholders under public reference policy, with explicit stricter validation. Share typed array/data-table/range/flag models, bounded streaming attribute escaping and projected-template dependency scanning. Cache-only compatible mode avoids template retention. Dynamic cm/vm graphs and nonfinite scalars remain staged."
       ],
       "tests": "New in-memory OOXML fixtures in crates/crabxl-xlsx/tests/streaming.rs; no upstream binary fixture copies",
       "inventory_items": [
@@ -65,7 +69,8 @@
         "resources.scalar-payloads",
         "formula.a1-translation",
         "edit.translated-model-move",
-        "read.shared-strings.bounded"
+        "read.shared-strings.bounded",
+        "formula.structured-records"
       ]
     },
     {

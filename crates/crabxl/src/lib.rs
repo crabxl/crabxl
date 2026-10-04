@@ -68,3 +68,11 @@ pub use crabxl_core::{
 pub use crabxl_core::{CellFormat, NamedStyle, NumberFormat, StyleCatalog};
 
 pub use crabxl_core::DateReadPolicy;
+
+pub use crabxl_core::{
+    DataTableOptions, FormulaFlag, FormulaFlags, FormulaMetadata, FormulaRange, FormulaType,
+};
+
+pub use crabxl_core::FormulaReadPolicy;
+
+pub use crabxl_xlsx::SharedFormulaStats;

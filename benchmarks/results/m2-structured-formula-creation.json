@@ -1,0 +1,26 @@
+{
+  "reference": "3.1.5",
+  "inspection": "Public load APIs only",
+  "array": {
+    "ref": "$A$1:$B$2",
+    "text": "=SUM(C1:C2)"
+  },
+  "table": {
+    "ref": "D1:E2",
+    "ca": "0",
+    "dt2D": "1",
+    "dtr": "0",
+    "r1": "$A$1",
+    "r2": "B1",
+    "del1": "0",
+    "del2": "1"
+  },
+  "verbatim_expression": "==1",
+  "empty_expression": "=",
+  "caches": [
+    5,
+    0,
+    null,
+    null
+  ]
+}

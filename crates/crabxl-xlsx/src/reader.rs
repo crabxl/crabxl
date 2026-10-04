@@ -33,6 +33,7 @@ pub struct Rows<'a, R: Read + Seek> {
     shared_strings: Option<&'a mut crate::strings::SharedStrings>,
     styles: Option<&'a crate::style_reader::ImportedStyles>,
     epoch: crabxl_core::DateEpoch,
+    shared_formulas: crate::formula_codec::SharedFormulas,
 }
 impl<'a, R: Read + Seek> Rows<'a, R> {
     pub(crate) fn new(
@@ -89,12 +90,20 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             shared_strings,
             styles,
             epoch,
+            shared_formulas: crate::formula_codec::SharedFormulas::new(
+                limits.max_formula_table_bytes,
+                limits.max_shared_formulas,
+            ),
         })
     }
 
     /// Count selected cells sent through scalar decoding, useful for projection diagnostics.
     pub fn decoded_cells(&self) -> u64 {
         self.decoded_cells
+    }
+    /// Worksheet-local template storage and expansion work, separate from projected cells.
+    pub fn shared_formula_stats(&self) -> crate::SharedFormulaStats {
+        self.shared_formulas.stats()
     }
     pub(crate) fn bytes_consumed(&self) -> u64 {
         self.xml.bytes_consumed()
@@ -254,7 +263,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     }
                     next_column = header.address.column.get() + 1;
                     if !self.options.includes(header.address) {
-                        self.skip_cell()?;
+                        self.skip_cell(header.address)?;
                         continue;
                     }
                     if matches!(header.kind, ScalarKind::Unsupported) || header.metadata {
@@ -273,8 +282,10 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     .map_err(|e| e.with_cell(header.address))?;
                     self.decoded_cells += 1;
                     let value = match header.kind {
-                        ScalarKind::Boolean => self.read_cell::<true>(header.kind, style_kind),
-                        _ => self.read_cell::<false>(header.kind, style_kind),
+                        ScalarKind::Boolean => {
+                            self.read_cell::<true>(header.address, header.kind, style_kind)
+                        }
+                        _ => self.read_cell::<false>(header.address, header.kind, style_kind),
                     }
                     .map_err(|e| e.with_part(self.xml.part()).with_cell(header.address))?;
                     self.push_cell(
@@ -349,6 +360,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
 
     fn read_cell<const BOOLEAN: bool>(
         &mut self,
+        address: CellAddress,
         kind: ScalarKind,
         date_kind: Option<crabxl_core::DateKind>,
     ) -> Result<CellValue> {
@@ -392,21 +404,25 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     if formula.is_some() || matches!(kind, ScalarKind::InlineText) {
                         return Err(self.invalid("Invalid or duplicate formula element"));
                     }
-                    for attribute in e.attributes() {
-                        let attribute = attribute.map_err(|error| {
-                            Error::caused_by(ErrorKind::Xml, "Invalid formula attribute", error)
-                        })?;
-                        if attribute.key.as_ref() != b"t" || attribute.value.as_ref() != b"normal" {
-                            return Err(Error::new(
-                                ErrorKind::Unsupported,
-                                "Shared, array or other formula metadata is not supported yet",
-                            ));
-                        }
+                    let mut metadata = crate::formula_codec::header(
+                        &e,
+                        frame.decoder,
+                        self.limits.max_cell_bytes,
+                    )?;
+                    let mut expression = self.read_formula_text()?;
+                    if !self.options.data_only
+                        || self.options.formula_policy
+                            == crabxl_core::FormulaReadPolicy::ValidateGroups
+                    {
+                        expression = self.shared_formulas.resolve(
+                            address,
+                            expression,
+                            &mut metadata,
+                            self.options.formula_policy,
+                            self.limits.max_cell_bytes,
+                        )?;
                     }
-                    formula = Some(match self.read_value::<false>(ScalarKind::Text)? {
-                        CellValue::Text(value) => value.as_str().to_owned(),
-                        _ => return Err(self.invalid("Normal formula expression is empty")),
-                    });
+                    formula = Some((expression, metadata));
                 }
                 Event::Start(_) => {
                     return Err(Error::new(
@@ -435,19 +451,27 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                             );
                         }
                     }
-                    if let Some(expression) = formula {
+                    if let Some((expression, metadata)) = formula {
+                        if self.options.data_only {
+                            return Ok(value);
+                        }
                         if seen_value
                             && matches!(kind, ScalarKind::Text)
                             && matches!(value, CellValue::Empty)
                         {
                             value = CellValue::text("");
                         }
-                        if self.options.data_only {
-                            return Ok(value);
-                        }
-                        return Ok(CellValue::Formula(Box::new(Formula::new(
-                            expression.into_boxed_str(),
+                        let preserve = self.options.formula_metadata
+                            || matches!(
+                                metadata.kind,
+                                crabxl_core::FormulaType::Array
+                                    | crabxl_core::FormulaType::DataTable
+                            )
+                            || expression.is_empty();
+                        return Ok(CellValue::Formula(Box::new(Formula::from_source(
+                            expression,
                             seen_value.then_some(value),
+                            preserve.then_some(metadata),
                         )?)));
                     }
                     return Ok(value);
@@ -600,10 +624,50 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         Ok(parsed.into_value())
     }
 
-    fn skip_cell(&mut self) -> Result<()> {
+    fn read_formula_text(&mut self) -> Result<Box<str>> {
+        match self.read_value::<false>(ScalarKind::Text)? {
+            CellValue::Text(value) => Ok((*value).into_string()),
+            CellValue::Empty => Ok("".into()),
+            _ => Err(self.invalid("Invalid formula text")),
+        }
+    }
+    fn skip_cell(&mut self, address: CellAddress) -> Result<()> {
         loop {
             let frame = self.xml.next()?;
             match frame.event {
+                Event::Start(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 5
+                        && e.local_name().as_ref() == b"f"
+                        && (!self.options.data_only
+                            || self.options.formula_policy
+                                == crabxl_core::FormulaReadPolicy::ValidateGroups) =>
+                {
+                    if crate::formula_codec::is_shared(&e, frame.decoder)? {
+                        let mut metadata = crate::formula_codec::header(
+                            &e,
+                            frame.decoder,
+                            self.limits.max_cell_bytes,
+                        )?;
+                        let expression = self.read_formula_text()?;
+                        let index = match metadata.kind {
+                            crabxl_core::FormulaType::Shared { index, .. } => index,
+                            _ => return Err(self.invalid("Invalid projected shared formula")),
+                        };
+                        if !self.shared_formulas.contains(index)
+                            || self.options.formula_policy
+                                == crabxl_core::FormulaReadPolicy::ValidateGroups
+                        {
+                            self.shared_formulas.resolve(
+                                address,
+                                expression,
+                                &mut metadata,
+                                self.options.formula_policy,
+                                self.limits.max_cell_bytes,
+                            )?;
+                        }
+                    }
+                }
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 3
