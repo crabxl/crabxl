@@ -73,7 +73,9 @@ Acceptance: numeric, repeated-string, and high-cardinality-string correctness/me
 
 Acceptance: cross-tool readback and OOXML relationships, mode restrictions, timing/RSS/temp space/output size, and resource cleanup on errors/abandonment.
 
-## M4: Editable model and existing-file preservation
+## M4: Editable model and existing-file preservation (in progress)
+
+First checkpoint: budgeted sparse core cell/range operations and borrowed writer export; lazy original-part inventory, unchanged compressed passthrough, existing-cell overlays, global cache invalidation and repeatable atomic path saves. [ADR 0005](decisions/0005-sparse-preserving-editor.md) and [release evidence](../benchmarks/m4-editor.md) document verified boundaries. Remaining M4 work includes a workbook/sheet aggregate, missing-cell insertion, existing-file structural edits with feature/reference handling, and calculation-chain/signature policies. M2 full style/date/string catalogs also remain required.
 
 - Implement sparse random access, append, copy/insert/delete/move, lazy parts, dirty tracking, and original part inventory.
 - Rewrite affected parts with synchronized IDs and preserve unchanged or unknown content and namespace context.

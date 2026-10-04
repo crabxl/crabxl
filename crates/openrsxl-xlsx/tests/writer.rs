@@ -583,3 +583,29 @@ fn explicit_date_formats_validate_literals_escapes_and_duration_kind() {
         ErrorKind::LimitExceeded
     );
 }
+
+#[test]
+fn materialized_sparse_model_exports_with_structural_edits_and_empty_extent() {
+    use openrsxl_core::{ColumnIndex, EditLimits, Worksheet};
+    let mut sheet = Worksheet::new("Model", EditLimits::default()).unwrap();
+    sheet.append(vec![]).unwrap();
+    sheet
+        .append(vec![CellValue::Integer(42), CellValue::text("value")])
+        .unwrap();
+    sheet
+        .insert_columns(ColumnIndex::new(0).unwrap(), 1)
+        .unwrap();
+    sheet.append(vec![]).unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.write_worksheet(&sheet).unwrap();
+    let mut book = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    let rows = book.read_sheet("Model").unwrap().rows;
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].index.get(), 1);
+    assert_eq!(rows[0].cells[0].address.to_string(), "B2");
+    assert_eq!(rows[0].cells[0].value, CellValue::Integer(42));
+    assert_eq!(rows[1].index.get(), 2);
+    assert!(rows[1].cells.is_empty());
+    assert_eq!(sheet.len(), 2);
+    assert_eq!(sheet.row_extent(), 3);
+}

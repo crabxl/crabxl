@@ -39,3 +39,10 @@ pub use openrsxl_core::{
     BorderLine, BorderSide, CellStyle, DateEpoch, DateKind, ExcelDateTime, Font, Formula,
     HorizontalAlignment, VerticalAlignment,
 };
+
+pub use openrsxl_core::{CellRange, EditLimits, Worksheet};
+
+pub use openrsxl_xlsx::{EditorOptions, PartInfo, SaveOptions, SaveStats, WorkbookEditor};
+
+pub use openrsxl_core::MemoryAllowance;
+pub use openrsxl_xlsx::memory_allowance;

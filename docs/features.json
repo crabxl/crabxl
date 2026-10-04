@@ -16556,6 +16556,78 @@
         "formula_payload_limits_projection_and_invalid_structure_are_enforced"
       ],
       "limitations": "Unstyled normal formulas only on read. Shared/array/data-table formulas and full date/style interpretation remain M2/M5. No calculation engine. Absent cache is Empty in data-only mode; supplied Empty writes as absent."
+    },
+    {
+      "id": "edit.sparse-worksheet",
+      "description": "Budgeted sparse core worksheet random access, append and finite structural operations",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "planned"
+      },
+      "modes": [
+        "owned-sparse-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
+      "modules": [
+        "crates/openrsxl-core/src/worksheet.rs",
+        "crates/openrsxl-xlsx/src/writer.rs"
+      ],
+      "tests": [
+        "crates/openrsxl-core/tests/worksheet.rs",
+        "crates/openrsxl-xlsx/tests/writer.rs"
+      ],
+      "limitations": "Core models and new-file borrowed export only; formulas/styles move verbatim. Existing-file structural edits and workbook aggregate remain planned."
+    },
+    {
+      "id": "preserve.original-package",
+      "description": "Lazy unchanged compressed parts and repeatable original-source saves",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "verified"
+      },
+      "modes": [
+        "original-package"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
+      "modules": [
+        "crates/openrsxl-xlsx/src/editor.rs"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/editor.rs"
+      ],
+      "limitations": "Opaque preservation only, not typed feature access. Default raw copy trusts catalog CRC; optional validation consumes unchanged payloads. Signed/calc-chain files allow unchanged save only."
+    },
+    {
+      "id": "edit.existing-cell-overlay",
+      "description": "Bounded existing-cell value replacements with unrelated content preserved",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "original-package"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
+      "modules": [
+        "crates/openrsxl-xlsx/src/editor.rs"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/editor.rs",
+        "benchmarks/editor_checkpoint.py"
+      ],
+      "limitations": "Physical target checked on save. Missing cells, date values, cm/vm and non-normal target formulas are unsupported. Old caches cleared globally; automatic recalculation requested. M4 remains in progress."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

@@ -2,7 +2,7 @@
 // Sequential spooling, scalar XML layouts and packaging adapted from rust_xlsxwriter,
 // Copyright 2022-2026 John McNamara. Source provenance: third_party/ports.json.
 
-use crate::encode::{RowBuffer, encode_row, validate_xml_text};
+use crate::encode::{RowBuffer, encode_cells, validate_xml_text};
 use openrsxl_core::{
     CellStyle, DateEpoch, Error, ErrorKind, MAX_COLUMNS, Result, Row, RowIndex, StyleId,
 };
@@ -291,21 +291,41 @@ impl WorkbookWriter {
     /// Write a complete sparse row. Validate/encode before spooling so invalid
     /// rows and budget failures do not partly commit worksheet content.
     pub fn write_row(&mut self, row: &Row) -> Result<()> {
+        self.write_cells(row.index, row.cells.iter())
+    }
+    /// Write an explicitly materialized sparse sheet without cloning cell payloads.
+    /// Style IDs must refer to this writer's registered formats. This creates a
+    /// new sheet; it does not preserve parts of a loaded source package.
+    pub fn write_worksheet(&mut self, sheet: &openrsxl_core::Worksheet) -> Result<()> {
+        self.start_sheet(sheet.name())?;
+        let mut last = None;
+        for index in sheet.row_indices() {
+            self.write_cells(index, sheet.row_cells(index))?;
+            last = Some(index.get());
+        }
+        if sheet.row_extent() > 0 && last.is_none_or(|last| last + 1 < sheet.row_extent()) {
+            self.write_row(&Row::new(RowIndex::new(sheet.row_extent() - 1)?))?;
+        }
+        self.close_sheet()
+    }
+    fn write_cells<'a>(
+        &mut self,
+        index: RowIndex,
+        cells: impl Iterator<Item = &'a openrsxl_core::Cell> + Clone,
+    ) -> Result<()> {
         self.ensure_open()?;
         let active = self
             .active
             .as_ref()
             .ok_or_else(|| state("Start a worksheet before writing rows"))?;
-        if active
-            .last_row
-            .is_some_and(|previous| row.index <= previous)
-        {
+        if active.last_row.is_some_and(|previous| index <= previous) {
             return Err(state("Sequential writer cannot revisit a flushed row"));
         }
         let part = format!("xl/worksheets/sheet{}.xml", self.sheets.len() + 1);
-        encode_row(
+        encode_cells(
             &mut self.row_buffer,
-            row,
+            index,
+            cells.clone(),
             self.options.max_cell_bytes,
             self.options.max_row_cells,
             &self.styles,
@@ -336,11 +356,11 @@ impl WorkbookWriter {
             return Err(io_error("Cannot spool worksheet row", error).with_part(part));
         }
         active.bytes += length;
-        active.last_row = Some(row.index);
+        active.last_row = Some(index);
         self.temporary_bytes += length;
         self.stats.peak_temp_bytes = self.stats.peak_temp_bytes.max(self.temporary_bytes);
         self.stats.rows += 1;
-        self.stats.cells += row.cells.len() as u64;
+        self.stats.cells += cells.count() as u64;
         Ok(())
     }
     /// Finish the active sheet and flush its temporary XML; does not publish ZIP.
@@ -540,7 +560,7 @@ fn state(message: &str) -> Error {
 fn limit(message: &str) -> Error {
     Error::new(ErrorKind::LimitExceeded, message)
 }
-fn io_error(message: &str, error: io::Error) -> Error {
+pub(crate) fn io_error(message: &str, error: io::Error) -> Error {
     Error::caused_by(ErrorKind::Io, message, error)
 }
 fn start_part<W: Write + Seek>(
@@ -620,7 +640,7 @@ fn package_metadata<W: Write + Seek>(
     })
 }
 
-fn zip_error(message: &str, error: zip::result::ZipError) -> Error {
+pub(crate) fn zip_error(message: &str, error: zip::result::ZipError) -> Error {
     let kind = if matches!(error, zip::result::ZipError::Io(_)) {
         ErrorKind::Io
     } else {

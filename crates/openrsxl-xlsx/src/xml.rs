@@ -16,7 +16,8 @@ use std::{
 
 pub(crate) const MAIN_URI: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 pub(crate) const MAIN: &[u8] = MAIN_URI.as_bytes();
-pub(crate) const STRICT_MAIN: &[u8] = b"http://purl.oclc.org/ooxml/spreadsheetml/main";
+pub(crate) const STRICT_MAIN_URI: &str = "http://purl.oclc.org/ooxml/spreadsheetml/main";
+pub(crate) const STRICT_MAIN: &[u8] = STRICT_MAIN_URI.as_bytes();
 pub(crate) const OFFICE_REL_URI: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const OFFICE_REL: &[u8] = OFFICE_REL_URI.as_bytes();
@@ -32,6 +33,7 @@ pub(crate) enum Scope {
 
 pub(crate) struct Frame<'a> {
     pub scope: Scope,
+    pub spreadsheet_uri: Option<&'static str>,
     pub event: Event<'a>,
     pub decoder: Decoder,
     pub sheet_relationship: Option<String>,
@@ -132,6 +134,11 @@ impl<B: BufRead> XmlStream<B> {
             let limited = matches!(&cause, quick_xml::Error::Io(e) if e.get_ref().is_some_and(|source| source.is::<BudgetExceeded>()));
             Error::caused_by(if limited { ErrorKind::LimitExceeded } else { ErrorKind::Xml }, "Cannot parse XML", cause).with_part(self.part.clone())
         })?;
+        let spreadsheet_uri = match &namespace {
+            ResolveResult::Bound(ns) if ns.as_ref() == MAIN => Some(MAIN_URI),
+            ResolveResult::Bound(ns) if ns.as_ref() == STRICT_MAIN => Some(STRICT_MAIN_URI),
+            _ => None,
+        };
         let scope = match namespace {
             ResolveResult::Bound(ns) if ns.as_ref() == MAIN || ns.as_ref() == STRICT_MAIN => {
                 Scope::Spreadsheet
@@ -241,6 +248,7 @@ impl<B: BufRead> XmlStream<B> {
         }
         Ok(Frame {
             scope,
+            spreadsheet_uri,
             event,
             decoder,
             sheet_relationship,

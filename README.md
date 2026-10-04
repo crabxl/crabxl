@@ -113,3 +113,22 @@ Earlier rows/sheets cannot be revisited in this mode. `abort()` and Drop clean o
 Register a `CellStyle` once with `writer.register_style(style)` and reuse its `StyleId` in cells. Equal formats reuse IDs; the table has count/metadata limits. ID zero is General for writer-created scalar cells. Date values with ID zero automatically receive a date/time/duration format; explicitly styled dates require an appropriate number format. `ExcelDateTime::from_ymd_hms_milli` validates calendar fields; `from_serial` retains an exact serial and source epoch. Serial 60 is retained in the Windows epoch and rejected on conversion to the Mac epoch rather than silently changing its meaning. Calendar helper conversion follows the baseline's millisecond rounding and maps Windows serial 60 to February 28. Ambiguous early-date serials follow the baseline and are not a lossless calendar representation.
 
 `Formula::new("=SUM(A1:A2)", None)` writes a formula without a fabricated cache. Supply a typed `CellValue` to retain zero, false, text, error or date results; this crate does not calculate formulas. The streaming reader also returns normal `CellValue::Formula` values and their caches; `ReadOptions { data_only: true, ..Default::default() }` requests cached values, returning Empty when absent. A supplied Empty cache is serialized as absent. Formula strings and cache payloads count toward retained-data budgets. Full style/date interpretation on reading, shared/array/data-table formulas, named/theme styles, advanced typography/fills and existing-file editing remain in M2/M4/M5.
+
+## Existing-file edits and sparse models (M4 checkpoint)
+
+`WorkbookEditor::open` retains a seekable original package. `set_value` queues an existing-cell replacement, preserving its style and unrelated original parts; physical existence and metadata are checked on save. `save_path` atomically replaces a target after successful output, using a full adjacent temporary ZIP. Repeated saves reuse the original source without resident copies of images. `clear_edits` restores that original baseline. Old formula caches are removed across worksheets and full recalculation requested.
+
+```rust
+use openrsxl::{CellAddress, CellValue, SaveOptions, WorkbookEditor};
+
+fn edit(source: &str, target: &str) -> openrsxl::Result<()> {
+    let mut workbook = WorkbookEditor::open(source)?;
+    workbook.set_value("Sheet", CellAddress::new(0, 0)?, CellValue::Integer(42))?;
+    workbook.save_path(target, SaveOptions::default())?;
+    Ok(())
+}
+```
+
+`EditorOptions` offers Auto/explicit memory policy and patch byte/cell caps; resolved allowances are inspectable. `SaveOptions::verify_unchanged` enables full CRC checking of unchanged parts, at decompression cost. The default compressed copy does not validate their payload CRC. Core `Worksheet` separately provides sparse random access, append and bounded insert/delete/move/copy operations; `WorkbookWriter::write_worksheet` exports borrowed cells into a new package.
+
+M4 remains in progress. Missing-cell insertion, existing-file structural edits, sheet mutations and typed date/style/string catalogs remain staged. Unsafe metadata/signature/calculation-chain edits are rejected. See [ownership and limitations](docs/decisions/0005-sparse-preserving-editor.md) and [Rust/openpyxl edit measurements](benchmarks/m4-editor.md).
