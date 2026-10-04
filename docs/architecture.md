@@ -1,13 +1,13 @@
 # Architecture
 
-Status: first M1 numeric streaming checkpoint implemented. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. Language bindings are deferred. Current ownership and resource decisions are recorded in [ADR 0001](decisions/0001-numeric-streaming.md).
+Status: M0 architecture/inventory and M1 raw numeric streaming acceptance complete. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. Language bindings are deferred. Current ownership and resource decisions are recorded in [ADR 0001](decisions/0001-numeric-streaming.md).
 
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).
 
 - Architecture reference checkout: Mercurial `52c77fdee169`, default branch.
-- Compatibility baseline: openpyxl 3.1.5, tag revision `13627b03ca25a1a98becf40e533b955615b13429`; M0 must complete the public-feature inventory against this version.
+- Compatibility baseline: openpyxl 3.1.5, tag revision `13627b03ca25a1a98becf40e533b955615b13429`; the public-surface inventory is mapped against this version; see features.json and the reproducible catalog tools.
 - Sources: README, development, optimized modes, performance, formula, date/time, pivot, and feature documentation.
 - Documentation: https://openpyxl.readthedocs.io/en/stable/ . Default-branch documentation may differ from the release baseline.
 

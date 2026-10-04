@@ -1,12 +1,12 @@
 # Development roadmap
 
-Status: first M1 numeric streaming checkpoint implemented and tested. Selected calamine parsing logic has been ported into the three-crate workspace. The detailed baseline inventory remains incomplete; [features.json](features.json) records the verified subset and planned groups without claiming full coverage. Deliver a Rust crate first; language bindings follow separately.
+Status: M0 architecture/inventory and M1 raw numeric streaming acceptance complete; M2 value semantics is next. Selected calamine parsing logic has been ported into the three-crate workspace. [features.json](features.json) maps every pinned public surface and release documentation topic, while verified behavior remains a narrow subset. See [milestone evidence](milestones.md). Deliver a Rust crate first; language bindings follow separately.
 
 Consult [pending MR risks](openpyxl-mr-review.md) and [work-item, board, and milestone risks](openpyxl-work-items-review.md) when implementing affected features. Defects are regression cases to fix or avoid, not behavior that compatibility requires reproducing.
 
 ## Scope and completion
 
-The compatibility baseline is openpyxl 3.1.5, Mercurial tag revision `13627b03ca25a1a98becf40e533b955615b13429`. M0 must complete a version-specific public-feature inventory using documentation and observable behavior. The categories below are an initial inventory, not proof of comprehensive coverage. Partial support and preservation-only features in that baseline must also be represented.
+The compatibility baseline is openpyxl 3.1.5, Mercurial tag revision `13627b03ca25a1a98becf40e533b955615b13429`. The version-specific inventory uses public runtime metadata and release documentation without reading implementation source. It covers 190 modules, 567 public classes and their public members, functions/exports, and 45 RST documents. This is an audit index, not a complete behavioral specification; semantic verification is staged. Partial support and preservation-only features in that baseline must also be represented.
 
 For each item record reference documentation, source modules, read/create/edit/preserve capabilities, supported modes, tests, limitations, and milestone. Use planned/ported/verified status. Missing features stay in the roadmap; neither upstream availability nor benchmark results justify removing them.
 
@@ -45,7 +45,7 @@ Acceptance: reproducible sources, traceable inventory, and one shared model; do 
 
 ## M1: Port streaming numeric reads
 
-Current checkpoint: relationship-based workbook/sheet discovery, sparse numeric/empty rows, strict/transitional namespaces, projection, reusable rows, owned batches, explicit numeric sheet materialization, configurable input buffers/data budgets, and cleanup/error tests. The initial numeric Auto policy now selects a useful mode from access pattern, availability, bounded sampling, and enforced retained-data allowance. This is raw numeric reading; style-zero formatting is not interpreted. Results and reproduction commands are in [benchmarks](../benchmarks/README.md). The complete M0 inventory, further adaptive caches/concurrency, and later value/style semantics remain open.
+Current checkpoint: relationship-based workbook/sheet discovery, sparse numeric/empty rows, strict/transitional namespaces, projection, reusable rows, owned batches, explicit numeric sheet materialization, configurable input buffers/data budgets, and cleanup/error tests. The initial numeric Auto policy now selects a useful mode from access pattern, availability, bounded sampling, and enforced retained-data allowance. This is raw numeric reading; style-zero formatting is not interpreted. Results and reproduction commands are in [benchmarks](../benchmarks/README.md). Further adaptive caches/concurrency and later value/style semantics remain open.
 
 - Extract package/metadata/cell parsing from calamine. Make row/batch output the streaming path and keep Range materialization separate.
 - Resolve workbook/sheet parts through relationships. Handle multiple sheets, sparse coordinates, incorrect dimensions, namespaces, malformed input, resource release, and error context.

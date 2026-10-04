@@ -21,6 +21,7 @@
 //! # }
 //! ```
 
+pub use openrsxl_core::StyleId;
 pub use openrsxl_core::{
     AccessPattern, AutoMemory, DecisionReason, MemoryPolicy, MemorySource, ReadDecision, ReadMode,
 };

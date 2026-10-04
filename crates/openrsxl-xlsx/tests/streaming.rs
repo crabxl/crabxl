@@ -718,3 +718,75 @@ fn address_overflow_and_absolute_a1_are_checked() {
         "XFD1048576"
     );
 }
+
+struct TrackedSource {
+    cursor: Cursor<Vec<u8>>,
+    drops: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+impl std::io::Read for TrackedSource {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        std::io::Read::read(&mut self.cursor, buffer)
+    }
+}
+impl std::io::Seek for TrackedSource {
+    fn seek(&mut self, position: std::io::SeekFrom) -> std::io::Result<u64> {
+        std::io::Seek::seek(&mut self.cursor, position)
+    }
+}
+impl Drop for TrackedSource {
+    fn drop(&mut self) {
+        self.drops.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+#[test]
+fn early_stream_drop_reopens_and_into_inner_transfers_source_ownership() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let document = format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData><row><c><v>1</v></c></row><row><c><v>2</v></c></row></sheetData></worksheet>"
+    );
+    let parts = entries(&document);
+    let refs: Vec<_> = parts
+        .iter()
+        .map(|(n, v)| (n.as_str(), v.as_str()))
+        .collect();
+    let drops = Arc::new(AtomicUsize::new(0));
+    let source = TrackedSource {
+        cursor: Cursor::new(fixture(&refs)),
+        drops: Arc::clone(&drops),
+    };
+    let mut book = WorkbookReader::new(source).unwrap();
+    {
+        let mut rows = book.rows("A & B").unwrap();
+        assert!(rows.next_row().unwrap().is_some());
+    }
+    assert_eq!(drops.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        book.rows("A & B")
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+            .len(),
+        2
+    );
+    let source = book.into_inner();
+    assert_eq!(drops.load(Ordering::SeqCst), 0);
+    drop(source);
+    assert_eq!(drops.load(Ordering::SeqCst), 1);
+}
+#[test]
+fn rejected_archive_releases_owned_source() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let drops = Arc::new(AtomicUsize::new(0));
+    let source = TrackedSource {
+        cursor: Cursor::new(b"not a ZIP".to_vec()),
+        drops: Arc::clone(&drops),
+    };
+    assert!(WorkbookReader::new(source).is_err());
+    assert_eq!(drops.load(Ordering::SeqCst), 1);
+}
