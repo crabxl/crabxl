@@ -340,3 +340,30 @@ fn inserted_custom_codes_keep_sparse_declarations_sorted_and_hash_indices_valid(
         u32::MAX
     );
 }
+
+#[test]
+fn finite_font_sizes_gradient_edges_and_empty_formats_follow_public_domains() {
+    use crabxl_core::{GradientFill, GradientKind};
+    let mut styles = StyleRegistry::new(StyleLimits::default()).unwrap();
+    for size in [-1.0, 410.0, 1_000_000.0] {
+        let mut style = CellStyle::default();
+        style.font.size = Some(size);
+        style.number_format = "".into();
+        style.fill = Fill::Gradient(GradientFill {
+            kind: Some(GradientKind::Path),
+            degree: Some(-360.0),
+            edges: [Some(-1.0), Some(2.0), Some(0.0), Some(0.0)],
+            stops: Vec::new(),
+        });
+        let id = styles.register(style).unwrap();
+        let view = styles.catalog().cell_style(id).unwrap();
+        assert_eq!(view.font.size, Some(size));
+        assert_eq!(view.number_format, Some(""));
+        assert!(
+            matches!(view.fill, Fill::Gradient(value) if value.edges[0] == Some(-1.0) && value.edges[1] == Some(2.0))
+        );
+    }
+    let mut invalid = CellStyle::default();
+    invalid.font.size = Some(f64::NAN);
+    assert!(styles.register(invalid).is_err());
+}

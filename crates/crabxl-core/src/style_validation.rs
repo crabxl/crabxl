@@ -22,10 +22,7 @@ impl Font {
     pub fn validate(&self) -> Result<()> {
         let font = self;
 
-        if font
-            .size
-            .is_some_and(|s| !s.is_finite() || !(0.0..=409.0).contains(&s))
-        {
+        if font.size.is_some_and(|s| !s.is_finite()) {
             return Err(invalid("Invalid font size"));
         }
         if font
@@ -53,10 +50,7 @@ impl Fill {
             }
             Fill::Gradient(v) => {
                 if v.degree.is_some_and(|n| !n.is_finite())
-                    || v.edges
-                        .into_iter()
-                        .flatten()
-                        .any(|n| !n.is_finite() || !(0.0..=1.0).contains(&n))
+                    || v.edges.into_iter().flatten().any(|n| !n.is_finite())
                 {
                     return Err(invalid("Invalid gradient geometry"));
                 }
@@ -123,9 +117,6 @@ impl Alignment {
 impl CellStyle {
     /// Validate common appearance semantics, independent of an output format.
     pub fn validate(&self) -> Result<()> {
-        if self.number_format.is_empty() {
-            return Err(invalid("Number format is empty"));
-        }
         self.font.validate()?;
         self.fill.validate()?;
         self.borders.validate()?;

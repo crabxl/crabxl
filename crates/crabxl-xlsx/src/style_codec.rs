@@ -353,7 +353,7 @@ pub(crate) fn read_fill<B: BufRead>(
                                         }
                                     }
                                     let allowed = maximum.saturating_sub(size_of::<GradientFill>())
-                                        / size_of::<GradientStop>();
+                                        / (size_of::<GradientStop>() + size_of::<u64>());
                                     if v.stops.len() >= allowed {
                                         return Err(Error::new(
                                             ErrorKind::LimitExceeded,
@@ -500,5 +500,40 @@ pub(crate) fn read_border<B: BufRead>(
             ref event if blank(event) => {}
             _ => return Err(invalid("Invalid border content")),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+    use crabxl_core::ResourceLimits;
+    use std::io::Cursor;
+
+    #[test]
+    fn gradient_validation_scratch_respects_the_component_allowance() {
+        let source = format!(
+            "<fill xmlns=\"{}\"><gradientFill><stop position=\"0\"><color rgb=\"FF000000\"/></stop><stop position=\"1\"><color rgb=\"FFFFFFFF\"/></stop></gradientFill></fill>",
+            crate::xml::MAIN_URI
+        );
+        let parse = |allowance| {
+            let mut xml = XmlStream::new(
+                Cursor::new(source.as_bytes()),
+                "styles.xml".into(),
+                source.len() as u64,
+                ResourceLimits::default(),
+            );
+            xml.next().unwrap();
+            read_fill(&mut xml, 1, allowance)
+        };
+        let payload = size_of::<GradientFill>() + 2 * size_of::<GradientStop>();
+        assert_eq!(parse(payload).unwrap_err().kind(), ErrorKind::LimitExceeded);
+        let fill = parse(payload + 2 * size_of::<u64>()).unwrap();
+        let Fill::Gradient(gradient) = fill else {
+            panic!("Expected gradient");
+        };
+        assert_eq!(gradient.stops.len(), 2);
+        assert_eq!(gradient.stops[0].position, 0.0);
+        assert_eq!(gradient.stops[1].position, 1.0);
     }
 }

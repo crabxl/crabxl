@@ -2863,3 +2863,64 @@ fn consuming_reader_transfers_original_style_records_for_canonical_registration(
         source_formats.as_slice()
     );
 }
+
+#[test]
+fn color_identities_use_public_priority_and_validate_all_xml_attributes() {
+    use crabxl_core::{ColorKind, StyleId};
+    for (attributes, expected) in [
+        ("rgb=\"invalid\" theme=\"1\"", ColorKind::Theme(1)),
+        (
+            "rgb=\"invalid\" theme=\"invalid\" auto=\"invalid\" indexed=\"3\"",
+            ColorKind::Indexed(3),
+        ),
+        ("rgb=\"invalid\" auto=\"0\"", ColorKind::Auto(false)),
+    ] {
+        let styles =
+            basic_styles("<xf/>").replace("</font>", &format!("<color {attributes}/></font>"));
+        let mut book =
+            WorkbookReader::new(Cursor::new(with_styles("<row/>", &styles, false))).unwrap();
+        let catalog = book.style_catalog().unwrap().unwrap();
+        assert_eq!(
+            catalog
+                .cell_style(StyleId::new(0))
+                .unwrap()
+                .font
+                .color
+                .unwrap()
+                .kind,
+            expected
+        );
+    }
+    for attributes in ["rgb=\"&unknown;\" theme=\"1\"", "theme=\"1\" unknown=\"1\""] {
+        let styles =
+            basic_styles("<xf/>").replace("</font>", &format!("<color {attributes}/></font>"));
+        let mut book =
+            WorkbookReader::new(Cursor::new(with_styles("<row/>", &styles, false))).unwrap();
+        assert!(book.style_catalog().is_err());
+    }
+}
+
+#[test]
+fn finite_style_domains_and_empty_number_format_decode_from_source() {
+    use crabxl_core::{Fill, StyleId};
+    let styles = basic_styles("<xf numFmtId=\"164\"/>")
+        .replace("[h]:mm:ss.000", "")
+        .replace("<sz val=\"11\"/>", "<sz val=\"-1\"/>")
+        .replace(
+            "<patternFill patternType=\"none\"/>",
+            "<gradientFill type=\"path\" left=\"-1\" right=\"2\"/>",
+        );
+    let mut reader =
+        WorkbookReader::new(Cursor::new(with_styles("<row/>", &styles, false))).unwrap();
+    let style = reader
+        .style_catalog()
+        .unwrap()
+        .unwrap()
+        .cell_style(StyleId::new(0))
+        .unwrap();
+    assert_eq!(style.number_format, Some(""));
+    assert_eq!(style.font.size, Some(-1.0));
+    assert!(
+        matches!(style.fill, Fill::Gradient(value) if value.edges[0] == Some(-1.0) && value.edges[1] == Some(2.0))
+    );
+}

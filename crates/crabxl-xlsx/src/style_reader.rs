@@ -244,9 +244,6 @@ fn read_impl<B: BufRead>(
                                     let code = required_attribute(&e, b"formatCode", item.decoder)?
                                         .into_boxed_str();
                                     crate::encode::validate_xml_text(&code)?;
-                                    if code.is_empty() {
-                                        return Err(invalid("Empty number format code"));
-                                    }
                                     crate::formatting::consume_property(&mut xml, 3)?;
                                     let heap = code.len();
                                     budget.push(

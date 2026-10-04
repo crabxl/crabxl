@@ -16,9 +16,11 @@ import openpyxl
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline', type=Path, required=True)
+    parser.add_argument('--baseline-core', default='541d8dfe83704ded24ceb3a81aa982ea254fb6c7')
+    parser.add_argument('--output', type=Path, default=HERE / 'results/m2-style-classification.json')
     args = parser.parse_args()
     target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target'))
-    report = {'reference': openpyxl.__version__, 'baseline_core': '541d8dfe83704ded24ceb3a81aa982ea254fb6c7', 'platform': platform.platform(), 'measurement': 'One warmup and five rotating serial cold-process samples; no builds during timing', 'semantics': 'Each reader verifies all 100,000 numeric/date/clock/duration/boolean/text/error/cache/integer values. Both native engines prepare the complete declared style catalog and stream cache-only values. Public openpyxl read-only projects equivalent values and prepares its catalogs. Additional declared formats are deliberately unused in cells, exposing preparation costs. No worksheet materialization or temporary storage.', 'cases': []}
+    report = {'reference': openpyxl.__version__, 'baseline_core': args.baseline_core, 'platform': platform.platform(), 'measurement': 'One warmup and five rotating serial cold-process samples; no builds during timing', 'semantics': 'Each reader verifies all 100,000 numeric/date/clock/duration/boolean/text/error/cache/integer values. Both native engines prepare the complete declared style catalog and stream cache-only values. Public openpyxl read-only projects equivalent values and prepares its catalogs. Additional declared formats are deliberately unused in cells, exposing preparation costs. No worksheet materialization or temporary storage.', 'cases': []}
     for extra in (1000, 50000):
         path = HERE / 'data' / f'style-classification-{extra}.xlsx'
         generate(path, 10000)
@@ -43,7 +45,7 @@ def main():
                     assert sample['sampled_temp_peak_bytes'] == 0
                     samples[name].append(sample)
         report['cases'].append({'declared_formats': extra+1, 'cells': 100000, 'input_bytes': path.stat().st_size, 'samples': samples, 'medians': {name: {key: statistics.median(sample[key] for sample in values) for key in ('seconds', 'cpu_seconds', 'peak_rss_kib', 'sampled_temp_peak_bytes')} for name, values in samples.items()}})
-        (HERE / 'results/m2-style-classification.json').write_text(json.dumps(report, indent=2)+'\n')
+        args.output.write_text(json.dumps(report, indent=2)+'\n')
         print(json.dumps(report['cases'][-1]['medians']), flush=True)
 
 if __name__ == '__main__':
