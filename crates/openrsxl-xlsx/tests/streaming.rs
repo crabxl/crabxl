@@ -65,7 +65,7 @@ fn resolves_nonstandard_parts_and_unescapes_names() {
     assert_eq!(rows[0].cells[0].address.to_string(), "B2");
     assert_eq!(rows[0].cells[0].value, CellValue::Number(-250.0));
     assert_eq!(rows[0].cells[1].address.to_string(), "D2");
-    assert_eq!(rows[0].cells[1].value, CellValue::Number(0.0));
+    assert_eq!(rows[0].cells[1].value, CellValue::Integer(0));
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn multiple_sheets_follow_relationship_ids_and_can_be_reopened() {
             .unwrap()
             .cells[0]
             .value,
-        CellValue::Number(9.0)
+        CellValue::Integer(9)
     );
     assert_eq!(
         book.rows("A & B")
@@ -101,7 +101,7 @@ fn multiple_sheets_follow_relationship_ids_and_can_be_reopened() {
             .unwrap()
             .cells[0]
             .value,
-        CellValue::Number(1.0)
+        CellValue::Integer(1)
     );
     assert_eq!(book.rows("Second").unwrap().count(), 1);
     assert!(matches!(book.rows("missing"), Err(error) if error.kind() == ErrorKind::SheetNotFound));
@@ -130,7 +130,7 @@ fn materialized_sheet_matches_streaming_and_outlives_workbook() {
     assert_eq!(snapshot.rows, streamed);
     assert!(snapshot.memory_bytes() <= ResourceLimits::default().max_materialized_bytes);
     drop(book);
-    assert_eq!(snapshot.rows[0].cells[0].value, CellValue::Number(7.0));
+    assert_eq!(snapshot.rows[0].cells[0].value, CellValue::Integer(7));
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn materialization_budget_fails_and_releases_reader() {
             .unwrap()
             .cells[0]
             .value,
-        CellValue::Number(1.0)
+        CellValue::Integer(1)
     );
 }
 
@@ -220,7 +220,7 @@ fn configured_input_buffers_work_and_zero_is_rejected() {
         let mut book = WorkbookReader::with_limits(Cursor::new(data.clone()), limits).unwrap();
         assert_eq!(
             book.read_sheet("A & B").unwrap().rows[0].cells[0].value,
-            CellValue::Number(42.0)
+            CellValue::Integer(42)
         );
     }
     let limits = ResourceLimits {
@@ -250,7 +250,7 @@ fn adaptive_scan_streams_without_sampling_and_respects_fixed_budget() {
     match output.data {
         ReadData::Streaming(mut rows) => assert_eq!(
             rows.next_row().unwrap().unwrap().cells[0].value,
-            CellValue::Number(3.0)
+            CellValue::Integer(3)
         ),
         ReadData::Materialized(_) => panic!("Scan must stream"),
     }
@@ -277,7 +277,7 @@ fn adaptive_repeated_access_materializes_using_available_memory() {
     };
     drop(book);
     assert_eq!(snapshot.rows.len(), 2);
-    assert_eq!(snapshot.rows[1].cells[0].value, CellValue::Number(4.0));
+    assert_eq!(snapshot.rows[1].cells[0].value, CellValue::Integer(4));
 }
 
 #[test]
@@ -395,7 +395,7 @@ fn excluded_rows_do_not_decode_unsupported_values() {
     let mut rows = book.rows_with_options("A & B", options).unwrap();
     assert_eq!(
         rows.next_row().unwrap().unwrap().cells[0].value,
-        CellValue::Number(3.0)
+        CellValue::Integer(3)
     );
     assert!(rows.next_row().unwrap().is_none());
     assert_eq!(rows.decoded_cells(), 1);
@@ -412,7 +412,7 @@ fn reuse_buffer_and_release_early_reader() {
         assert_eq!(row.cells.capacity(), capacity);
     }
     assert_eq!(book.rows("A & B").unwrap().count(), 2);
-    assert_eq!(row.cells[0].value, CellValue::Number(2.0));
+    assert_eq!(row.cells[0].value, CellValue::Integer(2));
 }
 #[test]
 fn owned_batches_obey_byte_budget_and_outlive_workbook() {
@@ -440,7 +440,7 @@ fn owned_batches_obey_byte_budget_and_outlive_workbook() {
     assert_eq!(count, 3);
     drop(rows);
     drop(book);
-    assert_eq!(first.rows[0].cells[0].value, CellValue::Number(1.0));
+    assert_eq!(first.rows[0].cells[0].value, CellValue::Integer(1));
 }
 #[test]
 fn tiny_batch_limit_fails_without_partial_delivery() {
@@ -473,7 +473,7 @@ fn prefixes_and_strict_spreadsheet_namespaces_work() {
             .unwrap()
             .cells[0]
             .value,
-        CellValue::Number(4.0)
+        CellValue::Integer(4)
     );
 }
 #[test]
@@ -540,7 +540,7 @@ fn numeric_entities_and_zero_style_are_supported() {
             .unwrap()
             .cells[0]
             .value,
-        CellValue::Number(12.0)
+        CellValue::Integer(12)
     );
 }
 #[test]
@@ -801,7 +801,7 @@ fn boolean_literals_preserve_type_and_reuse_all_read_modes() {
         CellValue::Boolean(false),
         CellValue::Boolean(true),
         CellValue::Empty,
-        CellValue::Number(1.0),
+        CellValue::Integer(1),
     ];
     let streamed = book
         .rows("A & B")
@@ -842,7 +842,7 @@ fn malformed_boolean_values_have_context_and_projection_can_skip_them() {
         let mut rows = book.rows_with_options("A & B", columns(1, 1)).unwrap();
         assert_eq!(
             rows.next_row().unwrap().unwrap().cells[0].value,
-            CellValue::Number(2.0)
+            CellValue::Integer(2)
         );
         assert_eq!(rows.decoded_cells(), 1);
     }
@@ -856,4 +856,150 @@ fn boolean_payload_does_not_increase_cell_storage() {
     drop(rows);
     drop(book);
     assert_eq!(batch.rows[1].cells[0].value, CellValue::Boolean(false));
+}
+
+#[test]
+fn exact_integers_float_lexemes_errors_and_plain_inline_text() {
+    let mut book = open(
+        "<row><c><v>9007199254740993</v></c><c><v>-9223372036854775808</v></c><c><v>9223372036854775808</v></c><c><v>-000999999999999999999999999999999</v></c><c><v>1.0</v></c><c><v>1e0</v></c><c t=\"e\"><v>#DIV/0!</v></c><c t=\"e\"><v>#FUTURE!</v></c><c t=\"inlineStr\"><is><t xml:space=\"preserve\"> \t&amp;&lt;![CDATA[ignored]]&gt;\n </t></is></c><c t=\"inlineStr\"><is><t/></is></c><c t=\"str\"><v> preserved </v></c></row>",
+    );
+    let data = book.read_sheet("A & B").unwrap();
+    let cells = &data.rows[0].cells;
+    assert_eq!(cells[0].value, CellValue::Integer(9007199254740993));
+    assert_eq!(cells[1].value, CellValue::Integer(i64::MIN));
+    assert!(
+        matches!(&cells[2].value, CellValue::BigInteger(value) if value.as_str() == "9223372036854775808")
+    );
+    assert!(
+        matches!(&cells[3].value, CellValue::BigInteger(value) if value.as_str() == "-999999999999999999999999999999")
+    );
+    assert_eq!(cells[4].value, CellValue::Number(1.0));
+    assert_eq!(cells[5].value, CellValue::Number(1.0));
+    assert_eq!(cells[6].value, CellValue::error("#DIV/0!"));
+    assert_eq!(cells[7].value, CellValue::error("#FUTURE!"));
+    assert_eq!(
+        cells[8].value,
+        CellValue::text(" \t&<![CDATA[ignored]]>\n ")
+    );
+    assert_eq!(cells[9].value, CellValue::text(""));
+    assert_eq!(cells[10].value, CellValue::text(" preserved "));
+    assert_eq!(size_of::<CellValue>(), 16);
+}
+#[test]
+fn inline_text_rejects_unmodeled_rich_runs_and_malformed_structure() {
+    for content in [
+        "<is><r><t>rich</t></r></is>",
+        "<is><rPh><t>phonetic</t></rPh></is>",
+    ] {
+        let mut book = open(&format!("<row><c t=\"inlineStr\">{content}</c></row>"));
+        assert_eq!(
+            book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
+            ErrorKind::Unsupported
+        );
+    }
+    for content in [
+        "<is><t>a</t><t>b</t></is>",
+        "<is/><is/>",
+        "<v>incorrect</v>",
+    ] {
+        let mut book = open(&format!("<row><c t=\"inlineStr\">{content}</c></row>"));
+        assert_eq!(
+            book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
+            ErrorKind::InvalidData
+        );
+    }
+}
+#[test]
+fn owned_text_payloads_are_counted_in_row_batch_and_materialization_limits() {
+    let text = "x".repeat(1000);
+    let document = format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData><row><c t=\"inlineStr\"><is><t>{text}</t></is></c></row></sheetData></worksheet>"
+    );
+    let parts = entries(&document);
+    let refs: Vec<_> = parts
+        .iter()
+        .map(|(name, value)| (name.as_str(), value.as_str()))
+        .collect();
+    let bytes = fixture(&refs);
+    let limits = ResourceLimits {
+        max_row_bytes: 600,
+        ..ResourceLimits::default()
+    };
+    let mut book = WorkbookReader::with_limits(Cursor::new(bytes.clone()), limits).unwrap();
+    assert_eq!(
+        book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
+        ErrorKind::LimitExceeded
+    );
+    let limits = ResourceLimits {
+        max_batch_rows: 1,
+        max_batch_bytes: 600,
+        ..ResourceLimits::default()
+    };
+    let mut book = WorkbookReader::with_limits(Cursor::new(bytes.clone()), limits).unwrap();
+    assert_eq!(
+        book.rows("A & B").unwrap().read_batch().unwrap_err().kind(),
+        ErrorKind::LimitExceeded
+    );
+    let limits = ResourceLimits {
+        max_materialized_bytes: 600,
+        ..ResourceLimits::default()
+    };
+    let mut book = WorkbookReader::with_limits(Cursor::new(bytes), limits).unwrap();
+    assert_eq!(
+        book.read_sheet("A & B").unwrap_err().kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    let batch = book.rows("A & B").unwrap().read_batch().unwrap().unwrap();
+    assert!(batch.memory_bytes() >= 1000);
+    drop(book);
+    assert_eq!(
+        batch.rows[0].cells[0].value,
+        CellValue::text(text.into_boxed_str())
+    );
+}
+#[test]
+fn adaptive_text_growth_falls_back_without_losing_owned_values() {
+    let first = format!("<row><c><v>{}1</v></c></row>", "0".repeat(5000)).repeat(128);
+    let later = format!(
+        "<row><c t=\"inlineStr\"><is><t>{}</t></is></c></row>",
+        "x".repeat(512)
+    )
+    .repeat(200);
+    let document =
+        format!("<worksheet xmlns=\"{MAIN}\"><sheetData>{first}{later}</sheetData></worksheet>");
+    let parts = entries(&document);
+    let refs: Vec<_> = parts
+        .iter()
+        .map(|(name, value)| (name.as_str(), value.as_str()))
+        .collect();
+    let limits = ResourceLimits {
+        input_buffer_bytes: 256,
+        max_xml_event_bytes: 16384,
+        max_cell_bytes: 8192,
+        max_row_bytes: 1024,
+        ..ResourceLimits::default()
+    };
+    let mut book = WorkbookReader::with_limits(Cursor::new(fixture(&refs)), limits).unwrap();
+    let output = book
+        .read_with_policy(
+            "A & B",
+            AccessPattern::RepeatedAccess,
+            MemoryPolicy::Budget(256 * 1024),
+        )
+        .unwrap();
+    assert_eq!(
+        output.decision.reason,
+        DecisionReason::ActualDataExceedsBudget
+    );
+    match output.data {
+        ReadData::Streaming(rows) => {
+            let values = rows.collect::<Result<Vec<_>, _>>().unwrap();
+            assert_eq!(values.len(), 328);
+            assert_eq!(
+                values[128].cells[0].value,
+                CellValue::text("x".repeat(512).into_boxed_str())
+            );
+        }
+        ReadData::Materialized(_) => panic!("Heterogeneous payload must exceed budget"),
+    }
 }

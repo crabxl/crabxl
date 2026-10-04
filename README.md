@@ -22,7 +22,12 @@ fn sum(path: &str, sheet: &str) -> openrsxl::Result<f64> {
     let mut total = 0.0;
     while rows.read_row_into(&mut row)? {
         for cell in &row.cells {
-            if let CellValue::Number(value) = cell.value {
+            let value = match cell.value {
+                CellValue::Number(value) => Some(value),
+                CellValue::Integer(value) => Some(value as f64),
+                _ => None,
+            };
+            if let Some(value) = value {
                 total += value;
             }
         }
@@ -72,7 +77,7 @@ fn count_rows(path: &str, sheet: &str) -> openrsxl::Result<usize> {
 
 Auto overrides the retained-data allowance only for its operation; direct `rows` and `read_sheet` retain their explicit semantics. It keeps the configured input buffer instead of assuming larger buffers improve CPU-bound parsing. Adaptive string/style caches, concurrency and the full editable mode remain future work; see [ADR 0002](docs/decisions/0002-adaptive-memory.md).
 
-This checkpoint reads raw finite `f64` numbers, typed boolean literals, and physically present empty cells. Integer literals beyond exact `f64` precision may round; exact baseline integer semantics remain a later value-model requirement. Selected strings, errors, formulas, nonzero style indices, and cm/vm metadata return `Unsupported`. Style tables are not loaded: style index zero is treated as raw numeric data even if an unusual workbook customizes its formatting. Date/style interpretation belongs to M2; use M1 only for known unstyled numeric input. This is not a general openpyxl replacement yet.
+This checkpoint preserves signed i64 integers and larger exact decimal integers, finite floating-point literals, booleans, plain inline/value text, spreadsheet error tokens, and physically present empty cells. Owned string/error/big-integer payloads are included in row, batch, materialization, and Auto allocation estimates. Shared strings, rich/phonetic text, formulas, nonzero style indices, and cm/vm metadata remain unsupported. Style-zero formatting is not interpreted; dates and full styles remain M2 work. OOXML-looking text escapes remain raw, matching the pinned public reader behavior; an escape-aware codec remains required. This is not a general openpyxl replacement yet.
 
 Configurable `ResourceLimits` bound archive size, metadata, XML input/events/depth, values, rows, and batches. Memory includes the ZIP catalog and metadata; user-retained batches add memory. Full consumption checks XML and entry CRC; dropping a reader early releases it without validating unread bytes. See [ownership and memory details](docs/decisions/0001-numeric-streaming.md) and [measured benchmarks](benchmarks/README.md).
 
@@ -84,3 +89,5 @@ Configurable `ResourceLimits` bound archive size, metadata, XML input/events/dep
 - [AI agent instructions](AGENTS.md)
 
 Boolean values remain distinct from numeric zero/one in rows, batches, materialization, and Auto mode. Decimal integer boolean literals follow the baseline zero/nonzero behavior without integer overflow; invalid boolean text returns a contextual error. `scalar_counts` counts these types without retaining a sheet.
+
+The sum example is a controlled f64 checksum benchmark: it rejects integer inputs beyond 2^53 instead of rounding or skipping them. Core values retain exact integers independently of that example. Mixed scalar measurements are in [benchmarks/m2-scalars.md](benchmarks/m2-scalars.md).

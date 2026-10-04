@@ -1,6 +1,6 @@
 # Development roadmap
 
-Status: M0 architecture/inventory and M1 raw numeric streaming acceptance complete; M2 is in progress with typed boolean literals. Selected calamine parsing logic has been ported into the three-crate workspace. [features.json](features.json) maps every pinned public surface and release documentation topic, while verified behavior remains a narrow subset. See [milestone evidence](milestones.md). Deliver a Rust crate first; language bindings follow separately.
+Status: M0 architecture/inventory and M1 raw numeric streaming acceptance complete; M2 is in progress with exact integers, boolean/error literals, and plain inline text with owned-payload accounting. Selected calamine parsing logic has been ported into the three-crate workspace. [features.json](features.json) maps every pinned public surface and release documentation topic, while verified behavior remains a narrow subset. See [milestone evidence](milestones.md). Deliver a Rust crate first; language bindings follow separately.
 
 Consult [pending MR risks](openpyxl-mr-review.md) and [work-item, board, and milestone risks](openpyxl-work-items-review.md) when implementing affected features. Defects are regression cases to fix or avoid, not behavior that compatibility requires reproducing.
 

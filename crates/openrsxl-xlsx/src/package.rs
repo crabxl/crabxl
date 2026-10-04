@@ -6,7 +6,7 @@ use crate::{
     Rows,
     xml::{Scope, XmlStream, attribute, required_attribute},
 };
-use openrsxl_core::{Cell, Error, ErrorKind, ReadOptions, ResourceLimits, Result, Row, SheetData};
+use openrsxl_core::{Error, ErrorKind, ReadOptions, ResourceLimits, Result, Row, SheetData};
 use quick_xml::events::Event;
 use std::{
     collections::{HashMap, HashSet},
@@ -213,7 +213,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
         let mut sheet = SheetData { rows: Vec::new() };
         let mut cell_bytes = 0usize;
         while let Some(row) = stream.next_row()? {
-            let row_bytes = row.cells.capacity().saturating_mul(size_of::<Cell>());
+            let row_bytes = row.memory_bytes().saturating_sub(size_of::<Row>());
             cell_bytes = cell_bytes
                 .checked_add(row_bytes)
                 .ok_or_else(materialization_limit)?;
