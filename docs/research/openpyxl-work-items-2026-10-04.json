@@ -1,0 +1,3063 @@
+{
+  "reviewed_at": "2026-10-04",
+  "project_id": 322,
+  "open_issue_count": 379,
+  "method": "Public REST issue metadata; selected descriptions; public milestone HTML and GraphQL board names/lists. No implementation audit or attachment execution.",
+  "boards": [
+    {
+      "name": "Development",
+      "id": 111,
+      "columns": [
+        "Open",
+        "Closed"
+      ]
+    }
+  ],
+  "active_milestones": [
+    {
+      "title": "3.2",
+      "id": 1,
+      "open_issues": [
+        2209,
+        1999
+      ],
+      "completed_issues": 0,
+      "merge_requests": 0,
+      "due_date": null
+    }
+  ],
+  "issues": [
+    {
+      "iid": 2327,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2327",
+      "updated_at": "2026-09-24T15:14:02.947Z",
+      "title_ascii": "contracts_system_v10.py",
+      "description_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2326,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2326",
+      "updated_at": "2026-09-16T10:18:04.532Z",
+      "title_ascii": "xml:space=\"preserve\" on core properties makes docProps/core.xml schema-invalid, and Excel repairs the file",
+      "description_sha256": "11dd174935e95c9c04a3db8ee1408dc0489d916b0073f3f45c957a24081c7087",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2325,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2325",
+      "updated_at": "2026-09-16T06:17:24.564Z",
+      "title_ascii": "Formula cells are written with an empty `<v/>`, which Excel can reject as a damaged file",
+      "description_sha256": "dee4898efa59a77dd474d2265628f6421bfb45042938a7836986a70ce90948d7",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2324,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2324",
+      "updated_at": "2026-08-13T12:09:58.635Z",
+      "title_ascii": "`MergedCell.border` returns propagated borders from top-left cell, not actual XML borders",
+      "description_sha256": "21f97be998d81f894c6dae72a0bdd3aeac0a3375abb4e9fa6b8dca59d6ae1679",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2323,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2323",
+      "updated_at": "2026-07-21T11:19:24.350Z",
+      "title_ascii": "Column dimensions not expanded for range-based <col> elements (min != max)",
+      "description_sha256": "1595fc97911b7ce8909724aae0cb83791f149272a9a1436fc0a35e192f05ce96",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2322,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2322",
+      "updated_at": "2026-07-13T06:30:00.849Z",
+      "title_ascii": "pitchFamily validator rejects valid values: Max value is 52 should be 255",
+      "description_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2320,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2320",
+      "updated_at": "2026-05-20T09:20:04.224Z",
+      "title_ascii": "openpyxl Bug Report: Hyperlinks Misaligned After Column Insertion",
+      "description_sha256": "47762b7697097dff7ca6378e256861c622cceef3ce30f9915de778d96cb76fe3",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2318,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2318",
+      "updated_at": "2026-05-13T12:52:10.301Z",
+      "title_ascii": "Got an error when using openpyxl to read the excel file.",
+      "description_sha256": "a54505ca9c4fc65014b628f9962aa29751a823f87939c0b226819093c92dad45",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2317,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2317",
+      "updated_at": "2026-04-14T09:37:23.042Z",
+      "title_ascii": "numpy should be listed as a dependency in pypi",
+      "description_sha256": "b48e3eb429e80170cc382000a73197c7838b2698ef42d03391c28eb751feb63e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2311,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2311",
+      "updated_at": "2026-03-24T17:45:47.745Z",
+      "title_ascii": "Single Series LineChart Misinterprets Category Axis (openpyxl apparently emits incomplete chart XML)",
+      "description_sha256": "2a4f0d4dd6b99849b2d599a9dee9e2ff15033e52bb732b5d9e9310e4c98d8ef0",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2310,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2310",
+      "updated_at": "2026-01-20T12:07:18.745Z",
+      "title_ascii": "Handle workbook with OLEObjects images",
+      "description_sha256": "af1d240a0cfdf75487e504ad9b6ac9190fbcc4f08d45dd1be8ca464a9a7b693d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2309,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2309",
+      "updated_at": "2026-01-18T13:14:04.095Z",
+      "title_ascii": "Tokenizer does not regocognize spill reference es A1# or $A$1#",
+      "description_sha256": "84d68371490ab9607b15b3a26b8bdb36de9ed9c3d758d582c58f0fe711438e1b",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2308,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2308",
+      "updated_at": "2026-01-20T11:09:31.481Z",
+      "title_ascii": "Contribution Request: Add autofit() method for automatic column width adjustment",
+      "description_sha256": "b4817a5643fb35d298ddecd10a45e9b245d21dabc6fb44e78c64a83227e4d920",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2306,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2306",
+      "updated_at": "2026-01-22T16:32:39.403Z",
+      "title_ascii": "Calling load_workbook for an excel doc that has a custom view fails",
+      "description_sha256": "0c5a167fd04a2d232a1496a3a7cde9bfb2e56b84cbdc54572173edabafd72151",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2305,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2305",
+      "updated_at": "2025-12-13T18:41:05.148Z",
+      "title_ascii": "using the coord given by Worksheet.defined_names to retrieve the value of defined name referencing a merged cell doesn't work",
+      "description_sha256": "c805037a38d78c7928b81c1f415abb33d491831c46dfe3f137905610471b63ab",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2304,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2304",
+      "updated_at": "2025-11-25T18:55:45.599Z",
+      "title_ascii": "Conditional Formatting Rule with MultiCellRange dies on save",
+      "description_sha256": "e097d054babad81814848cf78931b45793e275343ec07377452a7b131ecc2dcc",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2302,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2302",
+      "updated_at": "2025-11-14T13:55:53.583Z",
+      "title_ascii": "Overlapping cell merges cause an error in Excel",
+      "description_sha256": "0eee7daaad0f8db0608478b27d67b31421f376c2600b20fba0aea05a623eebc8",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2301,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2301",
+      "updated_at": "2025-11-04T01:56:40.348Z",
+      "title_ascii": "Sheet Renaming Issue",
+      "description_sha256": "f202fb2ba5653bf4f08d2bd74bbfee66fdf0d09c5364e16d0833c525de102f80",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2300,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2300",
+      "updated_at": "2025-11-01T13:48:42.957Z",
+      "title_ascii": "JADWAL PIKET",
+      "description_sha256": "7aa683fadbcb1dcfec0a604a8ff4f57148a5a3564467ad5566eac1f69629b175",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2299,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2299",
+      "updated_at": "2025-10-21T08:26:04.270Z",
+      "title_ascii": "Empty sequences cause \"needs to be repaired\" Excel error",
+      "description_sha256": "01b89503dbf59af6d488eeb8458209fcd7b3cda43a36dc1d9fc29c98219c33f6",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2298,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2298",
+      "updated_at": "2025-10-02T06:20:02.503Z",
+      "title_ascii": "Bug Report: Excel File Corruption with Adjacent Bold TextBlocks Separated by Whitespace",
+      "description_sha256": "627665668a0aab675291d88f81a898dae1fbb82ca7c1517cc043b4308df26026",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2297,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2297",
+      "updated_at": "2025-10-02T00:14:00.349Z",
+      "title_ascii": "Images are not being found",
+      "description_sha256": "de648aadd12065b2d2e46bf64d24ee018d6b93dc47ec6307184d9ff5bca9f64f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2296,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2296",
+      "updated_at": "2025-10-10T17:00:40.187Z",
+      "title_ascii": "Update for latest Python versions",
+      "description_sha256": "300de90007dc614eb114a3903d03325aa3195fc426bbcf19a6a3c0b81d737f2e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2295,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2295",
+      "updated_at": "2025-09-23T06:12:12.894Z",
+      "title_ascii": "Remove unused compat.product module and clean up unused import",
+      "description_sha256": "30f0d0b4e4e5c1f352018e61787a8efb829ce92e10d5368d47240c47da141a9b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2294,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2294",
+      "updated_at": "2025-09-13T14:04:18.310Z",
+      "title_ascii": "openpyxl.formatting.rule.Rule's hash() implementation is broken",
+      "description_sha256": "0893129440d7348fa756214abde8a2b1060fe5e241c99f7427f22c67369c61e4",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2292,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2292",
+      "updated_at": "2025-07-28T20:27:41.956Z",
+      "title_ascii": "Shape Not Recognized As Chart",
+      "description_sha256": "52d5b38139ddea131f606ee56ebe5de287d6cde2b201d02e38c35389782982ac",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2290,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2290",
+      "updated_at": "2025-08-31T06:23:01.866Z",
+      "title_ascii": "Confirm python 3.12 support",
+      "description_sha256": "9cca7d19ce6dc87e18100df63ae83ca9bde236bd8eaa85c4ff4c67435918ebdb",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2289,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2289",
+      "updated_at": "2025-07-14T13:43:40.578Z",
+      "title_ascii": "Comments are applied incorrectly to WriteOnlyWorksheet if no style is applied",
+      "description_sha256": "eccdca537eed3b0fa0aa942ce44723b216eab12c8d60b4c0243112527938568a",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2288,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2288",
+      "updated_at": "2025-10-10T17:08:56.825Z",
+      "title_ascii": "`doc/Makefile` is non-functional",
+      "description_sha256": "f269024a68050a73b198d0d1068d93b629109a750d99397de8e5d1f63004a4f4",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2287,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2287",
+      "updated_at": "2025-06-12T14:18:33.737Z",
+      "title_ascii": "Excel Repair Error: Removed Records: Named range from /xl/workbook.xml part (Workbook)",
+      "description_sha256": "62ed5069bd98e7c9a017047b4633ac3d7c2016b3c7054014b632d895adf88556",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2283,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2283",
+      "updated_at": "2025-05-08T13:16:12.116Z",
+      "title_ascii": "Generating an InlineFont from an existing Font doesn't seem to match the docs",
+      "description_sha256": "f089e9e69cbdeaa4ffb04798337cd97ec85f5823318b2ecd641f5a72d13c9d60",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2281,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2281",
+      "updated_at": "2025-04-16T08:53:44.280Z",
+      "title_ascii": "Pivot cache is fully parsed multiple times",
+      "description_sha256": "7e8fa23c7381ec00f9ce79110c9c2b01b189cf05b0a47f22cbc7f9f0378e793b",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2279,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2279",
+      "updated_at": "2025-07-08T12:35:42.615Z",
+      "title_ascii": "When saving a file with images, it reports 'I/O operation on closed file'.",
+      "description_sha256": "ec5d6e49e3f9d057e73bb3c0c23a737377d3250f6f6dbb4fc0c9293aef5adfd4",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2278,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2278",
+      "updated_at": "2025-03-18T08:37:01.173Z",
+      "title_ascii": "Unhandled exeptions (IndexError, LookupError, TypeError) in load_workbook",
+      "description_sha256": "a03d243b03ea1677f6824fce22bbe606af168083062fb507af07022717668587",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2274,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2274",
+      "updated_at": "2025-10-03T15:55:08.142Z",
+      "title_ascii": "Use CellRange objects for extensively tables, formulae, conditional formatting",
+      "description_sha256": "cecb2cd88bc76e7c79ffdac50626a248e00e2424dd1799346569f36b3811fcf9",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2272,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2272",
+      "updated_at": "2025-02-26T01:00:20.308Z",
+      "title_ascii": "Update URL in documentation for tokenizer",
+      "description_sha256": "f263c43eb205561aef629a646cf0ce0041986165cbd60d1547535c89d3fc746d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2271,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2271",
+      "updated_at": "2025-02-19T16:57:28.539Z",
+      "title_ascii": "worksheet password seems not to be enforced while worksheet protection is enforced",
+      "description_sha256": "158acb07dac02d57c6a4370d020b53f15dcdfe3a044e7e65da35bfe4c792677b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2269,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2269",
+      "updated_at": "2025-05-19T08:40:35.409Z",
+      "title_ascii": "3.1.5 charts incorrect",
+      "description_sha256": "ef2cd9dbab7aa33e50d32e3d86fb654bf588cd66ea59dbe615a665fbb796a4c5",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2268,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2268",
+      "updated_at": "2025-02-12T04:43:31.619Z",
+      "title_ascii": "Workbook modified being set to current DateTime, instead of the user defined",
+      "description_sha256": "d8a92aa55da06168e1c5dc7d807902debbf2e7f9470273776e301977dab9b90e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2266,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2266",
+      "updated_at": "2025-03-19T07:10:43.778Z",
+      "title_ascii": "convert more then 1 .csv files into pivot table in a single sheet",
+      "description_sha256": "f8a015a96e446f7963fc708ca8e208748f67cc1e86a427910284a7db3e9e287b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2265,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2265",
+      "updated_at": "2025-02-03T05:11:54.903Z",
+      "title_ascii": "unexpected keyword argument showZeroes",
+      "description_sha256": "69fb0c56e50c8a02c6057497bf5171d4100eaaca2644b99549d570a16db6344a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2264,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2264",
+      "updated_at": "2025-01-29T07:47:41.451Z",
+      "title_ascii": "quote_sheetname() doesn't check for spaces in the argument",
+      "description_sha256": "f1d3915ae52fb07d665dd17f568f734f2a9201170fb2801b8a3d3bd10cd0304c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2263,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2263",
+      "updated_at": "2025-01-28T12:34:08.626Z",
+      "title_ascii": "Add option to disable negative value inversion in BarChart",
+      "description_sha256": "375d1e3b0cc9e9d3736c9e34ec82f38e8d38d633a217130f3e52595c66e330f8",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2261,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2261",
+      "updated_at": "2025-01-23T23:04:23.457Z",
+      "title_ascii": "request: improve warn message, to direct user to correct location of defect",
+      "description_sha256": "c8d7c948d44eb7f7697555c86d8fef5c9af8de3384690a117f478af84a531de1",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2259,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2259",
+      "updated_at": "2025-01-22T11:28:32.131Z",
+      "title_ascii": "Add features to read_only mode to detect sheets with filterMode=1 and to skip hidden rows",
+      "description_sha256": "9784ea9ced0cd977916cbcf3a57cdf772140f80e8b0a37ce5d246f6fec2a6741",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2258,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2258",
+      "updated_at": "2026-02-04T01:04:16.650Z",
+      "title_ascii": "Feature request: Data validation",
+      "description_sha256": "a18b81ed751d3bd14bdd9b6b4e629c79194451713ce1315190b4546aa55e1014",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2257,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2257",
+      "updated_at": "2025-10-10T13:30:19.957Z",
+      "title_ascii": "Feature request: Conditional Formatting",
+      "description_sha256": "574e7f9f9f2511ef09f6bb4744844044ababa1a83593351e84018f2b4a3a90d9",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2255,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2255",
+      "updated_at": "2025-01-06T02:59:50.493Z",
+      "title_ascii": "When using the openpyxl library, an error occurred while calling the load_workbook method to load a specific .xlsx file",
+      "description_sha256": "f08b2ac6f53f25a8589010cfdd0ebee2a8755499db79e973bf4ccad8eced1cb2",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2254,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2254",
+      "updated_at": "2024-12-12T06:27:53.900Z",
+      "title_ascii": "Saving workbook with pivot table makes Excel drop pivot table",
+      "description_sha256": "0114dcfa703218c7d0cefeb4f68bba874a21993ab704eaf708fe86f86dac5b05",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2253,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2253",
+      "updated_at": "2025-10-01T12:12:38.473Z",
+      "title_ascii": "Opening and saving a workbook with images inserted using \"place in cell\" (Office 365 feature) deletes images, replacing with \"#VALUE!\"",
+      "description_sha256": "1037d0a0f8be64141a67eb8b21198caa03152da57aebec9a895507740fdac7ef",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2251,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2251",
+      "updated_at": "2024-12-03T19:24:18.353Z",
+      "title_ascii": "Improve documentation and handling of deleting worksheets",
+      "description_sha256": "13ddf27746751932bb4ac017485ec3d442aa8d91b1b8b3a1bc16c5b11248fec1",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2250,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2250",
+      "updated_at": "2026-07-30T21:19:56.377Z",
+      "title_ascii": "Data connection is lost between worksheets when using load_workbook",
+      "description_sha256": "242fe6e7a6db5cbc545a0bbf279ef9a1bb29a920edf06bf8801367b375ab803d",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2249,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2249",
+      "updated_at": "2024-11-17T13:15:59.024Z",
+      "title_ascii": "Font copy is not as intended and Calibri is set",
+      "description_sha256": "e0dcf695f21ab80c4133414440851daa3bbafe6219b8f887fa3c76dbf0c35d20",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2248,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2248",
+      "updated_at": "2024-11-15T19:57:36.894Z",
+      "title_ascii": "Series import error for the section Scatter Chart",
+      "description_sha256": "a358aad342f3786cecdcf8aa4089bc609755ec73cf4f57a2b839c61a3eaf0a5c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2247,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2247",
+      "updated_at": "2024-11-13T16:28:46.902Z",
+      "title_ascii": "Feature request: Support `worksheet.add_data_validation` in write-only mode",
+      "description_sha256": "6803c31134b621520dfddb7b49f99dbaa1e2aa55ef265e32852deea27abcb124",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2243,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2243",
+      "updated_at": "2025-04-08T15:40:38.849Z",
+      "title_ascii": "Cell rich text TextBlock with only whitespace corrupts file.",
+      "description_sha256": "af0675e7b8bdc37e988fc7bd103a3a87c4304dbf90cc0e28c2f0132a5a5e8441",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2241,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2241",
+      "updated_at": "2024-10-28T18:44:18.482Z",
+      "title_ascii": "Embedded Files dropped on Workbook Save",
+      "description_sha256": "82fcc32787c90297466534b08adb6dd7e9f7692d9c973d19ff6acbebf408a924",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2240,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2240",
+      "updated_at": "2024-11-13T10:33:52.975Z",
+      "title_ascii": "Different results with read_only=True",
+      "description_sha256": "2b0d07a2d37f2213a376b6541cfe951dedf4eb10e7e1739b2823436aaeeeba6c",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2239,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2239",
+      "updated_at": "2024-11-18T10:11:41.249Z",
+      "title_ascii": "Typo Issue",
+      "description_sha256": "ce67d505be1859b8516a157b44380d2076d61936a1528ce48bd096319a38b423",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2237,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2237",
+      "updated_at": "2026-05-13T08:02:48.248Z",
+      "title_ascii": "Raise exception when load work book containing column with attribute 'phonetic'.",
+      "description_sha256": "b9b03d60702d95339471d20d70ec41fe05996752ca957aa8798e7a4fe9955ca9",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2236,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2236",
+      "updated_at": "2024-10-08T10:49:06.935Z",
+      "title_ascii": "Weird behavior when checking filename in Workbook.save()",
+      "description_sha256": "260d2c5158f0410bba0f7bcdf8b6a96b15f8ecd58f7ffffeabac96a93ea5a152",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2235,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2235",
+      "updated_at": "2024-10-04T20:46:56.874Z",
+      "title_ascii": "CellRichText class disrupts line breaks when they appear alone as items in the text list.",
+      "description_sha256": "45fc98c1be3d0777d5c76ffc188d6c62c24e03e66fcd5ff76fce78d6348ab3eb",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2234,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2234",
+      "updated_at": "2024-09-30T12:35:11.833Z",
+      "title_ascii": "3-D Rotation is missing after wb save",
+      "description_sha256": "87f59e3d05d045ec7c70d49be8e6342832eabc8e2ed2d2d85d6be89e22e826d5",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2233,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2233",
+      "updated_at": "2024-09-29T09:35:35.477Z",
+      "title_ascii": "If a sheet in an excel file contains a large area of merged cells, it can cause the code to keep looping through the merged cells",
+      "description_sha256": "904a73a21a794ad146f7ae467c8e37aa8076b4d20a41a20cd4b938d0c15cef0c",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2232,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2232",
+      "updated_at": "2024-09-27T11:24:06.101Z",
+      "title_ascii": "OpenPyXL Modifies External SharePoint Links to Local File Paths After Saving Workbook",
+      "description_sha256": "adc8af07d3cb61e4347c001b41341fe5bee5c8ccc2d00b99166588324a455389",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2231,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2231",
+      "updated_at": "2024-09-23T15:58:52.664Z",
+      "title_ascii": "version 3.1.0 and later excel pre-defined print area issue",
+      "description_sha256": "08f6a36e0467dce9d9ea930494f7e3c3b02df83595bc53052d026fe84a260349",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2230,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2230",
+      "updated_at": "2026-04-01T16:58:52.120Z",
+      "title_ascii": "Crash",
+      "description_sha256": "e9fbf780f625c199d75b243db07f5573449609dcacc24502658a3fe6d900ce45",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2229,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2229",
+      "updated_at": "2025-05-19T08:42:43.607Z",
+      "title_ascii": "Application name \"Microsoft Excel Compatible / Openpyxl 3.1.5\" in docProps\\app.xml causes incorrect display of charts",
+      "description_sha256": "3e5aebae7b21186340ff967ec568749d500eddda7b5fcbd0ab4fcac898a756f2",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2228,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2228",
+      "updated_at": "2024-09-12T13:25:03.130Z",
+      "title_ascii": "Data Table is missing after load_workbook",
+      "description_sha256": "aaeb0c6295a4e80f3f3d58108822c155c6e2bed6f6e12f1d49bea02c34b95734",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2223,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2223",
+      "updated_at": "2024-10-01T17:42:30.327Z",
+      "title_ascii": "Too long cells get silently truncated",
+      "description_sha256": "51e4f29005deeb8e8aa2377c7d38b40cfd435947dedc7cfda5c6c05d628a8124",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2220,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2220",
+      "updated_at": "2024-09-13T21:52:31.402Z",
+      "title_ascii": "Excel Charts Corrupted After Open/Save with Openpyxl Library",
+      "description_sha256": "2b3ec9299f02f7fc4f22f358f8cdc4c74b6487ecb236c3f31f0c1dcd084dce56",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2209,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2209",
+      "updated_at": "2024-07-12T17:16:53.321Z",
+      "title_ascii": "Store hyperlinks in a separate collection keyed using a CellRange because they can be applied to range. Provide a worksheet interface and also link from cells. See #1502 for a sample file",
+      "description_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 2207,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2207",
+      "updated_at": "2024-07-04T13:55:47.726Z",
+      "title_ascii": "Slow parsing with a spreadsheet with 10k+ columns",
+      "description_sha256": "42c1b8543324a8f7769f5004af9fad259896b74b9624126efdd5674192e4cb95",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2206,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2206",
+      "updated_at": "2024-07-01T11:02:50.561Z",
+      "title_ascii": "Feature Request: Support for Sparklines",
+      "description_sha256": "b953ff425a1bc56448af21ca233710bf6181aaed825c12b7a4a1a4cf98e08c4e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2205,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2205",
+      "updated_at": "2024-06-28T09:51:05.892Z",
+      "title_ascii": "Change datadir test fixtures to use Pathlib",
+      "description_sha256": "ea6108d39f822be847bc597fd1dd9e06be377ad9b052abe42f472cd1c94ea15a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2197,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2197",
+      "updated_at": "2024-06-10T09:48:55.436Z",
+      "title_ascii": "'Set' descriptior misunderstanding",
+      "description_sha256": "67967a05a418afdcb48b3bbb8aa758381c7119368ad416629bf8aeb4af52044d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2195,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2195",
+      "updated_at": "2024-10-10T09:29:45.016Z",
+      "title_ascii": "Documentation layout changed?",
+      "description_sha256": "7ff509c6c8ca96934204831b5bd43bd7d0f69ceb6c3b0cd92d9bfa2472aac64e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2185,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2185",
+      "updated_at": "2024-05-22T16:32:32.843Z",
+      "title_ascii": "Return merged cell in merge_cells function",
+      "description_sha256": "80285d4c53d3fb90da46007d81543d746fd9d5b707a14bfa656c37de184eac78",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2182,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2182",
+      "updated_at": "2024-05-01T11:52:04.359Z",
+      "title_ascii": "feature request: circular formulas - how I did it in openpyxl 3.0.9",
+      "description_sha256": "9bc981e131c03f5521656c430fb5c74a29255930bc8771254480933d57b276f6",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2181,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2181",
+      "updated_at": "2024-04-26T15:21:54.860Z",
+      "title_ascii": "Formatting is lost if loading XLSM template and saving",
+      "description_sha256": "a03a42051960f3f563a838068c004fca3cef35305dbb459598a85a68375de85f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2170,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2170",
+      "updated_at": "2024-05-22T20:44:40.429Z",
+      "title_ascii": "Excel workbooks saved in \"strict mode\" don't show any sheets in openpyxl",
+      "description_sha256": "7077e05db2e12ca1d6f2801b10f6f2b7a68db2822a910f5fd2cfa877d3bc0257",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2167,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2167",
+      "updated_at": "2024-04-03T12:45:07.424Z",
+      "title_ascii": "ASCII codes from 26 to 31 are not being escaped correctly",
+      "description_sha256": "2618df7c029ea2bd645e44e940888e6b9d1feaf1e5fb7f5752651ac7f22d8a26",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2161,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2161",
+      "updated_at": "2024-03-23T03:16:22.666Z",
+      "title_ascii": "Issues with Pivot Cache",
+      "description_sha256": "62a69d36cfb18d6ff2c500bda0f2a364a402806edb439feba3f271795dee0973",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2160,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2160",
+      "updated_at": "2024-04-17T05:22:43.541Z",
+      "title_ascii": "Comments are lost when loading existing xlsx files then saving",
+      "description_sha256": "561c8ba70ad1c9924231ca62bf0685959c1864761a40d1510767ed037a6d7333",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2156,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2156",
+      "updated_at": "2024-03-06T16:43:22.836Z",
+      "title_ascii": "ValueError: All strings must be XML compatible: Unicode or ASCII, no NULL bytes or control characters",
+      "description_sha256": "7529009e96ae888863369faf6865aef8b8ff97ea587253a67807beeb4ca61852",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2147,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2147",
+      "updated_at": "2025-02-27T15:40:01.312Z",
+      "title_ascii": "openpyxl 3.1.2 will not open workbook with PrintTitles set to \"#N/A\"",
+      "description_sha256": "e786a25427efce64964a78045efc254ac5af368feb0524646c66e0b820fd30e7",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2143,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2143",
+      "updated_at": "2025-06-26T21:14:58.783Z",
+      "title_ascii": "Find a replacement for readthedocs",
+      "description_sha256": "5f280017b77bbe8871432b7559bc77139b5e6ec18aaba24ca7d1945f60670a88",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2142,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2142",
+      "updated_at": "2024-02-08T09:19:57.879Z",
+      "title_ascii": "Switch worksheet serialisation to async",
+      "description_sha256": "73d962f774134d56b158aa40df0202e59aaaed50bdd0b1f955a0c7bc2456f7e8",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2141,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2141",
+      "updated_at": "2025-02-04T16:08:43.903Z",
+      "title_ascii": "Reading an image causes workbook.save() to fail with ValueError exception",
+      "description_sha256": "06f0d8d2dc0ace5225602604f085fe3222b45045abb83bdb280e4da523032fb5",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2140,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2140",
+      "updated_at": "2024-02-05T13:27:15.420Z",
+      "title_ascii": "Sheet Id is not correctly parsed, so sheet is skipped",
+      "description_sha256": "f64d93aae98ebb8dcfd044adfe7d8864b8e939399f42c7171e2ff5d737cb99d1",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2135,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2135",
+      "updated_at": "2024-01-30T09:59:15.773Z",
+      "title_ascii": "TypeError: expected <class 'openpyxl.styles.fills.Fill'>",
+      "description_sha256": "702262071ea86f45ecad41636c3f197bfba7348a757846e1b7612275aef5ef40",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2132,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2132",
+      "updated_at": "2024-01-15T14:46:24.400Z",
+      "title_ascii": "Add support for svgBlip extension",
+      "description_sha256": "d7b4e08309f98c4fc660605f0f0ff180c536e6ba96af82f9afed844b8f4a26fd",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2130,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2130",
+      "updated_at": "2024-01-18T11:23:12.516Z",
+      "title_ascii": "Read xlsx file contains ole objects and save it make xlsx file corrupted or ole objects missing",
+      "description_sha256": "5539f9d55a6f183622730d61de45d0c32e41da6e34d4d7b5759efea343903d18",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2127,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2127",
+      "updated_at": "2024-02-08T10:38:20.260Z",
+      "title_ascii": "BarChart `set_categories` shows unexpected, buggy behaviors",
+      "description_sha256": "42de7271bd219659a9f12044a53db5c317aba050df757f46b1510e34a656381b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2125,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2125",
+      "updated_at": "2024-02-20T15:28:17.442Z",
+      "title_ascii": "Hidden column not marked as such in column_dimensions",
+      "description_sha256": "4eddba435cc2357d7ff77dd30ccbaff07bac63323803dffcb14b1fb565f921f7",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2121,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2121",
+      "updated_at": "2024-01-12T13:55:16.549Z",
+      "title_ascii": "loading a workbook fail when PrintTitles is NoneType",
+      "description_sha256": "62f91eb10e01b410bd3d1e5f8a178754ea0f553132cfb31e7900de827c14865b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2114,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2114",
+      "updated_at": "2023-11-24T01:31:33.018Z",
+      "title_ascii": "Parsing support for Python in Excel",
+      "description_sha256": "cbea50aac95a3eaaac5b94248470a1de7aaa9c301f5173fc066846368a1d61de",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2113,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2113",
+      "updated_at": "2023-11-16T12:02:06.077Z",
+      "title_ascii": "Add repr for dimensions",
+      "description_sha256": "facfcd58350f6e955c7a82b48ebc92b786f7e52fbb20519fb6f2966e2033e6a9",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2111,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2111",
+      "updated_at": "2024-09-05T22:10:14.052Z",
+      "title_ascii": "UnboundLocalError: local variable 'cell' referenced before assignment",
+      "description_sha256": "305414550eefcfb7efc1835cc6489409e47dca46e9431d024491312248ac948b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2109,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2109",
+      "updated_at": "2023-11-07T11:27:03.956Z",
+      "title_ascii": "Saving workbook stream with stream images raise an error",
+      "description_sha256": "3d2cee38bd0961057ed277c32ee18b294d5d50e1b96c0565fab80bc0c9452caf",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2105,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2105",
+      "updated_at": "2023-11-01T23:51:37.681Z",
+      "title_ascii": "Empty second row when using dataframe_to_rows()",
+      "description_sha256": "20fd385d9eee7ae1e38c7d7dd9a2c033d0e26e3013224ac6b216b7282e7fc4bd",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2103,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2103",
+      "updated_at": "2023-11-01T23:22:10.605Z",
+      "title_ascii": "Alt-Text for Images and Charts - Feature Request",
+      "description_sha256": "c2fafcbcd85522c7e2233d89b30b0d04189938a60d8dd813269a7ec08e32186f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2101,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2101",
+      "updated_at": "2023-11-22T08:54:31.017Z",
+      "title_ascii": "Workbook saved (containing a chart with a secondary axis) is invalid",
+      "description_sha256": "e9f4e809c55661df30e9d1fa6a9b3f06cec302fbd22280800382d6c80fb54d49",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2100,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2100",
+      "updated_at": "2025-03-13T16:14:39.732Z",
+      "title_ascii": "Excel file containing image gets corrupted when trying to save the excel file twice",
+      "description_sha256": "309220d7c861f489097e175ed5009c4b93c63fe84ab9d0c89babccdb65411df3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2099,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2099",
+      "updated_at": "2023-10-24T19:21:09.076Z",
+      "title_ascii": "Improper un-escape of underscore _x005F_",
+      "description_sha256": "9f6baabce61c5bbe4e351546fe1e567e65edd804200681f5cb358d00281e3138",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2094,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2094",
+      "updated_at": "2023-11-25T10:40:40.319Z",
+      "title_ascii": "Validation rules are just not working from Openpyxl 3.1.0",
+      "description_sha256": "d7558647b314d00f5d2ddf4ac822f254e73a1a356615ed263886f63f0755518f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2091,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2091",
+      "updated_at": "2023-09-22T12:34:50.340Z",
+      "title_ascii": "Openpyxl disable {ignore_blank} in all cell validator in Workbook (openpyxl 3.1)",
+      "description_sha256": "169dc10982fd72965a492618ac10fd7f5ebd2d23cd120e3dabf997c686eb7724",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2090,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2090",
+      "updated_at": "2023-09-14T01:29:54.076Z",
+      "title_ascii": "Is it possible to get a deep copy of a workbook object?",
+      "description_sha256": "176606f87dc95aecbd02f829b1844952de8432884aa4659ad757a0cdadf44249",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2084,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2084",
+      "updated_at": "2026-08-06T06:55:22.121Z",
+      "title_ascii": "Worksheet: unmerge_cells() raises KeyError when unmerged cell does not exist in self._cells",
+      "description_sha256": "03c8e297554f5020d34772ac857e4316b06b540629ebd88903a01a9decee2cfa",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2083,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2083",
+      "updated_at": "2023-11-24T01:41:39.805Z",
+      "title_ascii": "Python cells in openpyxl",
+      "description_sha256": "12196149f618032b5bfa08c55f1f93e0055885e28f9145c10d5760b2f1b92557",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2082,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2082",
+      "updated_at": "2023-08-22T14:29:46.349Z",
+      "title_ascii": "Chart being renamed after saving",
+      "description_sha256": "72e7d691d925d022658dadc1c08c4eac50d4fa061133bb499888eb69428dd999",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2080,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2080",
+      "updated_at": "2023-08-15T11:11:24.269Z",
+      "title_ascii": "Conditional formatting on pivot tables is not preserved anymore in version 3.1",
+      "description_sha256": "fdd090aa1b6623934ac8d55f877822377a65a0830d98cc0be7d2b361a47b891c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2079,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2079",
+      "updated_at": "2024-09-30T17:30:00.109Z",
+      "title_ascii": "Print area cannot be set to Defined name",
+      "description_sha256": "9ab3a909728e9e3f427008674de656b84342cb3e695f190f511d1d252fb1f507",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2077,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2077",
+      "updated_at": "2023-08-11T02:56:03.473Z",
+      "title_ascii": "Bug: worksheet.merged_cell_ranges return exception",
+      "description_sha256": "26c0d5fd07b998c17adb3f16eea66a10232c4c7f37454c103f89da2e98083fad",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2076,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2076",
+      "updated_at": "2023-08-11T12:56:50.334Z",
+      "title_ascii": "Change Combobox to Image",
+      "description_sha256": "19ce5852411af4d3a158aa93c3ffccb841b486a401873a9b545aa1e9fae8cb60",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2075,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2075",
+      "updated_at": "2023-08-08T08:42:45.075Z",
+      "title_ascii": "Shapes and Text in shape getting lost when saving",
+      "description_sha256": "d793c3e7b54b344d2ca64ed95c3e0f23f4a1d790a22e28e66a75fee5ab946f5b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2074,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2074",
+      "updated_at": "2023-08-06T13:49:48.744Z",
+      "title_ascii": "Suppress add_table write-only warning if tableColumns is not empty",
+      "description_sha256": "826e134a1af0bace0cc7250e8edf06560fe7a760df7f4f0167f0475813cd6764",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2073,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2073",
+      "updated_at": "2023-08-02T09:54:51.811Z",
+      "title_ascii": "Remove worksheet without cleaning up temporary files",
+      "description_sha256": "ddbf95a81039da20c454b4060d0ed5fbd201670eca551de8f41b167c50e6d00f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2072,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2072",
+      "updated_at": "2023-08-02T12:29:04.275Z",
+      "title_ascii": "copy_worksheet Does Not Copy Worksheet Scoped Named Ranges",
+      "description_sha256": "ae29e04ebc26667eb51a5df04d75f868d7d43b0779e8f14dfed8bb4092fd9c12",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2062,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2062",
+      "updated_at": "2023-07-05T10:30:06.763Z",
+      "title_ascii": "Error in documentation \"Conditional Formatting\"",
+      "description_sha256": "a612391492a9535610d91c14cfd3c84bb2371ba79f07480e5a485544d9756fef",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2059,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2059",
+      "updated_at": "2025-08-31T06:30:45.240Z",
+      "title_ascii": "A distinction between comments and notes?",
+      "description_sha256": "cc62655e10bbc695992989363874e493e66ba6f6ce8d4ff0884e173c519fc0a3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2058,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2058",
+      "updated_at": "2023-06-30T15:02:56.840Z",
+      "title_ascii": "Cell format is lost when writing data",
+      "description_sha256": "1f208f86519242504798f061bfa6f8cf321246daca930ee9aa2af75512eb716b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2050,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2050",
+      "updated_at": "2023-06-08T12:01:38.944Z",
+      "title_ascii": "Add import/export support for Polars dataframes",
+      "description_sha256": "b64562262289d1ee335b3b7b1a0900f09faa6d0295680a2f18f2910b0856ed4c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2042,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2042",
+      "updated_at": "2023-12-14T12:05:24.844Z",
+      "title_ascii": "File handle leaks on unsuccessful save",
+      "description_sha256": "55d495a4889788aace9dbafc9455a45bac4f577600e4f057d96394ef6959df7c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2041,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2041",
+      "updated_at": "2024-09-05T08:12:28.875Z",
+      "title_ascii": "Can't do a branch in this repo and ide doesn't work",
+      "description_sha256": "0b563dc42b28e52b41a4246b9e415a78316e1daedf7bba5dce7f65d6283eeda6",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2038,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2038",
+      "updated_at": "2023-05-16T08:14:22.069Z",
+      "title_ascii": "excel 3",
+      "description_sha256": "1c5fe19edee5ce66864e5e54463da22830aca62c76d19ca63de82cc56b185f16",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2036,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2036",
+      "updated_at": "2023-05-12T05:00:25.966Z",
+      "title_ascii": "Pivot fields calculated as a % of parent row total get broken on saving file",
+      "description_sha256": "9ddd94e0a7c41bd89d7683d5aea88c5328640d3ec76430c995793b9bf19d97a9",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2035,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2035",
+      "updated_at": "2023-05-10T14:56:30.405Z",
+      "title_ascii": "Inconsistent `__elements__` dunder type for `GroupShape` and `NonVisualDrawingProps`",
+      "description_sha256": "502aba15002ab4da12c51a20fb889052a5a43ad149a543ab82128696ba1a3341",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2034,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2034",
+      "updated_at": "2023-05-12T13:42:22.125Z",
+      "title_ascii": "Ability to save to a file handle instead of a file name is undocumented",
+      "description_sha256": "a0daaa873fec1dd9e844794fefc8a9a7075bec740091bcd1338fc8d87f48c418",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2029,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2029",
+      "updated_at": "2023-04-27T21:39:02.730Z",
+      "title_ascii": "generator created by using dataframe_to_rows on an empty dataframe with multiindex for openpyxl == 3.1.2 gives IndexError: list index out of range when trying to convert to list",
+      "description_sha256": "f43a445abafb899f15d4b538955fe7f7e541422cd8661ff78d275668cc97b135",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2026,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2026",
+      "updated_at": "2023-04-25T09:40:17.823Z",
+      "title_ascii": "error write to excel",
+      "description_sha256": "4ad128cd5f45b483e5699b17c9dac606089b77f100139816e5ece34a3d2e70c2",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2024,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2024",
+      "updated_at": "2024-08-27T08:27:58.776Z",
+      "title_ascii": "Bug: Styling Merged Cells and Border - don't work",
+      "description_sha256": "c653faf2baeb32910dde99bab0bb7642e1f3515ad246a5deade8abd4f1c95f1a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2020,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2020",
+      "updated_at": "2023-04-21T09:38:18.859Z",
+      "title_ascii": "Length limit or warning for RichText elements",
+      "description_sha256": "2e056e35235c6997bfd1cdea3134cb3c766fd442122bc4480b0ec62f02da9c82",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2019,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2019",
+      "updated_at": "2026-08-04T18:28:11.993Z",
+      "title_ascii": "openpyxl save corrupts simple xlsx workbook with external link",
+      "description_sha256": "0ae85c963d84cbdafef39366bc8d7d0a9eb17543140112412f704d09a9ef558c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2018,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2018",
+      "updated_at": "2023-05-21T18:17:04.100Z",
+      "title_ascii": "Cannot read excel files when custom document property has no `name` attribute",
+      "description_sha256": "1c152c40c9353f7d2e8729d4ca5fc48f23ba9192d52d25aa671c1815f3e1708a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2006,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2006",
+      "updated_at": "2023-04-06T15:37:09.269Z",
+      "title_ascii": "Add `width` and `height` properties to `CellRange` objects",
+      "description_sha256": "ee8db254646305e86447204fdd4a75f7ad4e7739aea29a11de41fc0498faa153",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2004,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2004",
+      "updated_at": "2025-01-21T15:30:31.872Z",
+      "title_ascii": "Excel files are being corrupted after processing",
+      "description_sha256": "a9bdf0445c11bb4eddf2c47c5fb17f91ee1d3c07edc83a02da2b2876fb6c55f8",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2003,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2003",
+      "updated_at": "2023-03-29T15:43:04.013Z",
+      "title_ascii": "Use slots for Serialisable objects",
+      "description_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2002,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2002",
+      "updated_at": "2023-03-29T15:42:29.589Z",
+      "title_ascii": "Implement cell.data_type as a cached property",
+      "description_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2001,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2001",
+      "updated_at": "2023-03-29T15:42:08.860Z",
+      "title_ascii": "Only assign styles when reading if style_id != 0",
+      "description_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 2000,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2000",
+      "updated_at": "2023-03-29T15:41:42.875Z",
+      "title_ascii": "Set keep_links=False by default",
+      "description_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1999,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1999",
+      "updated_at": "2024-07-12T17:16:53.451Z",
+      "title_ascii": "Reduce memory footprint",
+      "description_sha256": "8090a6b4c5a7e08469936b3422cb5a3694587162914870ef59c3cd62f376235b",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 1997,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1997",
+      "updated_at": "2023-03-29T03:53:36.047Z",
+      "title_ascii": "Code signing certificate lost when saving file",
+      "description_sha256": "231edc1a8e98752a547a11f8655d67bd7989d176278e5958c232d119f849fb94",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1994,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1994",
+      "updated_at": "2024-10-24T10:44:42.213Z",
+      "title_ascii": "Separate outlining from formatting for column (and possiby row dimensions)",
+      "description_sha256": "b4ae29885051187436a297af2f8b719fdf4278697fccfdc6f797ba09f738553d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1990,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1990",
+      "updated_at": "2023-03-11T16:42:03.662Z",
+      "title_ascii": "Create conversion utilities for Excel tables and PivotTables to Pandas Dataframes",
+      "description_sha256": "46cf4048acf1b0e0fcf4bc17c504fe309671982e78123694456a3cd09eb5b83d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1989,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1989",
+      "updated_at": "2024-02-07T17:18:34.578Z",
+      "title_ascii": "File corrupted",
+      "description_sha256": "9438d82316de2914189e13c7455fca82a607cc1a666ea3f70c3a526ef996d6ab",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1981,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1981",
+      "updated_at": "2023-02-27T10:06:32.960Z",
+      "title_ascii": "Setting active sheet does not unset active attribute of previous one",
+      "description_sha256": "adac1ce5baada347911f4682287456884179e333b08d37bcc93695b15ac63ef7",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1979,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1979",
+      "updated_at": "2026-01-10T12:17:37.678Z",
+      "title_ascii": "Support for checkboxes",
+      "description_sha256": "8c00eace9fbc81de40736ae0b476e78e0b4f37b2d23000ac40c3ceaff1017c94",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1970,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1970",
+      "updated_at": "2023-02-17T16:48:36.487Z",
+      "title_ascii": "Allow chartsheets to contain multiple charts",
+      "description_sha256": "c91f8720e0928b956cb37aa40e16840e6dcc830cc92ee7cb91805d4c376e605a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1964,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1964",
+      "updated_at": "2023-02-14T09:09:28.051Z",
+      "title_ascii": "Some program saves xl/SharedStrings.xml instead of xl/sharedStrings.xml, and openpyxl cannot load such file as workbook",
+      "description_sha256": "47ea503f78d5805baf151db49805b4d06e9d5db099298b94c5f3cd5ef675c786",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1962,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1962",
+      "updated_at": "2023-03-21T16:15:56.426Z",
+      "title_ascii": "Tutorial \"saving as a stream\" (replacement of save_virtual_workbook) code does not work",
+      "description_sha256": "ae320ba9b469bfd55bb7780433903b77fa1cf9eba75b8902fc4c1e4900fb32d9",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1960,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1960",
+      "updated_at": "2025-03-09T15:51:39.291Z",
+      "title_ascii": "openpyxl version 3.1.0 exhibits different behavior than 3.0.10",
+      "description_sha256": "b7b957f71a2cc58c8f1021d486fde78b70c3193933af33bda9cb9deb2cbe70f6",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1959,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1959",
+      "updated_at": "2024-08-19T09:38:42.100Z",
+      "title_ascii": "Getting \"Value must be either numerical or a string containing a wildcard\" exception when using version 3.1.0",
+      "description_sha256": "497420bbb679479799fd01cb8eab3c39043a3ee1fcf771e893d948bbfc3b9a08",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1957,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1957",
+      "updated_at": "2023-02-08T13:11:21.775Z",
+      "title_ascii": "conditional formatting contains simbol will be removed !!",
+      "description_sha256": "6bdeb02038d4ecc197789cbe262e4e5adbadab00aace0eb119a3c2c7cff8c6c3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1945,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1945",
+      "updated_at": "2023-01-30T08:48:59.022Z",
+      "title_ascii": "The openpyxl module has problems when writing data to a sheet if there are pivot tables in the document",
+      "description_sha256": "28ff31784c9041e919a5cf1115ffce7020b70b4f7762ca3596258e142699e58d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1943,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1943",
+      "updated_at": "2023-01-27T14:04:32.449Z",
+      "title_ascii": "Bug: Data Segmentations is lost after saving",
+      "description_sha256": "dfd4b7dcf0742ae9f0feb3925a8ed0cf359650cc981b8665b7c3818583443fe2",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1932,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1932",
+      "updated_at": "2023-06-28T12:58:44.797Z",
+      "title_ascii": "Defined Name RANGE for a table column",
+      "description_sha256": "4687453be4b484318c52c15b7ef3852c17626f47463ebc2487d78f9bb81e7193",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1927,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1927",
+      "updated_at": "2023-02-01T10:35:28.789Z",
+      "title_ascii": "Access to NumberFormatLocal",
+      "description_sha256": "a71f2fe6156c6d987f582d7cdfd8b633819200759a0d830e865e91bff9ffebee",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1916,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1916",
+      "updated_at": "2023-01-31T14:21:58.760Z",
+      "title_ascii": "worksheet.delete_cols() broken in releases >= 3.0.4",
+      "description_sha256": "305e2a3eb0e3881701a7f894ffe854890b21c4fa4f6974ed4396fc6f29ba32de",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1903,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1903",
+      "updated_at": "2022-10-26T16:21:35.581Z",
+      "title_ascii": "plot_area layout is not written to resulting chart.xml",
+      "description_sha256": "3041df6c1718f6a6ad510e750d922bfb180a6b6596cb1d6299dce53a6d167786",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1900,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1900",
+      "updated_at": "2022-10-24T08:46:44.826Z",
+      "title_ascii": "Feature: use PyFilesystem zipfile instead of zipfile",
+      "description_sha256": "f33b3e4e4e55e2bd91f571447d1d2bc98c787ca461bae98a8f8352a1e05fee4c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1898,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1898",
+      "updated_at": "2024-03-03T23:03:54.199Z",
+      "title_ascii": "Feature request: Cell Metadata",
+      "description_sha256": "fa03b315e726f7cb047bbb0a25aae8319508a41c98689392218571d0df6c2c42",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1866,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1866",
+      "updated_at": "2022-08-05T15:56:10.999Z",
+      "title_ascii": "Support strict namespace",
+      "description_sha256": "50bbc0e5e55c88aef96efa64a477a48d0dbdd72902e46a567bb55313428d960f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1843,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1843",
+      "updated_at": "2024-02-07T17:18:34.888Z",
+      "title_ascii": "add image from other worksheet error:",
+      "description_sha256": "923826678dec3b014b30c0bac0c213122025ee0403a5b0b3e0df91f98c48a13f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1839,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1839",
+      "updated_at": "2024-01-15T14:09:52.770Z",
+      "title_ascii": "Tag namespace is not passed down to extLst",
+      "description_sha256": "bc39a3f35578e274964faf058eb46e98048fd02ccee5dede5381dc4b69b76eff",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1827,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1827",
+      "updated_at": "2022-05-20T07:41:23.325Z",
+      "title_ascii": "Tag for 3.0.10 missing",
+      "description_sha256": "d8a609a8a8af041b3c7f8c1223ec5faed866d5ee2a65aedba654e263837bbfa1",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1825,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1825",
+      "updated_at": "2022-05-11T15:27:48.452Z",
+      "title_ascii": "definedName with no value causes unhandled TypeError",
+      "description_sha256": "f696711ee3d1321189e25acf4e16a80a13126027f7dbabf12a17b05e228acb8a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1798,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1798",
+      "updated_at": "2022-10-06T14:08:03.919Z",
+      "title_ascii": "sheet.insert_rows leaves hyperlink unchanged",
+      "description_sha256": "02f413378eea78a4c37af462f99ef995850c5bdded899749ea7d2d6e8d690d41",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1796,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1796",
+      "updated_at": "2024-01-18T19:12:08.419Z",
+      "title_ascii": "TypeError: __init__() got an unexpected keyword argument 'id' (case 2)",
+      "description_sha256": "8e9c185d06911cf48c381177548008215f635b5a3e3b8b5ca520d854f17fe81b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1790,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1790",
+      "updated_at": "2022-03-28T16:23:38.406Z",
+      "title_ascii": "Merged Cell protection",
+      "description_sha256": "91947d0162f86c215506863b12730e10c9ff4e3f46755af5d1041d45bf9862b1",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1788,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1788",
+      "updated_at": "2022-02-01T21:28:22.515Z",
+      "title_ascii": "Worksheet.row_dimensions.group() does not collapse multi-level outlines",
+      "description_sha256": "1258fa2ccc97f45057273d7e72b4e4754f7bdf206af01605a6f1b56509f42828",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1777,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1777",
+      "updated_at": "2022-06-09T13:18:31.225Z",
+      "title_ascii": "Gradient Fill does not work properly in some charts",
+      "description_sha256": "9f0b3d7ec53f7f7ad1c06e3d5257a05913bcff843a96fdf07f26a3a956da09d3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1775,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1775",
+      "updated_at": "2021-12-21T16:00:38.826Z",
+      "title_ascii": "Named Range to Line Chart",
+      "description_sha256": "c8c8bb523b5b9b7dffaf85d1e663505dc55393337909246ce3a2ad361512cf58",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1771,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1771",
+      "updated_at": "2021-12-09T09:11:04.556Z",
+      "title_ascii": "Can\\u2019t set chart fill using RGBPercent",
+      "description_sha256": "3c23438dcd87b964ee168c4fe80e9db9f02b238f345914e538d7e57aa7649219",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1769,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1769",
+      "updated_at": "2021-12-06T12:58:39.194Z",
+      "title_ascii": "Consider narrowing down bare 'except'",
+      "description_sha256": "733fd30639404cf4591a50556bcdf2ef374ff16a645e90690ec79b5e45757e9f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1762,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1762",
+      "updated_at": "2024-01-12T14:16:53.760Z",
+      "title_ascii": "Can't change DEFAULT_FONT Calibri",
+      "description_sha256": "f7bd0e631d1f0424c1b57f02b172cfb4598da5d1fbb105c1d156b35ac1a4b501",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1756,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1756",
+      "updated_at": "2021-11-19T14:33:36.900Z",
+      "title_ascii": "Merging Already merged cells",
+      "description_sha256": "69f086c60fdf2de91941178cc3748ba164346250b71a65f7f11f3df2781b225b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1755,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1755",
+      "updated_at": "2021-11-08T08:40:50.829Z",
+      "title_ascii": "Author set in comment doesn't appear in spreadsheet",
+      "description_sha256": "46777bc44c82b6d7480c134ae665beda9927376ab73fb716dd1ffe8b1e4e750a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1754,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1754",
+      "updated_at": "2021-10-19T06:21:45.628Z",
+      "title_ascii": "Bug in packaging/manifest",
+      "description_sha256": "29b2778fad5f6a947bd884841d1598771aac09ff92197e6cba50c1857d63cca7",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1753,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1753",
+      "updated_at": "2021-10-11T19:39:11.166Z",
+      "title_ascii": "Chart Area GraphicalProperties Not Handled",
+      "description_sha256": "631d87d4b897b9442a541e83890074dccd370dd9a07d3187c531df60c523ab0f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1745,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1745",
+      "updated_at": "2024-08-02T08:58:14.894Z",
+      "title_ascii": "Possibility for pass-through on non-standard data validation?",
+      "description_sha256": "977caa01dff75467dac8321c6bc56505124e58ffdabe09cabd55507e84e34155",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1725,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1725",
+      "updated_at": "2025-09-16T16:19:45.771Z",
+      "title_ascii": "Uppercased file extensions in macro ui elements causing crashes",
+      "description_sha256": "c435365d5d0c252c55bc2c8e226c9270a5169efab44870476612b81412ba144a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1718,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1718",
+      "updated_at": "2021-08-10T15:27:30.872Z",
+      "title_ascii": "Edit xlsx file with power query tables corrupt file",
+      "description_sha256": "2ba32f293220bb06a312608897e247668dddc1ecfae3200c827a4032c4d14a7b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1717,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1717",
+      "updated_at": "2021-08-10T15:20:12.980Z",
+      "title_ascii": "opening \".xlsx\" file with \"keep_vba = True\" flag corrupts the file",
+      "description_sha256": "13c4f2f8852988276be408f0f8ab6fbf57d14e9c49d3cc119ceb6b697e47a437",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1714,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1714",
+      "updated_at": "2021-08-03T11:58:53.016Z",
+      "title_ascii": "Locked Cells...",
+      "description_sha256": "450e17dcaf4855b026bb37fecec1758df54046c48fa6b8b998efdeb70204442d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1711,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1711",
+      "updated_at": "2021-08-25T19:49:15.044Z",
+      "title_ascii": "openpyxl can not read consecutive hidden columns",
+      "description_sha256": "66ea8db45e711170f6147e21f01be1c039cf73c2560f5e68d6f9d894f83b13f9",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1710,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1710",
+      "updated_at": "2021-07-28T09:30:32.159Z",
+      "title_ascii": "Export EXECL coding optimization through pandas",
+      "description_sha256": "ebc6bec236eeb7b84b25f615a8935757a0f9260e69472a15b8e27b93890a1c73",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1702,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1702",
+      "updated_at": "2021-07-01T07:27:03.710Z",
+      "title_ascii": "Need check for too many hyperlinks per worksheet [<=65,530 links]",
+      "description_sha256": "c195b442bd6d43f4332fd1d736cda38d260ec9ff626e4dd69216f724466d2abb",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1701,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1701",
+      "updated_at": "2021-06-30T11:41:27.245Z",
+      "title_ascii": "XLSX \"% Running Total In\" aggregate setting lost from Pivot Table Values",
+      "description_sha256": "57d8d540222f15d4c7d8f988c004f6fea70fbfa7b493a511fc5d7650a0051074",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1693,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1693",
+      "updated_at": "2021-06-10T16:48:29.888Z",
+      "title_ascii": "AttributeError: 'str' object has no attribute 'to_tree' when saving",
+      "description_sha256": "02d3cf0792778a953c430ae25a3afc85b3a12f1b65f1779e0c5385032697dde9",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1688,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1688",
+      "updated_at": "2021-05-27T17:43:59.379Z",
+      "title_ascii": "Value Error when loading existing workbook with pivot tables",
+      "description_sha256": "69dad8ee83b8978d4a60fc6d41ed1e28538700602127948c808781f052b71d0c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1685,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1685",
+      "updated_at": "2021-05-21T12:32:38.242Z",
+      "title_ascii": "Colums numbers provided by Excel Reader is wrong in a special case, and it looks like data is corrupted",
+      "description_sha256": "f57915523001b0cf5d030b5a3ddf3ecb1812e6f89b1b4bb1e2320fef508d8008",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1681,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1681",
+      "updated_at": "2021-08-10T13:12:54.172Z",
+      "title_ascii": "[Bug] Conditional Formatting working only in LibreOffice but not in Microsoft Excel",
+      "description_sha256": "1e4971993f8440e9b45f3d4948f79c09ced6d79b6539bac5476ae0fbc9048361",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1676,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1676",
+      "updated_at": "2021-05-05T17:52:26.824Z",
+      "title_ascii": "XLSX file needs repairing when it has two images with different internal hyperlinks",
+      "description_sha256": "7f302a6a80531f39686fb94b3462122da152d9aaf55d5866f4e55ad16660d067",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1671,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1671",
+      "updated_at": "2021-04-16T09:46:06.766Z",
+      "title_ascii": "Validate user entered formulae using the tokeniser",
+      "description_sha256": "f62d447235050330a4949d668cf8274c1dfbdee5b7a7bfa555387b5edb8f0c29",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1669,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1669",
+      "updated_at": "2021-04-13T17:23:04.415Z",
+      "title_ascii": "Define TYPE_DATE",
+      "description_sha256": "607d7558bd0ed53d1789d44e5da56dab499a253e7d9b4cddecca8d1b2ab0e39c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1662,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1662",
+      "updated_at": "2024-08-22T22:20:55.421Z",
+      "title_ascii": "Getting TypeError: __init__() missing 1 required positional argument: 'id'",
+      "description_sha256": "547bd0a8a75481b409c19451782c4aaf38a14336b9f0af4ca07ea90935fd6609",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1658,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1658",
+      "updated_at": "2021-03-31T12:06:11.636Z",
+      "title_ascii": "Python ECMA-376 spreadsheet format code library",
+      "description_sha256": "d55b6e2c2b11c8025f08a5d8dec97992272808dedf6efc936f206177f140ea90",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1655,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1655",
+      "updated_at": "2023-02-02T12:50:45.997Z",
+      "title_ascii": "No FileSharing saved with workbook properties",
+      "description_sha256": "30b3acc67b197c385e18d50234c65f30951a8c000f5fe37fe12b26e79ede57da",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1651,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1651",
+      "updated_at": "2021-03-24T09:35:37.489Z",
+      "title_ascii": "openpyxl with lxml + django + uwsgi failed to generate a right format excel file\\uff1f",
+      "description_sha256": "07ac84b2c4eda809f344764a651006723122a5533b9b034b6e5bf346279d4566",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1649,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1649",
+      "updated_at": "2023-10-25T17:38:09.890Z",
+      "title_ascii": "read_excel() cannot read excel files properly with openpyxl",
+      "description_sha256": "59fe20b9fd83b4271c578e2dbdfcc113f37bdf7884ffb8a2c8fd12a6527f541e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1648,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1648",
+      "updated_at": "2021-03-24T09:46:15.850Z",
+      "title_ascii": "Update worksheet.append() to allow insertion of row data at specified row",
+      "description_sha256": "f294a5fe6066f29efbf29451d97e96b9a8b84dace8c5e2699838d26f961c47c2",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1643,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1643",
+      "updated_at": "2021-04-07T09:24:35.680Z",
+      "title_ascii": "XLSM unable to be saved",
+      "description_sha256": "1fe1d84d1c012a39e907b46450d1d43b89da243939e589064a1935c5a183c82d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1641,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1641",
+      "updated_at": "2021-03-14T14:55:44.786Z",
+      "title_ascii": "Provide exception base class",
+      "description_sha256": "890f04efa31fd31d4815f919c1258fdebb9696204880cc8d3d1c221bffe3046c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1640,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1640",
+      "updated_at": "2021-03-10T14:59:42.267Z",
+      "title_ascii": "Merged Cell Handling: side.style is None",
+      "description_sha256": "1ffaa56e0d57d9ae842cf782e3b30ff3a56ccf2fc847b215da5c5bc320896ede",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1639,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1639",
+      "updated_at": "2021-03-10T12:15:30.671Z",
+      "title_ascii": "colors and style passthrough",
+      "description_sha256": "ed3af5ceaa596f86e95dc35d374c959589e988ac385b64c401a7cf856b385b47",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1638,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1638",
+      "updated_at": "2023-08-28T04:57:46.747Z",
+      "title_ascii": "Drop down data velidation doesn't work.",
+      "description_sha256": "f32a038dd92010e8523be6fd0b63b26530e4619cbe3bc6de5ca44d9bbae11792",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1633,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1633",
+      "updated_at": "2021-03-05T18:45:41.774Z",
+      "title_ascii": "et_xmlfile invalid setup.py",
+      "description_sha256": "50921057e25cd85b9b5765a9e845dbb5ff8d23a61fbb67ab3b33200ee147cf92",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1630,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1630",
+      "updated_at": "2021-03-03T14:36:41.581Z",
+      "title_ascii": "Incorrect conversion for datetime values (export and import of excel file both done by openpyxl)",
+      "description_sha256": "440851d5e76fe060d63d2b6a71091361749e9e4a80afb0bc441ee29881fb1211",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1615,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1615",
+      "updated_at": "2021-02-11T19:24:08.992Z",
+      "title_ascii": "file unusable in MacOS Numbers after opening with openpyxl",
+      "description_sha256": "e8835f40beb55305aa3109358df2b4660e936c2e943de8dad9f4d7eb943f553c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1612,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1612",
+      "updated_at": "2021-02-10T15:20:30.175Z",
+      "title_ascii": "Enhancement: documentation on \"Working with Pandas and NumPy\": rewrite example",
+      "description_sha256": "adc7c1a5bc23f154c3002679f466eb53642033b6a9d1d80e338eedbcbe0162ea",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1604,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1604",
+      "updated_at": "2021-02-09T14:55:50.172Z",
+      "title_ascii": "Deleting legend entry does not remove item from legend when opening in Excel; chart XML appears correct",
+      "description_sha256": "0c630bb83c8129fee7321e85da5fe91d3316b7b67484a5939ac10e01a8f3ef87",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1602,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1602",
+      "updated_at": "2021-02-02T14:31:31.905Z",
+      "title_ascii": "Marker is not working for radarchart",
+      "description_sha256": "99cc106e2d87d3db9b1474e85ee2fe400774bd92c1475ef4e6eb9b188e2ff3c4",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1600,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1600",
+      "updated_at": "2021-02-01T15:20:43.845Z",
+      "title_ascii": "Datavalidator does like unicode in formula1",
+      "description_sha256": "4e9359876bdb24a5366fdb171f985e8351c5da8f908f3ef479fb8be14badde96",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1597,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1597",
+      "updated_at": "2021-03-05T18:45:42.425Z",
+      "title_ascii": "Pex issue with openpyxl and et-xmlfile dependency",
+      "description_sha256": "3ffe3588c499ba1a54f43e56cffb24bb6374cdf847fa5604ebd574a5db3411ff",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1596,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1596",
+      "updated_at": "2021-01-26T14:31:06.288Z",
+      "title_ascii": "Enhancement: documentation on Tables is a bit limited",
+      "description_sha256": "17d9be1f5a1d4a251946d8ff74d4a4682b7d116fccffda35c776293b48650140",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1595,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1595",
+      "updated_at": "2021-01-26T06:08:43.413Z",
+      "title_ascii": "Table style not added successfuly",
+      "description_sha256": "fddead57745e919927123d65371bedc4f66e4f8941b75c56f8da1cce5c7b4dfd",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1593,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1593",
+      "updated_at": "2023-10-10T03:06:11.894Z",
+      "title_ascii": "Images are not being read from excel file",
+      "description_sha256": "b7d88bbeca46f26251d9ba543e46d3f34cbb315fd894e644607788829f990a33",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1574,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1574",
+      "updated_at": "2020-12-20T12:19:20.756Z",
+      "title_ascii": "Functions `rows_from_range` and `cols_from_range` fail on whole-column and whole-row ranges",
+      "description_sha256": "96f772a2240454b38918b1d256f338430796d1fd8d69eeb9fea128d3cc96a3ce",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1569,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1569",
+      "updated_at": "2020-12-16T15:08:07.544Z",
+      "title_ascii": "add ability to delete named style",
+      "description_sha256": "4c64bc834e7fc44df3682f7062838f9205058b35255e08f22fd660c1a4046d37",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1567,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1567",
+      "updated_at": "2020-12-14T16:36:48.406Z",
+      "title_ascii": "What are the 48 chart styles?",
+      "description_sha256": "07080b5e227c85020f3f6868878b3c98c98e151d5f9ee98c6464bcec2e922b35",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1565,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1565",
+      "updated_at": "2021-03-10T18:37:50.199Z",
+      "title_ascii": "Celll with time format value 12:00:00 AM will be converted to -1 after xlsx saved.",
+      "description_sha256": "40f48ac4f790292b8ce3f553701fb4a287b0897d840997f5c844b0766564f86f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1558,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1558",
+      "updated_at": "2020-10-22T19:56:57.819Z",
+      "title_ascii": "Range slices of Worksheet fail with undefined values",
+      "description_sha256": "953bf82096b64d4f3d5c71d84f66409c3676dac667e892e69a4c4bccc0c9f496",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1550,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1550",
+      "updated_at": "2020-12-02T14:55:40.845Z",
+      "title_ascii": "column_to_tuple not working properly with '$' coordinates",
+      "description_sha256": "eab556e6f62ce2f8e1f9a8cef5f683acf74e7f60d5d1654433023c0a0de2840b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1549,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1549",
+      "updated_at": "2020-10-14T12:58:12.378Z",
+      "title_ascii": "Broken link on the parallelization docs",
+      "description_sha256": "5ff98f53db239168f718e58eb1eed887a356e1e654f9f704ab8b7fee69353d73",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1543,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1543",
+      "updated_at": "2021-07-12T14:47:01.973Z",
+      "title_ascii": "Bug: insert_cols doesn't move hyperlinks",
+      "description_sha256": "b18f1e974b02b25056af2bed56d87b24cfb20642165f4f023497a5b1cb9e2316",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1540,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1540",
+      "updated_at": "2020-10-07T13:02:44.569Z",
+      "title_ascii": "Bug: Table with duplicate column names not caught",
+      "description_sha256": "109fc573a3cccbe6ebe6509d74e1b34f784966bf7629df61b2f4c88b2be996f5",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1532,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1532",
+      "updated_at": "2020-09-04T17:40:58.978Z",
+      "title_ascii": "Duplicate images",
+      "description_sha256": "1325705d3d29aa612524caecf164eb7f357e2725f8aea3e9d56a929e48488454",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1530,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1530",
+      "updated_at": "2021-05-26T02:03:01.283Z",
+      "title_ascii": "Openpyxl is missing some documentation to assist new developers in making contributions",
+      "description_sha256": "dc75656340c1853d5cc1daea7c5896bc533de95cc019bff1e21d2b9aa53bbd15",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1526,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1526",
+      "updated_at": "2020-09-01T11:09:32.507Z",
+      "title_ascii": "[OCD] 'attribues' typo in Tutorial",
+      "description_sha256": "89adbb64678f2683ea27e0bc4b36512da5516d11d19cdbe62ede3d5fd8257afd",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1524,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1524",
+      "updated_at": "2022-09-05T23:30:56.534Z",
+      "title_ascii": "Unable to open file - font family 34",
+      "description_sha256": "c9011a2b354763ff80d4305338425405c11659078d360cd9aaf06e01c50b717e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1523,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1523",
+      "updated_at": "2022-10-23T09:49:51.208Z",
+      "title_ascii": "Openpyxl does not read/write worksheet custom properties",
+      "description_sha256": "7ed072333028f9ba4aea78868d2250f0c2a7783ba5ff7c99430dedd8e00cac13",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1519,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1519",
+      "updated_at": "2020-08-17T14:53:40.613Z",
+      "title_ascii": "Pivot Tables with \"groups\" not read/written correctly and cause corruption of spreadsheet",
+      "description_sha256": "58eca7e34610b3d8f7f7360ec4477a6b7cd079bbcdf90a49ebc5638bf70d6d88",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1516,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1516",
+      "updated_at": "2020-08-11T12:40:10.887Z",
+      "title_ascii": "RangePr class defaults groupBy to invalid value",
+      "description_sha256": "a81062d80bc2501b4e26a22ba3aeec4e3bfcd74a0f99f181f36c7ecd931a680a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1512,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1512",
+      "updated_at": "2021-05-18T15:35:11.633Z",
+      "title_ascii": "Unable to reference table cell using [@header] syntax",
+      "description_sha256": "afe045133152efafa94fe87d1aea6b66de870f0b60a8ff70c7a7b87aae58e134",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1511,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1511",
+      "updated_at": "2020-08-05T14:30:02.079Z",
+      "title_ascii": "fix for invalid line break in header_footer.py",
+      "description_sha256": "57d90345830f1c937b11b228bfaf20ddb59ea7658ac678452e54a5db8741969f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1510,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1510",
+      "updated_at": "2021-03-10T18:37:32.923Z",
+      "title_ascii": "Zero time values are still an issue",
+      "description_sha256": "5ba2977c87ceef66869f0ebacf5795ec2b7c38ce744330ebf01ba235b301710b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1508,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1508",
+      "updated_at": "2020-08-05T14:22:47.799Z",
+      "title_ascii": "Usability of openpyxl documentation",
+      "description_sha256": "1bf038c1ed7f24c19a07f0970ed6b498f07b3433b3baa52b3439d43e54e7a231",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1505,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1505",
+      "updated_at": "2020-08-05T09:23:09.210Z",
+      "title_ascii": "Adding Worksheet Background Image",
+      "description_sha256": "2c0adb5fd10f38bcf4c2666a0cb0b1c782ad115d0d10881c5e1f7fe09dac959b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1501,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1501",
+      "updated_at": "2020-07-13T08:59:40.494Z",
+      "title_ascii": "datetime data ignore timezone",
+      "description_sha256": "8ab92cd3f42026428d4c9d8cec6fdd34abf2c1f3ed6e17fa363079ce26c2deef",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1499,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1499",
+      "updated_at": "2020-07-14T17:55:18.663Z",
+      "title_ascii": "appending cell objects to write_only worksheet corrupts saved .xlsx files",
+      "description_sha256": "ffa5296c9913b2a608bf6acf142424ef5a8188afcdcabb620a77dcb3924cca23",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1498,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1498",
+      "updated_at": "2021-03-09T10:50:22.335Z",
+      "title_ascii": "openpyxl cannot read Strict Open XML Spreadsheet format: UserWarning: File contains an invalid specification for Sheet1. This will be removed",
+      "description_sha256": "dfd586bfe7ec25335b7c9cec1318633974e36fb8894d436b318b50525606933d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1494,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1494",
+      "updated_at": "2020-07-08T15:45:47.788Z",
+      "title_ascii": "Allow Worksheet.append() to accept any iterable (other than str)",
+      "description_sha256": "a84ea895b5b6abb32bec282fd8de98b057cdd3fb73bad5739c7a3943da17d370",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1493,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1493",
+      "updated_at": "2020-08-10T12:02:30.747Z",
+      "title_ascii": "Reading cells with certain date time values causes non-integer results in seconds",
+      "description_sha256": "259a531ec65b1fab43b3032c6575ba5ae99ee6c3f2a4af6a153c9e39868a7be6",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1481,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1481",
+      "updated_at": "2020-06-26T11:57:53.678Z",
+      "title_ascii": "[documentation] tables: mention that table names can contain only letters, numbers and underscores",
+      "description_sha256": "d866bbc9ca924d8233cc7645549ae6a22915d6cecb9521298653b1d42cb47702",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1480,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1480",
+      "updated_at": "2020-06-26T11:57:52.757Z",
+      "title_ascii": "How to remove the chart title of any chart in excel",
+      "description_sha256": "2f06973d49f312221936700a097d7e182e3eef8135197d2a31437c70ea750f62",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1479,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1479",
+      "updated_at": "2023-10-16T15:25:09.615Z",
+      "title_ascii": "Saving a chart with several series output has secondary axes where chart in the read input file has only one.",
+      "description_sha256": "430040b9530a76f0eca4fa8b841a99ff4bf751193efb11e39c5a084f1e76675b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1477,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1477",
+      "updated_at": "2020-10-29T00:13:33.854Z",
+      "title_ascii": "Adding image fails if any operations done after loading and before add",
+      "description_sha256": "2281847637842990296beb7505318a573c3f46c8cb145bc111c2865c4bb50dba",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1475,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1475",
+      "updated_at": "2020-06-26T11:57:43.225Z",
+      "title_ascii": "Alternate theme support for full document",
+      "description_sha256": "07e0228b51c450236d5b66e526aa0663611d531c6fcc41c5b0169fb024cb3047",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1463,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1463",
+      "updated_at": "2020-11-10T23:33:59.543Z",
+      "title_ascii": "Datetime data-- openpyxl doesn't support NaT",
+      "description_sha256": "6300388f76c11be9046485583b5637bc6516ee7c903ae61d0059cc282a291408",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1448,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1448",
+      "updated_at": "2023-07-17T02:38:13.463Z",
+      "title_ascii": "Image path identical for all images in spreadsheet",
+      "description_sha256": "41b1c0b3c974bbe676e3bb6c4a6f866ea1a256b06d3f6c2987adaeb921e2011a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1447,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1447",
+      "updated_at": "2024-01-15T03:15:26.107Z",
+      "title_ascii": "WMF files should not be ignored on Linux",
+      "description_sha256": "46f763e5f9e39668c932707c02e109f17c73f52823e9655b06e560b58888300e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1446,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1446",
+      "updated_at": "2020-06-26T11:56:45.098Z",
+      "title_ascii": "File Corrupt issue",
+      "description_sha256": "377475d90c6d19ae66931bda53d3d6b3008a550079bca3ea78bc90743aecb781",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1444,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1444",
+      "updated_at": "2020-06-26T11:56:43.254Z",
+      "title_ascii": "Pivot chart get modified after saving XLSM file",
+      "description_sha256": "51bd9972177e798401e5a2b090361226a74efb7e12cb3487de4d3a51ae9bb94c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1443,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1443",
+      "updated_at": "2020-06-26T11:56:35.493Z",
+      "title_ascii": "openpyxl.utils.dataframe not compatible with pandas >= 0.24",
+      "description_sha256": "151d08f2fdcb854f9cff6741bd23cc7a874d1499d03eb4a4f831da9cc8ac6a57",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1438,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1438",
+      "updated_at": "2020-06-26T11:56:28.074Z",
+      "title_ascii": "Removing hidden sheet damages xlsx file.",
+      "description_sha256": "ce84e88e053b93687997a751bae1c6370847ced83f0047a6f64b91ce5a9e04c8",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1437,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1437",
+      "updated_at": "2020-06-26T11:56:25.190Z",
+      "title_ascii": "'NoneType' object has no attribute 'group' when iterating destinations of named range based on a table",
+      "description_sha256": "b31563146875ecd60a5d2143c539803956051cf9d031b98b9afe5d8b894ef714",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1433,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1433",
+      "updated_at": "2020-06-26T11:56:20.359Z",
+      "title_ascii": "Allow user to specify a Worksheet factory",
+      "description_sha256": "879641fe8cdd54860bca1ea5c93199e56f8877b85452c2f7488a92443527db74",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1430,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1430",
+      "updated_at": "2023-06-02T07:11:13.516Z",
+      "title_ascii": "\"We found a problem with some content in copy.xlsx\" Openpyxl 3.0.3, open and save with no changes to file",
+      "description_sha256": "bef8b3f236178ec2c73d50edd5e5a7cf3ef1ef8f5f816810c1959faece7a1bbf",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1428,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1428",
+      "updated_at": "2020-06-26T11:56:11.825Z",
+      "title_ascii": "Support for @ implicit intersection?",
+      "description_sha256": "6611fd08bac33fe8353cf7c9d2ce19d824d3eb6667f666ed055c7b10c0f4d219",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1427,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1427",
+      "updated_at": "2020-06-26T11:56:09.886Z",
+      "title_ascii": "Existing images are not saved",
+      "description_sha256": "2d013faa83d4f2ef6d4481b86afa89d3cdf8c66fe0ed04f2ce18f0d94e14b01b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1424,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1424",
+      "updated_at": "2023-10-10T14:24:42.005Z",
+      "title_ascii": "Exception opening a file due to pitchFamily validation",
+      "description_sha256": "e53260160d6fabb41226cf9f612a7187fdbd0326e9a41a43beca555654d6b751",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1418,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1418",
+      "updated_at": "2023-07-01T10:25:01.551Z",
+      "title_ascii": "Removing all comments from a worksheet causes broken xlsx file",
+      "description_sha256": "975f5a11951c0044b7e2592f1cfd6c51115aa62b19bea9508808de9e17b7a532",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1417,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1417",
+      "updated_at": "2020-06-26T11:55:55.306Z",
+      "title_ascii": "KeyError: 'Unknown relationship: rId33'  KeyError(\"Unknown relationship: {0}\".format(key))",
+      "description_sha256": "f68a638e1b53d24ab70b9b47f321011377da7138b147a7128358b33ea71abd83",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1416,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1416",
+      "updated_at": "2020-06-26T11:55:52.872Z",
+      "title_ascii": "Formulas are becoming blank",
+      "description_sha256": "a734e1665bd1043a6895941203f63e6ce64d56ac54abd34dfcce19562e414844",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1415,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1415",
+      "updated_at": "2020-06-26T11:55:51.991Z",
+      "title_ascii": "Unable to load xlsx containing charts",
+      "description_sha256": "72f2aeb72ccc866aa97b27f1934a0dd5d6c74f56cceb20fe3d4ae9e41856cf25",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1412,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1412",
+      "updated_at": "2020-06-26T11:55:46.597Z",
+      "title_ascii": "Add ability to enable change tracking",
+      "description_sha256": "775e813f50363e8985f0be8115a5e2e276f907db481c983281cf8fcfa72b6981",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1411,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1411",
+      "updated_at": "2020-06-26T11:55:45.468Z",
+      "title_ascii": "TypeError descriptors\\base.py\", line 57, in _convert --  workbook contains chart with bevel",
+      "description_sha256": "86324c95d0cb1e138abec003f0142fd7a68fb2df89ac088d038d0ce52ff07908",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1410,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1410",
+      "updated_at": "2023-10-24T19:29:09.792Z",
+      "title_ascii": "unescape chars like \"_x0020_\"",
+      "description_sha256": "0b7dc8039b2e847aa2523e1b846e4b1d50c89ceb0fca10adc16a225e8cbd5ba8",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1408,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1408",
+      "updated_at": "2020-06-26T11:55:38.092Z",
+      "title_ascii": "Change from df.columns.labels to df.columns.codes",
+      "description_sha256": "3715e90c6454e7199a025a849c54853ebb142ce566730bbaf14801ef80d85985",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1407,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1407",
+      "updated_at": "2020-06-26T11:55:37.039Z",
+      "title_ascii": "Bitbucket sunsetting hg support",
+      "description_sha256": "ab08048460d66a69150554ddc930f6bd567989661c0896ea6ebbe35ef8f4a23c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1406,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1406",
+      "updated_at": "2020-06-26T11:55:36.106Z",
+      "title_ascii": "Cannot open this workbook. Opening it with excel 2010 works just fine.",
+      "description_sha256": "4c068294e3278ecf7a7677f64eb6ffd21f38f5504730742f7ded9145374fb4c4",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1405,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1405",
+      "updated_at": "2020-06-26T11:55:33.955Z",
+      "title_ascii": "Loading this file and then saving it in the same name results in broken xlsx document",
+      "description_sha256": "398f077d1621547e5c4888cca533f7c1f97eb268e952b0e6444d425ac5b514bd",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1403,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1403",
+      "updated_at": "2020-06-26T11:55:31.017Z",
+      "title_ascii": "Cannot set cell value used by a pivot table as a filter value",
+      "description_sha256": "5e0ddec6ef9a491fb7b19f04d9bc3dceef8dd2bf3ba5a567e5f4bc0fb85fb590",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1399,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1399",
+      "updated_at": "2020-06-26T11:55:24.114Z",
+      "title_ascii": "Simple Workbook save to new name corrupts 3D charts",
+      "description_sha256": "9fe58eb2e874b36b6fdd8d76f4a96d3308d319723b826bd5e808e14344394c40",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1397,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1397",
+      "updated_at": "2020-06-26T11:55:22.275Z",
+      "title_ascii": "DataBar axis position when negative values exist",
+      "description_sha256": "85e6b55b44161a3b49b32e75fa8032805b180d84409da2ccb68d9766ac8805cd",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1394,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1394",
+      "updated_at": "2020-06-26T11:55:17.747Z",
+      "title_ascii": "Hidden columns not always working",
+      "description_sha256": "0d1fc7ffaec09e2ccc9e76e9140c1535a6d90b093d22a5a323d4d51c79f10f19",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1388,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1388",
+      "updated_at": "2020-06-26T11:54:28.013Z",
+      "title_ascii": "_HeaderFooterPart not support link to  picture with legacyDrawingHF Attributes",
+      "description_sha256": "e08965302a9eefe292fd90446185f48ae2dccc640bd82f57f14eb39857db3ccc",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1387,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1387",
+      "updated_at": "2020-06-26T11:54:27.017Z",
+      "title_ascii": "File with multiple pivots in a sheet needs recovery if I set pivots to refreshOnLoad",
+      "description_sha256": "fe1b9fac97afb81cf9ca56242a7a5bc43d1710cbb962266a94b93a0cceba7a2e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1383,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1383",
+      "updated_at": "2020-06-26T11:54:13.937Z",
+      "title_ascii": "DrawingML support for Shapes and drawings ?",
+      "description_sha256": "bb1c4d53fb63b35e1afc1d97acec0dd1743c53f27fe26acfe62ff7306b9fdef0",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1380,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1380",
+      "updated_at": "2020-06-26T11:54:09.394Z",
+      "title_ascii": "Add support for image hyperlinks",
+      "description_sha256": "eed543c4bef363a81c334dd7ccf4d960b416034d37b11baf2905634e4219e8b6",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1377,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1377",
+      "updated_at": "2020-06-26T11:54:02.943Z",
+      "title_ascii": "Cannot open xlsx file containing pivot charts, after it's been modified by openpyxl",
+      "description_sha256": "03c177c4f20d27c876005486f3c8d96fb5fb9c8109be4f63464a856a1b45dca1",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1358,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1358",
+      "updated_at": "2020-06-26T11:53:32.180Z",
+      "title_ascii": "conditionalformatting issue (libreoffice?)",
+      "description_sha256": "8ef5dbe75d773a6caaa4536fe83b6ef3086fa09afb5fc7551bc07712e788d1d6",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1354,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1354",
+      "updated_at": "2020-06-26T11:53:26.890Z",
+      "title_ascii": "merged cells read error",
+      "description_sha256": "b690da0468d2676676ec4e3994deb4cdd422d1842e1b77b22b286856a7b2efa4",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1351,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1351",
+      "updated_at": "2020-06-26T11:53:23.550Z",
+      "title_ascii": "local name not saved when other sheet is removed",
+      "description_sha256": "d67252d27e0d1aa33cf1787620d6d285c6ffad19b6d8efef7a6c00cf4b1e64fe",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1348,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1348",
+      "updated_at": "2021-02-17T17:17:28.263Z",
+      "title_ascii": "ValueError When Loading Excel with Conditional Formatting in Pivot Table",
+      "description_sha256": "30eca39818fedc1be785a239e8fdb3c79aca65179c6be687073e170e1b9b0346",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1343,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1343",
+      "updated_at": "2020-06-26T11:53:06.694Z",
+      "title_ascii": "wb.copy_worksheet does not copy background colors",
+      "description_sha256": "d11d1310d104720c5ca1a65a7ada624d554c8c3bc10370fdac5c47eef75aa3a1",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1338,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1338",
+      "updated_at": "2020-06-26T11:52:59.682Z",
+      "title_ascii": "Hidden (grouped out) rows/columns at the end of worksheets are not registered as hidden.",
+      "description_sha256": "28b468896b9209a15f0d8de26425e9d3f3ee1dc430b980e03a7165dee4a78cc0",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1331,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1331",
+      "updated_at": "2020-06-26T11:52:42.110Z",
+      "title_ascii": "openpyxl 2.6.x is slower than 2.5.x when loading merged cell",
+      "description_sha256": "3bbeb0c06a9124bd5602d235246aeb6c9444025da1b97e11628e26d366b0393e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1329,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1329",
+      "updated_at": "2020-06-26T11:52:37.679Z",
+      "title_ascii": "Modifying Pivot Tables with Openpyxl causes crashes on Office 2013",
+      "description_sha256": "d13c12e3105f8207ce6583e271d60e83cfeb1535ea980721ba50743709870954",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1324,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1324",
+      "updated_at": "2020-06-26T11:52:28.691Z",
+      "title_ascii": "File is getting corrupt when copying the sheet multiple times in the same workbook",
+      "description_sha256": "885e8891fcaa911196ed750a20ec15fb3f946559f6d274f0f9062c3131f8f8b3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1320,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1320",
+      "updated_at": "2020-06-26T11:52:15.581Z",
+      "title_ascii": "support custom data classes in cell value writing",
+      "description_sha256": "608215eb3b863f7da22631700087d1cac1a52a824fe8929ead131d15a7995350",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1318,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1318",
+      "updated_at": "2021-06-11T09:43:04.097Z",
+      "title_ascii": "delete_rows leaves hyperlink data in the cell",
+      "description_sha256": "90e7430eb8ee925bf7a20e315539e3d402f1de1d074a1e0b4f5b002856958341",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1317,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1317",
+      "updated_at": "2020-06-26T11:52:11.768Z",
+      "title_ascii": "Openpyxl changing  Display settings of PivotTable options",
+      "description_sha256": "67bf7e5f38ba0d8bbd1e2596f18119ec70615a7b994d0ffcda19fde538169917",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1314,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1314",
+      "updated_at": "2020-06-26T11:52:05.274Z",
+      "title_ascii": "ValueError: Cannot convert 'column' to Excel when converting pandas dataframe [sqlalchemy related]",
+      "description_sha256": "76a768c2fc8847d506ebad0ed2d646a0faa6bdf996f72518c7918a733e6e397a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1313,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1313",
+      "updated_at": "2021-04-07T22:45:06.682Z",
+      "title_ascii": "Current Region as a Method either in openpyxl.worksheet.cell.Cell or .cell_range.CellRange",
+      "description_sha256": "bdb06fe3e33c34f1fdd7a3c75722ce59f432e8c64a76c2f51dffeb893bd64425",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1312,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1312",
+      "updated_at": "2020-10-21T01:15:41.270Z",
+      "title_ascii": "Performance about delete_rows or delete_cols",
+      "description_sha256": "cd6e982222cbd5840f1e5ea69ebff86b8eb7e471e078399611eb72178d74f120",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1311,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1311",
+      "updated_at": "2020-06-26T11:52:00.240Z",
+      "title_ascii": "Cell slots are missing some fields",
+      "description_sha256": "1d7329fbd8b7689220a7ba5403ada67f12dbf4d8bba80d5d12387791b4374b8b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1306,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1306",
+      "updated_at": "2020-06-26T11:51:45.767Z",
+      "title_ascii": "ActiveX TextBox becomes image after writing to Excel file",
+      "description_sha256": "d59e43a8b143464e9a377620a1bf429f4249b877682798cc88cb6edfe380917e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1305,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1305",
+      "updated_at": "2020-06-26T11:51:43.514Z",
+      "title_ascii": "fail to generate excel when name is specified in trendline",
+      "description_sha256": "90da70f2b023d9417f3d4def4153389149e7ff9620a7253b395d8045d324ef7e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1301,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1301",
+      "updated_at": "2020-06-26T11:51:36.975Z",
+      "title_ascii": "shows CellRange ValueError when load workbook",
+      "description_sha256": "aade4ce21f80563ea70f5765e4ed8e4cbea96c8d6b5e65ef78116f76dcc63076",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1297,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1297",
+      "updated_at": "2020-06-26T11:51:27.665Z",
+      "title_ascii": "Charts border",
+      "description_sha256": "d1b3394daa2077e2e2b702ca0daf8a4fa1aa112116499a27b1290d28bd21f298",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1294,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1294",
+      "updated_at": "2020-06-26T11:51:18.385Z",
+      "title_ascii": "Cannot write to StringIO in 2.6.2",
+      "description_sha256": "a83cb5e16cba009d43a927b295a1a2ab50276cf289a346a4def8204f0ef2a804",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1292,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1292",
+      "updated_at": "2023-11-29T09:03:41.261Z",
+      "title_ascii": "Set workbook password doesn't work",
+      "description_sha256": "512f6b9872a6117303b56472d22d32bcd51d0f872ad96e02f9161219b4d7d240",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1289,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1289",
+      "updated_at": "2020-06-26T11:51:11.050Z",
+      "title_ascii": "opening and saving certain Excel Sheets in OpenPyXL corrupts them and strips their formatting",
+      "description_sha256": "acbed263a7589898c1d8f9051ec52418d64e31f4743f301e9bd66a7c8d5872ba",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1288,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1288",
+      "updated_at": "2020-06-26T11:51:03.765Z",
+      "title_ascii": "Pandas FutureWarning when using dataframe_to_rows on MultiIndex df",
+      "description_sha256": "8e499bbd037d9e27c6d95d279e45937116ccf5fed9456acecb0b4aa4c36f7747",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1286,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1286",
+      "updated_at": "2020-06-26T11:51:01.713Z",
+      "title_ascii": "file is getting corrupted when being saved using openpyxl",
+      "description_sha256": "5aaf5791b3227586054f96c61a34d37c2a1baba55f58e64dc8ad74fc689cde91",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1285,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1285",
+      "updated_at": "2020-06-26T11:50:58.951Z",
+      "title_ascii": "Workbook rejected by external parser unless opened and resaved in Excel with no changes made",
+      "description_sha256": "4b6e9a55c1fea6c947ccf4c5fe7f1fadc25f904d952cd57e591b89fe74aed3c1",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1283,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1283",
+      "updated_at": "2020-06-26T11:50:51.100Z",
+      "title_ascii": "Where can I help with translation for doc?",
+      "description_sha256": "ed80135a257697951ed86d6f739108675c4f8c28c2cd3e397e52339b6e66e122",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1282,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1282",
+      "updated_at": "2020-06-26T11:50:50.246Z",
+      "title_ascii": "guess_types still in doc strings",
+      "description_sha256": "59d5a2913af5433b6ed59ef98afbe421ebf9f5ba5535cf1a14d2d6634d8cd83f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1279,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1279",
+      "updated_at": "2020-06-26T11:50:46.806Z",
+      "title_ascii": "DrawingML objects -- parsing a:rect coordinates",
+      "description_sha256": "e36768fc8d5f8462290984ed47c4dfdf2e8bb4c4345b7ee6b2b10e6dfc159e6b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1278,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1278",
+      "updated_at": "2020-06-26T11:50:43.813Z",
+      "title_ascii": "Excel-2013-removed-part-xl-drawings-drawing1-xml-part-drawing-shape",
+      "description_sha256": "a3fb3aaea8c27415ec41279f576b7b1ad9c5b43c678ba3ad5f41773ad29484eb",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1273,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1273",
+      "updated_at": "2025-05-05T09:04:59.621Z",
+      "title_ascii": "Adding or deleting rows or columns does not update cell ranges",
+      "description_sha256": "b94bffe84bec03f04ce7b3a177280948e30b44e71ad3825d900da818deeabfd5",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 1270,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1270",
+      "updated_at": "2020-06-26T11:50:32.336Z",
+      "title_ascii": "Defined-name lookups by name should be case-insensitive",
+      "description_sha256": "bc33bf01e43ee865ee4ebed93ecec4609fc3ae4696ae7910320cdb350420e30c",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 1269,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1269",
+      "updated_at": "2020-06-26T11:50:31.305Z",
+      "title_ascii": "PatternFill to color results in black dot pattern",
+      "description_sha256": "d44741940952e3ad20797a955174097a8c40b131000f16a65f606d51d2882d9f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1268,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1268",
+      "updated_at": "2020-06-26T11:50:29.017Z",
+      "title_ascii": "Too much information lost when saving workbook",
+      "description_sha256": "1b32d2e00ace626d55780363c4bf5908eecfc363cba72e9de00da1c1c9ad6da1",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1262,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1262",
+      "updated_at": "2020-06-26T11:50:12.961Z",
+      "title_ascii": "ARGB - Padding with 'FF' might be better",
+      "description_sha256": "e3c08a63c06bc703fd56f88d0b7dcb12cb20189b1c1a118ac859ecf08156a2e0",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1261,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1261",
+      "updated_at": "2020-08-12T14:50:30.580Z",
+      "title_ascii": "Protection of the protected sheet is removed after load_workbook and save it again",
+      "description_sha256": "187bdadd2d2bb8fa0ea0116b835f96e2ddf17afc6ea7dde17d731742f7684f08",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1258,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1258",
+      "updated_at": "2020-06-26T11:50:07.811Z",
+      "title_ascii": "Altering table heading values results in corrupted output",
+      "description_sha256": "9d58b08faea287d41d1a905b1ba1422a71a8bffde27e7079ebb62fac8d18c987",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1253,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1253",
+      "updated_at": "2020-06-26T11:49:54.764Z",
+      "title_ascii": "/xl/tables/table1.xml corruption",
+      "description_sha256": "e23e6e12d57e329f4589f511f42f679355268d8e582237d840c1c9690697549c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1249,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1249",
+      "updated_at": "2020-06-26T11:49:39.893Z",
+      "title_ascii": "Cannot convert {my-type} to Excel",
+      "description_sha256": "2564c760878df320e90045c45727654df06e350c15bfa1fae9efb0ff8f7cf92e",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1248,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1248",
+      "updated_at": "2020-06-26T11:49:38.050Z",
+      "title_ascii": "'openpyxl.worksheet.cell_range.MultiCellRange'",
+      "description_sha256": "58cbf5956b7587304730fbacf52c2b1a74f85c79e65246d3c371c89682296740",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1247,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1247",
+      "updated_at": "2023-02-27T09:53:37.889Z",
+      "title_ascii": "corrupted excel if template pivot  created with add to data model",
+      "description_sha256": "51b7c9b1e7121dc6bc32c8379e99ec8ce08b7567f162e93efe127e62365ee99c",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1244,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1244",
+      "updated_at": "2020-06-26T11:49:29.938Z",
+      "title_ascii": "copy_worksheet does not copy PageMargins",
+      "description_sha256": "7cc09686c7eef6560c4f1aee0c28195ac3daa4365509c97fb2a996ff1b08e2dd",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 1243,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1243",
+      "updated_at": "2020-07-07T14:05:52.162Z",
+      "title_ascii": "ReadOnlySheet doesn't have sheet_state attribute",
+      "description_sha256": "cc0f31b61729025ef847a07b47135fa0225634f2c080004bf415955fef673aef",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 1241,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1241",
+      "updated_at": "2020-06-26T11:49:26.312Z",
+      "title_ascii": "When using openpyxl 2.6 to process data, the spaces and line breaks before and after the data in the cell are lost after saving the execl",
+      "description_sha256": "a1ee1509696b76210c3471fcc7137e99e9b0459809d451864f8f9ae0676a8485",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1238,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1238",
+      "updated_at": "2020-06-26T11:49:21.807Z",
+      "title_ascii": "KeyError: \"There is no item named 'xl/drawings/NULL' in the archive",
+      "description_sha256": "72aa3730e1575c89265e9dd8b86c4c9d4b2c063e00ae06f8983cd6e403451378",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1234,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1234",
+      "updated_at": "2020-06-26T11:49:09.567Z",
+      "title_ascii": "Use @deprecated library",
+      "description_sha256": "355f9e7eaee453fca455f50b7613f72629ddafa0a715f88faff931e22b289ee4",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1233,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1233",
+      "updated_at": "2020-06-26T11:49:08.128Z",
+      "title_ascii": "The bar color changes in the diagram.",
+      "description_sha256": "6c60c730c18c7ad786ee2496816558329c66f55947b145019f823c720df9027f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1216,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1216",
+      "updated_at": "2020-06-26T11:48:39.425Z",
+      "title_ascii": "Some colors lost after opening and saving with openpyxl",
+      "description_sha256": "d0ea7a7515f70d4671aeb723ba95b3eef9595cf8b9465c27afccdd0765978007",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1202,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1202",
+      "updated_at": "2020-06-26T11:48:05.158Z",
+      "title_ascii": "Accessing/Modifying Existing Charts",
+      "description_sha256": "fcf8fbe023e4e85e882140afc544b7edd5fe2b16c2704a3065b443a1d6ee3a83",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1201,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1201",
+      "updated_at": "2020-06-26T11:48:03.565Z",
+      "title_ascii": "PieChart3d sould be base of _3DBase",
+      "description_sha256": "e5420d0eeedb26c2db588b5dd450a62d11899a95bf3c59158061578ec01d67e3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1195,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1195",
+      "updated_at": "2020-06-26T11:47:40.831Z",
+      "title_ascii": "Readonly worksheet returns empty rows as empty lists",
+      "description_sha256": "2783733f6645b94ce824b671bad4e2d7a431ec12a9c5c3e1010e009666c1b48d",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 1144,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1144",
+      "updated_at": "2020-06-26T11:46:03.516Z",
+      "title_ascii": "Compatibility to PIL, ERROR while save Image create from PIL.Image.Image object",
+      "description_sha256": "c628043681c79409e2b3d1b9d244e75a5a9cbe597fe462f2a392b434e517c715",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1125,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1125",
+      "updated_at": "2020-06-26T11:45:22.229Z",
+      "title_ascii": "\"There is no item named 'xl/drawings/drawing1.xml' in the archive\"",
+      "description_sha256": "dff34d19c999878d2944272f8b2511fc7ee6d12377289729936e2413b23b62bf",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1123,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1123",
+      "updated_at": "2020-06-26T11:45:19.942Z",
+      "title_ascii": "Pivot table format unreadable",
+      "description_sha256": "e45c97afd7e8c715b53a0657af18a95380fda0c4bd825bdb183439f01636cedf",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1121,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1121",
+      "updated_at": "2020-06-26T11:45:17.600Z",
+      "title_ascii": "add_image does not respect DPI-setting of images",
+      "description_sha256": "6ab32e5048b5322b9ef2b275ae46eddfc40c7d042348b18b4bae2034204938cf",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1113,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1113",
+      "updated_at": "2020-06-26T11:44:59.536Z",
+      "title_ascii": "Being able to copy charts and update them with new data",
+      "description_sha256": "b98bd141e295c0bfe4039675d8e1a4e268783df9545b95b3e06e2be4bb6b0676",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1087,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1087",
+      "updated_at": "2020-06-26T11:44:13.299Z",
+      "title_ascii": "Inefficiency in MultiCellRange",
+      "description_sha256": "3c7b045d1bdf11cd2bfdd986e8cc05c1f457929a9617514c4c2c3b425e7d25df",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1064,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1064",
+      "updated_at": "2020-06-26T11:43:25.257Z",
+      "title_ascii": "Allow input of pathlib2 paths instead of file names",
+      "description_sha256": "c0e417957b93dc3a16563aef9ac1c59984a5fed052cf73595047019ce6125cd3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1061,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1061",
+      "updated_at": "2020-06-26T11:43:16.114Z",
+      "title_ascii": "Trying to load a non-excel file should raise InvalidExcelFileException, not KeyError",
+      "description_sha256": "0d7d58a3453a8e45dc77d2756ddba96cb4a3d2948e91554b56904dcaed6f8aa3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1057,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1057",
+      "updated_at": "2020-06-26T11:43:09.620Z",
+      "title_ascii": "Advanced VBA macros are disabled when copying to a new file",
+      "description_sha256": "affe06c1b5201fac872801f856e01071bd29547c3c51312a5ef6260dae8ac10a",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1056,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1056",
+      "updated_at": "2020-06-26T11:43:04.079Z",
+      "title_ascii": "Guideline/ example for using pivot package",
+      "description_sha256": "3ca548e9be52c28018a9e4b25492043fb10016b3b594bbffc9f9f7fb5329e26f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1054,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1054",
+      "updated_at": "2023-03-09T11:03:39.301Z",
+      "title_ascii": "Conditional Formatting MultiCellRange TypeError",
+      "description_sha256": "c1de70c4a79c4baa6b4ecce8ebd7adbc097cf508d45c66047cc94ce7d8532943",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1044,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1044",
+      "updated_at": "2020-06-26T11:42:45.500Z",
+      "title_ascii": "Warnings unable to be surpressed",
+      "description_sha256": "0f165d061388800b5f06d2315e9e5c75124d0dc10f4c452974c9e4ec68c38be9",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1031,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1031",
+      "updated_at": "2022-04-20T15:18:36.338Z",
+      "title_ascii": "TypeError: expected <class 'openpyxl.chart.axis.NumericAxis'>",
+      "description_sha256": "0448d40be9d1d0efe41d647c3aefb3a115c36f3a2d50aa9341b4c3e4e3ab8cc5",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1028,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1028",
+      "updated_at": "2020-06-26T11:42:10.469Z",
+      "title_ascii": "'NoneType' object has no attribute 'iter_cols'",
+      "description_sha256": "88b9bfe166e29a6094a83a52f6cdff1eaf12a5233086cab7a9f480b90ffbbde3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1027,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1027",
+      "updated_at": "2020-06-26T11:42:06.905Z",
+      "title_ascii": "Vba turned into images",
+      "description_sha256": "3429146b52d82f1b6407a9ffa2af7539180670f9c2e3dea99d9742a0b8758f0b",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1016,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1016",
+      "updated_at": "2020-06-26T11:41:45.662Z",
+      "title_ascii": "Seeing \"Missing part-id for sheet\" when trying to open work books with gnumeric on 2.4.10 version of openpyxl",
+      "description_sha256": "b4c38f003a637cd1304125958ec688bce5ec112bbc41c4dad78fa037a661dd22",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1014,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1014",
+      "updated_at": "2020-06-26T11:41:43.252Z",
+      "title_ascii": "Table constructor argument \"ref\"",
+      "description_sha256": "d2837de63f01f63fd24354957c857eda4a29ba4dc64348f01926c60969889dd7",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1010,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1010",
+      "updated_at": "2020-06-26T11:41:39.123Z",
+      "title_ascii": "Pivot graph are rejected",
+      "description_sha256": "2137d7f1769b2313a6ee25e276ccb6321b08cc9df0b4a97620a0d16d1b710361",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 1008,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/1008",
+      "updated_at": "2021-10-13T08:27:49.289Z",
+      "title_ascii": "Texture Fill in Plot Lost When Open / Save WB with openpyxl",
+      "description_sha256": "54a27c62ebb083e53078b1955ce18cbf95ecfe3eaab1e247b81fbd87a3b6abf4",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 975,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/975",
+      "updated_at": "2021-07-29T08:45:17.434Z",
+      "title_ascii": "Support for xlsx encyption",
+      "description_sha256": "a353a299253f18ea74f06efde63e6335bd1ae25328e411584466747cf12a3716",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 971,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/971",
+      "updated_at": "2020-06-26T11:40:01.916Z",
+      "title_ascii": "Error when loading .xlsm (load_workbook)",
+      "description_sha256": "4e1df86e2997fbf6cb28026c9245279c23cf492ed53278e8ec585f4feb18b6ac",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 929,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/929",
+      "updated_at": "2020-06-26T11:38:27.619Z",
+      "title_ascii": "Passing open PIL image to Image() is creating blank images in output",
+      "description_sha256": "b7b7c305da676a3bc5fefbe6b82a2e8cc7498ccb6767dff4f7c2c891af501b5d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 914,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/914",
+      "updated_at": "2020-06-26T11:37:57.308Z",
+      "title_ascii": "Hide multiple columns at once using ColumnDimension",
+      "description_sha256": "be409a1b87cdc42b5aaaf3815df1330928a97f68dc85dde32c3fdcbd774b18e3",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 900,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/900",
+      "updated_at": "2022-02-01T21:06:27.665Z",
+      "title_ascii": "Cannot set outline group to collapsed on open",
+      "description_sha256": "5c9f1ef056ad479177b83111963457a24b9ad62ca1d74ac9df041dc35bb89cbc",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 893,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/893",
+      "updated_at": "2020-06-26T11:37:10.199Z",
+      "title_ascii": "Data table feature not supported in charts",
+      "description_sha256": "22776b7ee737b1780a031643ce147bac7b5b3d15e867d67c17e02cf5a0ab0640",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 891,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/891",
+      "updated_at": "2023-04-24T08:42:48.305Z",
+      "title_ascii": "Could Conditional Formatting DataBar add gradient fill & solid fill options",
+      "description_sha256": "5af1eebe6de493f9ee1b000a98368f75f1a0e6fa18ad643cfeda5435b40647bd",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 861,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/861",
+      "updated_at": "2020-06-26T11:35:57.826Z",
+      "title_ascii": "Cannot save a file with comments twice",
+      "description_sha256": "b7e89d7dbec2beb36ba4e1a9424fe3c29ec19f68738603197e350bf93acb34f6",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 843,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/843",
+      "updated_at": "2020-06-26T11:35:14.936Z",
+      "title_ascii": "Reading Excel's Table ref cells (in read only mode)",
+      "description_sha256": "09a5c217348e028853bc257bf730881798d1cd34167652c1f5af65275d3c4fd4",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 829,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/829",
+      "updated_at": "2020-06-26T11:34:52.546Z",
+      "title_ascii": "File corruption when opening file and saving under a different name",
+      "description_sha256": "6810e915143b66009d45a801c6dd82fc77f7686f35ef9b321ac1cda5de596a93",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 791,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/791",
+      "updated_at": "2024-04-02T15:57:59.644Z",
+      "title_ascii": "Not clear how to configure a Table Totals Row",
+      "description_sha256": "6141243ea3e3a0873de36c127502f7dc07d5b8ce2779e782a192f9489168e531",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 751,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/751",
+      "updated_at": "2020-06-26T11:32:15.522Z",
+      "title_ascii": "Error while opening .xlsx file after openpyxl and interaction with that file",
+      "description_sha256": "5628e4392c89194d83363d4cd1264474c0224e5e49942c216d3e6d559df3dfcb",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 745,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/745",
+      "updated_at": "2020-06-26T11:31:53.529Z",
+      "title_ascii": "Save of huge workbook/worksheet yields MemoryError",
+      "description_sha256": "bdb83b8fceefd9e5fb04793635c278ff6bf58f43459051af05909b0ec2bebc15",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 737,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/737",
+      "updated_at": "2024-05-30T19:37:28.695Z",
+      "title_ascii": "Add image to header footer",
+      "description_sha256": "0d190bdbf4bf49d722146fb2bee59c62081cf4c078bc640f11ea470ecc48211d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 726,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/726",
+      "updated_at": "2020-06-26T11:31:23.035Z",
+      "title_ascii": "String containing unicode-like data gets encoded",
+      "description_sha256": "d20ae2e3f11ed50be935a69036cd0bb9d9eda0d1194c116b7de82e6728059382",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 639,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/639",
+      "updated_at": "2020-06-26T11:28:23.778Z",
+      "title_ascii": "Attendify cannot read files processed by openpyxl",
+      "description_sha256": "fc093e7e32824294d327833faf08d67ab8b6e87ffa09027bec2bbd094d9b0008",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 628,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/628",
+      "updated_at": "2020-06-26T11:28:09.216Z",
+      "title_ascii": "Translator has limited opportunities for extension",
+      "description_sha256": "4d39633c30adfe4492ea64051f7317e67c1b62b00020e371814935e6f97e3b12",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 626,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/626",
+      "updated_at": "2020-06-26T11:28:05.541Z",
+      "title_ascii": "Hyperlink into image",
+      "description_sha256": "922ee94876c8c0c742e748ae07cdb0ffa80f2bcd7a0311208c54cfb7b4a4520d",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 577,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/577",
+      "updated_at": "2020-06-26T11:26:33.510Z",
+      "title_ascii": "'Strict Open XML Spreadsheet' format cause 'UnboundLocalError: local variable 'sheet_id' referenced before assignment'",
+      "description_sha256": "fc9ea1413c547d412a08bb17805ede3de7b08bfe17aa6a6bdeaee2b526db52cd",
+      "selected_for_risk_review": true
+    },
+    {
+      "iid": 531,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/531",
+      "updated_at": "2021-07-26T16:46:56.777Z",
+      "title_ascii": "TextBox support?",
+      "description_sha256": "163db5ca5e46daaa95edaed781656e9be83dbbbe887255ee349762674ebd686f",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 416,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/416",
+      "updated_at": "2020-06-26T11:20:44.430Z",
+      "title_ascii": "xlsx not recognized as xlsx on all platform",
+      "description_sha256": "a3293d407885934fc6ba959b26639cc0655f6d5e598ddfe85b7fd9d522436959",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 414,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/414",
+      "updated_at": "2020-06-26T11:20:39.620Z",
+      "title_ascii": "Unable to style range of cells",
+      "description_sha256": "db32c335ebef6a5b7fec2cf872bada9e2780f86c25adac6e35e5b4de28ad0f19",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 411,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/411",
+      "updated_at": "2020-06-26T11:20:34.234Z",
+      "title_ascii": "Can't reopen a workbook I have previously made with openpyxl",
+      "description_sha256": "956c0dc232d68f1e86f267c72bcc70647f257e1edfe1e6c5079dbc589eca1d69",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 303,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/303",
+      "updated_at": "2020-06-26T11:16:34.030Z",
+      "title_ascii": "It seems that MS Excel 2010 ignores \"applyFill\"",
+      "description_sha256": "b3edc31c964c66662e751177ba7bd79e7e985c3a4cd53bd2412c27b6e7e0e122",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 135,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/135",
+      "updated_at": "2020-06-26T11:11:18.881Z",
+      "title_ascii": "Make worksheet numpy-style subscriptable",
+      "description_sha256": "92e52a33d14d3d00e9b7df20c002946ebd75033c4fe4aa623a1bcdabb6bdc615",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 26,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/26",
+      "updated_at": "2020-06-26T11:07:45.660Z",
+      "title_ascii": "Open password protected workbook",
+      "description_sha256": "5bda1c7353fb7bc48859759f08c36a354534622d769caced3eba027b5b132945",
+      "selected_for_risk_review": false
+    },
+    {
+      "iid": 16,
+      "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/16",
+      "updated_at": "2020-06-26T11:07:33.012Z",
+      "title_ascii": "Nonzero float values less than 0.1 are read as unicode strings",
+      "description_sha256": "c4799ca45af552a77f288a531ad27e8abe1d6238303b086905a7464aba0a7ef8",
+      "selected_for_risk_review": false
+    }
+  ]
+}

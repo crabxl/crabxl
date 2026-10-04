@@ -2,7 +2,7 @@
 
 Status: first M1 numeric streaming checkpoint implemented and tested. Selected calamine parsing logic has been ported into the three-crate workspace. The detailed baseline inventory remains incomplete; [features.json](features.json) records the verified subset and planned groups without claiming full coverage. Deliver a Rust crate first; language bindings follow separately.
 
-Consult [pending MR risks](openpyxl-mr-review.md) when implementing affected features. Defects are regression cases to fix or avoid, not behavior that compatibility requires reproducing.
+Consult [pending MR risks](openpyxl-mr-review.md) and [work-item, board, and milestone risks](openpyxl-work-items-review.md) when implementing affected features. Defects are regression cases to fix or avoid, not behavior that compatibility requires reproducing.
 
 ## Scope and completion
 
