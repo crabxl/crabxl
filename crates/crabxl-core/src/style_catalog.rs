@@ -142,6 +142,10 @@ pub struct StyleCatalog {
     pub indexed_colors: Vec<u32>,
     /// Explicit recently-used color identities.
     pub recent_colors: Vec<Color>,
+    /// Source-ordered sparse differential formats, indexed by table/rule references.
+    pub differential_styles: Vec<crate::DifferentialStyle>,
+    /// Optional explicit table/pivot style defaults and named definitions.
+    pub table_styles: Option<Box<crate::TableStyleCatalog>>,
     /// Known staged/unknown root sections retained by the original package,
     /// not silently represented as editable typed support.
     pub unmodeled_sections: Vec<Box<str>>,
@@ -198,6 +202,9 @@ impl StyleCatalog {
             .any(|v| v.base_format_id as usize >= self.base_formats.len())
         {
             return Err(invalid());
+        }
+        if let Some(styles) = &self.table_styles {
+            styles.validate_references(self.differential_styles.len())?;
         }
         Ok(())
     }
@@ -287,6 +294,15 @@ impl StyleCatalog {
                 .sum::<usize>()
             + self.indexed_colors.capacity() * size_of::<u32>()
             + self.recent_colors.capacity() * size_of::<Color>()
+            + self.differential_styles.capacity() * size_of::<crate::DifferentialStyle>()
+            + self
+                .differential_styles
+                .iter()
+                .map(crate::DifferentialStyle::heap_bytes)
+                .sum::<usize>()
+            + self.table_styles.as_ref().map_or(0, |v| {
+                size_of::<crate::TableStyleCatalog>() + v.heap_bytes()
+            })
             + self.unmodeled_sections.capacity() * size_of::<Box<str>>()
             + self
                 .unmodeled_sections

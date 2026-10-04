@@ -44,6 +44,8 @@ Acceptance: repeated-string and high-cardinality tables work under small managed
 
 ## M2.3: Read-side styles and dates
 
+Checkpoint: typed differential overrides and table/pivot definitions/defaults are verified in ADR 0033, including all 28 region tokens and bounded deferred reference checks. Extension payloads, full style mutation/assignment semantics and worksheet rule/table graph integration remain required.
+
 - Parse styles, number formats, fonts/fills/borders/alignment/protection, colors and themes into the shared core catalog, retaining imported style IDs and deduplicating new formats safely.
 - Separate format classification for value semantics from complete style editing. A formatting index alone must not force a numeric value into a date.
 - Decode both date systems, supported ISO date cells, time-only values and durations. Specify serial-zero/early-1900/fictitious-leap-day behavior, negative serials, precision and invalid inputs against public reference behavior.

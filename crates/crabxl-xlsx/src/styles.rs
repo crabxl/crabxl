@@ -20,6 +20,10 @@ pub(crate) fn validate(style: &CellStyle, maximum: usize) -> Result<()> {
 pub(crate) fn validate_catalog(catalog: &crabxl_core::StyleCatalog) -> Result<()> {
     if !catalog.unmodeled_sections.is_empty()
         || catalog
+            .differential_styles
+            .iter()
+            .any(|style| style.unmodeled_extensions)
+        || catalog
             .cell_formats
             .iter()
             .chain(&catalog.base_formats)
@@ -40,6 +44,27 @@ pub(crate) fn validate_catalog(catalog: &crabxl_core::StyleCatalog) -> Result<()
     }
     for style in &catalog.named_styles {
         crate::encode::validate_xml_text(&style.name)?;
+    }
+    for differential in &catalog.differential_styles {
+        if let Some(font) = &differential.font {
+            if let Some(name) = &font.name {
+                crate::encode::validate_xml_text(name)?;
+            }
+        }
+        if let Some(number) = &differential.number_format {
+            crate::encode::validate_xml_text(number.code())?;
+        }
+    }
+    if let Some(tables) = &catalog.table_styles {
+        for text in [&tables.default_table_style, &tables.default_pivot_style]
+            .into_iter()
+            .flatten()
+        {
+            crate::encode::validate_xml_text(text)?;
+        }
+        for style in &tables.styles {
+            crate::encode::validate_xml_text(&style.name)?;
+        }
     }
     Ok(())
 }
@@ -171,6 +196,7 @@ pub(crate) fn write_styles(
         output.write_all(b"/>")?;
     }
     output.write_all(b"</cellStyles>")?;
+    crate::style_extras_codec::write(output, catalog, policy)?;
     if !catalog.indexed_colors.is_empty() || !catalog.recent_colors.is_empty() {
         output.write_all(b"<colors>")?;
         if !catalog.indexed_colors.is_empty() {

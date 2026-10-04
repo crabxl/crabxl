@@ -238,3 +238,64 @@ impl Fill {
         }
     }
 }
+
+token_enum! {/// Table/pivot formatting region from the pinned public schema.
+    TableStyleRegion {
+        /// blankRow region.
+        BlankRow=>"blankRow",
+        /// firstColumn region.
+        FirstColumn=>"firstColumn",
+        /// firstColumnStripe region.
+        FirstColumnStripe=>"firstColumnStripe",
+        /// firstColumnSubheading region.
+        FirstColumnSubheading=>"firstColumnSubheading",
+        /// firstHeaderCell region.
+        FirstHeaderCell=>"firstHeaderCell",
+        /// firstRowStripe region.
+        FirstRowStripe=>"firstRowStripe",
+        /// firstRowSubheading region.
+        FirstRowSubheading=>"firstRowSubheading",
+        /// firstSubtotalColumn region.
+        FirstSubtotalColumn=>"firstSubtotalColumn",
+        /// firstSubtotalRow region.
+        FirstSubtotalRow=>"firstSubtotalRow",
+        /// firstTotalCell region.
+        FirstTotalCell=>"firstTotalCell",
+        /// headerRow region.
+        HeaderRow=>"headerRow",
+        /// lastColumn region.
+        LastColumn=>"lastColumn",
+        /// lastHeaderCell region.
+        LastHeaderCell=>"lastHeaderCell",
+        /// lastTotalCell region.
+        LastTotalCell=>"lastTotalCell",
+        /// pageFieldLabels region.
+        PageFieldLabels=>"pageFieldLabels",
+        /// pageFieldValues region.
+        PageFieldValues=>"pageFieldValues",
+        /// secondColumnStripe region.
+        SecondColumnStripe=>"secondColumnStripe",
+        /// secondColumnSubheading region.
+        SecondColumnSubheading=>"secondColumnSubheading",
+        /// secondRowStripe region.
+        SecondRowStripe=>"secondRowStripe",
+        /// secondRowSubheading region.
+        SecondRowSubheading=>"secondRowSubheading",
+        /// secondSubtotalColumn region.
+        SecondSubtotalColumn=>"secondSubtotalColumn",
+        /// secondSubtotalRow region.
+        SecondSubtotalRow=>"secondSubtotalRow",
+        /// thirdColumnSubheading region.
+        ThirdColumnSubheading=>"thirdColumnSubheading",
+        /// thirdRowSubheading region.
+        ThirdRowSubheading=>"thirdRowSubheading",
+        /// thirdSubtotalColumn region.
+        ThirdSubtotalColumn=>"thirdSubtotalColumn",
+        /// thirdSubtotalRow region.
+        ThirdSubtotalRow=>"thirdSubtotalRow",
+        /// totalRow region.
+        TotalRow=>"totalRow",
+        /// wholeTable region.
+        WholeTable=>"wholeTable",
+    }
+}

@@ -1893,14 +1893,9 @@ fn imported_style_components_keep_ids_optional_overrides_palettes_and_staged_sec
     assert_eq!(catalog.named_styles[0].hidden, Some(false));
     assert_eq!(catalog.indexed_colors, [0xFFAABBCC]);
     assert_eq!(catalog.recent_colors[0].tint, Some(0.0));
-    assert_eq!(
-        catalog
-            .unmodeled_sections
-            .iter()
-            .map(|s| s.as_ref())
-            .collect::<Vec<_>>(),
-        ["tableStyles", "dxfs"]
-    );
+    assert!(catalog.unmodeled_sections.is_empty());
+    assert!(catalog.differential_styles.is_empty());
+    assert!(catalog.table_styles.as_ref().unwrap().styles.is_empty());
 }
 
 #[test]
@@ -2923,4 +2918,64 @@ fn finite_style_domains_and_empty_number_format_decode_from_source() {
     assert!(
         matches!(style.fill, Fill::Gradient(value) if value.edges[0] == Some(-1.0) && value.edges[1] == Some(2.0))
     );
+}
+
+#[test]
+fn differential_and_table_styles_share_components_and_keep_sparse_declared_counts() {
+    use crabxl_core::TableStyleRegion;
+    let extras = "<tableStyles count=\"4000000000\" defaultTableStyle=\"Custom &amp; Named\" defaultPivotStyle=\"PivotStyleLight16\"><tableStyle name=\"Custom &amp; Named\" table=\"1\" pivot=\"0\" count=\"4000000000\"><tableStyleElement type=\"wholeTable\" dxfId=\"0\"/><tableStyleElement type=\"firstRowStripe\" size=\"0\"/></tableStyle></tableStyles><dxfs count=\"4000000000\"><dxf><font><b/><color theme=\"1\"/></font><numFmt numFmtId=\"500\" formatCode=\"0.000\"/><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFAABBCC\"/></patternFill></fill><alignment horizontal=\"right\" indent=\"2.5\"/><border><left style=\"thin\"/></border><protection locked=\"0\" hidden=\"1\"/></dxf></dxfs>";
+    let styles = basic_styles("<xf/>") + extras;
+    let mut reader =
+        WorkbookReader::new(Cursor::new(with_styles("<row/>", &styles, false))).unwrap();
+    let catalog = reader.style_catalog().unwrap().unwrap();
+    assert!(catalog.unmodeled_sections.is_empty());
+    assert_eq!(catalog.differential_styles.len(), 1);
+    let differential = &catalog.differential_styles[0];
+    assert_eq!(differential.font.as_ref().unwrap().bold, Some(true));
+    assert!(differential.font.as_ref().unwrap().name.is_none());
+    assert_eq!(differential.number_format.as_ref().unwrap().id(), 500);
+    assert_eq!(differential.alignment.as_ref().unwrap().indent, Some(2.5));
+    assert_eq!(differential.protection.unwrap().locked, Some(false));
+    let tables = catalog.table_styles.as_ref().unwrap();
+    assert_eq!(
+        tables.default_table_style.as_deref(),
+        Some("Custom & Named")
+    );
+    assert_eq!(tables.styles[0].count, Some(4_000_000_000));
+    assert_eq!(
+        tables.styles[0].elements[0].region,
+        TableStyleRegion::WholeTable
+    );
+    assert_eq!(tables.styles[0].elements[1].size, Some(0));
+    for invalid in [
+        styles.replace("dxfId=\"0\"", "dxfId=\"4294967295\""),
+        styles.replace("wholeTable", "unknownRegion"),
+        styles.clone() + "<dxfs/>",
+    ] {
+        let mut reader =
+            WorkbookReader::new(Cursor::new(with_styles("<row/>", &invalid, false))).unwrap();
+        let error = reader.style_catalog().unwrap_err();
+        assert_eq!(error.part(), Some("meta/styles.xml"));
+        assert_eq!(reader.style_memory_bytes(), 0);
+    }
+    assert!(catalog.memory_bytes() >= differential.heap_bytes());
+}
+
+#[test]
+fn differential_extension_presence_is_explicit_and_tight_budgets_leave_no_catalog() {
+    let styles =
+        basic_styles("<xf/>") + "<dxfs><dxf><extLst><ext uri=\"future\"/></extLst></dxf></dxfs>";
+    let mut reader =
+        WorkbookReader::new(Cursor::new(with_styles("<row/>", &styles, false))).unwrap();
+    assert!(reader.style_catalog().unwrap().unwrap().differential_styles[0].unmodeled_extensions);
+    let mut reader = WorkbookReader::with_limits(
+        Cursor::new(with_styles("<row/>", &styles, false)),
+        ResourceLimits {
+            max_style_bytes: 512,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(reader.style_catalog().is_err());
+    assert_eq!(reader.style_memory_bytes(), 0);
 }
