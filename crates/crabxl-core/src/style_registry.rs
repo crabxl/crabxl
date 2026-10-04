@@ -507,7 +507,7 @@ impl StyleRegistry {
             + catalog.base_formats.capacity() * size_of::<CellFormat>()
             + catalog.cell_formats.capacity() * size_of::<CellFormat>()
             + catalog.named_styles.capacity() * size_of::<NamedStyle>()
-            + catalog.indexed_colors.capacity() * size_of::<u32>()
+            + catalog.indexed_colors.capacity() * size_of::<crate::ArgbLiteral>()
             + catalog.recent_colors.capacity() * size_of::<crate::Color>()
             + catalog.unmodeled_sections.capacity() * size_of::<Box<str>>()
             + catalog.differential_styles.capacity() * size_of::<crate::DifferentialStyle>()

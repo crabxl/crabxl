@@ -139,7 +139,7 @@ pub struct StyleCatalog {
     /// Named style metadata.
     pub named_styles: Vec<NamedStyle>,
     /// Explicit indexed ARGB palette; an absent palette is not resolved here.
-    pub indexed_colors: Vec<u32>,
+    pub indexed_colors: Vec<crate::ArgbLiteral>,
     /// Explicit recently-used color identities.
     pub recent_colors: Vec<Color>,
     /// Source-ordered sparse differential formats, indexed by table/rule references.
@@ -292,7 +292,7 @@ impl StyleCatalog {
                 .iter()
                 .map(|s| s.name.len())
                 .sum::<usize>()
-            + self.indexed_colors.capacity() * size_of::<u32>()
+            + self.indexed_colors.capacity() * size_of::<crate::ArgbLiteral>()
             + self.recent_colors.capacity() * size_of::<Color>()
             + self.differential_styles.capacity() * size_of::<crate::DifferentialStyle>()
             + self

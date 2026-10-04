@@ -202,7 +202,7 @@ pub(crate) fn write_styles(
         if !catalog.indexed_colors.is_empty() {
             output.write_all(b"<indexedColors>")?;
             for value in &catalog.indexed_colors {
-                write!(output, "<rgbColor rgb=\"{value:08X}\"/>")?;
+                write!(output, "<rgbColor rgb=\"{value}\"/>")?;
             }
             output.write_all(b"</indexedColors>")?;
         }
