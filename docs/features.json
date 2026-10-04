@@ -17341,6 +17341,35 @@
         "benchmarks/style_import_checkpoint.py"
       ],
       "limitations": "In-memory catalog/identity edits only; full bank/export/package integration and unmodeled typed sections remain staged. Ownership transfer consumes the reader; index/scratch allowances are managed rather than process RSS caps. No milestone completion claimed."
+    },
+    {
+      "id": "styles.source-catalog-export",
+      "description": "Owned source catalog export with stable component/format IDs, raw registrations, source-derived automatic date presets and sorted sparse declarations",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "source-catalog-new-package",
+        "sequential-write"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/style_registry.rs",
+        "crates/crabxl-xlsx/src/writer.rs",
+        "crates/crabxl-xlsx/src/encode.rs",
+        "crates/crabxl-xlsx/src/styles.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/style_registry.rs::inserted_custom_codes_keep_sparse_declarations_sorted_and_hash_indices_valid",
+        "crates/crabxl-xlsx/tests/writer.rs::imported_style_ids_and_zero_date_formats_survive_export_with_derived_auto_ids",
+        "crates/crabxl-xlsx/tests/writer.rs::source_catalog_creation_rejects_unmodeled_sections_and_accepts_large_configured_counts",
+        "benchmarks/style_export_checkpoint.py"
+      ],
+      "limitations": "Creates a new package; original advanced/opaque part graphs and full bank/structural edits are not covered. Unmodeled style sections reject creation. Unused native source declarations remain unlike reference pruning. Arbitrary date/style assignment acceptance remains staged. No milestone completion claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

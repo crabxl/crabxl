@@ -1,0 +1,670 @@
+{
+  "reference": "3.1.5",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "measurement": "One warmup and five rotating serial cold-process samples, no builds during timing",
+  "semantics": "Both engines fully load ten stored typed/cache values and declared style catalogs, change A1 number format, and save a new package. All saved values and listed public style properties are compared outside timing. Source fixtures contain no advanced/opaque part graphs; original-package preservation is not claimed. Native source styles retain IDs and automatically registered date formats derive from source-zero component IDs. Native additionally retains unused source declarations and four automatic date presets; public save prunes unused codes. Output size/table counts expose that extra native work. Previously no equivalent source-style export API existed.",
+  "cases": [
+    {
+      "declared_formats": 1001,
+      "cells": 10,
+      "native_logical_temp_bytes": 516,
+      "verified_public_properties": [
+        {
+          "value": "1900-01-01T06:00:00",
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "2024-01-01T06:00:00",
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "12:00:00",
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": 0.0,
+          "number_format": "[h]:mm:ss.000",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": false,
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "styled-00000000",
+          "number_format": "General",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "#DIV/0!",
+          "number_format": "General",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "2024-01-01T06:00:00",
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": 0,
+          "number_format": "General",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": 1.25,
+          "number_format": "General",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        }
+      ],
+      "samples": {
+        "crabxl": [
+          {
+            "seconds": 0.00760482,
+            "cpu_seconds": 0.007521,
+            "peak_rss_kib": 3076,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 8863
+          },
+          {
+            "seconds": 0.00731341,
+            "cpu_seconds": 0.007242,
+            "peak_rss_kib": 3044,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 8863
+          },
+          {
+            "seconds": 0.007250387,
+            "cpu_seconds": 0.00718,
+            "peak_rss_kib": 3012,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 8863
+          },
+          {
+            "seconds": 0.007401873,
+            "cpu_seconds": 0.007326,
+            "peak_rss_kib": 3092,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 8863
+          },
+          {
+            "seconds": 0.007319272,
+            "cpu_seconds": 0.007255,
+            "peak_rss_kib": 3100,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 8863
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 0.166525281,
+            "cpu_seconds": 0.372806,
+            "peak_rss_kib": 35592,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4701
+          },
+          {
+            "seconds": 0.16401463,
+            "cpu_seconds": 0.356161,
+            "peak_rss_kib": 35596,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4701
+          },
+          {
+            "seconds": 0.187053027,
+            "cpu_seconds": 0.331371,
+            "peak_rss_kib": 35592,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4701
+          },
+          {
+            "seconds": 0.192150953,
+            "cpu_seconds": 0.33337,
+            "peak_rss_kib": 35592,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4701
+          },
+          {
+            "seconds": 0.162172564,
+            "cpu_seconds": 0.368519,
+            "peak_rss_kib": 35596,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4701
+          }
+        ]
+      },
+      "medians": {
+        "crabxl": {
+          "seconds": 0.007319272,
+          "cpu_seconds": 0.007255,
+          "peak_rss_kib": 3076,
+          "sampled_temp_peak_bytes": 0,
+          "output_bytes": 8863
+        },
+        "openpyxl": {
+          "seconds": 0.166525281,
+          "cpu_seconds": 0.356161,
+          "peak_rss_kib": 35592,
+          "sampled_temp_peak_bytes": 0,
+          "output_bytes": 4701
+        }
+      },
+      "output_tables": {
+        "crabxl": {
+          "number_formats": 1004,
+          "cell_formats": 7,
+          "style_xml_bytes": 59671
+        },
+        "openpyxl": {
+          "number_formats": 1,
+          "cell_formats": 3,
+          "style_xml_bytes": 2536
+        }
+      }
+    },
+    {
+      "declared_formats": 50001,
+      "cells": 10,
+      "native_logical_temp_bytes": 516,
+      "verified_public_properties": [
+        {
+          "value": "1900-01-01T06:00:00",
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "2024-01-01T06:00:00",
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "12:00:00",
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": 0.0,
+          "number_format": "[h]:mm:ss.000",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": false,
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "styled-00000000",
+          "number_format": "General",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "#DIV/0!",
+          "number_format": "General",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": "2024-01-01T06:00:00",
+          "number_format": "mm-dd-yy",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": 0,
+          "number_format": "General",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        },
+        {
+          "value": 1.25,
+          "number_format": "General",
+          "font_name": "Calibri",
+          "font_size": 11.0,
+          "font_family": null,
+          "font_scheme": null,
+          "font_bold": false,
+          "fill_pattern": null,
+          "alignment": {
+            "horizontal": null,
+            "vertical": null,
+            "textRotation": 0,
+            "wrapText": null,
+            "shrinkToFit": null,
+            "indent": 0.0
+          },
+          "protection": {
+            "locked": true,
+            "hidden": false
+          }
+        }
+      ],
+      "samples": {
+        "crabxl": [
+          {
+            "seconds": 0.29148115,
+            "cpu_seconds": 0.29131,
+            "peak_rss_kib": 9480,
+            "sampled_temp_peak_bytes": 540,
+            "output_bytes": 259396
+          },
+          {
+            "seconds": 0.274619049,
+            "cpu_seconds": 0.274399,
+            "peak_rss_kib": 9360,
+            "sampled_temp_peak_bytes": 540,
+            "output_bytes": 259396
+          },
+          {
+            "seconds": 0.291324319,
+            "cpu_seconds": 0.291139,
+            "peak_rss_kib": 9352,
+            "sampled_temp_peak_bytes": 540,
+            "output_bytes": 259396
+          },
+          {
+            "seconds": 0.283294616,
+            "cpu_seconds": 0.283131,
+            "peak_rss_kib": 9528,
+            "sampled_temp_peak_bytes": 540,
+            "output_bytes": 259396
+          },
+          {
+            "seconds": 0.284127499,
+            "cpu_seconds": 0.283872,
+            "peak_rss_kib": 9496,
+            "sampled_temp_peak_bytes": 540,
+            "output_bytes": 259396
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 0.442624813,
+            "cpu_seconds": 0.624068,
+            "peak_rss_kib": 90484,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4701
+          },
+          {
+            "seconds": 0.438239981,
+            "cpu_seconds": 0.606291,
+            "peak_rss_kib": 90492,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4701
+          },
+          {
+            "seconds": 0.45253781,
+            "cpu_seconds": 0.596571,
+            "peak_rss_kib": 90492,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4701
+          },
+          {
+            "seconds": 0.442749909,
+            "cpu_seconds": 0.570261,
+            "peak_rss_kib": 90480,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4705
+          },
+          {
+            "seconds": 0.456335655,
+            "cpu_seconds": 0.614661,
+            "peak_rss_kib": 90488,
+            "sampled_temp_peak_bytes": 0,
+            "output_bytes": 4701
+          }
+        ]
+      },
+      "medians": {
+        "crabxl": {
+          "seconds": 0.284127499,
+          "cpu_seconds": 0.283872,
+          "peak_rss_kib": 9480,
+          "sampled_temp_peak_bytes": 540,
+          "output_bytes": 259396
+        },
+        "openpyxl": {
+          "seconds": 0.442749909,
+          "cpu_seconds": 0.606291,
+          "peak_rss_kib": 90488,
+          "sampled_temp_peak_bytes": 0,
+          "output_bytes": 4701
+        }
+      },
+      "output_tables": {
+        "crabxl": {
+          "number_formats": 50004,
+          "cell_formats": 7,
+          "style_xml_bytes": 3080172
+        },
+        "openpyxl": {
+          "number_formats": 1,
+          "cell_formats": 3,
+          "style_xml_bytes": 2536
+        }
+      }
+    }
+  ]
+}

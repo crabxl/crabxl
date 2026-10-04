@@ -17,6 +17,32 @@ pub(crate) fn validate(style: &CellStyle, maximum: usize) -> Result<()> {
     crate::encode::validate_xml_text(&style.number_format)?;
     Ok(())
 }
+pub(crate) fn validate_catalog(catalog: &crabxl_core::StyleCatalog) -> Result<()> {
+    if !catalog.unmodeled_sections.is_empty()
+        || catalog
+            .cell_formats
+            .iter()
+            .chain(&catalog.base_formats)
+            .any(|format| format.unmodeled_extensions)
+    {
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            "Unmodeled style sections require original-package preservation",
+        ));
+    }
+    for font in &catalog.fonts {
+        if let Some(name) = &font.name {
+            crate::encode::validate_xml_text(name)?;
+        }
+    }
+    for format in &catalog.number_formats {
+        crate::encode::validate_xml_text(format.code())?;
+    }
+    for style in &catalog.named_styles {
+        crate::encode::validate_xml_text(&style.name)?;
+    }
+    Ok(())
+}
 fn write_xf(
     output: &mut impl Write,
     format: &crabxl_core::CellFormat,

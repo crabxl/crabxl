@@ -299,3 +299,44 @@ fn raw_format_edits_reuse_components_and_retain_absence_and_application_flags() 
     assert!(registry.register_format(format).is_err());
     assert_eq!(registry.catalog().cell_formats.len(), count);
 }
+
+#[test]
+fn inserted_custom_codes_keep_sparse_declarations_sorted_and_hash_indices_valid() {
+    use crabxl_core::NumberFormat;
+    let mut catalog = StyleRegistry::new(StyleLimits::default())
+        .unwrap()
+        .catalog()
+        .clone();
+    catalog.number_formats = vec![
+        NumberFormat::new(500, "0.00000"),
+        NumberFormat::new(u32::MAX, "0.000000"),
+    ];
+    let mut styles = StyleRegistry::from_catalog(catalog, StyleLimits::default()).unwrap();
+    assert_eq!(styles.register_number_format("0.000".into()).unwrap(), 164);
+    assert_eq!(styles.register_number_format("0.0000".into()).unwrap(), 165);
+    assert_eq!(
+        styles.register_number_format("0.00000".into()).unwrap(),
+        500
+    );
+    assert_eq!(
+        styles.register_number_format("0.000000".into()).unwrap(),
+        u32::MAX
+    );
+    assert!(
+        styles
+            .catalog()
+            .number_formats
+            .windows(2)
+            .all(|p| p[0].id() < p[1].id())
+    );
+    let id = styles
+        .register(CellStyle {
+            number_format: "0.000000".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(
+        styles.catalog().cell_formats[id.get() as usize].number_format_id,
+        u32::MAX
+    );
+}
