@@ -1,0 +1,26 @@
+{
+  "version": "3.1.5",
+  "formula_has_empty_v": true,
+  "rich_text_runs": [
+    {
+      "text": " ",
+      "xml_space": null
+    },
+    {
+      "text": "x",
+      "xml_space": null
+    },
+    {
+      "text": null,
+      "xml_space": null
+    }
+  ],
+  "empty_validation_container": {
+    "count": "0"
+  },
+  "unknown_extension_preserved": false,
+  "extension_warnings": [
+    "Unknown extension is not supported and will be removed"
+  ],
+  "loaded_image_second_save": "ValueError: I/O operation on closed file."
+}
