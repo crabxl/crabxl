@@ -18,3 +18,5 @@ Cache-only formula projection is an original change to the attributed scalar rea
 Formula attribute write policies are original shared-model/codec integration changes to the previously attributed formula layouts. Public constructor/save/reload evidence and synthetic fixtures verify omission versus source retention without additional upstream implementation inspection; see ADR 0024.
 
 Owned bank theme integration and immutable shared ownership are original Rust model/resource work, with synthetic lifecycle/limit fixtures and native snapshot verification; existing opaque theme serialization provenance remains unchanged. See ADR 0026 and benchmarks/m4-bank-themes.md.
+
+Canonical style catalog adoption, sparse ID reservation, raw format registration and consuming reader transfer are original ownership/resource integration changes to previously attributed shared models and codecs. Public model calls and generated OOXML verify behavior without additional upstream implementation inspection; see ADR 0027 and benchmarks/m2-style-import.md.

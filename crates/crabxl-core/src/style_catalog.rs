@@ -120,8 +120,8 @@ pub struct StyleView<'a> {
     pub protection: Option<&'a Protection>,
 }
 /// Shared imported style catalog. Original indices remain stable; declarations
-/// never reserve from an advertised count. Derived value classification belongs
-/// to the format codec, not a second style model.
+/// never reserve from an advertised count. Number-format classification is cached
+/// by canonical records; format codecs build bounded indexed cell lookups.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct StyleCatalog {
     /// Declared number formats sorted by identity after validated import.
@@ -179,6 +179,56 @@ impl StyleCatalog {
             alignment: format.alignment.as_deref(),
             protection: format.protection.as_ref(),
         })
+    }
+    /// Validate component/base/custom-format links without cloning or dense IDs.
+    /// Unknown extension markers remain explicit and are not interpreted here.
+    pub fn validate_references(&self) -> crate::Result<()> {
+        let invalid = || {
+            crate::Error::new(
+                crate::ErrorKind::InvalidData,
+                "Style catalog contains a missing reference",
+            )
+        };
+        for format in self.cell_formats.iter().chain(&self.base_formats) {
+            self.validate_format(format)?;
+        }
+        if self
+            .named_styles
+            .iter()
+            .any(|v| v.base_format_id as usize >= self.base_formats.len())
+        {
+            return Err(invalid());
+        }
+        Ok(())
+    }
+    /// Validate one candidate format against these existing canonical components.
+    pub fn validate_format(&self, format: &CellFormat) -> crate::Result<()> {
+        let invalid = || {
+            crate::Error::new(
+                crate::ErrorKind::InvalidData,
+                "Style catalog contains a missing reference",
+            )
+        };
+        if format.number_format_id >= 164
+            && self
+                .declared_number_format(format.number_format_id)
+                .is_none()
+        {
+            return Err(invalid());
+        }
+        if format.font_id as usize >= self.fonts.len()
+            || format.fill_id as usize >= self.fills.len()
+            || format.border_id as usize >= self.borders.len()
+            || format
+                .base_format_id
+                .is_some_and(|id| id as usize >= self.base_formats.len())
+        {
+            return Err(invalid());
+        }
+        if let Some(alignment) = &format.alignment {
+            alignment.validate()?;
+        }
+        Ok(())
     }
     /// Borrow a declared format code; imported declarations take priority over built-ins.
     pub fn declared_number_format(&self, id: u32) -> Option<&str> {

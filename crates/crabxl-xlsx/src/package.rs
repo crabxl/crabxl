@@ -375,6 +375,13 @@ impl<R: Read + Seek> WorkbookReader<R> {
         self.prepare_styles()?;
         Ok(self.imported_styles.as_ref().map(|s| &s.catalog))
     }
+    /// Consume this reader and transfer its validated style catalog without cloning.
+    /// Remaining archive/string-cache resources close when the reader is consumed.
+    /// Derived date lookups are discarded; canonical format records retain their kinds.
+    pub fn into_style_catalog(mut self) -> Result<Option<crabxl_core::StyleCatalog>> {
+        self.prepare_styles()?;
+        Ok(self.imported_styles.take().map(|styles| styles.catalog))
+    }
     /// Retained style catalog plus derived number-format classifications.
     pub fn style_memory_bytes(&self) -> usize {
         self.imported_styles

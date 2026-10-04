@@ -361,37 +361,7 @@ fn read_impl<B: BufRead>(
     {
         return Err(invalid("Duplicate number-format identity"));
     }
-    for format in result.cell_formats.iter().chain(&result.base_formats) {
-        if format.number_format_id >= 164
-            && result
-                .declared_number_format(format.number_format_id)
-                .is_none()
-        {
-            return Err(invalid("Style references a missing custom number format"));
-        }
-        for (id, length) in [
-            (format.font_id, result.fonts.len()),
-            (format.fill_id, result.fills.len()),
-            (format.border_id, result.borders.len()),
-        ] {
-            if id as usize >= length {
-                return Err(invalid("Style references a missing component"));
-            }
-        }
-        if format
-            .base_format_id
-            .is_some_and(|id| id as usize >= result.base_formats.len())
-        {
-            return Err(invalid("Style references a missing base format"));
-        }
-    }
-    if result
-        .named_styles
-        .iter()
-        .any(|style| style.base_format_id as usize >= result.base_formats.len())
-    {
-        return Err(invalid("Named style references a missing base format"));
-    }
+    result.validate_references()?;
     if result.memory_bytes() > maximum {
         return Err(limit("Style catalog retained capacity exceeds limit"));
     }
