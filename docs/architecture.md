@@ -1,6 +1,6 @@
 # Architecture
 
-Status: M0 architecture/inventory and M1 raw numeric streaming and M3 sequential writer acceptance complete; M2 remains in progress. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. An optional Python compatibility adapter is now authorized for shared tests; other language adapters remain deferred. Reader ownership is recorded in [ADR 0001](decisions/0001-numeric-streaming.md); the sequential writer uses [ADR 0004](decisions/0004-sequential-scalar-writer.md).
+Status: M0 architecture/inventory and M1 raw numeric streaming and M3 sequential writer acceptance complete; M2 remains in progress. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. An optional Python compatibility adapter is now authorized for shared tests; other language adapters follow the priorities and contracts in [binding-contract.md](binding-contract.md). Reader ownership is recorded in [ADR 0001](decisions/0001-numeric-streaming.md); the sequential writer uses [ADR 0004](decisions/0004-sequential-scalar-writer.md).
 
 ## Reference scope
 
@@ -136,3 +136,7 @@ M4 now separates an I/O-free sparse `Worksheet` from a lazy `WorkbookEditor` hol
 ## Optional Python adapter
 
 `bindings/python` is a separate, excluded Cargo workspace and Maturin/PyO3 package. Python objects and compatibility naming live there; the three core Rust crates do not depend on Python. The adapter targets openpyxl call compatibility and is staged by capability. [ADR 0006](decisions/0006-python-compatibility-adapter.md) records the test and ownership contract.
+
+## Owned workbook bank
+
+[ADR 0007](decisions/0007-owned-workbook.md) adds the I/O-free shared Workbook bank, stable sheet IDs, aggregate mutation allowances and borrowed writer export. Existing-package preservation retains its lazy editor path. Python active selection uses the common XLSX metadata codec; Python model handles have not yet migrated to aggregate bank ownership.

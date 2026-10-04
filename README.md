@@ -150,3 +150,5 @@ wb.save("example.xlsx")
 ```
 
 Build/install/test instructions and the explicit capability limits are in [bindings/python/README.md](bindings/python/README.md). The standalone Rust crate has no Python dependency. Compatibility is partial and verified by selected original openpyxl tests plus shared public-API cases; advanced features remain in the roadmap.
+
+Core `Workbook` now provides stable sheet IDs, order/active/epoch selection, independent sparse model copies and aggregate managed allowances. `sheet_mut` returns a guarded mutation facade; `WorkbookWriter::write_workbook` exports borrowed models. This does not implement original-package sheet or feature-graph surgery. See [ADR 0007](docs/decisions/0007-owned-workbook.md) and [release evidence](benchmarks/m4-workbook.md).

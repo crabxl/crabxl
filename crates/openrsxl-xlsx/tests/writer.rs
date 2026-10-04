@@ -609,3 +609,47 @@ fn materialized_sparse_model_exports_with_structural_edits_and_empty_extent() {
     assert_eq!(sheet.len(), 2);
     assert_eq!(sheet.row_extent(), 3);
 }
+
+#[test]
+fn owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values() {
+    let mut book = openrsxl_core::Workbook::new(openrsxl_core::WorkbookLimits::default()).unwrap();
+    let first = book.create_sheet("First").unwrap();
+    let other = book.create_sheet("Other").unwrap();
+    book.sheet_mut(first)
+        .unwrap()
+        .append(vec![CellValue::Integer(1)])
+        .unwrap();
+    book.sheet_mut(other)
+        .unwrap()
+        .append(vec![CellValue::Integer(2)])
+        .unwrap();
+    book.set_active_sheet(first).unwrap();
+    book.move_sheet(other, 0).unwrap();
+    book.set_epoch(openrsxl_core::DateEpoch::Mac1904);
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.write_workbook(&book).unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    assert!(reader.date_1904());
+    assert_eq!(reader.active_index(), Some(1));
+    assert_eq!(
+        reader
+            .sheets()
+            .iter()
+            .map(|sheet| sheet.name())
+            .collect::<Vec<_>>(),
+        ["Other", "First"]
+    );
+    assert_eq!(
+        reader.read_sheet("First").unwrap().rows[0].cells[0].value,
+        CellValue::Integer(1)
+    );
+    assert_eq!(book.cell_count(), 2);
+    let mut invalid = WorkbookWriter::new(WriteOptions {
+        active_sheet: 3,
+        ..WriteOptions::default()
+    })
+    .unwrap();
+    invalid.start_sheet("Only").unwrap();
+    assert!(invalid.finish(Cursor::new(Vec::new())).is_err());
+}

@@ -384,14 +384,14 @@ class Workbook:
     @property
     def sheetnames(self): return [sheet.title for sheet in self._sheets]
     @property
-    def active(self): return self._sheets[self._active] if self._sheets else None
+    def active(self): return self._sheets[self._active] if self._active is not None and 0 <= self._active < len(self._sheets) else None
     @active.setter
     def active(self, value):
         if self._editor is not None:
             raise NotImplementedError("Changing loaded workbook views is not implemented")
         index = self._sheets.index(value) if isinstance(value, Worksheet) else value
-        if index != 0:
-            raise NotImplementedError("Serializing non-default active sheet is not implemented")
+        if not isinstance(index, int) or not 0 <= index < len(self._sheets):
+            raise ValueError("Active sheet is outside the workbook")
         self._active = index
 
     def __getitem__(self, key):
@@ -433,7 +433,7 @@ class Workbook:
                 raise NotImplementedError("Saving data-only loaded workbooks is not implemented")
             self._editor.save(Path(filename), False)
         else:
-            save_models(Path(filename), [sheet._model() for sheet in self._sheets])
+            save_models(Path(filename), [sheet._model() for sheet in self._sheets], self._active or 0)
 
     def close(self):
         if self._reader is not None:
@@ -457,6 +457,7 @@ def load_workbook(filename, read_only=False, keep_vba=False, data_only=False, ke
         workbook._editor = NativeEditor(Path(filename), max_memory_bytes)
         workbook.data_only = data_only
         workbook._sheets = [Worksheet(workbook, name, _existing=True) for name in workbook._reader.names()]
+        workbook._active = workbook._reader.active_index()
     except BaseException:
         workbook._reader.close()
         raise

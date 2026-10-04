@@ -1072,3 +1072,50 @@ fn formula_payload_limits_projection_and_invalid_structure_are_enforced() {
         );
     }
 }
+
+#[test]
+fn active_view_uses_first_direct_namespaced_view_and_handles_invalid_indexes() {
+    for (views, expected) in [
+        ("", Some(0)),
+        (
+            "<bookViews><workbookView activeTab=\"0\"/><workbookView activeTab=\"99\"/></bookViews>",
+            Some(0),
+        ),
+        (
+            "<bookViews><workbookView activeTab=\"99\"/></bookViews>",
+            None,
+        ),
+        (
+            "<bookViews xmlns=\"urn:opaque\"><workbookView activeTab=\"99\"/></bookViews>",
+            Some(0),
+        ),
+        (
+            "<ext><bookViews><workbookView activeTab=\"99\"/></bookViews></ext>",
+            Some(0),
+        ),
+    ] {
+        let mut parts = entries(&format!(
+            "<worksheet xmlns=\"{MAIN}\"><sheetData/></worksheet>"
+        ));
+        parts[2].1 = parts[2].1.replace("<sheets>", &format!("{views}<sheets>"));
+        assert_eq!(from_entries(&parts).active_index(), expected);
+    }
+    let mut parts = entries(&format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData/></worksheet>"
+    ));
+    parts[2].1 = parts[2].1.replace(
+        "<sheets>",
+        "<bookViews><workbookView activeTab=\"invalid\"/></bookViews><sheets>",
+    );
+    let borrowed: Vec<_> = parts
+        .iter()
+        .map(|(name, xml)| (name.as_str(), xml.as_str()))
+        .collect();
+    assert_eq!(
+        WorkbookReader::new(Cursor::new(fixture(&borrowed)))
+            .err()
+            .unwrap()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+}
