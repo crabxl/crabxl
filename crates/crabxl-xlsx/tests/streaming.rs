@@ -333,7 +333,7 @@ fn adaptive_heterogeneous_input_falls_back_at_actual_budget() {
 fn adaptive_errors_are_not_hidden_by_streaming_fallback() {
     let mut book = open("<row><c t=\"s\"><v>0</v></c></row>");
     assert!(
-        matches!(book.read_with_policy("A & B", AccessPattern::RepeatedAccess, MemoryPolicy::default()), Err(error) if error.kind() == ErrorKind::Unsupported)
+        matches!(book.read_with_policy("A & B", AccessPattern::RepeatedAccess, MemoryPolicy::default()), Err(error) if error.kind() == ErrorKind::InvalidData)
     );
     let mut book = open("<row/>");
     assert!(
@@ -345,7 +345,7 @@ fn adaptive_errors_are_not_hidden_by_streaming_fallback() {
     let content = "<row><c><v>1</v></c></row>".repeat(128) + "<row><c t=\"s\"><v>0</v></c></row>";
     let mut book = open(&content);
     assert!(
-        matches!(book.read_with_policy("A & B", AccessPattern::RepeatedAccess, MemoryPolicy::Budget(16 * 1024 * 1024)), Err(error) if error.kind() == ErrorKind::Unsupported)
+        matches!(book.read_with_policy("A & B", AccessPattern::RepeatedAccess, MemoryPolicy::Budget(16 * 1024 * 1024)), Err(error) if error.kind() == ErrorKind::InvalidData)
     );
 }
 #[test]
@@ -496,7 +496,6 @@ fn foreign_cell_namespace_is_not_decoded_as_spreadsheet_data() {
 #[test]
 fn selected_unsupported_features_fail_with_cell_context() {
     for content in [
-        "<c t=\"s\"><v>0</v></c>",
         "<c s=\"1\"><v>1</v></c>",
         "<c><f t=\"shared\" si=\"0\">1+1</f><v>2</v></c>",
         "<c vm=\"1\"><v>1</v></c>",
@@ -1117,5 +1116,256 @@ fn active_view_uses_first_direct_namespaced_view_and_handles_invalid_indexes() {
             .unwrap()
             .kind(),
         ErrorKind::InvalidData
+    );
+}
+
+fn with_strings(sheet: &str, strings: &str) -> Vec<u8> {
+    let mut parts = entries(&format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData>{sheet}</sheetData></worksheet>"
+    ));
+    parts[3].1 = parts[3].1.replace("</Relationships>", &format!("<Relationship Id=\"strings\" Type=\"{REL}/sharedStrings\" Target=\"../data/text.xml\"/></Relationships>"));
+    parts.push((
+        "data/text.xml".into(),
+        format!("<sst xmlns=\"{MAIN}\" uniqueCount=\"999999999999\">{strings}</sst>"),
+    ));
+    fixture(
+        &parts
+            .iter()
+            .map(|(n, v)| (n.as_str(), v.as_str()))
+            .collect::<Vec<_>>(),
+    )
+}
+
+#[test]
+fn shared_text_modes_preserve_ids_entities_whitespace_and_owned_lifetimes() {
+    use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    for storage in [
+        SharedStringStorage::Memory,
+        SharedStringStorage::Disk,
+        SharedStringStorage::Auto,
+    ] {
+        let temp = tempfile::tempdir().unwrap();
+        let bytes = with_strings(
+            "<row><c t=\"s\"><v>2</v></c><c t=\"s\"><v>0</v></c><c t=\"s\"><v>1</v></c><c t=\"s\"><v>2</v></c></row>",
+            "<si><t>  a &amp; b &#x1F980;  </t></si><si/><si><t>_x005F_x0041_</t></si>",
+        );
+        let mut book = WorkbookReader::new(Cursor::new(bytes)).unwrap();
+        book.set_shared_string_options(SharedStringOptions {
+            storage,
+            temp_directory: Some(temp.path().to_owned()),
+            ..SharedStringOptions::default()
+        });
+        assert!(book.shared_string_stats().is_none());
+        let batch = book.rows("A & B").unwrap().read_batch().unwrap().unwrap();
+        let stats = book.shared_string_stats().unwrap();
+        assert_eq!(stats.entries, 3);
+        assert_eq!(stats.disk_backed, storage == SharedStringStorage::Disk);
+        if stats.disk_backed {
+            assert_eq!(stats.cache_hits, 1);
+            assert_eq!(stats.disk_reads, 3);
+        }
+        assert_eq!(batch.rows[0].cells[0].value, CellValue::text("_x0041_"));
+        assert_eq!(
+            batch.rows[0].cells[1].value,
+            CellValue::text("  a & b 🦀  ")
+        );
+        assert_eq!(batch.rows[0].cells[2].value, CellValue::text(""));
+        let again = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+        assert_eq!(again, batch.rows[0]);
+        drop(book);
+        assert_eq!(batch.rows[0].cells[3].value, CellValue::text("_x0041_"));
+        assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 0);
+    }
+}
+
+#[test]
+fn adaptive_shared_text_spills_payload_and_index_without_losing_ids() {
+    use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    let text = "z".repeat(40_000);
+    let strings = format!("<si><t>{text}</t></si>").repeat(10);
+    let bytes = with_strings(
+        "<row><c t=\"s\"><v>9</v></c><c t=\"s\"><v>0</v></c></row>",
+        &strings,
+    );
+    let mut book = WorkbookReader::new(Cursor::new(bytes.clone())).unwrap();
+    let working = crabxl_xlsx::memory_allowance(
+        MemoryPolicy::Budget(4 * 1024 * 1024),
+        ResourceLimits::default(),
+    )
+    .unwrap()
+    .working_reserve_bytes;
+    let options = SharedStringOptions {
+        memory_policy: MemoryPolicy::Budget(working + 100_000),
+        cache_bytes: 64_000,
+        ..SharedStringOptions::default()
+    };
+    book.set_shared_string_options(options.clone());
+    let row = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+    assert_eq!(row.cells[0].value, CellValue::text(text.as_str()));
+    assert_eq!(row.cells[1].value, row.cells[0].value);
+    let stats = book.shared_string_stats().unwrap();
+    assert!(stats.disk_backed);
+    assert_eq!(stats.temp_bytes, 400_000 + 10 * 16);
+    assert!(stats.managed_bytes <= 64_000);
+    book.set_shared_string_options(SharedStringOptions {
+        storage: SharedStringStorage::Memory,
+        ..options
+    });
+    assert!(matches!(book.rows("A & B"),Err(e) if e.kind()==ErrorKind::MemoryBudgetExceeded));
+    assert!(book.shared_string_stats().is_none());
+}
+
+#[test]
+fn shared_string_limits_invalid_ids_and_deferred_rich_entries() {
+    use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    for id in ["-1", "1", "18446744073709551616", "not-an-id", ""] {
+        let mut book = WorkbookReader::new(Cursor::new(with_strings(
+            &format!("<row><c t=\"s\"><v>{id}</v></c></row>"),
+            "<si><t>x</t></si>",
+        )))
+        .unwrap();
+        let e = book.rows("A & B").unwrap().next_row().unwrap_err();
+        assert_eq!(e.kind(), ErrorKind::InvalidData);
+        assert_eq!(e.cell().unwrap().to_string(), "A1");
+    }
+    let bytes = with_strings(
+        "<row><c t=\"s\"><v>0</v></c><c t=\"s\"><v>1</v></c></row>",
+        "<si><r><rPr><b/></rPr><t>rich</t></r></si><si><t>plain</t></si>",
+    );
+    for storage in [SharedStringStorage::Memory, SharedStringStorage::Disk] {
+        let mut book = WorkbookReader::new(Cursor::new(bytes.clone())).unwrap();
+        book.set_shared_string_options(SharedStringOptions {
+            storage,
+            ..SharedStringOptions::default()
+        });
+        assert_eq!(
+            book.rows_with_options("A & B", columns(1, 1))
+                .unwrap()
+                .next_row()
+                .unwrap()
+                .unwrap()
+                .cells[0]
+                .value,
+            CellValue::text("plain")
+        );
+        assert_eq!(
+            book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
+            ErrorKind::Unsupported
+        );
+    }
+    for (entries, temp) in [(0, 1024), (1, 0)] {
+        let directory = tempfile::tempdir().unwrap();
+        let mut book =
+            WorkbookReader::new(Cursor::new(with_strings("<row/>", "<si><t>text</t></si>")))
+                .unwrap();
+        book.set_shared_string_options(SharedStringOptions {
+            storage: SharedStringStorage::Disk,
+            max_entries: entries,
+            max_temp_bytes: temp,
+            temp_directory: Some(directory.path().into()),
+            ..SharedStringOptions::default()
+        });
+        assert!(matches!(book.rows("A & B"),Err(e) if e.kind()==ErrorKind::LimitExceeded));
+        assert!(book.shared_string_stats().is_none());
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    }
+}
+
+#[test]
+fn shared_string_crc_and_xml_failures_leave_no_prepared_table() {
+    let mut bytes = with_strings("<row/>", "<si><t>marker</t></si>");
+    let position = bytes.windows(6).position(|s| s == b"marker").unwrap();
+    bytes[position] = b'M';
+    let mut book = WorkbookReader::new(Cursor::new(bytes)).unwrap();
+    assert!(book.rows("A & B").is_err());
+    assert!(book.shared_string_stats().is_none());
+    for content in [
+        "<si><t>x</t><t>y</t></si>",
+        "<si><t>&unknown;</t></si>",
+        "<wrong/>",
+        "<si><t>x</si>",
+        "<si>unexpected</si>",
+    ] {
+        let mut book = WorkbookReader::new(Cursor::new(with_strings("<row/>", content))).unwrap();
+        assert!(book.rows("A & B").is_err(), "{content}");
+        assert!(book.shared_string_stats().is_none());
+    }
+}
+
+#[test]
+fn shared_string_zero_cache_and_reconfiguration_release_storage() {
+    use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    let directory = tempfile::tempdir().unwrap();
+    let mut book = WorkbookReader::new(Cursor::new(with_strings(
+        "<row><c t=\"s\"><v>0</v></c><c t=\"s\"><v>0</v></c></row>",
+        "<si><t>value</t></si>",
+    )))
+    .unwrap();
+    book.set_shared_string_options(SharedStringOptions {
+        storage: SharedStringStorage::Disk,
+        cache_bytes: 0,
+        temp_directory: Some(directory.path().into()),
+        ..SharedStringOptions::default()
+    });
+    book.rows("A & B").unwrap().next_row().unwrap();
+    let stats = book.shared_string_stats().unwrap();
+    assert_eq!(stats.disk_reads, 2);
+    assert_eq!(stats.cache_hits, 0);
+    assert_eq!(stats.managed_bytes, 0);
+    book.set_shared_string_options(SharedStringOptions {
+        storage: SharedStringStorage::Memory,
+        ..SharedStringOptions::default()
+    });
+    assert!(book.shared_string_stats().is_none());
+    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    assert_eq!(
+        book.read_sheet("A & B").unwrap().rows[0].cells[0].value,
+        CellValue::text("value")
+    );
+    assert!(!book.shared_string_stats().unwrap().disk_backed);
+}
+
+#[test]
+fn shared_string_auto_availability_and_strict_namespaces() {
+    use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    let strings = format!("<si><t>{}</t></si>", "x".repeat(40_000)).repeat(10);
+    let bytes = with_strings("<row><c t=\"s\"><v>9</v></c></row>", &strings);
+    let working = crabxl_xlsx::memory_allowance(
+        MemoryPolicy::Budget(4 * 1024 * 1024),
+        ResourceLimits::default(),
+    )
+    .unwrap()
+    .working_reserve_bytes;
+    let mut book = WorkbookReader::new(Cursor::new(bytes)).unwrap();
+    book.set_shared_string_options(SharedStringOptions {
+        storage: SharedStringStorage::Auto,
+        memory_policy: MemoryPolicy::Auto(AutoMemory {
+            available_bytes: Some(((working + 100_000) * 2) as u64),
+            headroom_bytes: 0,
+            fraction_per_mille: 500,
+            maximum_bytes: None,
+        }),
+        ..SharedStringOptions::default()
+    });
+    book.rows("A & B").unwrap().next_row().unwrap();
+    let stats = book.shared_string_stats().unwrap();
+    assert!(stats.disk_backed);
+    assert_eq!(stats.retained_allowance_bytes, 100_000);
+    assert!(stats.managed_bytes <= 100_000);
+    let mut parts = entries(&format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData><row><c t=\"s\"><v>0</v></c></row></sheetData></worksheet>"
+    ));
+    parts[3].1=parts[3].1.replace("</Relationships>","<Relationship Id=\"sst\" Type=\"http://purl.oclc.org/ooxml/officeDocument/relationships/sharedStrings\" Target=\"../data/strings.xml\"/></Relationships>");
+    parts.push(("data/strings.xml".into(),"<s:sst xmlns:s=\"http://purl.oclc.org/ooxml/spreadsheetml/main\"><s:si><s:t>strict</s:t></s:si></s:sst>".into()));
+    let mut book = from_entries(&parts);
+    assert_eq!(
+        book.rows("A & B")
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap()
+            .cells[0]
+            .value,
+        CellValue::text("strict")
     );
 }

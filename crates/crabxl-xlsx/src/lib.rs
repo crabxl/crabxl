@@ -20,3 +20,6 @@ pub use editor::{
 };
 
 pub use adaptive::memory_allowance;
+
+mod strings;
+pub use strings::{SharedStringOptions, SharedStringStats, SharedStringStorage};

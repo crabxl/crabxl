@@ -2,7 +2,7 @@
 // Cell stream/value decoding adapted from calamine, Copyright 2016-2026 Johann Tuffe.
 // Source provenance and changes: third_party/ports.json.
 
-use crate::xml::{Scope, XmlStream};
+use crate::xml::{Scope, XmlStream, append_xml_text};
 use crabxl_core::{
     Cell, CellAddress, CellValue, Error, ErrorKind, ExactInteger, Formula, ReadOptions,
     ResourceLimits, Result, Row, RowBatch, RowIndex,
@@ -30,6 +30,7 @@ pub struct Rows<'a, R: Read + Seek> {
     value_buffer: String,
     decoded_cells: u64,
     row_payload_bytes: usize,
+    shared_strings: Option<&'a mut crate::strings::SharedStrings>,
 }
 impl<'a, R: Read + Seek> Rows<'a, R> {
     pub(crate) fn new(
@@ -37,6 +38,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         part: String,
         limits: ResourceLimits,
         options: ReadOptions,
+        shared_strings: Option<&'a mut crate::strings::SharedStrings>,
     ) -> Result<Self> {
         let mut xml = XmlStream::new(input, part, limits.max_part_bytes, limits);
         loop {
@@ -80,6 +82,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             value_buffer: String::with_capacity(64.min(limits.max_cell_bytes)),
             decoded_cells: 0,
             row_payload_bytes: 0,
+            shared_strings,
         })
     }
 
@@ -435,37 +438,8 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         loop {
             let frame = self.xml.next()?;
             match frame.event {
-                Event::Text(t) => {
-                    let text = t.xml10_content().map_err(|e| {
-                        Error::caused_by(ErrorKind::Xml, "Cannot decode scalar value", e)
-                    })?;
-                    append_value(&mut self.value_buffer, &text, self.limits.max_cell_bytes)?;
-                }
-                Event::CData(t) => {
-                    let text = t.xml10_content().map_err(|e| {
-                        Error::caused_by(ErrorKind::Xml, "Cannot decode scalar value", e)
-                    })?;
-                    append_value(&mut self.value_buffer, &text, self.limits.max_cell_bytes)?;
-                }
-                Event::GeneralRef(e) => {
-                    let entity = e.decode().map_err(|e| {
-                        Error::caused_by(ErrorKind::Xml, "Cannot decode scalar entity", e)
-                    })?;
-                    if let Some(text) = quick_xml::escape::resolve_xml_entity(&entity) {
-                        append_value(&mut self.value_buffer, text, self.limits.max_cell_bytes)?;
-                    } else if let Some(character) = e
-                        .resolve_char_ref()
-                        .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid scalar entity", e))?
-                    {
-                        let mut bytes = [0; 4];
-                        append_value(
-                            &mut self.value_buffer,
-                            character.encode_utf8(&mut bytes),
-                            self.limits.max_cell_bytes,
-                        )?;
-                    } else {
-                        return Err(self.invalid("Unrecognized XML entity"));
-                    }
+                event @ (Event::Text(_) | Event::CData(_) | Event::GeneralRef(_)) => {
+                    append_xml_text(&mut self.value_buffer, &event, self.limits.max_cell_bytes)?;
                 }
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet
@@ -496,6 +470,21 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             } else {
                 CellValue::error(self.value_buffer.as_str())
             });
+        }
+        if matches!(kind, ScalarKind::SharedText) {
+            let id = self.value_buffer.trim_ascii().parse::<u64>().map_err(|e| {
+                Error::caused_by(ErrorKind::InvalidData, "Invalid shared-string ID", e)
+            })?;
+            return self
+                .shared_strings
+                .as_mut()
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        "Cell refers to a missing shared-string table",
+                    )
+                })?
+                .get(id);
         }
         let value = self.value_buffer.trim_ascii();
         if value.is_empty() {
@@ -615,6 +604,7 @@ enum ScalarKind {
     Boolean,
     Text,
     InlineText,
+    SharedText,
     Error,
     Unsupported,
 }
@@ -662,6 +652,7 @@ impl CellHeader {
                         "b" => ScalarKind::Boolean,
                         "str" => ScalarKind::Text,
                         "inlineStr" => ScalarKind::InlineText,
+                        "s" => ScalarKind::SharedText,
                         "e" => ScalarKind::Error,
                         _ => ScalarKind::Unsupported,
                     };
@@ -689,21 +680,4 @@ impl CellHeader {
             metadata,
         })
     }
-}
-fn append_value(output: &mut String, text: &str, maximum: usize) -> Result<()> {
-    if output.len().saturating_add(text.len()) > maximum {
-        return Err(Error::new(
-            ErrorKind::LimitExceeded,
-            "Cell value byte limit exceeded",
-        ));
-    }
-    output.try_reserve_exact(text.len()).map_err(|e| {
-        Error::caused_by(
-            ErrorKind::LimitExceeded,
-            "Cannot allocate cell value buffer",
-            e,
-        )
-    })?;
-    output.push_str(text);
-    Ok(())
 }

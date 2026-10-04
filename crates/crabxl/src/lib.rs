@@ -1,6 +1,6 @@
 //! Rust spreadsheet processing with bounded streaming XLSX reads.
 //!
-//! This checkpoint reads sparse, unstyled scalars, plain inline text and normal formulas.
+//! This checkpoint reads sparse, unstyled scalars, plain inline/shared text and normal formulas.
 //! The sequential writer adds dates and basic styles. Other
 //! spreadsheet features remain planned; unsupported selected cells fail loudly.
 //!
@@ -52,3 +52,5 @@ pub use crabxl_xlsx::memory_allowance;
 pub use crabxl_core::{formula_position, translate_axis, translate_expression};
 
 pub use crabxl_core::{SheetId, Workbook, WorkbookLimits, WorksheetEditor};
+
+pub use crabxl_xlsx::{SharedStringOptions, SharedStringStats, SharedStringStorage};

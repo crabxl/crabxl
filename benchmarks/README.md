@@ -79,3 +79,5 @@ M4 sparse/editor checkpoint: [report](m4-editor.md), [raw results](results/m4-ed
 Optional Python adapter: [same-call creation/edit comparison](python-adapter.md) includes interpreter/conversion costs, three alternating runs per engine and native RSS/temp/output measurements.
 
 M5 A1 translation: [same-call Translator evidence and writer regression](m5-formula.md); full tokenizer/common-feature acceptance remains staged.
+
+[Plain shared-string RAM/disk/Auto evidence](m2-shared-strings.md) includes repeated/high-cardinality text, full-value validation, disk/cache diagnostics and an explicit calamine speed gap.

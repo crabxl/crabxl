@@ -99,13 +99,6 @@ fn rejected_rows_do_not_commit_and_sequential_state_is_explicit() {
         assert_eq!(error.part(), Some("xl/worksheets/sheet1.xml"));
         assert_eq!(writer.temporary_bytes(), before);
     }
-    assert_eq!(
-        writer
-            .write_row(&row(0, vec![CellValue::text("literal_x0041_")]))
-            .unwrap_err()
-            .kind(),
-        ErrorKind::Unsupported
-    );
     let mut invalid = row(0, vec![CellValue::Integer(1), CellValue::Integer(2)]);
     invalid.cells.reverse();
     assert_eq!(
@@ -652,4 +645,26 @@ fn owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values(
     .unwrap();
     invalid.start_sheet("Only").unwrap();
     assert!(invalid.finish(Cursor::new(Vec::new())).is_err());
+}
+
+#[test]
+fn inline_escape_looking_literals_round_trip_without_changing_spelling() {
+    let values = [
+        "_x0041_",
+        "_x005F_x0041_",
+        "_x005F__x0041_",
+        "_x000D_",
+        "_xD83D__xDE00_",
+        "😀_x005f_<&>\r\n ",
+    ];
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let cells = values.iter().map(|value| CellValue::text(*value)).collect();
+    let expected = row(0, cells);
+    writer.write_row(&expected).unwrap();
+    let mut read = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    assert_eq!(
+        read.read_sheet("Sheet").unwrap().rows[0].cells,
+        expected.cells
+    );
 }

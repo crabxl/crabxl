@@ -16814,6 +16814,33 @@
         "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py::test_loaded_calculation_chain_edit_removes_derived_parts"
       ],
       "limitations": "Derived ordering is not read/created as a typed editable model. Conventional content-type overrides only; unsafe or unsupported relationship graphs reject edits. Digital-signature editing remains rejected."
+    },
+    {
+      "id": "read.shared-strings.bounded",
+      "description": "Plain shared-string decoding with managed RAM, complete disk-backed index and bounded cache",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "scalar-streaming",
+        "materialized"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/crabxl-xlsx/src/strings.rs",
+        "crates/crabxl-xlsx/src/package.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/streaming.rs::shared_text_modes_preserve_ids_entities_whitespace_and_owned_lifetimes",
+        "crates/crabxl-xlsx/tests/streaming.rs::adaptive_shared_text_spills_payload_and_index_without_losing_ids",
+        "crates/crabxl-xlsx/tests/streaming.rs::shared_string_crc_and_xml_failures_leave_no_prepared_table"
+      ],
+      "limitations": "Plain strings only; rich/phonetic entries explicitly reject selected access. Preparation validates the entire SST; component budgets and owned caller rows are additional. Not complete M2."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

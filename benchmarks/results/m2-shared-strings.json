@@ -1,0 +1,1181 @@
+{
+  "workload": "10 columns of 110-byte ASCII strings; every value verified in order",
+  "measurement": "Linux fork/exec/wait4; one warmup; five rotating serial runs; generation/build excluded; runtime baseline included",
+  "versions": {
+    "openpyxl": "3.1.5",
+    "calamine": "0.36.1",
+    "rust": "rustc 1.88.0 (6b00bc388 2025-06-23)"
+  },
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "semantics": "crabxl streams rows after SST preparation; openpyxl read-only eagerly reads SST; calamine materializes public Range; equivalent text verification, different retention modes",
+  "cases": [
+    {
+      "rows": 10000,
+      "cells": 100000,
+      "unique_strings": 128,
+      "kind": "repeated",
+      "file_bytes": 341515,
+      "file_sha256": "34fc56b63c85eb381853979e30586205b361400a2bf7d86aec523d86effb2bfd",
+      "samples": {
+        "crabxl-memory": [
+          {
+            "seconds": 0.087342837,
+            "cpu_seconds": 0.087197,
+            "peak_rss_kib": 1524,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.087596903,
+            "cpu_seconds": 0.087449,
+            "peak_rss_kib": 1548,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.090745377,
+            "cpu_seconds": 0.090371,
+            "peak_rss_kib": 1628,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.087107514,
+            "cpu_seconds": 0.087004,
+            "peak_rss_kib": 1612,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.086949271,
+            "cpu_seconds": 0.086833,
+            "peak_rss_kib": 1676,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          }
+        ],
+        "crabxl-disk": [
+          {
+            "seconds": 0.095555509,
+            "cpu_seconds": 0.095289,
+            "peak_rss_kib": 1728,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 99872,
+              "disk_reads": 128
+            }
+          },
+          {
+            "seconds": 0.093216085,
+            "cpu_seconds": 0.093068,
+            "peak_rss_kib": 1728,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 99872,
+              "disk_reads": 128
+            }
+          },
+          {
+            "seconds": 0.08947498,
+            "cpu_seconds": 0.089184,
+            "peak_rss_kib": 1652,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 99872,
+              "disk_reads": 128
+            }
+          },
+          {
+            "seconds": 0.096754886,
+            "cpu_seconds": 0.096501,
+            "peak_rss_kib": 1676,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 99872,
+              "disk_reads": 128
+            }
+          },
+          {
+            "seconds": 0.088603265,
+            "cpu_seconds": 0.088283,
+            "peak_rss_kib": 1756,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 99872,
+              "disk_reads": 128
+            }
+          }
+        ],
+        "crabxl-auto": [
+          {
+            "seconds": 0.089854046,
+            "cpu_seconds": 0.089588,
+            "peak_rss_kib": 1620,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.087741571,
+            "cpu_seconds": 0.087492,
+            "peak_rss_kib": 1656,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.086795664,
+            "cpu_seconds": 0.086699,
+            "peak_rss_kib": 1692,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.088354738,
+            "cpu_seconds": 0.088089,
+            "peak_rss_kib": 1616,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.088763032,
+            "cpu_seconds": 0.088511,
+            "peak_rss_kib": 1620,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          }
+        ],
+        "calamine": [
+          {
+            "seconds": 0.044903939,
+            "cpu_seconds": 0.044762,
+            "peak_rss_kib": 17224
+          },
+          {
+            "seconds": 0.045135311,
+            "cpu_seconds": 0.044834,
+            "peak_rss_kib": 17184
+          },
+          {
+            "seconds": 0.045664273,
+            "cpu_seconds": 0.045431,
+            "peak_rss_kib": 17184
+          },
+          {
+            "seconds": 0.044705259,
+            "cpu_seconds": 0.044529,
+            "peak_rss_kib": 17124
+          },
+          {
+            "seconds": 0.048545807,
+            "cpu_seconds": 0.048418,
+            "peak_rss_kib": 17268
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 0.461997982,
+            "cpu_seconds": 0.625295,
+            "peak_rss_kib": 34384
+          },
+          {
+            "seconds": 0.438546338,
+            "cpu_seconds": 0.616197,
+            "peak_rss_kib": 34256
+          },
+          {
+            "seconds": 0.439328175,
+            "cpu_seconds": 0.611757,
+            "peak_rss_kib": 34380
+          },
+          {
+            "seconds": 0.448254862,
+            "cpu_seconds": 0.572001,
+            "peak_rss_kib": 34256
+          },
+          {
+            "seconds": 0.441940187,
+            "cpu_seconds": 0.594222,
+            "peak_rss_kib": 34384
+          }
+        ]
+      },
+      "medians": {
+        "crabxl-memory": {
+          "seconds": 0.087342837,
+          "cpu_seconds": 0.087197,
+          "peak_rss_kib": 1612
+        },
+        "crabxl-disk": {
+          "seconds": 0.093216085,
+          "cpu_seconds": 0.093068,
+          "peak_rss_kib": 1728
+        },
+        "crabxl-auto": {
+          "seconds": 0.088354738,
+          "cpu_seconds": 0.088089,
+          "peak_rss_kib": 1620
+        },
+        "calamine": {
+          "seconds": 0.045135311,
+          "cpu_seconds": 0.044834,
+          "peak_rss_kib": 17184
+        },
+        "openpyxl": {
+          "seconds": 0.441940187,
+          "cpu_seconds": 0.611757,
+          "peak_rss_kib": 34380
+        }
+      }
+    },
+    {
+      "rows": 10000,
+      "cells": 100000,
+      "unique_strings": 100000,
+      "kind": "unique",
+      "file_bytes": 604245,
+      "file_sha256": "7238e902fc7174ddddeb7027c9f117dfeb129ab3ecd34b47a391b1bb4c5f08d1",
+      "samples": {
+        "crabxl-memory": [
+          {
+            "seconds": 0.171955834,
+            "cpu_seconds": 0.171526,
+            "peak_rss_kib": 15564,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.156537234,
+            "cpu_seconds": 0.156287,
+            "peak_rss_kib": 15704,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.150444075,
+            "cpu_seconds": 0.150319,
+            "peak_rss_kib": 15680,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.153240134,
+            "cpu_seconds": 0.153096,
+            "peak_rss_kib": 15696,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.153855125,
+            "cpu_seconds": 0.153686,
+            "peak_rss_kib": 15604,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          }
+        ],
+        "crabxl-disk": [
+          {
+            "seconds": 0.201075547,
+            "cpu_seconds": 0.200764,
+            "peak_rss_kib": 2164,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            }
+          },
+          {
+            "seconds": 0.208330158,
+            "cpu_seconds": 0.207234,
+            "peak_rss_kib": 2264,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            }
+          },
+          {
+            "seconds": 0.201193406,
+            "cpu_seconds": 0.200971,
+            "peak_rss_kib": 2316,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            }
+          },
+          {
+            "seconds": 0.205506037,
+            "cpu_seconds": 0.205192,
+            "peak_rss_kib": 2280,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            }
+          },
+          {
+            "seconds": 0.201752796,
+            "cpu_seconds": 0.20135,
+            "peak_rss_kib": 2316,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            }
+          }
+        ],
+        "crabxl-auto": [
+          {
+            "seconds": 0.160030429,
+            "cpu_seconds": 0.1599,
+            "peak_rss_kib": 15696,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.153362435,
+            "cpu_seconds": 0.153217,
+            "peak_rss_kib": 15604,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.153564369,
+            "cpu_seconds": 0.153437,
+            "peak_rss_kib": 15708,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.162444083,
+            "cpu_seconds": 0.162271,
+            "peak_rss_kib": 15696,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.157642094,
+            "cpu_seconds": 0.157248,
+            "peak_rss_kib": 15696,
+            "strings": {
+              "entries": 100000,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          }
+        ],
+        "calamine": [
+          {
+            "seconds": 0.079905853,
+            "cpu_seconds": 0.079634,
+            "peak_rss_kib": 32072
+          },
+          {
+            "seconds": 0.083068596,
+            "cpu_seconds": 0.082875,
+            "peak_rss_kib": 32016
+          },
+          {
+            "seconds": 0.078570005,
+            "cpu_seconds": 0.078453,
+            "peak_rss_kib": 32016
+          },
+          {
+            "seconds": 0.077817633,
+            "cpu_seconds": 0.077618,
+            "peak_rss_kib": 32072
+          },
+          {
+            "seconds": 0.078538649,
+            "cpu_seconds": 0.078388,
+            "peak_rss_kib": 31944
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 1.001997981,
+            "cpu_seconds": 1.122412,
+            "peak_rss_kib": 58072
+          },
+          {
+            "seconds": 0.946781796,
+            "cpu_seconds": 1.14795,
+            "peak_rss_kib": 58060
+          },
+          {
+            "seconds": 1.003421386,
+            "cpu_seconds": 1.143217,
+            "peak_rss_kib": 58020
+          },
+          {
+            "seconds": 0.957867787,
+            "cpu_seconds": 1.122279,
+            "peak_rss_kib": 58072
+          },
+          {
+            "seconds": 0.964351588,
+            "cpu_seconds": 1.104769,
+            "peak_rss_kib": 57992
+          }
+        ]
+      },
+      "medians": {
+        "crabxl-memory": {
+          "seconds": 0.153855125,
+          "cpu_seconds": 0.153686,
+          "peak_rss_kib": 15680
+        },
+        "crabxl-disk": {
+          "seconds": 0.201752796,
+          "cpu_seconds": 0.20135,
+          "peak_rss_kib": 2280
+        },
+        "crabxl-auto": {
+          "seconds": 0.157642094,
+          "cpu_seconds": 0.157248,
+          "peak_rss_kib": 15696
+        },
+        "calamine": {
+          "seconds": 0.078570005,
+          "cpu_seconds": 0.078453,
+          "peak_rss_kib": 32016
+        },
+        "openpyxl": {
+          "seconds": 0.964351588,
+          "cpu_seconds": 1.122412,
+          "peak_rss_kib": 58060
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "cells": 1000000,
+      "unique_strings": 128,
+      "kind": "repeated",
+      "file_bytes": 3343162,
+      "file_sha256": "b2b086bec58c148c5a49098c2a2b2a7b7eb22c249307bf9483248add8fa041fe",
+      "samples": {
+        "crabxl-memory": [
+          {
+            "seconds": 0.87324461,
+            "cpu_seconds": 0.8726,
+            "peak_rss_kib": 1616,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.935354868,
+            "cpu_seconds": 0.934233,
+            "peak_rss_kib": 1620,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.870094173,
+            "cpu_seconds": 0.869357,
+            "peak_rss_kib": 1656,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.86088007,
+            "cpu_seconds": 0.859775,
+            "peak_rss_kib": 1676,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.878368409,
+            "cpu_seconds": 0.877766,
+            "peak_rss_kib": 1548,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          }
+        ],
+        "crabxl-disk": [
+          {
+            "seconds": 0.862433802,
+            "cpu_seconds": 0.86193,
+            "peak_rss_kib": 1752,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 999872,
+              "disk_reads": 128
+            }
+          },
+          {
+            "seconds": 0.920613066,
+            "cpu_seconds": 0.919035,
+            "peak_rss_kib": 1652,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 999872,
+              "disk_reads": 128
+            }
+          },
+          {
+            "seconds": 0.959705532,
+            "cpu_seconds": 0.959051,
+            "peak_rss_kib": 1748,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 999872,
+              "disk_reads": 128
+            }
+          },
+          {
+            "seconds": 0.885857695,
+            "cpu_seconds": 0.885076,
+            "peak_rss_kib": 1784,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 999872,
+              "disk_reads": 128
+            }
+          },
+          {
+            "seconds": 0.87397857,
+            "cpu_seconds": 0.873059,
+            "peak_rss_kib": 1692,
+            "strings": {
+              "entries": 128,
+              "disk_backed": true,
+              "managed_bytes": 112384,
+              "temp_bytes": 16128,
+              "cache_hits": 999872,
+              "disk_reads": 128
+            }
+          }
+        ],
+        "crabxl-auto": [
+          {
+            "seconds": 0.872544809,
+            "cpu_seconds": 0.871919,
+            "peak_rss_kib": 1676,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.873511534,
+            "cpu_seconds": 0.872609,
+            "peak_rss_kib": 1624,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.845384668,
+            "cpu_seconds": 0.845012,
+            "peak_rss_kib": 1656,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.873668673,
+            "cpu_seconds": 0.872716,
+            "peak_rss_kib": 1548,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 0.843267795,
+            "cpu_seconds": 0.842617,
+            "peak_rss_kib": 1596,
+            "strings": {
+              "entries": 128,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          }
+        ],
+        "calamine": [
+          {
+            "seconds": 0.470408074,
+            "cpu_seconds": 0.469979,
+            "peak_rss_kib": 157800
+          },
+          {
+            "seconds": 0.451984809,
+            "cpu_seconds": 0.451752,
+            "peak_rss_kib": 157868
+          },
+          {
+            "seconds": 0.436805481,
+            "cpu_seconds": 0.435705,
+            "peak_rss_kib": 157820
+          },
+          {
+            "seconds": 0.43459466,
+            "cpu_seconds": 0.434193,
+            "peak_rss_kib": 157824
+          },
+          {
+            "seconds": 0.444574218,
+            "cpu_seconds": 0.444248,
+            "peak_rss_kib": 157872
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 3.2198861,
+            "cpu_seconds": 3.396968,
+            "peak_rss_kib": 42188
+          },
+          {
+            "seconds": 3.058955359,
+            "cpu_seconds": 3.23785,
+            "peak_rss_kib": 42320
+          },
+          {
+            "seconds": 2.956305937,
+            "cpu_seconds": 3.098764,
+            "peak_rss_kib": 42236
+          },
+          {
+            "seconds": 3.161457112,
+            "cpu_seconds": 3.355577,
+            "peak_rss_kib": 42316
+          },
+          {
+            "seconds": 3.079477771,
+            "cpu_seconds": 3.250233,
+            "peak_rss_kib": 42324
+          }
+        ]
+      },
+      "medians": {
+        "crabxl-memory": {
+          "seconds": 0.87324461,
+          "cpu_seconds": 0.8726,
+          "peak_rss_kib": 1620
+        },
+        "crabxl-disk": {
+          "seconds": 0.885857695,
+          "cpu_seconds": 0.885076,
+          "peak_rss_kib": 1748
+        },
+        "crabxl-auto": {
+          "seconds": 0.872544809,
+          "cpu_seconds": 0.871919,
+          "peak_rss_kib": 1624
+        },
+        "calamine": {
+          "seconds": 0.444574218,
+          "cpu_seconds": 0.444248,
+          "peak_rss_kib": 157824
+        },
+        "openpyxl": {
+          "seconds": 3.079477771,
+          "cpu_seconds": 3.250233,
+          "peak_rss_kib": 42316
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "cells": 1000000,
+      "unique_strings": 1000000,
+      "kind": "unique",
+      "file_bytes": 5954682,
+      "file_sha256": "b50292c13e6730ae10a374c3da8871cc435e4f28020db75c6a065dc97839f8f8",
+      "samples": {
+        "crabxl-memory": [
+          {
+            "seconds": 1.618259219,
+            "cpu_seconds": 1.617317,
+            "peak_rss_kib": 142164,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 1.677459931,
+            "cpu_seconds": 1.67635,
+            "peak_rss_kib": 142164,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 1.574659517,
+            "cpu_seconds": 1.573622,
+            "peak_rss_kib": 142168,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 1.522736334,
+            "cpu_seconds": 1.521929,
+            "peak_rss_kib": 142164,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          },
+          {
+            "seconds": 1.597036215,
+            "cpu_seconds": 1.596792,
+            "peak_rss_kib": 142160,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          }
+        ],
+        "crabxl-disk": [
+          {
+            "seconds": 2.034540879,
+            "cpu_seconds": 2.033172,
+            "peak_rss_kib": 2240,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          },
+          {
+            "seconds": 2.038203498,
+            "cpu_seconds": 2.03789,
+            "peak_rss_kib": 2264,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          },
+          {
+            "seconds": 1.996770911,
+            "cpu_seconds": 1.996493,
+            "peak_rss_kib": 2268,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          },
+          {
+            "seconds": 2.013159241,
+            "cpu_seconds": 2.012879,
+            "peak_rss_kib": 2184,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          },
+          {
+            "seconds": 2.00942355,
+            "cpu_seconds": 2.007996,
+            "peak_rss_kib": 2188,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          }
+        ],
+        "crabxl-auto": [
+          {
+            "seconds": 2.05675674,
+            "cpu_seconds": 2.055265,
+            "peak_rss_kib": 18644,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          },
+          {
+            "seconds": 2.102702157,
+            "cpu_seconds": 2.101233,
+            "peak_rss_kib": 18692,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          },
+          {
+            "seconds": 2.15187989,
+            "cpu_seconds": 2.150211,
+            "peak_rss_kib": 18568,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          },
+          {
+            "seconds": 2.048120654,
+            "cpu_seconds": 2.047736,
+            "peak_rss_kib": 18652,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          },
+          {
+            "seconds": 1.971926502,
+            "cpu_seconds": 1.971613,
+            "peak_rss_kib": 18644,
+            "strings": {
+              "entries": 1000000,
+              "disk_backed": true,
+              "managed_bytes": 548864,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          }
+        ],
+        "calamine": [
+          {
+            "seconds": 0.791172744,
+            "cpu_seconds": 0.790882,
+            "peak_rss_kib": 306376
+          },
+          {
+            "seconds": 0.815538515,
+            "cpu_seconds": 0.812745,
+            "peak_rss_kib": 306256
+          },
+          {
+            "seconds": 0.797014306,
+            "cpu_seconds": 0.796328,
+            "peak_rss_kib": 306384
+          },
+          {
+            "seconds": 0.800176639,
+            "cpu_seconds": 0.799662,
+            "peak_rss_kib": 306336
+          },
+          {
+            "seconds": 0.777554979,
+            "cpu_seconds": 0.777071,
+            "peak_rss_kib": 306316
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 9.381876887,
+            "cpu_seconds": 9.573333,
+            "peak_rss_kib": 283888
+          },
+          {
+            "seconds": 9.275591032,
+            "cpu_seconds": 9.397853,
+            "peak_rss_kib": 283860
+          },
+          {
+            "seconds": 9.175030955,
+            "cpu_seconds": 9.310864,
+            "peak_rss_kib": 283904
+          },
+          {
+            "seconds": 9.558480653,
+            "cpu_seconds": 9.730898,
+            "peak_rss_kib": 283908
+          },
+          {
+            "seconds": 9.303819907,
+            "cpu_seconds": 9.433488,
+            "peak_rss_kib": 283868
+          }
+        ]
+      },
+      "medians": {
+        "crabxl-memory": {
+          "seconds": 1.597036215,
+          "cpu_seconds": 1.596792,
+          "peak_rss_kib": 142164
+        },
+        "crabxl-disk": {
+          "seconds": 2.013159241,
+          "cpu_seconds": 2.012879,
+          "peak_rss_kib": 2240
+        },
+        "crabxl-auto": {
+          "seconds": 2.05675674,
+          "cpu_seconds": 2.055265,
+          "peak_rss_kib": 18644
+        },
+        "calamine": {
+          "seconds": 0.797014306,
+          "cpu_seconds": 0.796328,
+          "peak_rss_kib": 306336
+        },
+        "openpyxl": {
+          "seconds": 9.303819907,
+          "cpu_seconds": 9.433488,
+          "peak_rss_kib": 283888
+        }
+      }
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 
 use crate::{
     Rows,
+    strings::{SharedStringOptions, SharedStringStats, SharedStrings},
     xml::{Scope, XmlStream, attribute, required_attribute},
 };
 use crabxl_core::{Error, ErrorKind, ReadOptions, ResourceLimits, Result, Row, SheetData};
@@ -68,6 +69,9 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     date_1904: bool,
     active_sheet: usize,
     pub(crate) workbook_part: String,
+    shared_string_part: Option<String>,
+    shared_strings: Option<SharedStrings>,
+    shared_string_options: SharedStringOptions,
 }
 impl WorkbookReader<File> {
     /// Open a local XLSX file with default resource limits.
@@ -170,6 +174,21 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 );
             }
         }
+        let mut string_rels = relationships
+            .values()
+            .filter(|r| relationship_is(&r.kind, "sharedStrings"));
+        let shared_string_part = string_rels
+            .next()
+            .map(|r| {
+                if r.external {
+                    return Err(invalid("Shared-string relationship must be internal"));
+                }
+                resolve_part(&workbook_part, &r.target)
+            })
+            .transpose()?;
+        if string_rels.next().is_some() {
+            return Err(invalid("Duplicate shared-string relationships"));
+        }
         Ok(Self {
             archive,
             sheets,
@@ -177,6 +196,9 @@ impl<R: Read + Seek> WorkbookReader<R> {
             date_1904,
             active_sheet,
             workbook_part,
+            shared_string_part,
+            shared_strings: None,
+            shared_string_options: SharedStringOptions::default(),
         })
     }
     /// Inspect workbook sheets without loading their data.
@@ -296,6 +318,26 @@ impl<R: Read + Seek> WorkbookReader<R> {
             ));
         }
         let part = sheet.part.clone();
+        if self.shared_strings.is_none() {
+            if let Some(string_part) = &self.shared_string_part {
+                let file = self.archive.by_name(string_part).map_err(|e| {
+                    Error::caused_by(ErrorKind::Archive, "Cannot open shared-string part", e)
+                        .with_part(string_part)
+                })?;
+                if file.size() > self.limits.max_part_bytes {
+                    return Err(
+                        limit("Shared-string part size limit exceeded").with_part(string_part)
+                    );
+                }
+                let strings = SharedStrings::parse(
+                    BufReader::with_capacity(self.limits.input_buffer_bytes, file),
+                    string_part.clone(),
+                    self.limits,
+                    &self.shared_string_options,
+                )?;
+                self.shared_strings = Some(strings);
+            }
+        }
         let file = self.archive.by_name(&part).map_err(|e| {
             Error::caused_by(ErrorKind::Archive, "Cannot open worksheet part", e)
                 .with_part(part.clone())
@@ -308,7 +350,18 @@ impl<R: Read + Seek> WorkbookReader<R> {
             part,
             self.limits,
             options,
+            self.shared_strings.as_mut(),
         )
+    }
+    /// Configure shared-string storage. This releases any prepared table/cache and
+    /// owned temporary files; the next row stream rebuilds from the original source.
+    pub fn set_shared_string_options(&mut self, options: SharedStringOptions) {
+        self.shared_strings = None;
+        self.shared_string_options = options;
+    }
+    /// Diagnostics for the prepared shared-string table, absent before first row access.
+    pub fn shared_string_stats(&self) -> Option<SharedStringStats> {
+        self.shared_strings.as_ref().map(SharedStrings::stats)
     }
     /// Return the original source after all borrowed readers have been released.
     pub fn into_inner(self) -> R {

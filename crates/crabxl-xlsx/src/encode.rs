@@ -42,17 +42,8 @@ pub(crate) fn validate_text(value: &str, maximum: usize) -> Result<()> {
         ));
     }
     validate_xml_text(value)?;
-    // An escape-aware reader/model is required before accepting these literals.
-    if value.as_bytes().windows(7).any(|token| {
-        token.starts_with(b"_x")
-            && token[6] == b'_'
-            && token[2..6].iter().all(u8::is_ascii_hexdigit)
-    }) {
-        return Err(Error::new(
-            ErrorKind::Unsupported,
-            "Literal OOXML text escape patterns require the future escape-aware codec",
-        ));
-    }
+    // Preserve inline literal spelling, matching the pinned public reference.
+    // Shared-string protection is handled by its separate format codec.
     Ok(())
 }
 
