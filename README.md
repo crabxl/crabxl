@@ -178,3 +178,5 @@ Theme resolution, full imported style editing and aggregate catalog accounting r
 Nonfinite numeric literals/caches use `NonFiniteWritePolicy::Blank` by default, matching public blank serialization; select `Reject` for atomic strict validation. This policy is shared by sequential output and original-package overlays. Native nonfinite compatibility does not imply nonfinite date/style support or exact nonfinite round-trip storage. See ADR 0015.
 
 `NumberFormat::new` and `set_code` retain a consistent canonical date/duration classification; `id`, `code` and `date_kind` inspect it. Readers no longer allocate a second declared-format classification catalog. See [ADR 0025](docs/decisions/0025-canonical-number-format-classification.md).
+
+Owned `Workbook::theme` / `set_theme` use canonical immutable shared bytes and the same aggregate allowance as sheets. Borrowed writer export shares the payload and checks metadata/explicit validation before writing. See [ADR 0026](docs/decisions/0026-owned-bank-theme-ownership.md) and [measurements](benchmarks/m4-bank-themes.md); complete loaded-bank catalog editing remains staged.

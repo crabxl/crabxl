@@ -17284,6 +17284,33 @@
         "benchmarks/style_classification_checkpoint.py"
       ],
       "limitations": "Canonical record mutation does not complete loaded-workbook style catalog editing. Unknown locale formats are not fabricated; complete style scratch accounting and milestone acceptance remain staged."
+    },
+    {
+      "id": "workbook.owned-theme",
+      "description": "Canonical optional immutable shared theme in the aggregate workbook bank, atomic replacement and borrowed writer export",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "owned-workbook",
+        "sequential-write"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/theme.rs",
+        "crates/crabxl-core/src/workbook.rs",
+        "crates/crabxl-xlsx/src/writer.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/workbook.rs::themes_share_immutable_bytes_and_obey_the_bank_allowance_atomically",
+        "crates/crabxl-xlsx/tests/writer.rs::owned_bank_theme_exports_without_payload_copy_and_preflights_strict_validation",
+        "benchmarks/theme_snapshot_checkpoint.py"
+      ],
+      "limitations": "Owned opaque theme only; loaded-bank theme/style catalog import/edit and typed theme palette/font resolution remain staged. Holder charges are conservative; source conversion transients and caller-owned outputs are additional. No milestone completion claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

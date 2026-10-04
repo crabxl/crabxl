@@ -390,6 +390,31 @@ impl WorkbookWriter {
         if workbook.is_empty() {
             return Err(state("A workbook requires at least one worksheet"));
         }
+        if let Some(theme) = workbook.theme() {
+            let bytes = theme
+                .memory_bytes()
+                .saturating_add(self.style_memory_bytes());
+            if bytes > self.options.max_metadata_bytes {
+                return Err(limit("Workbook theme exceeds writer metadata allowance"));
+            }
+            if matches!(self.options.theme, crate::ThemeWritePolicy::Validated(_)) {
+                crate::theme::validate(
+                    theme.bytes(),
+                    "xl/theme/theme1.xml",
+                    crabxl_core::ResourceLimits {
+                        max_theme_bytes: self.options.max_metadata_bytes,
+                        max_part_bytes: self.options.max_metadata_bytes as u64,
+                        ..Default::default()
+                    },
+                )?;
+            }
+            self.options.theme =
+                if matches!(self.options.theme, crate::ThemeWritePolicy::Validated(_)) {
+                    crate::ThemeWritePolicy::Validated(theme.clone())
+                } else {
+                    crate::ThemeWritePolicy::Custom(theme.clone())
+                };
+        }
         self.options.date_1904 = workbook.epoch() == DateEpoch::Mac1904;
         self.options.active_sheet = workbook
             .active_index()

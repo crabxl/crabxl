@@ -1716,3 +1716,33 @@ fn formula_attribute_policies_distinguish_owned_false_from_source_spellings() {
         );
     }
 }
+
+#[test]
+fn owned_bank_theme_exports_without_payload_copy_and_preflights_strict_validation() {
+    use crabxl_core::{Theme, Workbook, WorkbookLimits};
+    use crabxl_xlsx::ThemeWritePolicy;
+    let custom = Theme::from_bytes(b"opaque shared theme".to_vec().into_boxed_slice());
+    let mut bank = Workbook::new(WorkbookLimits::default()).unwrap();
+    bank.create_sheet("Sheet").unwrap();
+    bank.set_theme(Some(custom.clone())).unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.write_workbook(&bank).unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    assert_eq!(reader.theme().unwrap().unwrap().bytes(), custom.bytes());
+    let mut strict = WorkbookWriter::new(WriteOptions {
+        theme: ThemeWritePolicy::Validated(Theme::from_bytes(
+            b"<theme xmlns=\"http://schemas.openxmlformats.org/drawingml/2006/main\"/>"
+                .to_vec()
+                .into_boxed_slice(),
+        )),
+        ..Default::default()
+    })
+    .unwrap();
+    assert!(strict.write_workbook(&bank).is_err());
+    assert_eq!(strict.stats().rows, 0);
+    assert_eq!(strict.temporary_bytes(), 0);
+    bank.set_theme(None).unwrap();
+    strict.write_workbook(&bank).unwrap();
+    strict.finish(Cursor::new(Vec::new())).unwrap();
+}

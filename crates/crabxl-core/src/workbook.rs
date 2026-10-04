@@ -61,6 +61,7 @@ pub struct Workbook {
     limits: WorkbookLimits,
     active: Option<SheetId>,
     epoch: DateEpoch,
+    theme: Option<crate::Theme>,
 }
 impl Workbook {
     /// Create an empty workbook with aggregate and per-sheet allowances.
@@ -88,6 +89,7 @@ impl Workbook {
             limits,
             active: None,
             epoch: DateEpoch::Windows1900,
+            theme: None,
         })
     }
     /// Number of sheets in display order.
@@ -136,7 +138,8 @@ impl Workbook {
             .limits
             .max_bytes
             .saturating_sub(self.slot_bytes())
-            .saturating_sub(other_bytes);
+            .saturating_sub(other_bytes)
+            .saturating_sub(self.theme_bytes());
         let cells = self.limits.max_cells.saturating_sub(other_cells);
         let sheet = &mut self.entries[index].sheet;
         let original = sheet.edit_limits();
@@ -264,6 +267,24 @@ impl Workbook {
     pub fn set_epoch(&mut self, epoch: DateEpoch) {
         self.epoch = epoch;
     }
+    /// Borrow the canonical custom theme bytes, if explicitly assigned or imported.
+    pub fn theme(&self) -> Option<&crate::Theme> {
+        self.theme.as_ref()
+    }
+    /// Replace or clear the theme under the same aggregate allowance as worksheets.
+    /// Failure preserves the previous theme and all sheet identities/values.
+    pub fn set_theme(&mut self, theme: Option<crate::Theme>) -> Result<()> {
+        let bytes = self
+            .charged_bytes()
+            .saturating_sub(self.theme_bytes())
+            .saturating_add(theme.as_ref().map_or(0, crate::Theme::memory_bytes));
+        self.check(bytes, self.cell_count())?;
+        self.theme = theme;
+        Ok(())
+    }
+    fn theme_bytes(&self) -> usize {
+        self.theme.as_ref().map_or(0, crate::Theme::memory_bytes)
+    }
     /// Total physical cells in the owned sheet bank.
     pub fn cell_count(&self) -> usize {
         self.entries.iter().map(|entry| entry.sheet.len()).sum()
@@ -279,7 +300,8 @@ impl Workbook {
         self.entries
             .iter()
             .map(|entry| entry.sheet.charged_bytes())
-            .sum()
+            .sum::<usize>()
+            .saturating_add(self.theme_bytes())
     }
     fn index(&self, id: SheetId) -> Result<usize> {
         if id.owner != self.owner {
