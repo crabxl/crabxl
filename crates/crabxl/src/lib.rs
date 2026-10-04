@@ -33,7 +33,9 @@ pub use crabxl_core::{CellError, CellText, ExactInteger, StyleId, parse_iso8601}
 pub use crabxl_xlsx::{AdaptiveRead, ReadData};
 pub use crabxl_xlsx::{Rows, SheetInfo, SheetKind, WorkbookReader};
 
-pub use crabxl_xlsx::{NonFiniteWritePolicy, WorkbookWriter, WriteOptions, WriteStats};
+pub use crabxl_xlsx::{
+    NonFiniteWritePolicy, StyleWritePolicy, WorkbookWriter, WriteOptions, WriteStats,
+};
 
 pub use crabxl_core::{
     BorderLine, BorderSide, CellStyle, DateEpoch, DateKind, ExcelDateTime, Font, Formula,
@@ -78,3 +80,5 @@ pub use crabxl_core::FormulaReadPolicy;
 pub use crabxl_xlsx::SharedFormulaStats;
 
 pub use crabxl_core::{BUILTIN_NUMBER_FORMATS, builtin_number_format, builtin_number_format_id};
+
+pub use crabxl_core::{StyleLimits, StyleRegistry};

@@ -378,10 +378,10 @@ pub(crate) fn write_container(output: &mut impl Write, value: &RichText) -> io::
     if let Some(p) = &value.phonetic_properties {
         write!(output, "<phoneticPr fontId=\"{}\"", p.font_id)?;
         if let Some(kind) = &p.kind {
-            write!(output, " type=\"{}\"", crate::styles::attr(kind))?;
+            crate::encode::write_attribute(output, "type", kind)?;
         }
         if let Some(align) = &p.alignment {
-            write!(output, " alignment=\"{}\"", crate::styles::attr(align))?;
+            crate::encode::write_attribute(output, "alignment", align)?;
         }
         output.write_all(b"/>")?;
     }

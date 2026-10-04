@@ -233,32 +233,14 @@ pub(crate) fn read_color(e: &BytesStart<'_>, decoder: Decoder) -> Result<Color> 
     validate_color(color)?;
     Ok(color)
 }
-pub(crate) fn validate_color(color: Color) -> Result<()> {
-    if color
-        .tint
-        .is_some_and(|v| !v.is_finite() || !(-1.0..=1.0).contains(&v))
-    {
-        return Err(invalid("Invalid color tint"));
-    }
-    Ok(())
+pub(crate) fn validate_color(value: Color) -> Result<()> {
+    value.validate()
 }
-pub(crate) fn validate_font(font: &Font) -> Result<()> {
-    if let Some(name) = &font.name {
+pub(crate) fn validate_font(value: &Font) -> Result<()> {
+    if let Some(name) = &value.name {
         crate::encode::validate_xml_text(name)?;
     }
-    if font
-        .size
-        .is_some_and(|s| !s.is_finite() || !(0.0..=409.0).contains(&s))
-    {
-        return Err(invalid("Invalid font size"));
-    }
-    if font.family.is_some_and(|family| family > 14) {
-        return Err(invalid("Font family exceeds the public baseline range"));
-    }
-    if let Some(color) = font.color {
-        validate_color(color)?;
-    }
-    Ok(())
+    value.validate()
 }
 pub(crate) fn write_font(
     output: &mut impl Write,
@@ -269,10 +251,11 @@ pub(crate) fn write_font(
     if let Some(name) = &font.name {
         write!(
             output,
-            "<{} val=\"{}\"/>",
-            std::str::from_utf8(context.name()).map_err(io::Error::other)?,
-            crate::styles::attr(name)
+            "<{}",
+            std::str::from_utf8(context.name()).map_err(io::Error::other)?
         )?;
+        crate::encode::write_attribute(output, "val", name)?;
+        output.write_all(b"/>")?;
     }
     if let Some(size) = font.size {
         write!(output, "<sz val=\"{size}\"/>")?;

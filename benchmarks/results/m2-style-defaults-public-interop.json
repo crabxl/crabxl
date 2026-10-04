@@ -1,0 +1,90 @@
+{
+  "reference": "3.1.5",
+  "inspection": "Public workbook and cell style properties only",
+  "defaults": {
+    "font": {
+      "name": "Calibri",
+      "sz": 11.0,
+      "b": false,
+      "i": false,
+      "strike": null,
+      "outline": null,
+      "shadow": null,
+      "condense": null,
+      "extend": null,
+      "u": null,
+      "vertAlign": null,
+      "charset": null,
+      "family": 2.0,
+      "scheme": "minor",
+      "color": {
+        "type": "theme",
+        "value": 1,
+        "tint": 0.0
+      }
+    },
+    "fill": {
+      "pattern": null,
+      "foreground": {
+        "type": "rgb",
+        "value": "00000000",
+        "tint": 0.0
+      },
+      "background": {
+        "type": "rgb",
+        "value": "00000000",
+        "tint": 0.0
+      }
+    },
+    "border": {
+      "left": {
+        "style": null,
+        "color": null
+      },
+      "right": {
+        "style": null,
+        "color": null
+      },
+      "top": {
+        "style": null,
+        "color": null
+      },
+      "bottom": {
+        "style": null,
+        "color": null
+      },
+      "diagonal": {
+        "style": null,
+        "color": null
+      },
+      "vertical": null,
+      "horizontal": null,
+      "start": null,
+      "end": null,
+      "outline": true,
+      "diagonalUp": false,
+      "diagonalDown": false
+    },
+    "alignment": {
+      "horizontal": null,
+      "vertical": null,
+      "textRotation": 0,
+      "wrap_text": null,
+      "shrink_to_fit": null,
+      "indent": 0.0,
+      "relativeIndent": 0.0,
+      "readingOrder": 0.0,
+      "justifyLastLine": null
+    },
+    "protection": {
+      "locked": true,
+      "hidden": false
+    },
+    "number_format": "General",
+    "has_style": false
+  },
+  "style_names": [
+    "Normal"
+  ],
+  "equal": true
+}

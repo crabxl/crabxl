@@ -17073,6 +17073,39 @@
         "benchmarks/verify_builtin_formats.py"
       ],
       "limitations": "No new parser or per-cell allocation is introduced. Unknown locale IDs stay explicit; custom declarations override builtins. Borrowed view does not fabricate base-style application or inheritance. Writer catalog normalization, themes and aggregate budgets remain staged."
+    },
+    {
+      "id": "styles.canonical-registration",
+      "description": "Bounded shared component registration and normalized sequential catalog output with compatible defaults/alignment policy",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "owned-style-registry",
+        "sequential-write",
+        "streaming-read"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/styles.html",
+      "modules": [
+        "crates/crabxl-core/src/style_registry.rs",
+        "crates/crabxl-core/src/style_hash.rs",
+        "crates/crabxl-core/src/style_validation.rs",
+        "crates/crabxl-xlsx/src/styles.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/style_registry.rs",
+        "crates/crabxl-xlsx/tests/writer.rs::normalized_writer_components_use_actual_font_ids_and_release_on_abort",
+        "crates/crabxl-xlsx/tests/writer.rs::alignment_zero_serialization_has_compatible_and_explicit_policies",
+        "benchmarks/style_registry_checkpoint.py",
+        "benchmarks/verify_default_styles.py",
+        "benchmarks/verify_style_fixture.py"
+      ],
+      "limitations": "New registration and sequential output only; loaded bank ownership/imported catalog mutation, complete themes/differential/table styles and aggregate Auto budgets remain staged. Managed capacity/index estimates exclude allocator/runtime and caller-owned input; reader XML event limits are independent. No complete M2/M4 style editing is claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

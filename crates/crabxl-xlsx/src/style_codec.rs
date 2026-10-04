@@ -6,70 +6,14 @@ use std::io::{self, Write};
 fn invalid(message: &str) -> Error {
     Error::new(ErrorKind::InvalidData, message)
 }
-pub(crate) fn validate_fill(fill: &Fill) -> Result<()> {
-    match fill {
-        Fill::Pattern(v) => {
-            for c in [v.foreground, v.background].into_iter().flatten() {
-                crate::formatting::validate_color(c)?;
-            }
-        }
-        Fill::Gradient(v) => {
-            if v.degree.is_some_and(|n| !n.is_finite())
-                || v.edges
-                    .into_iter()
-                    .flatten()
-                    .any(|n| !n.is_finite() || !(0.0..=1.0).contains(&n))
-            {
-                return Err(invalid("Invalid gradient geometry"));
-            }
-            for s in &v.stops {
-                if !s.position.is_finite() || !(0.0..=1.0).contains(&s.position) {
-                    return Err(invalid("Invalid or duplicate gradient stop position"));
-                }
-                crate::formatting::validate_color(s.color)?;
-            }
-            let mut positions = Vec::new();
-            positions
-                .try_reserve_exact(v.stops.len())
-                .map_err(|error| {
-                    Error::caused_by(
-                        ErrorKind::MemoryBudgetExceeded,
-                        "Cannot validate gradient stop positions",
-                        error,
-                    )
-                })?;
-            positions.extend(v.stops.iter().map(|s| {
-                if s.position == 0.0 {
-                    0
-                } else {
-                    s.position.to_bits()
-                }
-            }));
-            positions.sort_unstable();
-            if positions.windows(2).any(|pair| pair[0] == pair[1]) {
-                return Err(invalid("Duplicate gradient stop position"));
-            }
-        }
-    }
-    Ok(())
+pub(crate) fn validate_fill(value: &Fill) -> Result<()> {
+    value.validate()
 }
-pub(crate) fn validate_border(v: &Border) -> Result<()> {
-    for color in v.sides.iter().flatten().filter_map(|s| s.color) {
-        crate::formatting::validate_color(color)?;
-    }
-    Ok(())
+pub(crate) fn validate_border(value: &Border) -> Result<()> {
+    value.validate()
 }
-pub(crate) fn validate_alignment(v: &Alignment) -> Result<()> {
-    if v.rotation.is_some_and(|n| n > 180 && n != 255)
-        || v.indent
-            .is_some_and(|n| !n.is_finite() || !(0.0..=255.0).contains(&n))
-        || v.relative_indent
-            .is_some_and(|n| !n.is_finite() || !(-255.0..=255.0).contains(&n))
-        || v.reading_order.is_some_and(|n| !n.is_finite() || n < 0.0)
-    {
-        return Err(invalid("Invalid cell alignment"));
-    }
-    Ok(())
+pub(crate) fn validate_alignment(value: &Alignment) -> Result<()> {
+    value.validate()
 }
 pub(crate) fn write_fill(out: &mut impl Write, fill: &Fill) -> io::Result<()> {
     out.write_all(b"<fill>")?;
@@ -152,7 +96,12 @@ pub(crate) fn write_border(out: &mut impl Write, border: &Border) -> io::Result<
     }
     out.write_all(b"</border>")
 }
-pub(crate) fn write_alignment(out: &mut impl Write, v: &Alignment) -> io::Result<()> {
+pub(crate) fn write_alignment(
+    out: &mut impl Write,
+    v: &Alignment,
+    policy: crate::StyleWritePolicy,
+) -> io::Result<()> {
+    let retain = policy == crate::StyleWritePolicy::RetainExplicit;
     out.write_all(b"<alignment")?;
     if let Some(n) = v.horizontal {
         write!(out, " horizontal=\"{}\"", n.as_str())?;
@@ -160,7 +109,7 @@ pub(crate) fn write_alignment(out: &mut impl Write, v: &Alignment) -> io::Result
     if let Some(n) = v.vertical {
         write!(out, " vertical=\"{}\"", n.as_str())?;
     }
-    if let Some(n) = v.rotation {
+    if let Some(n) = v.rotation.filter(|value| retain || *value != 0) {
         write!(out, " textRotation=\"{n}\"")?;
     }
     for (key, val) in [
@@ -169,7 +118,7 @@ pub(crate) fn write_alignment(out: &mut impl Write, v: &Alignment) -> io::Result
         ("justifyLastLine", v.justify_last_line),
         ("mergeCell", v.merge_cell),
     ] {
-        if let Some(n) = val {
+        if let Some(n) = val.filter(|value| retain || *value) {
             write!(out, " {key}=\"{}\"", u8::from(n))?;
         }
     }
@@ -178,7 +127,7 @@ pub(crate) fn write_alignment(out: &mut impl Write, v: &Alignment) -> io::Result
         ("relativeIndent", v.relative_indent),
         ("readingOrder", v.reading_order),
     ] {
-        if let Some(n) = val {
+        if let Some(n) = val.filter(|value| retain || *value != 0.0) {
             write!(out, " {key}=\"{n}\"")?;
         }
     }

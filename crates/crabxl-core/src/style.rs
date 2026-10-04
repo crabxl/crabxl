@@ -22,7 +22,7 @@ impl StyleId {
 pub type Font = crate::RunFont;
 /// Complete appearance components for registering a new shared cell format.
 /// Imported component/base-format IDs and named-style metadata live in StyleCatalog.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub struct CellStyle {
     /// Number-format code (General by default).
     pub number_format: Box<str>,
@@ -44,18 +44,17 @@ impl Default for CellStyle {
             font: Font {
                 name: Some("Calibri".into()),
                 size: Some(11.0),
+                family: Some(2),
+                scheme: Some(crate::FontScheme::Minor),
+                color: Some(crate::Color {
+                    kind: crate::ColorKind::Theme(1),
+                    tint: None,
+                }),
                 ..Default::default()
             },
             fill: crate::Fill::default(),
             borders: crate::Border::default(),
-            alignment: crate::Alignment {
-                horizontal: Some(crate::HorizontalAlignment::General),
-                vertical: Some(crate::VerticalAlignment::Bottom),
-                rotation: Some(0),
-                wrap_text: Some(false),
-                shrink_to_fit: Some(false),
-                ..Default::default()
-            },
+            alignment: crate::Alignment::default(),
             protection: crate::Protection {
                 locked: Some(true),
                 hidden: Some(false),

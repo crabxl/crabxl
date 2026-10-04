@@ -2,9 +2,10 @@
 // Sequential spooling, scalar XML layouts and packaging adapted from rust_xlsxwriter,
 // Copyright 2022-2026 John McNamara. Source provenance: third_party/ports.json.
 
-use crate::encode::{DateEncoding, RowBuffer, encode_cells, validate_xml_text};
+use crate::encode::{DateEncoding, RowBuffer, StyleContext, encode_cells, validate_xml_text};
 use crabxl_core::{
-    CellStyle, DateEpoch, Error, ErrorKind, MAX_COLUMNS, Result, Row, RowIndex, StyleId,
+    CellStyle, DateEpoch, Error, ErrorKind, MAX_COLUMNS, Result, Row, RowIndex, StyleCatalog,
+    StyleId, StyleLimits, StyleRegistry,
 };
 use std::{
     io::{self, BufReader, BufWriter, Seek, Write},
@@ -25,6 +26,16 @@ pub enum NonFiniteWritePolicy {
     Blank,
     /// Reject the row before committing any temporary XML.
     Reject,
+}
+
+/// Serialization of alignment attributes with zero/false values.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum StyleWritePolicy {
+    /// Match public reference omission, including zero rotations and false wrap flags.
+    #[default]
+    Compatible,
+    /// Preserve explicit optional alignment attributes as a Rust extension.
+    RetainExplicit,
 }
 
 /// Configurable resource limits for sequential worksheet spooling.
@@ -57,6 +68,8 @@ pub struct WriteOptions {
     pub iso_dates: bool,
     /// Nonfinite serialization is compatible by default, with explicit strict rejection.
     pub non_finite: NonFiniteWritePolicy,
+    /// Compatible alignment omission or explicit attribute retention.
+    pub style_attributes: StyleWritePolicy,
     /// Zero-based active display sheet, checked against the completed catalog.
     pub active_sheet: usize,
 }
@@ -75,6 +88,7 @@ impl Default for WriteOptions {
             date_1904: false,
             iso_dates: false,
             non_finite: NonFiniteWritePolicy::default(),
+            style_attributes: StyleWritePolicy::default(),
             active_sheet: 0,
             max_styles: 8192,
         }
@@ -111,7 +125,7 @@ struct ActiveSheet {
 pub struct WorkbookWriter {
     options: WriteOptions,
     sheets: Vec<StoredSheet>,
-    styles: Vec<CellStyle>,
+    styles: Option<StyleRegistry>,
     active: Option<ActiveSheet>,
     row_buffer: RowBuffer,
     temporary_bytes: u64,
@@ -146,22 +160,28 @@ impl WorkbookWriter {
             data: Vec::new(),
             maximum: options.max_row_bytes,
         };
+        let mut styles = StyleRegistry::new(StyleLimits {
+            max_bytes: options.max_metadata_bytes,
+            max_records: options.max_styles,
+        })
+        .map_err(writer_style_error)?;
+        for format in [
+            "yyyy-mm-dd hh:mm:ss.000",
+            "hh:mm:ss.000",
+            "[h]:mm:ss.000",
+            "yyyy-mm-dd",
+        ] {
+            styles
+                .register(CellStyle {
+                    number_format: format.into(),
+                    ..CellStyle::default()
+                })
+                .map_err(writer_style_error)?;
+        }
         let writer = Self {
             options,
             sheets: Vec::new(),
-            styles: [
-                "General",
-                "yyyy-mm-dd hh:mm:ss.000",
-                "hh:mm:ss.000",
-                "[h]:mm:ss.000",
-                "yyyy-mm-dd",
-            ]
-            .into_iter()
-            .map(|format| CellStyle {
-                number_format: format.into(),
-                ..CellStyle::default()
-            })
-            .collect(),
+            styles: Some(styles),
             active: None,
             row_buffer,
             temporary_bytes: 0,
@@ -180,30 +200,23 @@ impl WorkbookWriter {
     pub fn register_style(&mut self, style: CellStyle) -> Result<StyleId> {
         self.ensure_open()?;
         crate::styles::validate(&style, self.options.max_metadata_bytes)?;
-        if let Some(index) = self.styles.iter().position(|existing| *existing == style) {
-            return Ok(StyleId::new(index as u32));
-        }
-        if self.styles.len() >= self.options.max_styles {
-            return Err(limit("Writer shared style count limit exceeded"));
-        }
-        let bytes = (self.styles.len() + 1)
-            .saturating_mul(size_of::<CellStyle>())
-            .saturating_add(self.styles.iter().map(CellStyle::heap_bytes).sum::<usize>())
-            .saturating_add(style.heap_bytes())
-            .saturating_add(self.catalog_bytes());
-        if bytes > self.options.max_metadata_bytes {
-            return Err(limit("Writer metadata budget exceeded"));
-        }
-        self.styles.try_reserve_exact(1).map_err(|error| {
-            Error::caused_by(
-                ErrorKind::LimitExceeded,
-                "Cannot allocate style table",
-                error,
-            )
-        })?;
-        let id = StyleId::new(self.styles.len() as u32);
-        self.styles.push(style);
-        Ok(id)
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes());
+        self.styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?
+            .register_with_limit(style, allowance)
+            .map_err(writer_style_error)
+    }
+    /// Borrow the canonical shared catalog; None after abort releases storage.
+    pub fn style_catalog(&self) -> Option<&StyleCatalog> {
+        self.styles.as_ref().map(StyleRegistry::catalog)
+    }
+    /// Managed catalog and conservative registration-index storage estimate.
+    pub fn style_memory_bytes(&self) -> usize {
+        self.styles.as_ref().map_or(0, StyleRegistry::memory_bytes)
     }
     fn catalog_bytes(&self) -> usize {
         self.sheets.capacity() * size_of::<StoredSheet>()
@@ -217,8 +230,7 @@ impl WorkbookWriter {
             })
     }
     fn style_bytes(&self) -> usize {
-        self.styles.capacity() * size_of::<CellStyle>()
-            + self.styles.iter().map(CellStyle::heap_bytes).sum::<usize>()
+        self.style_memory_bytes()
     }
     /// Start a sheet, completing the previous one. Failed validation or temporary
     /// file creation leaves the previous active sheet usable.
@@ -368,7 +380,12 @@ impl WorkbookWriter {
             cells.clone(),
             self.options.max_cell_bytes,
             self.options.max_row_cells,
-            &self.styles,
+            StyleContext::Catalog(
+                self.styles
+                    .as_ref()
+                    .ok_or_else(|| state("Writer style catalog is released"))?
+                    .catalog(),
+            ),
             DateEncoding {
                 epoch: if self.options.date_1904 {
                     DateEpoch::Mac1904
@@ -486,7 +503,7 @@ impl WorkbookWriter {
         }
         self.cleanup_paths = remaining;
         self.sheets = Vec::new();
-        self.styles = Vec::new();
+        self.styles = None;
         self.row_buffer.data = Vec::new();
         self.temporary_bytes = 0;
         first_error.map_or(Ok(()), Err)
@@ -533,9 +550,13 @@ impl WorkbookWriter {
         package_metadata(
             &mut zip,
             &self.sheets,
-            &self.styles,
+            self.styles
+                .as_ref()
+                .ok_or_else(|| state("Writer style catalog is released"))?
+                .catalog(),
             self.options.date_1904,
             self.options.active_sheet,
+            self.options.style_attributes,
             options,
         )?;
         let mut output = zip
@@ -629,12 +650,24 @@ fn write_part<W: Write + Seek>(
     start_part(zip, name, options)?;
     write(zip).map_err(|error| io_error("Cannot write XLSX metadata part", error).with_part(name))
 }
+fn writer_style_error(error: Error) -> Error {
+    if error.kind() == ErrorKind::MemoryBudgetExceeded {
+        Error::caused_by(
+            ErrorKind::LimitExceeded,
+            "Writer style catalog allowance exceeded",
+            error,
+        )
+    } else {
+        error
+    }
+}
 fn package_metadata<W: Write + Seek>(
     zip: &mut ZipWriter<W>,
     sheets: &[StoredSheet],
-    styles: &[CellStyle],
+    styles: &StyleCatalog,
     date_1904: bool,
     active_sheet: usize,
+    style_attributes: StyleWritePolicy,
     options: SimpleFileOptions,
 ) -> Result<()> {
     write_part(zip, "[Content_Types].xml", options, |zip| {
@@ -692,7 +725,7 @@ fn package_metadata<W: Write + Seek>(
         zip.write_all(b"</sheets></workbook>")
     })?;
     write_part(zip, "xl/styles.xml", options, |zip| {
-        crate::styles::write_styles(zip, styles)
+        crate::styles::write_styles(zip, styles, style_attributes)
     })
 }
 

@@ -3,7 +3,7 @@
 // Provenance and refactoring: third_party/ports.json.
 
 /// Workbook-independent color reference. Theme/indexed colors retain identity.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ColorKind {
     /// A present color element without an explicit identity.
     Unspecified,
@@ -25,7 +25,7 @@ pub struct Color {
     pub tint: Option<f64>,
 }
 /// Underline shape, distinct from a missing run property.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Underline {
     /// Explicitly no underline.
     None,
@@ -39,7 +39,7 @@ pub enum Underline {
     DoubleAccounting,
 }
 /// Run baseline position.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TextVerticalAlignment {
     /// Normal baseline.
     Baseline,
@@ -49,7 +49,7 @@ pub enum TextVerticalAlignment {
     Subscript,
 }
 /// Theme font scheme.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FontScheme {
     /// Explicitly no theme scheme.
     None,

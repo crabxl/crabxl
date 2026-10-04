@@ -11,70 +11,159 @@ pub(crate) fn validate(style: &CellStyle, maximum: usize) -> Result<()> {
             "Style payload exceeds metadata limit",
         ));
     }
-    if style.number_format.is_empty() {
-        return Err(Error::new(ErrorKind::InvalidData, "Number format is empty"));
+    if let Some(name) = &style.font.name {
+        crate::encode::validate_xml_text(name)?;
     }
-    crate::formatting::validate_font(&style.font)?;
     crate::encode::validate_xml_text(&style.number_format)?;
-    crate::style_codec::validate_fill(&style.fill)?;
-    crate::style_codec::validate_border(&style.borders)?;
-    crate::style_codec::validate_alignment(&style.alignment)?;
     Ok(())
 }
-pub(crate) fn attr(value: &str) -> String {
-    quick_xml::escape::escape(value)
-        .replace('\r', "&#13;")
-        .replace('\n', "&#10;")
-        .replace('\t', "&#9;")
+fn write_xf(
+    output: &mut impl Write,
+    format: &crabxl_core::CellFormat,
+    policy: crate::StyleWritePolicy,
+) -> io::Result<()> {
+    if format.unmodeled_extensions {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "Cannot serialize an unmodeled style extension",
+        ));
+    }
+    write!(
+        output,
+        "<xf numFmtId=\"{}\" fontId=\"{}\" fillId=\"{}\" borderId=\"{}\"",
+        format.number_format_id, format.font_id, format.fill_id, format.border_id
+    )?;
+    if let Some(id) = format.base_format_id {
+        write!(output, " xfId=\"{id}\"")?;
+    }
+    for (name, value) in [
+        ("applyNumberFormat", format.apply_number_format),
+        ("applyFont", format.apply_font),
+        ("applyFill", format.apply_fill),
+        ("applyBorder", format.apply_border),
+        ("applyAlignment", format.apply_alignment),
+        ("applyProtection", format.apply_protection),
+        ("quotePrefix", format.quote_prefix),
+        ("pivotButton", format.pivot_button),
+    ] {
+        if let Some(value) = value {
+            write!(output, " {name}=\"{}\"", u8::from(value))?;
+        }
+    }
+    output.write_all(b">")?;
+    if let Some(alignment) = &format.alignment {
+        crate::style_codec::write_alignment(output, alignment, policy)?;
+    }
+    if let Some(protection) = &format.protection {
+        crate::style_codec::write_protection(output, protection)?;
+    }
+    output.write_all(b"</xf>")
 }
-pub(crate) fn write_styles(output: &mut impl Write, styles: &[CellStyle]) -> io::Result<()> {
-    write!(
-        output,
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><styleSheet xmlns=\"{}\">",
-        crate::xml::MAIN_URI
-    )?;
-    write!(output, "<numFmts count=\"{}\">", styles.len() - 1)?;
-    for (index, style) in styles.iter().enumerate().skip(1) {
-        write!(
-            output,
-            "<numFmt numFmtId=\"{}\" formatCode=\"{}\"/>",
-            index + 163,
-            attr(&style.number_format)
-        )?;
-    }
-    write!(output, "</numFmts><fonts count=\"{}\">", styles.len())?;
-    for style in styles {
-        crate::formatting::write_font(output, &style.font, crate::formatting::FontContext::Cell)?;
+pub(crate) fn write_styles(
+    output: &mut impl Write,
+    catalog: &crabxl_core::StyleCatalog,
+    policy: crate::StyleWritePolicy,
+) -> io::Result<()> {
+    if !catalog.unmodeled_sections.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "Cannot serialize unmodeled style sections",
+        ));
     }
     write!(
         output,
-        "</fonts><fills count=\"{}\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill>",
-        styles.len() + 2
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><styleSheet xmlns=\"{}\"><numFmts count=\"{}\">",
+        crate::xml::MAIN_URI,
+        catalog.number_formats.len()
     )?;
-    for style in styles {
-        crate::style_codec::write_fill(output, &style.fill)?;
-    }
-    write!(output, "</fills><borders count=\"{}\">", styles.len())?;
-    for style in styles {
-        crate::style_codec::write_border(output, &style.borders)?;
+    for number in &catalog.number_formats {
+        write!(output, "<numFmt numFmtId=\"{}\"", number.id)?;
+        crate::encode::write_attribute(output, "formatCode", &number.code)?;
+        output.write_all(b"/>")?;
     }
     write!(
         output,
-        "</borders><cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs><cellXfs count=\"{}\">",
-        styles.len()
+        "</numFmts><fonts count=\"{}\">",
+        catalog.fonts.len()
     )?;
-    for (index, style) in styles.iter().enumerate() {
-        let num_fmt = if index == 0 { 0 } else { index + 163 };
-        write!(
-            output,
-            "<xf numFmtId=\"{num_fmt}\" fontId=\"{index}\" fillId=\"{}\" borderId=\"{index}\" xfId=\"0\" applyNumberFormat=\"1\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\" applyProtection=\"1\">",
-            if index == 0 { 0 } else { index + 2 }
-        )?;
-        crate::style_codec::write_alignment(output, &style.alignment)?;
-        crate::style_codec::write_protection(output, &style.protection)?;
-        output.write_all(b"</xf>")?;
+    for font in &catalog.fonts {
+        crate::formatting::write_font(output, font, crate::formatting::FontContext::Cell)?;
     }
-    output.write_all(b"</cellXfs><cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles></styleSheet>")
+    write!(output, "</fonts><fills count=\"{}\">", catalog.fills.len())?;
+    for fill in &catalog.fills {
+        crate::style_codec::write_fill(output, fill)?;
+    }
+    write!(
+        output,
+        "</fills><borders count=\"{}\">",
+        catalog.borders.len()
+    )?;
+    for border in &catalog.borders {
+        crate::style_codec::write_border(output, border)?;
+    }
+    write!(
+        output,
+        "</borders><cellStyleXfs count=\"{}\">",
+        catalog.base_formats.len()
+    )?;
+    for format in &catalog.base_formats {
+        write_xf(output, format, policy)?;
+    }
+    write!(
+        output,
+        "</cellStyleXfs><cellXfs count=\"{}\">",
+        catalog.cell_formats.len()
+    )?;
+    for format in &catalog.cell_formats {
+        write_xf(output, format, policy)?;
+    }
+    write!(
+        output,
+        "</cellXfs><cellStyles count=\"{}\">",
+        catalog.named_styles.len()
+    )?;
+    for style in &catalog.named_styles {
+        output.write_all(b"<cellStyle")?;
+        crate::encode::write_attribute(output, "name", &style.name)?;
+        write!(output, " xfId=\"{}\"", style.base_format_id)?;
+        for (name, value) in [
+            ("builtinId", style.builtin_id),
+            ("iLevel", style.outline_level),
+        ] {
+            if let Some(value) = value {
+                write!(output, " {name}=\"{value}\"")?;
+            }
+        }
+        for (name, value) in [
+            ("hidden", style.hidden),
+            ("customBuiltin", style.custom_builtin),
+        ] {
+            if let Some(value) = value {
+                write!(output, " {name}=\"{}\"", u8::from(value))?;
+            }
+        }
+        output.write_all(b"/>")?;
+    }
+    output.write_all(b"</cellStyles>")?;
+    if !catalog.indexed_colors.is_empty() || !catalog.recent_colors.is_empty() {
+        output.write_all(b"<colors>")?;
+        if !catalog.indexed_colors.is_empty() {
+            output.write_all(b"<indexedColors>")?;
+            for value in &catalog.indexed_colors {
+                write!(output, "<rgbColor rgb=\"{value:08X}\"/>")?;
+            }
+            output.write_all(b"</indexedColors>")?;
+        }
+        if !catalog.recent_colors.is_empty() {
+            output.write_all(b"<mruColors>")?;
+            for value in &catalog.recent_colors {
+                crate::formatting::write_color(output, "color", *value)?;
+            }
+            output.write_all(b"</mruColors>")?;
+        }
+        output.write_all(b"</colors>")?;
+    }
+    output.write_all(b"</styleSheet>")
 }
 
 // Date-format scan adapted from calamine's detect_custom_number_format,

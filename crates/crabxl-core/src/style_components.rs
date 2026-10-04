@@ -34,7 +34,7 @@ token_enum! {/// Cell border line style.
     }
 }
 /// One optional border edge; absence and an empty edge remain distinct.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Hash)]
 pub struct BorderSide {
     /// Optional line override.
     pub line: Option<BorderLine>,
@@ -42,7 +42,7 @@ pub struct BorderSide {
     pub color: Option<Color>,
 }
 /// Complete border components, including internal and directional edges.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub struct Border {
     /// Left, right, top, bottom, diagonal, vertical, horizontal, start and end.
     pub sides: [Option<BorderSide>; 9],
@@ -136,7 +136,7 @@ pub struct Alignment {
     pub merge_cell: Option<bool>,
 }
 /// Cell protection overrides, separate from sheet protection activation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Protection {
     /// Lock the cell when sheet protection is enabled.
     pub locked: Option<bool>,
@@ -168,7 +168,7 @@ token_enum! {/// Pattern fill style.
     }
 }
 /// Optional fill pattern and colors.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Hash)]
 pub struct PatternFill {
     /// Pattern token, distinct from missing.
     pub pattern: Option<FillPattern>,
@@ -205,7 +205,7 @@ pub struct GradientFill {
     pub stops: Vec<GradientStop>,
 }
 /// Shared fill model used by both imported catalogs and new styles.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub enum Fill {
     /// Pattern/color fill.
     Pattern(PatternFill),
