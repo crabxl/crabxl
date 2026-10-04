@@ -6,6 +6,8 @@ Consult [pending MR risks](openpyxl-mr-review.md) and [work-item, board, and mil
 
 See [binding priorities, interface principles and performance targets](binding-contract.md). Python is tier 1, followed by JS/TS on Node and WASM sharing one ExcelJS-compatible API, then .NET and Java/Kotlin, PHP and Go, and finally Ruby, Swift and Dart. Rust core remains canonical; compatibility interfaces and language-specific extensions evolve separately. Faster-than-openpyxl performance is required; faster native overlap and lower RAM targets are desired, with equivalent-workload evidence.
 
+See the [detailed Rust completion plan](completion-plan.md) for dependency order, remaining checkpoints, resource strategies and acceptance gates.
+
 ## Scope and completion
 
 The compatibility baseline is openpyxl 3.1.5, Mercurial tag revision `13627b03ca25a1a98becf40e533b955615b13429`. The version-specific inventory uses public runtime metadata and release documentation without reading implementation source. It covers 190 modules, 567 public classes and their public members, functions/exports, and 45 RST documents. This is an audit index, not a complete behavioral specification; semantic verification is staged. Partial support and preservation-only features in that baseline must also be represented.
