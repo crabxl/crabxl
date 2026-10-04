@@ -89,3 +89,7 @@ M2 remains in progress: theme resolution, ISO dates/durations, complete calendar
 ## M2 literal date precision checkpoint
 
 Literal calendar datetimes, clock times and elapsed durations now preserve microseconds in the canonical core. Imported serials remain distinct and convert with loaded baseline millisecond rules. Early ambiguous Windows dates retain their original Gregorian day for literal epoch conversion. [Creation and mixed-read evidence](../benchmarks/m2-date-literals.md) verifies both epochs, values/types and process performance. Date-only/ISO codecs, safe loaded assignments and complete aggregate accounting remain staged; M2 is not complete.
+
+## M2 ISO and date-only checkpoint
+
+Date-only literals and shared ISO parsing/formatting now join the canonical date model. Type `d` cells and caches work in streaming/materialized reads; opt-in ISO creation retains early Gregorian dates in both workbook epochs, while elapsed durations stay numeric. All 42 public ISO utility observations match native output. Tests verify prefix semantics, fraction truncation, contextual malformed errors, limits, retry and cleanup. [Creation/read measurements](../benchmarks/m2-iso-dates.md) include exact native logical temporary XML and sampled disk peaks. Theme/catalog integration, advanced formulas and aggregate accounting remain required; M2 is still in progress.

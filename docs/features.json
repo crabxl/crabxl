@@ -16931,6 +16931,39 @@
         "benchmarks/verify_date_fixture.py"
       ],
       "limitations": "Imported numeric values retain baseline millisecond conversion; literal values retain exact components. Numeric XLSX output does not promise literal microsecond readback. ISO/date-only codecs and original-package date assignment remain staged. Python integration is separately pinned and validated."
+    },
+    {
+      "id": "values.iso-date-time",
+      "description": "Shared date-only/ISO calendar-clock-duration prefix semantics and opt-in ISO creation",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "partial"
+      },
+      "modes": [
+        "streaming",
+        "materialized",
+        "owned-model",
+        "sequential-write"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/datetime.html",
+      "modules": [
+        "crates/crabxl-core/src/iso_date.rs",
+        "crates/crabxl-core/src/date.rs",
+        "crates/crabxl-xlsx/src/reader.rs",
+        "crates/crabxl-xlsx/src/encode.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/values.rs::iso_prefix_fraction_and_duration_behavior_matches_recorded_public_probe",
+        "crates/crabxl-xlsx/tests/streaming.rs::iso_cells_dates_clocks_durations_and_formula_caches_share_read_modes",
+        "crates/crabxl-xlsx/tests/writer.rs::iso_creation_preserves_date_kind_calendar_day_and_truncated_fraction",
+        "crates/crabxl-xlsx/tests/writer.rs::iso_payload_limits_fail_before_spooling_and_allow_retry",
+        "benchmarks/verify_iso_fixture.py"
+      ],
+      "limitations": "Pinned prefix compatibility, not strict ISO validation or timezone-aware values. Numeric creation defaults remain separate; elapsed durations are numeric in ISO mode. Full source style editing/normalization and original-package date assignment remain staged. Python compatibility integration is separately pinned and tested."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

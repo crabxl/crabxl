@@ -2,7 +2,7 @@
 // Sequential spooling, scalar XML layouts and packaging adapted from rust_xlsxwriter,
 // Copyright 2022-2026 John McNamara. Source provenance: third_party/ports.json.
 
-use crate::encode::{RowBuffer, encode_cells, validate_xml_text};
+use crate::encode::{DateEncoding, RowBuffer, encode_cells, validate_xml_text};
 use crabxl_core::{
     CellStyle, DateEpoch, Error, ErrorKind, MAX_COLUMNS, Result, Row, RowIndex, StyleId,
 };
@@ -39,10 +39,12 @@ pub struct WriteOptions {
     pub max_temp_bytes: u64,
     /// Maximum temporary XML bytes in one sheet.
     pub max_sheet_bytes: u64,
-    /// Maximum shared basic cell formats, including four initial records.
+    /// Maximum shared basic cell formats, including five initial records.
     pub max_styles: usize,
     /// Select the workbook's 1904 date epoch.
     pub date_1904: bool,
+    /// Encode calendar and clock values as ISO date cells; durations remain numeric.
+    pub iso_dates: bool,
     /// Zero-based active display sheet, checked against the completed catalog.
     pub active_sheet: usize,
 }
@@ -59,6 +61,7 @@ impl Default for WriteOptions {
             max_temp_bytes: 4 * 1024 * 1024 * 1024,
             max_sheet_bytes: 2 * 1024 * 1024 * 1024,
             date_1904: false,
+            iso_dates: false,
             active_sheet: 0,
             max_styles: 8192,
         }
@@ -107,7 +110,7 @@ pub struct WorkbookWriter {
 impl WorkbookWriter {
     /// Create a writer with explicit resource and temporary-directory options.
     pub fn new(options: WriteOptions) -> Result<Self> {
-        if options.max_styles < 4
+        if options.max_styles < 5
             || options.max_styles > 65373
             || options.buffer_bytes == 0
             || options.max_sheets == 0
@@ -138,6 +141,7 @@ impl WorkbookWriter {
                 "yyyy-mm-dd hh:mm:ss.000",
                 "hh:mm:ss.000",
                 "[h]:mm:ss.000",
+                "yyyy-mm-dd",
             ]
             .into_iter()
             .map(|format| CellStyle {
@@ -352,10 +356,13 @@ impl WorkbookWriter {
             self.options.max_cell_bytes,
             self.options.max_row_cells,
             &self.styles,
-            if self.options.date_1904 {
-                DateEpoch::Mac1904
-            } else {
-                DateEpoch::Windows1900
+            DateEncoding {
+                epoch: if self.options.date_1904 {
+                    DateEpoch::Mac1904
+                } else {
+                    DateEpoch::Windows1900
+                },
+                iso_dates: self.options.iso_dates,
             },
         )
         .map_err(|error| error.with_part(&part))?;

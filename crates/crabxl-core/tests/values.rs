@@ -117,3 +117,69 @@ fn literal_calendar_clock_and_duration_keep_microseconds_and_ambiguous_dates() {
     assert!(Date::from_duration_parts(1000000000, 0, 0).is_err());
     assert!(Date::from_duration_parts(0, 86400, 0).is_err());
 }
+
+#[test]
+fn iso_prefix_fraction_and_duration_behavior_matches_recorded_public_probe() {
+    use crabxl_core::parse_iso8601;
+    for (text, kind, iso) in [
+        ("2024-02-29", crabxl_core::DateKind::Date, "2024-02-29"),
+        (
+            "2024-02-29garbage",
+            crabxl_core::DateKind::Date,
+            "2024-02-29",
+        ),
+        ("2024-02-29T12", crabxl_core::DateKind::Date, "2024-02-29"),
+        (
+            "2024-02-29T12:34:56.123456",
+            DateTime,
+            "2024-02-29T12:34:56.123",
+        ),
+        ("2024-02-29T12:34:56+02:00", DateTime, "2024-02-29T12:34:56"),
+        ("12:34:56.12", Time, "12:34:56.120"),
+        ("12:34:", Time, "12:34:00"),
+        ("12:34:56.123456", Time, "12:34:56.123"),
+    ] {
+        let value = parse_iso8601(text).unwrap().unwrap();
+        assert_eq!(value.kind(), kind, "{text}");
+        assert_eq!(value.to_iso8601().unwrap(), iso, "{text}");
+    }
+    for (text, milliseconds) in [
+        ("PT1H2M3.123S", 3723123),
+        ("PT1H2M3.123456S", 3720000),
+        ("PT100H", 360000000),
+        ("PT1.2S", 1200),
+        ("PT0S", 0),
+    ] {
+        let value = parse_iso8601(text).unwrap().unwrap();
+        assert_eq!(value.kind(), Duration);
+        assert_eq!(
+            value.to_duration().unwrap().num_milliseconds(),
+            milliseconds
+        );
+    }
+    assert!(parse_iso8601("").unwrap().is_none());
+    assert!(Date::from_serial(1.5, Windows1900, crabxl_core::DateKind::Date).is_err());
+    for text in [
+        " 2024-02-29",
+        "2024-02",
+        "2024-02-30",
+        "0000-01-01",
+        "12",
+        "12:99",
+        "PT",
+        "P1DT2H",
+        "PT0.123456S",
+        "-PT1S",
+        "PT999999999999999999999H",
+    ] {
+        assert!(parse_iso8601(text).is_err(), "{text}");
+    }
+    let literal = Date::from_ymd_hms_micro(2024, 1, 1, 0, 0, 0, 123).unwrap();
+    assert_eq!(literal.to_iso8601().unwrap(), "2024-01-01T00:00:00.000");
+    assert_eq!(
+        Date::from_duration_parts(-1, 86399, 999999)
+            .unwrap()
+            .serial(),
+        -0.000001 / 86400.0
+    );
+}
