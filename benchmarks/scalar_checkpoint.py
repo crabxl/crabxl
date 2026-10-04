@@ -10,6 +10,7 @@ import openpyxl
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--numeric-before', required=True, help='Release M1 sum executable')
+parser.add_argument('--after-label', default='M2', help='Name of the measured current checkpoint')
 parser.add_argument('--output', default=str(ROOT / 'benchmarks/results/m2-scalars.json'))
 args = parser.parse_args()
 assert openpyxl.__version__ == '3.1.5'
@@ -41,7 +42,7 @@ def verify_python(path,count):
     book.close()
     assert seen==count
 
-report={'rust':'1.88.0','openpyxl':'3.1.5','before_revision':'74c082a58e8b','measurement':'Native Linux wait4 RSS; three alternating measured runs, one warmup; fixture generation/public API verification excluded','runtime_temporary_bytes':0,'cases':[]}
+report={'rust':'1.88.0','openpyxl':'3.1.5','before_revision':'74c082a58e8b','measurement':'Native Linux wait4 RSS; three alternating measured runs, one warmup; fixture generation/public API verification excluded','after_checkpoint':args.after_label,'runtime_temporary_bytes':0,'cases':[]}
 for count in [10000,100000]:
     path=ROOT/f'benchmarks/data/scalars-{count}.xlsx'
     generate(path,count)
@@ -55,12 +56,12 @@ for count in [10000,100000]:
     print('Mixed exact scalar fidelity',count,'passed',flush=True)
 for count in [100000,1000000]:
     path=ROOT/f'benchmarks/data/numbers-{count}.xlsx'
-    commands={'M1':[args.numeric_before,path],'M2':[ROOT/'target/release/examples/sum',path]}
+    commands={'M1':[args.numeric_before,path],args.after_label:[ROOT/'target/release/examples/sum',path]}
     expected=measure(commands['M1'])['output']
-    assert measure(commands['M2'])['output']==expected
+    assert measure(commands[args.after_label])['output']==expected
     runs=[]
     for index in range(3):
-        for version in (['M1','M2'] if index%2==0 else ['M2','M1']):
+        for version in (['M1',args.after_label] if index%2==0 else [args.after_label,'M1']):
             value=measure(commands[version]); assert value['output']==expected
             runs.append({'version':version,**value})
     report['cases'].append({'workload':'numeric','rows':count,'columns':10,'runs':runs})

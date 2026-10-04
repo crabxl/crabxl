@@ -16420,7 +16420,7 @@
     },
     {
       "id": "resources.scalar-payloads",
-      "description": "Owned text/error/exact-integer payload accounting in rows, batches, materialization and adaptive fallback",
+      "description": "Owned text/error/exact-integer payload accounting in rows, batches, materialization and adaptive fallback, including normal formula expressions and caches",
       "status": "verified",
       "milestone": "M2",
       "capabilities": {
@@ -16445,6 +16445,117 @@
         "adaptive_text_growth_falls_back_without_losing_owned_values"
       ],
       "limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
+    },
+    {
+      "id": "write.scalar-streaming",
+      "description": "Sequential multi-sheet XLSX creation from shared scalar values with a default General style",
+      "status": "verified",
+      "milestone": "M3",
+      "capabilities": {
+        "read": "planned",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "sequential-spooled-write"
+      ],
+      "reference": "Selected pinned rust_xlsxwriter serializers and constant-memory packager; see third_party/ports.json",
+      "modules": [
+        "crates/openrsxl-xlsx/src/writer.rs",
+        "crates/openrsxl-xlsx/src/encode.rs"
+      ],
+      "tests": [
+        "scalar_round_trip_sparse_rows_empty_sheet_and_epoch",
+        "rejected_rows_do_not_commit_and_sequential_state_is_explicit",
+        "name_sheet_row_cell_metadata_and_temp_limits_are_enforced"
+      ],
+      "limitations": "New sequential workbook creation only. Shared/rich strings, escape-aware text and existing-file editing/preservation remain staged. Finish errors may leave partial caller output; budgets are not a global RSS cap."
+    },
+    {
+      "id": "resources.writer-lifecycle",
+      "description": "Owned bounded worksheet spooling, explicit finish/abort, Drop cleanup and borrowed output ownership",
+      "status": "verified",
+      "milestone": "M3",
+      "capabilities": {
+        "read": "planned",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "sequential-spooled-write"
+      ],
+      "reference": "Selected pinned rust_xlsxwriter serializers and constant-memory packager; see third_party/ports.json",
+      "modules": [
+        "crates/openrsxl-xlsx/src/writer.rs",
+        "crates/openrsxl-xlsx/src/encode.rs"
+      ],
+      "tests": [
+        "abort_and_drop_clean_every_owned_file_without_saving",
+        "abort_attempts_remaining_cleanup_after_one_unlink_failure",
+        "failed_new_temp_file_keeps_previous_sheet_usable",
+        "finish_io_failure_cleans_spools_and_preserves_borrowed_sink"
+      ],
+      "limitations": "New sequential workbook creation only. Shared/rich strings, escape-aware text and existing-file editing/preservation remain staged. Finish errors may leave partial caller output; budgets are not a global RSS cap."
+    },
+    {
+      "id": "write.dates-formulas-basic-styles",
+      "description": "Date/time/duration, normal formulas with typed optional caches and deduplicated shared basic style output",
+      "status": "verified",
+      "milestone": "M3",
+      "capabilities": {
+        "read": "planned",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "sequential-spooled-write"
+      ],
+      "reference": "Pinned rust_xlsxwriter serializers and public openpyxl 3.1.5 interoperability; third_party/ports.json",
+      "modules": [
+        "crates/openrsxl-core/src/date.rs",
+        "crates/openrsxl-core/src/formula.rs",
+        "crates/openrsxl-core/src/style.rs",
+        "crates/openrsxl-xlsx/src/encode.rs",
+        "crates/openrsxl-xlsx/src/styles.rs"
+      ],
+      "tests": [
+        "date_serials_formats_and_epoch_flags_are_encoded_consistently",
+        "shared_styles_are_deduplicated_bounded_and_references_are_checked",
+        "benchmarks/writer_checkpoint.py"
+      ],
+      "limitations": "M3 initial style scope: font, solid fill, four borders, alignment, number format, cell protection. Complete read-side styles/dates remain M2; advanced/named/theme styles remain M5. Formula calculation is not provided; non-normal metadata remains staged."
+    },
+    {
+      "id": "read.normal-formulas",
+      "description": "Normal formula expressions, typed optional caches and data-only selection",
+      "status": "verified",
+      "milestone": "M3",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "streaming",
+        "batches",
+        "materialized",
+        "adaptive",
+        "sequential-spooled-write"
+      ],
+      "reference": "Pinned rust_xlsxwriter serializers and public openpyxl 3.1.5 interoperability; third_party/ports.json",
+      "modules": [
+        "crates/openrsxl-core/src/formula.rs",
+        "crates/openrsxl-xlsx/src/reader.rs"
+      ],
+      "tests": [
+        "normal_formula_round_trip_and_data_only_caches",
+        "formula_payload_limits_projection_and_invalid_structure_are_enforced"
+      ],
+      "limitations": "Unstyled normal formulas only on read. Shared/array/data-table formulas and full date/style interpretation remain M2/M5. No calculation engine. Absent cache is Empty in data-only mode; supplied Empty writes as absent."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

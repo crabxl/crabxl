@@ -1,6 +1,6 @@
 # Development roadmap
 
-Status: M0 architecture/inventory and M1 raw numeric streaming acceptance complete; M2 is in progress with exact integers, boolean/error literals, and plain inline text with owned-payload accounting. Selected calamine parsing logic has been ported into the three-crate workspace. [features.json](features.json) maps every pinned public surface and release documentation topic, while verified behavior remains a narrow subset. See [milestone evidence](milestones.md). Deliver a Rust crate first; language bindings follow separately.
+Status: M0 architecture/inventory and M1 raw numeric streaming acceptance complete; M2 is in progress with exact integers, boolean/error literals, and plain inline text with owned-payload accounting; M3 sequential writer acceptance is complete for scalar/date/time/duration, normal formula/cache and basic-style creation. Selected calamine parsing logic has been ported into the three-crate workspace. [features.json](features.json) maps every pinned public surface and release documentation topic, while verified behavior remains a narrow subset. See [milestone evidence](milestones.md). Deliver a Rust crate first; language bindings follow separately.
 
 Consult [pending MR risks](openpyxl-mr-review.md) and [work-item, board, and milestone risks](openpyxl-work-items-review.md) when implementing affected features. Defects are regression cases to fix or avoid, not behavior that compatibility requires reproducing.
 
@@ -65,7 +65,7 @@ Acceptance: correct counts/checksums, raw timing/RSS results, numeric streaming 
 
 Acceptance: numeric, repeated-string, and high-cardinality-string correctness/memory tests. Rejecting all large string files at a budget limit is not complete large-file support.
 
-## M3: Port writers and shared-model round-trip
+## M3: Port writers and shared-model round-trip (complete)
 
 - Extract writer packaging, XML/cell encoding, initial styles, and constant-memory output from rust_xlsxwriter.
 - Use shared values/styles/formulas/addresses/errors and relationship/content-type/ID management.

@@ -23,6 +23,8 @@ pub enum ErrorKind {
     MemoryBudgetExceeded,
     /// The requested worksheet does not exist.
     SheetNotFound,
+    /// An operation conflicts with a resource or sequential-mode state.
+    InvalidState,
 }
 
 /// A spreadsheet error retaining the affected part, cell, and underlying cause.

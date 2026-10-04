@@ -425,16 +425,16 @@ fn owned_batches_obey_byte_budget_and_outlive_workbook() {
         .collect();
     let limits = ResourceLimits {
         max_batch_rows: 2,
-        max_batch_bytes: 500,
+        max_batch_bytes: 700,
         ..ResourceLimits::default()
     };
     let mut book = WorkbookReader::with_limits(Cursor::new(fixture(&refs)), limits).unwrap();
     let mut rows = book.rows("A & B").unwrap();
     let first = rows.read_batch().unwrap().unwrap();
-    assert!(first.memory_bytes() <= 500);
+    assert!(first.memory_bytes() <= 700);
     let mut count = first.rows.len();
     while let Some(batch) = rows.read_batch().unwrap() {
-        assert!(batch.memory_bytes() <= 500);
+        assert!(batch.memory_bytes() <= 700);
         count += batch.rows.len();
     }
     assert_eq!(count, 3);
@@ -498,7 +498,7 @@ fn selected_unsupported_features_fail_with_cell_context() {
     for content in [
         "<c t=\"s\"><v>0</v></c>",
         "<c s=\"1\"><v>1</v></c>",
-        "<c><f>1+1</f><v>2</v></c>",
+        "<c><f t=\"shared\" si=\"0\">1+1</f><v>2</v></c>",
         "<c vm=\"1\"><v>1</v></c>",
     ] {
         let mut book = open(&format!("<row>{content}</row>"));
@@ -1001,5 +1001,74 @@ fn adaptive_text_growth_falls_back_without_losing_owned_values() {
             );
         }
         ReadData::Materialized(_) => panic!("Heterogeneous payload must exceed budget"),
+    }
+}
+
+#[test]
+fn plain_text_normalizes_raw_xml_newlines_but_preserves_character_references() {
+    let mut book = open(
+        "<row><c t=\"inlineStr\"><is><t>raw\r\nline\r<![CDATA[cdata\r\n]]>&#13;ref</t></is></c></row>",
+    );
+    assert_eq!(
+        book.read_sheet("A & B").unwrap().rows[0].cells[0].value,
+        CellValue::text("raw\nline\ncdata\n\rref")
+    );
+}
+
+#[test]
+fn formula_payload_limits_projection_and_invalid_structure_are_enforced() {
+    use openrsxl_core::CellValue;
+    let text = "x".repeat(1024);
+    let content = format!(
+        "<row><c t=\"str\"><f>CONCAT(&quot;{text}&quot;)</f><v>{text}</v></c><c><v>7</v></c></row>"
+    );
+    let mut book = open(&content);
+    let row = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+    assert!(row.memory_bytes() > 2048);
+    assert!(matches!(row.cells[0].value, CellValue::Formula(_)));
+    let row = book
+        .rows_with_options("A & B", columns(1, 1))
+        .unwrap()
+        .next_row()
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.cells[0].value, CellValue::Integer(7));
+    for content in [
+        "<row><c><f/><v>1</v></c></row>",
+        "<row><c><f>1</f><f>2</f></c></row>",
+        "<row><c><f>1</f><v>1</v><v>2</v></c></row>",
+    ] {
+        assert_eq!(
+            open(content)
+                .rows("A & B")
+                .unwrap()
+                .next_row()
+                .unwrap_err()
+                .kind(),
+            ErrorKind::InvalidData
+        );
+    }
+    let mut parts = entries(&format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData>{content}</sheetData></worksheet>"
+    ));
+    let refs: Vec<_> = parts
+        .iter_mut()
+        .map(|(n, v)| (n.as_str(), v.as_str()))
+        .collect();
+    for limits in [
+        ResourceLimits {
+            max_cell_bytes: 100,
+            ..ResourceLimits::default()
+        },
+        ResourceLimits {
+            max_row_bytes: 2000,
+            ..ResourceLimits::default()
+        },
+    ] {
+        let mut book = WorkbookReader::with_limits(Cursor::new(fixture(&refs)), limits).unwrap();
+        assert_eq!(
+            book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
+            ErrorKind::LimitExceeded
+        );
     }
 }

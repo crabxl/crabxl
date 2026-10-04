@@ -14,9 +14,12 @@ use std::{
     io::{self, BufRead, Read},
 };
 
-pub(crate) const MAIN: &[u8] = b"http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+pub(crate) const MAIN_URI: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+pub(crate) const MAIN: &[u8] = MAIN_URI.as_bytes();
 pub(crate) const STRICT_MAIN: &[u8] = b"http://purl.oclc.org/ooxml/spreadsheetml/main";
-const OFFICE_REL: &[u8] = b"http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+pub(crate) const OFFICE_REL_URI: &str =
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const OFFICE_REL: &[u8] = OFFICE_REL_URI.as_bytes();
 const STRICT_OFFICE_REL: &[u8] = b"http://purl.oclc.org/ooxml/officeDocument/relationships";
 
 #[derive(Clone, Copy, PartialEq, Eq)]

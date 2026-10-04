@@ -1,6 +1,6 @@
 # Architecture
 
-Status: M0 architecture/inventory and M1 raw numeric streaming acceptance complete. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. Language bindings are deferred. Current ownership and resource decisions are recorded in [ADR 0001](decisions/0001-numeric-streaming.md).
+Status: M0 architecture/inventory and M1 raw numeric streaming and M3 sequential writer acceptance complete; M2 remains in progress. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. Language bindings are deferred. Reader ownership is recorded in [ADR 0001](decisions/0001-numeric-streaming.md); the sequential writer uses [ADR 0004](decisions/0004-sequential-scalar-writer.md).
 
 ## Reference scope
 
