@@ -1,7 +1,7 @@
 use crate::{CellAddress, ColumnIndex, RowIndex};
 use std::ops::RangeInclusive;
 
-/// Values supported by the initial numeric reader.
+/// Values supported by the current scalar reader.
 ///
 /// Further value variants will be added with the M2 codecs. Unsupported input
 /// currently produces an error rather than a silently incorrect value.
@@ -12,6 +12,8 @@ pub enum CellValue {
     Empty,
     /// A finite IEEE-754 numeric value.
     Number(f64),
+    /// A literal spreadsheet boolean, distinct from numeric zero or one.
+    Boolean(bool),
 }
 
 /// A present cell with its actual coordinate.

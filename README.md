@@ -2,7 +2,7 @@
 
 A Rust spreadsheet library focused on fast, memory-efficient XLSX processing and full coverage of the public openpyxl feature baseline. Internal implementation and Rust API naming may be idiomatic Rust; external capabilities and observable behavior must remain complete.
 
-The first M1 checkpoint implements bounded, sparse numeric XLSX row streaming and explicit owned sheet materialization. It ports selected calamine parsing logic into shared Rust models rather than wrapping calamine. Full spreadsheet support remains in the roadmap; writers, editing, other value types, styles, and language bindings are not implemented yet.
+The first M1 checkpoint implements bounded, sparse numeric XLSX row streaming and explicit owned sheet materialization. It ports selected calamine parsing logic into shared Rust models rather than wrapping calamine. Full spreadsheet support remains in the roadmap; writers, editing, remaining value types, styles, and language bindings are not implemented yet. M2 has begun with typed boolean literals.
 
 Rust 1.88.0 or later is required. Run the example against an unstyled numeric worksheet:
 
@@ -72,7 +72,7 @@ fn count_rows(path: &str, sheet: &str) -> openrsxl::Result<usize> {
 
 Auto overrides the retained-data allowance only for its operation; direct `rows` and `read_sheet` retain their explicit semantics. It keeps the configured input buffer instead of assuming larger buffers improve CPU-bound parsing. Adaptive string/style caches, concurrency and the full editable mode remain future work; see [ADR 0002](docs/decisions/0002-adaptive-memory.md).
 
-This checkpoint reads raw finite `f64` numbers and physically present empty cells. Integer literals beyond exact `f64` precision may round; exact baseline integer semantics remain a later value-model requirement. Selected strings, booleans, errors, formulas, nonzero style indices, and cm/vm metadata return `Unsupported`. Style tables are not loaded: style index zero is treated as raw numeric data even if an unusual workbook customizes its formatting. Date/style interpretation belongs to M2; use M1 only for known unstyled numeric input. This is not a general openpyxl replacement yet.
+This checkpoint reads raw finite `f64` numbers, typed boolean literals, and physically present empty cells. Integer literals beyond exact `f64` precision may round; exact baseline integer semantics remain a later value-model requirement. Selected strings, errors, formulas, nonzero style indices, and cm/vm metadata return `Unsupported`. Style tables are not loaded: style index zero is treated as raw numeric data even if an unusual workbook customizes its formatting. Date/style interpretation belongs to M2; use M1 only for known unstyled numeric input. This is not a general openpyxl replacement yet.
 
 Configurable `ResourceLimits` bound archive size, metadata, XML input/events/depth, values, rows, and batches. Memory includes the ZIP catalog and metadata; user-retained batches add memory. Full consumption checks XML and entry CRC; dropping a reader early releases it without validating unread bytes. See [ownership and memory details](docs/decisions/0001-numeric-streaming.md) and [measured benchmarks](benchmarks/README.md).
 
@@ -82,3 +82,5 @@ Configurable `ResourceLimits` bound archive size, metadata, XML input/events/dep
 - [Verified capability inventory](docs/features.json)
 - [Pending openpyxl fixes and regression risks](docs/openpyxl-mr-review.md)
 - [AI agent instructions](AGENTS.md)
+
+Boolean values remain distinct from numeric zero/one in rows, batches, materialization, and Auto mode. Decimal integer boolean literals follow the baseline zero/nonzero behavior without integer overflow; invalid boolean text returns a contextual error. `scalar_counts` counts these types without retaining a sheet.

@@ -67,3 +67,5 @@ python benchmarks/layer_profile.py
 ```
 
 Generated inputs, native launcher, and Cargo targets are ignored. Input SHA-256 values record the actual measured files; regeneration may change ZIP timestamps while retaining the same cells. There are no fixed timing thresholds in correctness tests.
+
+M2 typed boolean checkpoint and its measured numeric regression: [m2-boolean.md](m2-boolean.md).
