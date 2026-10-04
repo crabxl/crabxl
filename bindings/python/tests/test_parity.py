@@ -140,7 +140,7 @@ def test_adapter_limits_exact_integers_closed_sources_and_unsupported_operations
     with pytest.raises(AttributeError):
         sheet.freeze_panes = "A1"
     with pytest.raises(NotImplementedError):
-        sheet.move_range("A1", translate=True)
+        openrsxl.Workbook(write_only=True)
     source = tmp_path / "source.xlsx"
     workbook.save(source)
     loaded = openrsxl.load_workbook(source)
@@ -174,3 +174,33 @@ def test_sheet_names_and_order_match(engine):
     assert [sheet.title for sheet in workbook] == workbook.sheetnames
     workbook.remove(workbook["Sheet2"])
     assert workbook.sheetnames == ["data1", "Sheet", "Data"]
+
+
+@pytest.mark.parametrize("source,expected", [
+    ("=A1+$B2+C$3+$D$4", "=B2+$B3+D$3+$D$4"),
+    ("='A1'!A1+A1!B2", "='A1'!B2+A1!C3"),
+    ("=T1[A1]+T2[[#Headers],[B2]]+A1", "=T1[A1]+T2[[#Headers],[B2]]+B2"),
+    ('="A1"&"say ""B2"""+A1', '="A1"&"say ""B2"""+B2'),
+    ("=LOG10(A1)+SUM(A1:B2:C3)", "=LOG10(B2)+SUM(B2:C3:D4)"),
+    ("=XFD1048576", "=XFE1048577"),
+    ("=AA1001001001+R1C1+named1", "=AA1001001001+R1C1+named1"),
+])
+def test_formula_translation_context(engine, source, expected):
+    from importlib import import_module
+    translator = import_module(engine.__name__ + ".formula.translate").Translator
+    assert translator(source, "A1").translate_formula("B2") == expected
+
+
+def test_formula_move_translation_and_failure_atomicity(engine):
+    workbook = engine.Workbook()
+    sheet = workbook.active
+    sheet["B2"] = "=C3+$D$4"
+    sheet.move_range("B2", rows=1, cols=1, translate=True)
+    assert sheet["C3"].value == "=D4+$D$4"
+    assert sheet["B2"].value is None
+    if engine is openrsxl:
+        sheet["C4"] = "=A1"
+        before = tuple(sheet.values)
+        with pytest.raises(ValueError):
+            sheet.move_range("C3:C4", rows=-1, translate=True)
+        assert tuple(sheet.values) == before

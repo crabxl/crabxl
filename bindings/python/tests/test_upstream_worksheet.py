@@ -292,7 +292,6 @@ class TestEditableWorksheet:
         ws.move_range("B2:E5", rows=2)
         assert ws['B4'].value == "B2"
 
-    @pytest.mark.xfail(strict=True, raises=NotImplementedError, reason="M5 formula translation remains staged")
     def test_move_range_with_formula(self, dummy_worksheet):
         ws = dummy_worksheet
         ws['G4'] = "=SUM(G1:G3)"

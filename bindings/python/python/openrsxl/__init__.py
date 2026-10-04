@@ -341,13 +341,13 @@ class Worksheet:
     def delete_cols(self, idx, amount=1): self._shift(idx, amount, False, False)
 
     def move_range(self, cell_range, rows=0, cols=0, translate=False):
-        if self._existing or translate:
-            raise NotImplementedError("Existing-file moves and formula translation are not implemented")
+        if self._existing:
+            raise NotImplementedError("Existing-file moves are not implemented")
         range_object = cell_range if hasattr(cell_range, "coord") else None
         first_row, first_col, last_row, last_col = _range(range_object.coord if range_object is not None else cell_range)
         cached = list(self._cells.items())
         overwritten = {(row, col): cell._tagged() for (row, col), cell in cached if first_row + rows <= row <= last_row + rows and first_col + cols <= col <= last_col + cols and not (first_row <= row <= last_row and first_col <= col <= last_col)}
-        self._model().move_range((first_row - 1, first_col - 1, last_row - 1, last_col - 1), rows, cols)
+        self._model().move_range((first_row - 1, first_col - 1, last_row - 1, last_col - 1), rows, cols, translate)
         if range_object is not None:
             range_object.shift(row_shift=rows, col_shift=cols)
         self._cells.clear()

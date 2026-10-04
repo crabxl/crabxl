@@ -238,6 +238,7 @@ impl NativeSheet {
         bounds: (u32, u32, u32, u32),
         rows: i32,
         cols: i32,
+        translate: bool,
     ) -> PyResult<()> {
         let (first_row, first_col, last_row, last_col) = bounds;
         let range = CellRange::new(
@@ -246,7 +247,15 @@ impl NativeSheet {
         )
         .map_err(failure)?;
         let sheet = Arc::clone(&self.sheet);
-        py.detach(move || lock(&sheet)?.move_range(range, rows, cols).map_err(failure))
+        py.detach(move || {
+            let mut sheet = lock(&sheet)?;
+            if translate {
+                sheet.move_range_translated(range, rows, cols)
+            } else {
+                sheet.move_range(range, rows, cols)
+            }
+            .map_err(failure)
+        })
     }
 }
 #[pyclass]
@@ -437,6 +446,23 @@ impl NativeEditor {
     }
 }
 #[pyfunction]
+fn translate_formula(
+    expression: &str,
+    rows: i64,
+    columns: i64,
+    max_bytes: usize,
+) -> PyResult<String> {
+    openrsxl::translate_expression(expression, rows, columns, max_bytes).map_err(failure)
+}
+#[pyfunction]
+fn translate_axis(reference: &str, delta: i64, row: bool) -> PyResult<String> {
+    openrsxl::translate_axis(reference, delta, row).map_err(failure)
+}
+#[pyfunction]
+fn formula_position(reference: &str) -> PyResult<(u64, u32)> {
+    openrsxl::formula_position(reference).map_err(failure)
+}
+#[pyfunction]
 fn cell_address(reference: &str) -> PyResult<(u32, u32)> {
     let address: CellAddress = reference.parse().map_err(failure)?;
     Ok((address.row.get() + 1, address.column.get() + 1))
@@ -519,6 +545,9 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(save_models, module)?)?;
     module.add_function(wrap_pyfunction!(resolve_model_budget, module)?)?;
     module.add_function(wrap_pyfunction!(cell_address, module)?)?;
+    module.add_function(wrap_pyfunction!(translate_formula, module)?)?;
+    module.add_function(wrap_pyfunction!(formula_position, module)?)?;
+    module.add_function(wrap_pyfunction!(translate_axis, module)?)?;
     module.add_function(wrap_pyfunction!(column_index, module)?)?;
     module.add_function(wrap_pyfunction!(column_letters, module)?)?;
     module.add_function(wrap_pyfunction!(finite_range, module)?)?;

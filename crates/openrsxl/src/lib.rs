@@ -46,3 +46,5 @@ pub use openrsxl_xlsx::{EditorOptions, PartInfo, SaveOptions, SaveStats, Workboo
 
 pub use openrsxl_core::MemoryAllowance;
 pub use openrsxl_xlsx::memory_allowance;
+
+pub use openrsxl_core::{formula_position, translate_axis, translate_expression};

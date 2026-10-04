@@ -77,3 +77,5 @@ Completed M3 sequential writer, public openpyxl readback and temporary-disk cost
 M4 sparse/editor checkpoint: [report](m4-editor.md), [raw results](results/m4-editor.json), and `editor_checkpoint.py`. Existing-cell edit/save is compared directly with openpyxl general-mode load/edit/save; preservation, explicit sparse-model costs and reader regression are separate workloads.
 
 Optional Python adapter: [same-call creation/edit comparison](python-adapter.md) includes interpreter/conversion costs, three alternating runs per engine and native RSS/temp/output measurements.
+
+M5 A1 translation: [same-call Translator evidence and writer regression](m5-formula.md); full tokenizer/common-feature acceptance remains staged.

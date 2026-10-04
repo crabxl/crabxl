@@ -11,7 +11,8 @@
       "source_symbols": [
         "src/xlsx/cells_reader.rs: XlsxCellReader::new, next_cell, read_value, read_v",
         "src/xlsx/mod.rs: xml_reader, read_workbook, read_relationships, get_row_and_optional_column",
-        "src/formats.rs: detect_custom_number_format (quoted/escaped first-section date/duration detection)"
+        "src/formats.rs: detect_custom_number_format (quoted/escaped first-section date/duration detection)",
+        "src/xlsx/mod.rs: Reference::parse/offset/format, offset_range, expand_shared_formula_with_offset_into (selected A1 translation logic)"
       ],
       "destinations": [
         "crates/openrsxl-core/src/address.rs",
@@ -19,7 +20,8 @@
         "crates/openrsxl-xlsx/src/package.rs",
         "crates/openrsxl-xlsx/src/reader.rs",
         "crates/openrsxl-core/src/scalar.rs",
-        "crates/openrsxl-xlsx/src/styles.rs"
+        "crates/openrsxl-xlsx/src/styles.rs",
+        "crates/openrsxl-core/src/translate.rs"
       ],
       "changes": [
         "Adapted event-driven cell and workbook parsing to shared openrsxl types without Range materialization",
@@ -32,7 +34,12 @@
         "M2 boolean branch uses shared CellValue::Boolean and validates zero/nonzero signed decimal integer literals instead of calamine literal-string comparison; no per-cell heap payload added",
         "M2 scalar port preserves integer/float lexemes and arbitrary decimal integer literals; adds plain inline/value text and literal errors with shared compact owned models and heap-payload accounting",
         "Normal formula and optional typed cache decoding integrated with shared Formula; data-only projection and owned expression/cache accounting; non-normal metadata remains explicitly unsupported",
-        "Date-format classifier validates explicit date styles before writing; bounded bracket depth and coherent duration interpretation"
+        "Date-format classifier validates explicit date styles before writing; bounded bracket depth and coherent duration interpretation",
+        "Adapt selected reference/absolute-axis parsing into the runtime-independent core with checked arithmetic instead of wrapping offsets",
+        "Rewrite translation scanning to preserve single-quoted sheet qualifiers, doubled quoted strings and structured/external bracket context; do not rewrite reference-looking sheet/table names",
+        "Match public openpyxl formula-reference grammar and utility bounds separately from physical worksheet limits; out-of-range relative references return typed errors instead of silently retaining the original",
+        "Bound output capacity, share column formatting with core addresses, and prevalidate formula/range move staging before mutation; translated formulas drop old cached results",
+        "Full tokenizer/parser and dynamic spill syntax remain staged; translator origins/axis helpers require positive labels fitting u64"
       ],
       "tests": "New in-memory OOXML fixtures in crates/openrsxl-xlsx/tests/streaming.rs; no upstream binary fixture copies",
       "inventory_items": [
@@ -48,7 +55,9 @@
         "read.boolean",
         "read.exact-integers",
         "read.plain-text-errors",
-        "resources.scalar-payloads"
+        "resources.scalar-payloads",
+        "formula.a1-translation",
+        "edit.translated-model-move"
       ]
     },
     {

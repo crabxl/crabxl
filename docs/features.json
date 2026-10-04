@@ -16680,7 +16680,59 @@
         "tools/verify_python_test_provenance.py",
         "benchmarks/python_adapter_checkpoint.py"
       ],
-      "limitations": "Only listed scalar/formula/model/overlay calls, not whole baseline modules or M7 acceptance. 37 selected upstream methods, with formula translation a strict expected failure. Full styles/dates/shared strings, advanced features, loaded structural edits, read-only/write-only/file-like Python modes and complete exception behavior remain staged. Native core stays Python-independent."
+      "limitations": "Only listed scalar/formula/model/overlay calls, not whole baseline modules or M7 acceptance. 46 selected upstream worksheet/translator methods with unchanged assertions now pass. Full styles/dates/shared strings, complete tokenizer and advanced features, loaded structural edits, read-only/write-only/file-like Python modes and complete exception behavior remain staged. Native core stays Python-independent."
+    },
+    {
+      "id": "formula.a1-translation",
+      "description": "Bounded A1 translation with absolute axes, sheet/quote/table context and whole-axis ranges",
+      "status": "verified",
+      "milestone": "M5",
+      "capabilities": {
+        "read": "planned",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "planned"
+      },
+      "modes": [
+        "runtime-independent-formula-tool",
+        "python-compatible-translator"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/formula.html",
+      "modules": [
+        "crates/openrsxl-core/src/translate.rs",
+        "bindings/python/python/openrsxl/formula/translate.py"
+      ],
+      "tests": [
+        "crates/openrsxl-core/tests/translate.rs",
+        "bindings/python/tests/test_upstream_translate.py",
+        "bindings/python/tests/test_parity.py"
+      ],
+      "limitations": "Selected A1 scanner/translator behavior, not a complete tokenizer/parser or calculation engine. Spill/unknown error syntax rejected; origin/axis row labels fit u64 and formula references follow the baseline seven-digit grammar. Full tokenizer API and general malformed-input/exception equivalence remain staged."
+    },
+    {
+      "id": "edit.translated-model-move",
+      "description": "Atomic normal-formula relative translation during sparse core range moves",
+      "status": "verified",
+      "milestone": "M5",
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "verified",
+        "preserve": "planned"
+      },
+      "modes": [
+        "owned-sparse-model",
+        "python-owned-sparse-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
+      "modules": [
+        "crates/openrsxl-core/src/worksheet.rs"
+      ],
+      "tests": [
+        "crates/openrsxl-core/tests/translate.rs",
+        "bindings/python/tests/test_upstream_worksheet.py"
+      ],
+      "limitations": "Prevalidates all translations and managed staging allowance. Drops caches of translated formulas, preserves styles and other values. Does not update external dependents or perform loaded-package structural edits."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

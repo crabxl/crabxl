@@ -52,7 +52,7 @@
     "Worksheet fixture returns the adapter type",
     "Editable fixture uses a real adapter Workbook instead of upstream DummyWorkbook",
     "Selected method bodies, assertion expectations and decorators remain unchanged; nonselected cases remain staged, not skipped as passing",
-    "A strict expected-failure marker records the selected formula-translation test as an unresolved M5 capability; its assertions are unchanged"
+    "Formula-translation expected failure removed after the shared Rust translator was implemented; all selected methods run normally"
   ],
   "source_sha256": "64c2c5edc3507e9c03e912306e0755ef0ba09b7e3505e875155b9b146c6dd1c7"
 }
