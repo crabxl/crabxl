@@ -131,7 +131,7 @@ fn edit(source: &str, target: &str) -> openrsxl::Result<()> {
 
 `EditorOptions` offers Auto/explicit memory policy and patch byte/cell caps; resolved allowances are inspectable. `SaveOptions::verify_unchanged` enables full CRC checking of unchanged parts, at decompression cost. The default compressed copy does not validate their payload CRC. Core `Worksheet` separately provides sparse random access, append and bounded insert/delete/move/copy operations; `WorkbookWriter::write_worksheet` exports borrowed cells into a new package.
 
-M4 remains in progress. Existing-file structural edits, sheet mutations and typed date/style/string catalogs remain staged. Unsafe metadata/signature/calculation-chain edits are rejected. See [ownership and limitations](docs/decisions/0005-sparse-preserving-editor.md) and [Rust/openpyxl edit measurements](benchmarks/m4-editor.md).
+M4 remains in progress. Existing-file structural edits, sheet mutations and typed date/style/string catalogs remain staged. Unsafe cell metadata and signed-package edits are rejected. Conventional derived calculation chains are discarded on edits with synchronized package references; an explicit policy can reject chain edits. See [ownership and limitations](docs/decisions/0005-sparse-preserving-editor.md) and [Rust/openpyxl edit measurements](benchmarks/m4-editor.md).
 
 For missing cells use `WorkbookEditor::upsert_value`; it inserts sparse cells/rows with default style, keeps inferred original positions and expands an existing dimension. Non-anchor merged targets are rejected. [Insertion measurements](benchmarks/m4-insertion.md) include public readback and temporary-output costs.
 
@@ -154,3 +154,5 @@ Build/install/test instructions and the explicit capability limits are in [bindi
 Core `Workbook` now provides stable sheet IDs, order/active/epoch selection, independent sparse model copies and aggregate managed allowances. `sheet_mut` returns a guarded mutation facade; `WorkbookWriter::write_workbook` exports borrowed models. This does not implement original-package sheet or feature-graph surgery. See [ADR 0007](docs/decisions/0007-owned-workbook.md) and [release evidence](benchmarks/m4-workbook.md).
 
 The Python owned Workbook now shares the Rust aggregate model allowance and supports compatible `copy_worksheet`, `move_sheet`, `index` and deletion calls. Removed retained worksheets remain usable. Loaded models still have per-model/overlay allowances. [Same-call copy/export evidence](benchmarks/m4-python-bank.md) reports performance, memory and temporary-storage tradeoffs.
+
+[Calculation-chain policy](docs/decisions/0008-derived-calculation-chain.md) preserves unchanged chains and removes obsolete chain parts, content types and workbook relationships on edited saves. Unknown consumers and unsafe graphs reject edits.

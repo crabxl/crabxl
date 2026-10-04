@@ -15,6 +15,8 @@ pub use reader::Rows;
 pub use writer::{WorkbookWriter, WriteOptions, WriteStats};
 
 mod editor;
-pub use editor::{EditorOptions, PartInfo, SaveOptions, SaveStats, WorkbookEditor};
+pub use editor::{
+    CalculationChainPolicy, EditorOptions, PartInfo, SaveOptions, SaveStats, WorkbookEditor,
+};
 
 pub use adaptive::memory_allowance;

@@ -320,3 +320,31 @@ def test_native_bank_concurrent_copies_keep_owned_handles_valid():
         assert list(pool.map(copies, range(4))) == [0, 1, 2, 3]
     assert source.get(399, 0) == ("n", 399)
     assert book.charged_bytes() < 10_000_000
+
+
+def test_loaded_calculation_chain_edit_removes_derived_parts(engine, tmp_path):
+    source = tmp_path / "chain.xlsx"
+    book = openpyxl.Workbook()
+    book.active.append([1, "=A1+1"])
+    book.save(source)
+    with zipfile.ZipFile(source) as archive:
+        parts = {name: archive.read(name) for name in archive.namelist()}
+    parts["[Content_Types].xml"] = parts["[Content_Types].xml"].replace(b'</Types>', b'<Override PartName="/custom/order.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml"/></Types>')
+    parts["xl/_rels/workbook.xml.rels"] = parts["xl/_rels/workbook.xml.rels"].replace(b'</Relationships>', b'<Relationship Id="chain" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain" Target="../custom/order.xml"/></Relationships>')
+    parts["custom/order.xml"] = b'<calcChain xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><c r="B1" i="1"/></calcChain>'
+    with zipfile.ZipFile(source, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, value in parts.items():
+            archive.writestr(name, value)
+    loaded = engine.load_workbook(source)
+    loaded.active["A1"] = 7
+    for filename in ["chain-edited.xlsx", "chain-repeat.xlsx"]:
+        target = tmp_path / filename
+        loaded.save(target)
+        with zipfile.ZipFile(target) as archive:
+            assert "custom/order.xml" not in archive.namelist()
+            assert b'calcChain' not in archive.read("[Content_Types].xml")
+            assert b'calcChain' not in archive.read("xl/_rels/workbook.xml.rels")
+        verified = openpyxl.load_workbook(target)
+        assert verified.active["A1"].value == 7 and verified.active["B1"].value == "=A1+1"
+        verified.close()
+    loaded.close()

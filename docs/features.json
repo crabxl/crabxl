@@ -16785,6 +16785,35 @@
         "bindings/python/tests/test_parity.py"
       ],
       "limitations": "Scalar/formula models only; full feature catalogs and loaded structural/feature-graph copies remain required. New registered sheets share managed bank allowance; loaded, standalone, removed caller-retained models and Python heap are separate. Not a hard RSS cap."
+    },
+    {
+      "id": "editor.calculation-chain.policy",
+      "description": "Preserve unchanged derived chain; discard obsolete override-based chain and synchronized package references on edits, or explicitly reject",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "original-package-editor",
+        "python-loaded-editor"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/formula.html",
+      "modules": [
+        "crates/openrsxl-xlsx/src/editor.rs",
+        "crates/openrsxl-xlsx/src/package.rs"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/editor.rs::edited_chain_removes_part_and_package_refs_with_repeat_save_and_revert",
+        "crates/openrsxl-xlsx/tests/editor.rs::foreign_chain_consumers_and_chain_extensions_reject_edits_without_loss",
+        "crates/openrsxl-xlsx/tests/editor.rs::strict_chain_relationships_are_removed_but_untyped_targets_are_guarded",
+        "crates/openrsxl-xlsx/tests/editor.rs::chain_graph_scan_is_bounded_and_alternate_consumers_guarded",
+        "bindings/python/tests/test_parity.py::test_loaded_calculation_chain_edit_removes_derived_parts"
+      ],
+      "limitations": "Derived ordering is not read/created as a typed editable model. Conventional content-type overrides only; unsafe or unsupported relationship graphs reject edits. Digital-signature editing remains rejected."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

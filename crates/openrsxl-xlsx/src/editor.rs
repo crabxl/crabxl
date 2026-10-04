@@ -39,6 +39,16 @@ pub struct PartInfo {
     /// Original CRC; cataloging does not validate payloads.
     pub crc32: u32,
 }
+/// Policy for the derived calculation order after values or formulas change.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CalculationChainPolicy {
+    /// Discard the obsolete chain and its package references; request full
+    /// recalculation. Unchanged saves retain the original chain.
+    #[default]
+    DiscardOnEdit,
+    /// Reject all edits when a calculation-chain part is present.
+    RejectEdits,
+}
 /// Budgets for a lazy package editor and its owned value overlays.
 #[derive(Clone, Debug)]
 pub struct EditorOptions {
@@ -50,6 +60,8 @@ pub struct EditorOptions {
     pub max_patch_bytes: usize,
     /// Maximum distinct pending cell replacements.
     pub max_patch_cells: usize,
+    /// How to handle the original derived calculation order during edits.
+    pub calculation_chain: CalculationChainPolicy,
 }
 impl Default for EditorOptions {
     fn default() -> Self {
@@ -58,6 +70,7 @@ impl Default for EditorOptions {
             max_patch_bytes: usize::MAX,
             memory_policy: MemoryPolicy::default(),
             max_patch_cells: 10_000_000,
+            calculation_chain: CalculationChainPolicy::default(),
         }
     }
 }
@@ -73,6 +86,8 @@ pub struct SaveOptions {
 pub struct SaveStats {
     /// Entries passed through without decompression/recompression (except validation).
     pub copied_parts: usize,
+    /// Obsolete calculation-chain parts/relationships omitted on an edited save.
+    pub removed_parts: usize,
     /// XML parts rewritten through bounded events.
     pub rewritten_parts: usize,
     /// Actual bytes emitted across rewritten XML parts.
@@ -84,7 +99,8 @@ pub struct SaveStats {
 ///
 /// This checkpoint changes existing scalar/normal-formula cells only. It keeps
 /// cell styles and relationships; upsert_value also inserts missing cells.
-/// Date/style registration and structural edits in existing packages remain staged. Any edited
+/// Date/style registration and structural edits in existing packages remain staged.
+/// Derived calculation chains are discarded on edits under the default policy. Any edited
 /// workbook has worksheet formula caches invalidated and recalculation requested.
 pub struct WorkbookEditor<R: Read + Seek = File> {
     book: WorkbookReader<R>,
@@ -94,7 +110,10 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     patch_bytes: usize,
     patch_cells: usize,
     signed: bool,
-    calc_chain: bool,
+    calc_chain_parts: HashSet<String>,
+    chain_removals: HashSet<String>,
+    chain_safe: bool,
+    workbook_relationships: String,
     allowance: MemoryAllowance,
     shared_string_parts: HashSet<String>,
 }
@@ -179,27 +198,34 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             options.resources.max_metadata_bytes,
             options.resources,
         );
-        let mut calc_chain = false;
+        let mut calc_chain_parts = HashSet::new();
         let mut shared_string_parts = HashSet::new();
         loop {
             let frame = xml.next()?;
             match frame.event {
-                Event::Start(e) if frame.scope == Scope::ContentTypes => {
+                Event::Start(e) if frame.scope == Scope::ContentTypes && frame.depth == 2 => {
                     if let Some(kind) = attribute(&e, b"ContentType", frame.decoder)? {
                         signed |= kind.contains("digital-signature");
-                        calc_chain |= kind.ends_with("calcChain+xml");
-                        if kind.ends_with("sharedStrings+xml") {
+                        if e.local_name().as_ref() == b"Override"
+                            && (kind.ends_with("sharedStrings+xml")
+                                || kind.ends_with("calcChain+xml"))
+                        {
                             let name =
                                 attribute(&e, b"PartName", frame.decoder)?.ok_or_else(|| {
-                                    invalid("Shared string override has no part name")
+                                    invalid("Cataloged content type override has no part name")
                                 })?;
                             bytes = bytes.saturating_add(name.len()).saturating_add(128);
                             if bytes as u128 > u128::from(options.resources.max_metadata_bytes) {
                                 return Err(limit(
-                                    "Original shared string part catalog budget exceeded",
+                                    "Original string/calculation part catalog budget exceeded",
                                 ));
                             }
-                            shared_string_parts.insert(crate::package::resolve_part("", &name)?);
+                            let name = crate::package::resolve_part("", &name)?;
+                            if kind.ends_with("calcChain+xml") {
+                                calc_chain_parts.insert(name);
+                            } else {
+                                shared_string_parts.insert(name);
+                            }
                         }
                     }
                 }
@@ -208,6 +234,15 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             }
         }
         drop(xml);
+        let workbook_relationships = crate::package::relationship_part(&book.workbook_part);
+        let (chain_removals, chain_safe) = catalog_chain_removal(
+            &mut book,
+            &parts,
+            &calc_chain_parts,
+            &workbook_relationships,
+            options.resources,
+            &mut bytes,
+        )?;
         Ok(Self {
             book,
             parts,
@@ -216,7 +251,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             patch_bytes: 0,
             patch_cells: 0,
             signed,
-            calc_chain,
+            calc_chain_parts,
+            chain_removals,
+            chain_safe,
+            workbook_relationships,
             allowance,
             shared_string_parts,
         })
@@ -278,10 +316,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 "Editing a digitally signed package requires an explicit signature policy",
             ));
         }
-        if self.calc_chain {
+        if !self.chain_safe
+            || (!self.calc_chain_parts.is_empty()
+                && self.options.calculation_chain == CalculationChainPolicy::RejectEdits)
+        {
             return Err(Error::new(
                 ErrorKind::Unsupported,
-                "Editing a calculation-chain package requires relationship-aware chain removal",
+                "Calculation-chain edits are rejected by policy or unsupported incoming relationships",
             ));
         }
         let info = self
@@ -403,17 +444,26 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         let mut total: u128 = self
             .parts
             .iter()
+            .filter(|part| !dirty || !self.chain_removals.contains(part.name.as_ref()))
             .map(|part| u128::from(part.uncompressed_bytes))
             .sum();
         for index in 0..self.parts.len() {
             let part = &self.parts[index];
+            if dirty && self.chain_removals.contains(part.name.as_ref()) {
+                stats.removed_parts += 1;
+                continue;
+            }
+            let chain_metadata = dirty
+                && !self.calc_chain_parts.is_empty()
+                && (part.name.as_ref() == "[Content_Types].xml"
+                    || part.name.as_ref() == self.workbook_relationships);
             let worksheet = dirty
                 && self.book.sheets().iter().any(|sheet| {
                     sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
                 });
             let workbook = dirty && part.name.as_ref() == self.book.workbook_part;
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
-            if worksheet || workbook || shared_strings {
+            if worksheet || workbook || shared_strings || chain_metadata {
                 let file = self.book.archive.by_index(index).map_err(|error| {
                     zip_error("Cannot read affected XML part", error).with_part(part.name.as_ref())
                 })?;
@@ -442,8 +492,16 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     )
                 } else if workbook {
                     patch_workbook(file, budget, &part.name, self.options.resources)
-                } else {
+                } else if shared_strings {
                     patch_shared_strings(file, budget, &part.name, self.options.resources)
+                } else {
+                    patch_chain_metadata(
+                        file,
+                        budget,
+                        &part.name,
+                        &self.calc_chain_parts,
+                        self.options.resources,
+                    )
                 }
                 .map_err(|error| error.with_part(part.name.as_ref()))?;
                 total = total - u128::from(part.uncompressed_bytes) + u128::from(written);
@@ -1326,6 +1384,193 @@ fn patch_shared_strings<R: Read + Seek, W: Write>(
     }
     if !root {
         return Err(invalid("Shared string part has no root"));
+    }
+    Ok(writer.into_inner().bytes)
+}
+
+fn catalog_chain_removal<R: Read + Seek>(
+    book: &mut WorkbookReader<R>,
+    parts: &[PartInfo],
+    chains: &HashSet<String>,
+    workbook_relationships: &str,
+    limits: ResourceLimits,
+    used: &mut usize,
+) -> Result<(HashSet<String>, bool)> {
+    // Retain only tiny path inventories. Do not parse chain cells or retain an
+    // all-package relationship DOM. Additional graph scans share one byte cap.
+    let mut removals = HashSet::new();
+    for chain in chains {
+        for name in [chain.clone(), crate::package::relationship_part(chain)] {
+            if !parts.iter().any(|part| part.name.as_ref() == name) {
+                continue;
+            }
+            *used = used.saturating_add(name.len()).saturating_add(128);
+            if *used as u128 > u128::from(limits.max_metadata_bytes) {
+                return Err(limit("Calculation-chain inventory budget exceeded"));
+            }
+            removals.insert(name);
+        }
+    }
+    let mut safe = chains
+        .iter()
+        .all(|chain| parts.iter().any(|part| part.name.as_ref() == chain));
+    let mut remaining = limits.max_metadata_bytes;
+    for part in parts {
+        // Always inspect workbook chain relationships, including references with
+        // missing/misdeclared content types. Other incoming edges matter only
+        // when deleting cataloged chain parts.
+        if part.name.as_ref() != workbook_relationships && chains.is_empty() {
+            continue;
+        }
+        let Some(source) = crate::package::relationship_source(&part.name) else {
+            continue;
+        };
+        if part.uncompressed_bytes > remaining {
+            return Err(
+                limit("Calculation-chain relationship scan byte limit exceeded")
+                    .with_part(part.name.as_ref()),
+            );
+        }
+        let file = book
+            .archive
+            .by_name(&part.name)
+            .map_err(|error| zip_error("Cannot inspect calculation-chain relationships", error))?;
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(limits.input_buffer_bytes, file),
+            part.name.to_string(),
+            remaining,
+            limits,
+        );
+        loop {
+            let frame = xml.next()?;
+            if !chains.is_empty()
+                && matches!(&frame.event, Event::Start(e) if e.local_name().as_ref()==b"AlternateContent")
+            {
+                safe = false;
+            }
+            match frame.event {
+                Event::Start(e) if frame.depth == 1 => {
+                    if frame.scope != Scope::Relationships
+                        || e.local_name().as_ref() != b"Relationships"
+                    {
+                        safe = false;
+                    }
+                }
+                Event::Start(e)
+                    if frame.depth == 2
+                        && frame.scope == Scope::Relationships
+                        && e.local_name().as_ref() == b"Relationship" =>
+                {
+                    let kind = attribute(&e, b"Type", frame.decoder)?
+                        .ok_or_else(|| invalid("Relationship has no type"))?;
+                    let target = attribute(&e, b"Target", frame.decoder)?
+                        .ok_or_else(|| invalid("Relationship has no target"))?;
+                    if attribute(&e, b"TargetMode", frame.decoder)?.as_deref() == Some("External") {
+                        if crate::package::relationship_is(&kind, "calcChain") {
+                            safe = false;
+                        }
+                        continue;
+                    }
+                    let target = crate::package::resolve_part(&source, &target)?;
+                    if crate::package::relationship_is(&kind, "calcChain")
+                        && (part.name.as_ref() != workbook_relationships
+                            || !chains.contains(&target))
+                    {
+                        safe = false;
+                    }
+                    if chains.contains(&target)
+                        && !(part.name.as_ref() == workbook_relationships
+                            && crate::package::relationship_is(&kind, "calcChain"))
+                    {
+                        // Unknown consumers must not be left with dangling refs.
+                        safe = false;
+                    }
+                    if removals.contains(part.name.as_ref()) {
+                        // A chain part with outgoing relationships could own
+                        // extension data: retain unchanged; reject editing.
+                        safe = false;
+                    }
+                }
+                Event::Eof => break,
+                _ => {}
+            }
+        }
+        remaining = remaining.saturating_sub(xml.bytes_consumed());
+    }
+    Ok((removals, safe))
+}
+fn patch_chain_metadata<R: Read + Seek, W: Write>(
+    input: zip::read::ZipFile<'_, R>,
+    output: PartOutput<W>,
+    part: &str,
+    chains: &HashSet<String>,
+    limits: ResourceLimits,
+) -> Result<u64> {
+    let mut xml = XmlStream::new(
+        BufReader::with_capacity(limits.input_buffer_bytes, input),
+        part.into(),
+        limits.max_metadata_bytes,
+        limits,
+    );
+    let mut writer = Writer::new(output);
+    let types = part == "[Content_Types].xml";
+    let mut skip = None;
+    loop {
+        let frame = xml.next()?;
+        check_declaration(&frame.event)?;
+        if let Some(depth) = skip {
+            if matches!(&frame.event, Event::End(_)) && frame.depth == depth - 1 {
+                skip = None;
+            }
+            if matches!(&frame.event, Event::Eof) {
+                return Err(invalid("Truncated removed package declaration"));
+            }
+            continue;
+        }
+        match frame.event {
+            Event::Start(e) if frame.depth == 1 => {
+                let valid = if types {
+                    frame.scope == Scope::ContentTypes && e.local_name().as_ref() == b"Types"
+                } else {
+                    frame.scope == Scope::Relationships
+                        && e.local_name().as_ref() == b"Relationships"
+                };
+                if !valid {
+                    return Err(invalid("Invalid calculation-chain package metadata root"));
+                }
+                emit(&mut writer, Event::Start(e))?;
+            }
+            Event::Start(e)
+                if frame.depth == 2
+                    && types
+                    && frame.scope == Scope::ContentTypes
+                    && e.local_name().as_ref() == b"Override" =>
+            {
+                let name = attribute(&e, b"PartName", frame.decoder)?
+                    .ok_or_else(|| invalid("Content override has no part name"))?;
+                if chains.contains(&crate::package::resolve_part("", &name)?) {
+                    skip = Some(frame.depth);
+                } else {
+                    emit(&mut writer, Event::Start(e))?;
+                }
+            }
+            Event::Start(e)
+                if frame.depth == 2
+                    && !types
+                    && frame.scope == Scope::Relationships
+                    && e.local_name().as_ref() == b"Relationship" =>
+            {
+                let kind = attribute(&e, b"Type", frame.decoder)?
+                    .ok_or_else(|| invalid("Relationship has no type"))?;
+                if crate::package::relationship_is(&kind, "calcChain") {
+                    skip = Some(frame.depth);
+                } else {
+                    emit(&mut writer, Event::Start(e))?;
+                }
+            }
+            Event::Eof => break,
+            event => emit(&mut writer, event)?,
+        }
     }
     Ok(writer.into_inner().bytes)
 }
