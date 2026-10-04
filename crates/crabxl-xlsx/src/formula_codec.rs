@@ -33,13 +33,28 @@ pub(crate) fn is_shared(e: &BytesStart<'_>, decoder: Decoder) -> Result<bool> {
     }
     Ok(false)
 }
+/// Value projection and replacement analysis have different extension guarantees.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum HeaderPolicy {
+    Compatible,
+    Strict,
+    KnownRecords,
+}
+impl From<FormulaReadPolicy> for HeaderPolicy {
+    fn from(policy: FormulaReadPolicy) -> Self {
+        match policy {
+            FormulaReadPolicy::Compatible => Self::Compatible,
+            FormulaReadPolicy::ValidateGroups => Self::Strict,
+        }
+    }
+}
 pub(crate) fn header(
     e: &BytesStart<'_>,
     decoder: Decoder,
     maximum: usize,
-    policy: FormulaReadPolicy,
+    policy: HeaderPolicy,
 ) -> Result<FormulaMetadata> {
-    let compatible = policy == FormulaReadPolicy::Compatible;
+    let compatible = policy == HeaderPolicy::Compatible;
     // Select semantics before reading hints: attribute order has no meaning.
     let mut kind = FormulaType::Normal;
     for attribute in e.attributes() {
@@ -114,7 +129,7 @@ pub(crate) fn header(
         }
         let flag = |value: std::borrow::Cow<'_, str>| {
             let value = value.into_owned().into_boxed_str();
-            if compatible {
+            if policy != HeaderPolicy::Strict {
                 Ok(FormulaFlag::from_literal(value))
             } else {
                 FormulaFlag::from_xml(value)
