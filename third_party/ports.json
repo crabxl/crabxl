@@ -179,6 +179,27 @@
         "read.rich-text",
         "read.styles-catalog.numeric-dates"
       ]
+    },
+    {
+      "project": "openpyxl public generated theme data",
+      "repository": "https://foss.heptapod.net/openpyxl/openpyxl",
+      "commit": "13627b03ca25a1a98becf40e533b955615b13429",
+      "license": "MIT",
+      "original": "Public openpyxl 3.1.5 Workbook().save(BytesIO()) generated xl/theme/theme1.xml; no implementation source inspected/copied",
+      "destination": [
+        "crates/crabxl-xlsx/src/default_theme.rs"
+      ],
+      "changes": [
+        "Encode non-ASCII source characters as ASCII Rust Unicode escapes while retaining exact runtime UTF-8 bytes; emit from static storage",
+        "Bound lazy raw theme retention and share core opaque Theme ownership; stricter XML validation remains an explicit extension, preserving public loaded_theme behavior"
+      ],
+      "tests": [
+        "benchmarks/verify_themes.py",
+        "docs/research/default-theme-public.json"
+      ],
+      "inventory_items": [
+        "themes.opaque-default-parts"
+      ]
     }
   ]
 }

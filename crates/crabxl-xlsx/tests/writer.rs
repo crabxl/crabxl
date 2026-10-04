@@ -1540,3 +1540,120 @@ fn public_font_domains_and_case_sensitive_colors_roundtrip() {
         assert_eq!(font.color.unwrap().kind, kind);
     }
 }
+
+#[test]
+fn themes_default_opaque_validated_omitted_and_abort_ownership() {
+    use crabxl_core::Theme;
+    use crabxl_xlsx::ThemeWritePolicy;
+    let custom = b"<a:theme xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" name=\"custom\"><a:extLst/></a:theme>";
+    for policy in [
+        ThemeWritePolicy::ReferenceDefault,
+        ThemeWritePolicy::Custom(Theme::from_bytes(custom.to_vec().into_boxed_slice())),
+        ThemeWritePolicy::Validated(Theme::from_bytes(custom.to_vec().into_boxed_slice())),
+        ThemeWritePolicy::Omit,
+    ] {
+        let omitted = matches!(policy, ThemeWritePolicy::Omit);
+        let default = matches!(policy, ThemeWritePolicy::ReferenceDefault);
+        let mut writer = WorkbookWriter::new(WriteOptions {
+            theme: policy,
+            ..Default::default()
+        })
+        .unwrap();
+        writer.start_sheet("Sheet").unwrap();
+        writer
+            .write_row(&row(0, vec![CellValue::Integer(1)]))
+            .unwrap();
+        let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+        let mut book = WorkbookReader::new(Cursor::new(output.into_inner())).unwrap();
+        assert_eq!(book.theme_memory_bytes(), 0);
+        let theme = book.theme().unwrap();
+        if omitted {
+            assert!(theme.is_none());
+        } else if default {
+            assert!(theme.unwrap().bytes().starts_with(b"<?xml"));
+        } else {
+            assert_eq!(theme.unwrap().bytes(), custom);
+        }
+        let bytes = book.theme_memory_bytes();
+        assert_eq!(book.theme_memory_bytes(), bytes);
+        book.validate_theme().unwrap();
+        assert_eq!(
+            book.rows("Sheet")
+                .unwrap()
+                .next_row()
+                .unwrap()
+                .unwrap()
+                .cells[0]
+                .value,
+            CellValue::Integer(1)
+        );
+    }
+    let malformed = Theme::from_bytes(b"not XML".to_vec().into_boxed_slice());
+    assert!(
+        WorkbookWriter::new(WriteOptions {
+            theme: ThemeWritePolicy::Validated(malformed.clone()),
+            ..Default::default()
+        })
+        .is_err()
+    );
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        theme: ThemeWritePolicy::Custom(malformed),
+        ..Default::default()
+    })
+    .unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut book = WorkbookReader::new(Cursor::new(output.into_inner())).unwrap();
+    assert_eq!(book.theme().unwrap().unwrap().bytes(), b"not XML");
+    assert!(book.validate_theme().is_err());
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        theme: ThemeWritePolicy::Custom(Theme::from_bytes(custom.to_vec().into_boxed_slice())),
+        ..Default::default()
+    })
+    .unwrap();
+    assert!(writer.theme_memory_bytes() > 0);
+    writer.abort().unwrap();
+    assert_eq!(writer.theme_memory_bytes(), 0);
+    assert_eq!(writer.style_memory_bytes(), 0);
+    assert!(writer.start_sheet("after abort").is_err());
+}
+
+#[test]
+fn theme_and_styles_share_metadata_input_allowance_in_either_order() {
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap().into_inner();
+    let mut archive = zip::ZipArchive::new(Cursor::new(&output)).unwrap();
+    let total: u64 = (0..archive.len())
+        .map(|index| {
+            let file = archive.by_index(index).unwrap();
+            if file.name().starts_with("xl/worksheets/") {
+                0
+            } else {
+                file.size()
+            }
+        })
+        .sum();
+    for theme_first in [true, false] {
+        let mut book = WorkbookReader::with_limits(
+            Cursor::new(&output),
+            crabxl_core::ResourceLimits {
+                max_metadata_bytes: total - 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        if theme_first {
+            assert!(book.theme().unwrap().is_some());
+            assert_eq!(
+                book.style_catalog().unwrap_err().kind(),
+                ErrorKind::LimitExceeded
+            );
+            assert_eq!(book.style_memory_bytes(), 0);
+        } else {
+            assert!(book.style_catalog().unwrap().is_some());
+            assert_eq!(book.theme().unwrap_err().kind(), ErrorKind::LimitExceeded);
+            assert_eq!(book.theme_memory_bytes(), 0);
+        }
+    }
+}

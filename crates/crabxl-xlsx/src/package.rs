@@ -73,6 +73,8 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     shared_strings: Option<SharedStrings>,
     shared_string_options: SharedStringOptions,
     style_part: Option<String>,
+    theme_part: Option<String>,
+    theme: Option<crabxl_core::Theme>,
     imported_styles: Option<crate::style_reader::ImportedStyles>,
     style_metadata_remaining: u64,
 }
@@ -207,6 +209,21 @@ impl<R: Read + Seek> WorkbookReader<R> {
         if style_rels.next().is_some() {
             return Err(invalid("Duplicate style relationships"));
         }
+        let mut theme_rels = relationships
+            .values()
+            .filter(|r| relationship_is(&r.kind, "theme"));
+        let theme_part = theme_rels
+            .next()
+            .map(|r| {
+                if r.external {
+                    return Err(invalid("Theme relationship must be internal"));
+                }
+                resolve_part(&workbook_part, &r.target)
+            })
+            .transpose()?;
+        if theme_rels.next().is_some() {
+            return Err(invalid("Duplicate theme relationships"));
+        }
         Ok(Self {
             archive,
             sheets,
@@ -218,9 +235,72 @@ impl<R: Read + Seek> WorkbookReader<R> {
             shared_strings: None,
             shared_string_options: SharedStringOptions::default(),
             style_part,
+            theme_part,
+            theme: None,
             imported_styles: None,
             style_metadata_remaining: metadata_remaining,
         })
+    }
+    /// Lazily load and borrow exact theme bytes, without materializing drawing graphs.
+    /// An absent relationship returns None. Unknown valid theme sections are retained.
+    pub fn theme(&mut self) -> Result<Option<&crabxl_core::Theme>> {
+        if self.theme.is_none() {
+            if let Some(part) = &self.theme_part {
+                let mut file = self.archive.by_name(part).map_err(|error| {
+                    Error::caused_by(ErrorKind::Archive, "Cannot open theme", error).with_part(part)
+                })?;
+                let size = file.size();
+                let maximum = self
+                    .limits
+                    .max_part_bytes
+                    .min(self.style_metadata_remaining)
+                    .min(self.limits.max_theme_bytes as u64);
+                if size > maximum || size > isize::MAX as u64 {
+                    return Err(
+                        limit("Combined theme metadata input exceeds allowance").with_part(part)
+                    );
+                }
+                let mut bytes = Vec::new();
+                bytes.try_reserve_exact(size as usize).map_err(|error| {
+                    Error::caused_by(
+                        ErrorKind::MemoryBudgetExceeded,
+                        "Cannot reserve theme bytes",
+                        error,
+                    )
+                    .with_part(part)
+                })?;
+                bytes.resize(size as usize, 0);
+                file.read_exact(&mut bytes).map_err(|error| {
+                    Error::caused_by(ErrorKind::Io, "Cannot read theme", error).with_part(part)
+                })?;
+                let mut extra = [0];
+                if file.read(&mut extra).map_err(|error| {
+                    Error::caused_by(ErrorKind::Io, "Cannot finish theme and verify CRC", error)
+                        .with_part(part)
+                })? != 0
+                {
+                    return Err(invalid("Theme size differs from ZIP declaration").with_part(part));
+                }
+                self.theme = Some(crabxl_core::Theme::from_bytes(bytes.into_boxed_slice()));
+                self.style_metadata_remaining -= size;
+            }
+        }
+        Ok(self.theme.as_ref())
+    }
+    /// Explicitly validate a prepared theme as bounded DrawingML XML.
+    /// Ordinary theme access retains opaque bytes, matching the public baseline.
+    pub fn validate_theme(&mut self) -> Result<()> {
+        self.theme()?;
+        if let (Some(theme), Some(part)) = (&self.theme, &self.theme_part) {
+            crate::theme::validate(theme.bytes(), part, self.limits)?;
+        }
+        Ok(())
+    }
+    /// Managed retained theme bytes; zero before lazy preparation or when absent.
+    pub fn theme_memory_bytes(&self) -> usize {
+        self.theme
+            .as_ref()
+            .map_or(0, crabxl_core::Theme::memory_bytes)
     }
     /// Load and borrow the shared style catalog without materializing a worksheet.
     /// Unknown/staged root sections remain explicitly listed; original-package
@@ -245,6 +325,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
         let file = self.archive.by_name(part).map_err(|e| {
             Error::caused_by(ErrorKind::Archive, "Cannot open style catalog", e).with_part(part)
         })?;
+        let style_input_bytes = file.size();
         let maximum = self
             .limits
             .max_part_bytes
@@ -265,6 +346,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
             crate::style_reader::ImportedStyles::new(catalog, self.limits.max_style_bytes)
                 .map_err(|e| e.with_part(part))?;
         self.imported_styles = Some(imported);
+        self.style_metadata_remaining -= style_input_bytes;
         Ok(())
     }
     /// Inspect workbook sheets without loading their data.

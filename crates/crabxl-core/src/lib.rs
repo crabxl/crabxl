@@ -63,3 +63,6 @@ mod style_validation;
 
 mod style_registry;
 pub use style_registry::{StyleLimits, StyleRegistry};
+
+mod theme;
+pub use theme::Theme;

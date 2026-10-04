@@ -1,0 +1,57 @@
+{
+  "reference": "3.1.5",
+  "checked": [
+    {
+      "mode": "default",
+      "theme_bytes": 10140,
+      "managed_bytes": 10156,
+      "sha256": "d15e8ebf78ef7b9720839d7ae8fdc81a7df5bc24706d8e137df61a5683c358d9"
+    },
+    {
+      "mode": "empty",
+      "theme_bytes": 10140,
+      "managed_bytes": 10156,
+      "sha256": "d15e8ebf78ef7b9720839d7ae8fdc81a7df5bc24706d8e137df61a5683c358d9"
+    },
+    {
+      "mode": "custom",
+      "theme_bytes": 108,
+      "managed_bytes": 124,
+      "sha256": "28a0b3a291fd4d9f9194790d71cbd1823d43cfe5c752f4d1053f2ec56b1c1ab6"
+    },
+    {
+      "mode": "opaque",
+      "theme_bytes": 7,
+      "managed_bytes": 23,
+      "sha256": "c543706acffea9e896c8cdc6f49b78903876520fc5958aedb7083bee01a55101"
+    },
+    {
+      "mode": "omit",
+      "theme_bytes": 0,
+      "managed_bytes": 0,
+      "sha256": null
+    }
+  ],
+  "public_opaque_observations": [
+    {
+      "input": "not XML",
+      "accepted": true,
+      "uses_default": false
+    },
+    {
+      "input": "<wrong/>",
+      "accepted": true,
+      "uses_default": false
+    },
+    {
+      "input": "",
+      "accepted": true,
+      "uses_default": true
+    },
+    {
+      "input": "<!DOCTYPE x><x/>",
+      "accepted": true,
+      "uses_default": false
+    }
+  ]
+}

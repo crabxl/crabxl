@@ -28,6 +28,7 @@ pub(crate) enum Scope {
     Spreadsheet,
     Relationships,
     ContentTypes,
+    Drawing,
     Other,
 }
 
@@ -152,6 +153,15 @@ impl<B: BufRead> XmlStream<B> {
                     == b"http://schemas.openxmlformats.org/package/2006/content-types" =>
             {
                 (Scope::ContentTypes, None)
+            }
+            ResolveResult::Bound(ns)
+                if matches!(
+                    ns.as_ref(),
+                    b"http://schemas.openxmlformats.org/drawingml/2006/main"
+                        | b"http://purl.oclc.org/ooxml/drawingml/main"
+                ) =>
+            {
+                (Scope::Drawing, None)
             }
             ResolveResult::Unknown(_) => {
                 return Err(
