@@ -16362,6 +16362,89 @@
         "boolean_payload_does_not_increase_cell_storage"
       ],
       "limitations": "Nonzero styles, formulas and metadata remain unsupported; M2 is incomplete. Accept signed ASCII decimal integers; do not promise permissive Python integer syntax for malformed OOXML."
+    },
+    {
+      "id": "read.exact-integers",
+      "description": "Integer/float lexical distinctions with lossless i64 and arbitrary decimal integer literals",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "streaming",
+        "batches",
+        "materialized",
+        "adaptive"
+      ],
+      "reference": "openpyxl 3.1.5 public scalar behavior and generated mixed-scalar fixtures",
+      "modules": [
+        "crates/openrsxl-core/src/scalar.rs",
+        "crates/openrsxl-xlsx/src/reader.rs"
+      ],
+      "tests": [
+        "exact_integers_float_lexemes_errors_and_plain_inline_text"
+      ],
+      "limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
+    },
+    {
+      "id": "read.plain-text-errors",
+      "description": "Plain inline/value text and spreadsheet errors, preserving whitespace and unknown error tokens",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "streaming",
+        "batches",
+        "materialized",
+        "adaptive"
+      ],
+      "reference": "openpyxl 3.1.5 public scalar behavior and generated mixed-scalar fixtures",
+      "modules": [
+        "crates/openrsxl-core/src/scalar.rs",
+        "crates/openrsxl-xlsx/src/reader.rs"
+      ],
+      "tests": [
+        "exact_integers_float_lexemes_errors_and_plain_inline_text",
+        "inline_text_rejects_unmodeled_rich_runs_and_malformed_structure"
+      ],
+      "limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
+    },
+    {
+      "id": "resources.scalar-payloads",
+      "description": "Owned text/error/exact-integer payload accounting in rows, batches, materialization and adaptive fallback",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "streaming",
+        "batches",
+        "materialized",
+        "adaptive"
+      ],
+      "reference": "openpyxl 3.1.5 public scalar behavior and generated mixed-scalar fixtures",
+      "modules": [
+        "crates/openrsxl-core/src/scalar.rs",
+        "crates/openrsxl-xlsx/src/reader.rs"
+      ],
+      "tests": [
+        "owned_text_payloads_are_counted_in_row_batch_and_materialization_limits",
+        "adaptive_text_growth_falls_back_without_losing_owned_values"
+      ],
+      "limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

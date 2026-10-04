@@ -14,20 +14,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .to_owned();
     let mut rows = workbook.rows(&sheet)?;
     let mut row = Row::new(RowIndex::new(0)?);
-    let (mut numbers, mut booleans, mut trues, mut empty) = (0u64, 0u64, 0u64, 0u64);
+    let (mut numbers, mut booleans, mut trues, mut empty, mut texts, mut errors) =
+        (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
     while rows.read_row_into(&mut row)? {
         for cell in &row.cells {
             match cell.value {
-                CellValue::Number(_) => numbers += 1,
+                CellValue::Number(_) | CellValue::Integer(_) | CellValue::BigInteger(_) => {
+                    numbers += 1
+                }
                 CellValue::Boolean(value) => {
                     booleans += 1;
                     trues += u64::from(value);
                 }
                 CellValue::Empty => empty += 1,
+                CellValue::Text(_) => texts += 1,
+                CellValue::Error(_) => errors += 1,
                 _ => return Err("Unsupported scalar type in this example".into()),
             }
         }
     }
-    println!("{numbers} {booleans} {trues} {empty}");
+    println!("{numbers} {booleans} {trues} {empty} {texts} {errors}");
     Ok(())
 }

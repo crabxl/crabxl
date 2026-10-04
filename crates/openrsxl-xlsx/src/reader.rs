@@ -4,8 +4,8 @@
 
 use crate::xml::{Scope, XmlStream};
 use openrsxl_core::{
-    Cell, CellAddress, CellValue, Error, ErrorKind, ReadOptions, ResourceLimits, Result, Row,
-    RowBatch, RowIndex,
+    Cell, CellAddress, CellValue, Error, ErrorKind, ExactInteger, ReadOptions, ResourceLimits,
+    Result, Row, RowBatch, RowIndex,
 };
 use quick_xml::events::{BytesStart, Event};
 use std::{
@@ -29,6 +29,7 @@ pub struct Rows<'a, R: Read + Seek> {
     pending: Option<Row>,
     value_buffer: String,
     decoded_cells: u64,
+    row_payload_bytes: usize,
 }
 impl<'a, R: Read + Seek> Rows<'a, R> {
     pub(crate) fn new(
@@ -78,6 +79,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             pending: None,
             value_buffer: String::with_capacity(64.min(limits.max_cell_bytes)),
             decoded_cells: 0,
+            row_payload_bytes: 0,
         })
     }
 
@@ -95,6 +97,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     /// stream; a caller may start another reader from the workbook afterwards.
     pub fn read_row_into(&mut self, row: &mut Row) -> Result<bool> {
         row.cells.clear();
+        self.row_payload_bytes = 0;
         if let Some(pending) = self.pending.take() {
             *row = pending;
             return Ok(true);
@@ -143,7 +146,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             let Some(row) = self.next_row()? else {
                 break;
             };
-            let cell_bytes = row.cells.capacity() * size_of::<Cell>();
+            let cell_bytes = row.memory_bytes() - size_of::<Row>();
             if bytes.saturating_add(cell_bytes) > self.limits.max_batch_bytes {
                 if batch.rows.is_empty() {
                     self.exhausted = true;
@@ -258,8 +261,8 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     }
                     self.decoded_cells += 1;
                     let value = match header.kind {
-                        ScalarKind::Boolean => self.read_cell::<true>(),
-                        _ => self.read_cell::<false>(),
+                        ScalarKind::Boolean => self.read_cell::<true>(header.kind),
+                        _ => self.read_cell::<false>(header.kind),
                     }
                     .map_err(|e| e.with_part(self.xml.part()).with_cell(header.address))?;
                     self.push_cell(
@@ -287,15 +290,22 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         }
     }
 
-    fn push_cell(&self, row: &mut Row, cell: Cell) -> Result<()> {
+    fn push_cell(&mut self, row: &mut Row, cell: Cell) -> Result<()> {
         if row.cells.len() >= self.limits.max_row_cells {
             return Err(self
                 .limit("Row cell count limit exceeded")
                 .with_cell(cell.address));
         }
+        let payload = self
+            .row_payload_bytes
+            .saturating_add(cell.value.heap_bytes());
         if row.cells.len() == row.cells.capacity() {
-            let max_capacity =
-                self.limits.max_row_bytes.saturating_sub(size_of::<Row>()) / size_of::<Cell>();
+            let max_capacity = self
+                .limits
+                .max_row_bytes
+                .saturating_sub(size_of::<Row>())
+                .saturating_sub(payload)
+                / size_of::<Cell>();
             let wanted = (row.cells.capacity().saturating_mul(2))
                 .max(16)
                 .min(self.limits.max_row_cells)
@@ -312,16 +322,19 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         .with_part(self.xml.part())
                 })?;
         }
-        if row.memory_bytes() > self.limits.max_row_bytes {
+        if size_of::<Row>() + row.cells.capacity() * size_of::<Cell>() + payload
+            > self.limits.max_row_bytes
+        {
             return Err(self
                 .limit("Row byte limit exceeded")
                 .with_cell(cell.address));
         }
+        self.row_payload_bytes = payload;
         row.cells.push(cell);
         Ok(())
     }
 
-    fn read_cell<const BOOLEAN: bool>(&mut self) -> Result<CellValue> {
+    fn read_cell<const BOOLEAN: bool>(&mut self, kind: ScalarKind) -> Result<CellValue> {
         let mut value = CellValue::Empty;
         let mut seen_value = false;
         loop {
@@ -335,8 +348,23 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     if seen_value {
                         return Err(self.invalid("Cell has multiple value elements"));
                     }
+                    if matches!(kind, ScalarKind::InlineText) {
+                        return Err(self.invalid("Inline text cell contains a value element"));
+                    }
                     seen_value = true;
-                    value = self.read_value::<BOOLEAN>()?;
+                    value = self.read_value::<BOOLEAN>(kind)?;
+                }
+                Event::Start(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 5
+                        && e.local_name().as_ref() == b"is"
+                        && matches!(kind, ScalarKind::InlineText) =>
+                {
+                    if seen_value {
+                        return Err(self.invalid("Cell has multiple literal values"));
+                    }
+                    seen_value = true;
+                    value = self.read_inline_text()?;
                 }
                 Event::Start(_) => {
                     return Err(Error::new(
@@ -361,7 +389,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         }
     }
 
-    fn read_value<const BOOLEAN: bool>(&mut self) -> Result<CellValue> {
+    fn read_value<const BOOLEAN: bool>(&mut self, kind: ScalarKind) -> Result<CellValue> {
         self.value_buffer.clear();
         loop {
             let frame = self.xml.next()?;
@@ -400,14 +428,31 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 }
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet
-                        && frame.depth == 4
-                        && e.local_name().as_ref() == b"v" =>
+                        && (frame.depth == 4
+                            || (matches!(kind, ScalarKind::InlineText) && frame.depth == 5))
+                        && (e.local_name().as_ref() == b"v" || e.local_name().as_ref() == b"t") =>
                 {
                     break;
                 }
                 Event::Comment(_) | Event::PI(_) => {}
                 _ => return Err(self.invalid("Invalid scalar value content")),
             }
+        }
+        if matches!(kind, ScalarKind::Text | ScalarKind::InlineText) {
+            return Ok(
+                if self.value_buffer.is_empty() && matches!(kind, ScalarKind::Text) {
+                    CellValue::Empty
+                } else {
+                    CellValue::text(self.value_buffer.as_str())
+                },
+            );
+        }
+        if matches!(kind, ScalarKind::Error) {
+            return Ok(if self.value_buffer.is_empty() {
+                CellValue::Empty
+            } else {
+                CellValue::error(self.value_buffer.as_str())
+            });
         }
         let value = self.value_buffer.trim_ascii();
         if value.is_empty() {
@@ -420,6 +465,12 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             }
             return Ok(CellValue::Boolean(digits.bytes().any(|byte| byte != b'0')));
         }
+        if !value.bytes().any(|byte| matches!(byte, b'.' | b'e' | b'E')) {
+            return Ok(match value.parse::<i64>() {
+                Ok(integer) => CellValue::Integer(integer),
+                Err(_) => CellValue::BigInteger(Box::new(ExactInteger::parse(value)?)),
+            });
+        }
         let number = fast_float2::parse::<f64, _>(value.as_bytes()).map_err(|e| {
             Error::caused_by(ErrorKind::InvalidData, "Invalid numeric cell value", e)
                 .with_part(self.xml.part())
@@ -428,6 +479,43 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             return Err(self.invalid("Non-finite numeric value"));
         }
         Ok(CellValue::Number(number))
+    }
+
+    fn read_inline_text(&mut self) -> Result<CellValue> {
+        let mut value = CellValue::text("");
+        let mut seen = false;
+        loop {
+            let frame = self.xml.next()?;
+            match frame.event {
+                Event::Start(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 6
+                        && e.local_name().as_ref() == b"t" =>
+                {
+                    if seen {
+                        return Err(self.invalid("Inline string has multiple plain text elements"));
+                    }
+                    seen = true;
+                    value = self.read_value::<false>(ScalarKind::InlineText)?;
+                }
+                Event::End(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 4
+                        && e.local_name().as_ref() == b"is" =>
+                {
+                    return Ok(value);
+                }
+                Event::Text(t) if t.iter().all(u8::is_ascii_whitespace) => {}
+                Event::Comment(_) | Event::PI(_) => {}
+                Event::Start(_) => {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Rich or phonetic inline text is not supported yet",
+                    ));
+                }
+                _ => return Err(self.invalid("Invalid inline string content")),
+            }
+        }
     }
 
     fn skip_cell(&mut self) -> Result<()> {
@@ -482,6 +570,9 @@ impl<R: Read + Seek> FusedIterator for Rows<'_, R> {}
 enum ScalarKind {
     Numeric,
     Boolean,
+    Text,
+    InlineText,
+    Error,
     Unsupported,
 }
 
@@ -526,6 +617,9 @@ impl CellHeader {
                     kind = match cell_type.as_ref() {
                         "n" => ScalarKind::Numeric,
                         "b" => ScalarKind::Boolean,
+                        "str" => ScalarKind::Text,
+                        "inlineStr" => ScalarKind::InlineText,
+                        "e" => ScalarKind::Error,
                         _ => ScalarKind::Unsupported,
                     };
                 }

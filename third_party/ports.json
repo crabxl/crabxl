@@ -16,7 +16,8 @@
         "crates/openrsxl-core/src/address.rs",
         "crates/openrsxl-xlsx/src/xml.rs",
         "crates/openrsxl-xlsx/src/package.rs",
-        "crates/openrsxl-xlsx/src/reader.rs"
+        "crates/openrsxl-xlsx/src/reader.rs",
+        "crates/openrsxl-core/src/scalar.rs"
       ],
       "changes": [
         "Adapted event-driven cell and workbook parsing to shared openrsxl types without Range materialization",
@@ -26,7 +27,8 @@
         "Added checked coordinate arithmetic, sparse row ordering, projection before decoding, reusable rows and owned batches",
         "Unsupported selected features fail explicitly; numeric decoding rejects invalid and non-finite values instead of falling back to strings",
         "Added contextual errors and resource budgets; retained no global or interpreter-exit resource registry",
-        "M2 boolean branch uses shared CellValue::Boolean and validates zero/nonzero signed decimal integer literals instead of calamine literal-string comparison; no per-cell heap payload added"
+        "M2 boolean branch uses shared CellValue::Boolean and validates zero/nonzero signed decimal integer literals instead of calamine literal-string comparison; no per-cell heap payload added",
+        "M2 scalar port preserves integer/float lexemes and arbitrary decimal integer literals; adds plain inline/value text and literal errors with shared compact owned models and heap-payload accounting"
       ],
       "tests": "New in-memory OOXML fixtures in crates/openrsxl-xlsx/tests/streaming.rs; no upstream binary fixture copies",
       "inventory_items": [
@@ -39,7 +41,10 @@
         "read.batches",
         "resources.xml",
         "resources.rows",
-        "read.boolean"
+        "read.boolean",
+        "read.exact-integers",
+        "read.plain-text-errors",
+        "resources.scalar-payloads"
       ]
     }
   ]

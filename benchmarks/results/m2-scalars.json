@@ -1,0 +1,159 @@
+{
+  "rust": "1.88.0",
+  "openpyxl": "3.1.5",
+  "before_revision": "74c082a58e8b",
+  "measurement": "Native Linux wait4 RSS; three alternating measured runs, one warmup; fixture generation/public API verification excluded",
+  "runtime_temporary_bytes": 0,
+  "cases": [
+    {
+      "workload": "mixed",
+      "rows": 10000,
+      "columns": 10,
+      "input_bytes": 87992,
+      "runs": [
+        {
+          "output": "40000 10000 5000 10000 30000 10000",
+          "seconds": 0.065507502,
+          "cpu_seconds": 0.065432,
+          "peak_rss_kib": 1580
+        },
+        {
+          "output": "40000 10000 5000 10000 30000 10000",
+          "seconds": 0.066281089,
+          "cpu_seconds": 0.065776,
+          "peak_rss_kib": 1644
+        },
+        {
+          "output": "40000 10000 5000 10000 30000 10000",
+          "seconds": 0.064332499,
+          "cpu_seconds": 0.06419,
+          "peak_rss_kib": 1528
+        }
+      ]
+    },
+    {
+      "workload": "mixed",
+      "rows": 100000,
+      "columns": 10,
+      "input_bytes": 823647,
+      "runs": [
+        {
+          "output": "400000 100000 50000 100000 300000 100000",
+          "seconds": 0.639432103,
+          "cpu_seconds": 0.638811,
+          "peak_rss_kib": 1644
+        },
+        {
+          "output": "400000 100000 50000 100000 300000 100000",
+          "seconds": 0.631051775,
+          "cpu_seconds": 0.630741,
+          "peak_rss_kib": 1580
+        },
+        {
+          "output": "400000 100000 50000 100000 300000 100000",
+          "seconds": 0.647575864,
+          "cpu_seconds": 0.646878,
+          "peak_rss_kib": 1644
+        }
+      ]
+    },
+    {
+      "workload": "numeric",
+      "rows": 100000,
+      "columns": 10,
+      "runs": [
+        {
+          "version": "M1",
+          "output": "1000000 499999500000",
+          "seconds": 0.722285442,
+          "cpu_seconds": 0.721575,
+          "peak_rss_kib": 1544
+        },
+        {
+          "version": "M2",
+          "output": "1000000 499999500000",
+          "seconds": 0.694794445,
+          "cpu_seconds": 0.694223,
+          "peak_rss_kib": 1608
+        },
+        {
+          "version": "M2",
+          "output": "1000000 499999500000",
+          "seconds": 0.692111758,
+          "cpu_seconds": 0.691457,
+          "peak_rss_kib": 1544
+        },
+        {
+          "version": "M1",
+          "output": "1000000 499999500000",
+          "seconds": 0.716167293,
+          "cpu_seconds": 0.715817,
+          "peak_rss_kib": 1616
+        },
+        {
+          "version": "M1",
+          "output": "1000000 499999500000",
+          "seconds": 0.687033052,
+          "cpu_seconds": 0.686927,
+          "peak_rss_kib": 1544
+        },
+        {
+          "version": "M2",
+          "output": "1000000 499999500000",
+          "seconds": 0.665141827,
+          "cpu_seconds": 0.664807,
+          "peak_rss_kib": 1608
+        }
+      ]
+    },
+    {
+      "workload": "numeric",
+      "rows": 1000000,
+      "columns": 10,
+      "runs": [
+        {
+          "version": "M1",
+          "output": "10000000 49999995000000",
+          "seconds": 6.93094023,
+          "cpu_seconds": 6.926608,
+          "peak_rss_kib": 1616
+        },
+        {
+          "version": "M2",
+          "output": "10000000 49999995000000",
+          "seconds": 6.790036248,
+          "cpu_seconds": 6.787103,
+          "peak_rss_kib": 1544
+        },
+        {
+          "version": "M2",
+          "output": "10000000 49999995000000",
+          "seconds": 6.883049864,
+          "cpu_seconds": 6.87865,
+          "peak_rss_kib": 1544
+        },
+        {
+          "version": "M1",
+          "output": "10000000 49999995000000",
+          "seconds": 7.068956525,
+          "cpu_seconds": 7.06706,
+          "peak_rss_kib": 1544
+        },
+        {
+          "version": "M1",
+          "output": "10000000 49999995000000",
+          "seconds": 7.186443887,
+          "cpu_seconds": 7.179947,
+          "peak_rss_kib": 1616
+        },
+        {
+          "version": "M2",
+          "output": "10000000 49999995000000",
+          "seconds": 6.801788283,
+          "cpu_seconds": 6.800521,
+          "peak_rss_kib": 1648
+        }
+      ]
+    }
+  ]
+}

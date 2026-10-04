@@ -28,7 +28,7 @@ for count in [10000, 100000]:
         sheet.append([bool((row + column) % 2) for column in range(10)])
     book.save(path)
     command = [ROOT / 'target/release/examples/scalar_counts', path]
-    expected = f'0 {count*10} {count*5} 0'
+    expected = f'0 {count*10} {count*5} 0 0 0'
     assert run(command)['output'] == expected
     results = [run(command) for _ in range(3)]
     assert all(result['output'] == expected for result in results)

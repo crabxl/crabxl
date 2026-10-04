@@ -1,4 +1,4 @@
-//! XLSX package discovery and bounded numeric worksheet streaming.
+//! XLSX package discovery and bounded scalar worksheet streaming.
 
 mod adaptive;
 mod package;

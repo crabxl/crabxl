@@ -36,13 +36,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("Workbook has no sheets")?;
     let mut count = 0u64;
     let mut checksum = 0f64;
-    let mut accumulate = |row: &Row| {
+    let mut accumulate = |row: &Row| -> Result<(), &str> {
         for cell in &row.cells {
-            if let CellValue::Number(value) = cell.value {
+            let value = match cell.value {
+                CellValue::Number(value) => Some(value),
+                CellValue::Integer(value)
+                    if (-9_007_199_254_740_992..=9_007_199_254_740_992).contains(&value) =>
+                {
+                    Some(value as f64)
+                }
+                CellValue::Integer(_) | CellValue::BigInteger(_) => {
+                    return Err("Example f64 checksum does not accept integers beyond 2^53");
+                }
+                _ => None,
+            };
+            if let Some(value) = value {
                 count += 1;
                 checksum += value;
             }
         }
+        Ok(())
     };
     match mode.as_str() {
         "stream" => {
@@ -50,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut rows = workbook.rows(&sheet)?;
                 let mut row = Row::new(RowIndex::new(0)?);
                 while rows.read_row_into(&mut row)? {
-                    accumulate(&row);
+                    accumulate(&row)?;
                 }
             }
         }
@@ -58,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let data = workbook.read_sheet(&sheet)?;
             for _ in 0..passes {
                 for row in &data.rows {
-                    accumulate(row);
+                    accumulate(row)?;
                 }
             }
         }
@@ -76,14 +89,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ReadData::Streaming(mut rows) => {
                         let mut row = Row::new(RowIndex::new(0)?);
                         while rows.read_row_into(&mut row)? {
-                            accumulate(&row);
+                            accumulate(&row)?;
                         }
                         true
                     }
                     ReadData::Materialized(data) => {
                         for _ in 0..passes {
                             for row in &data.rows {
-                                accumulate(row);
+                                accumulate(row)?;
                             }
                         }
                         false
@@ -95,7 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut rows = workbook.rows(&sheet)?;
                     let mut row = Row::new(RowIndex::new(0)?);
                     while rows.read_row_into(&mut row)? {
-                        accumulate(&row);
+                        accumulate(&row)?;
                     }
                 }
             }

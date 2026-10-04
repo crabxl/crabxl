@@ -1,6 +1,6 @@
 //! Rust spreadsheet processing with bounded streaming XLSX reads.
 //!
-//! This first milestone reads sparse, unstyled numeric/empty cells. Other
+//! This checkpoint reads sparse, unstyled scalar values and plain inline text. Other
 //! spreadsheet features remain planned; unsupported selected cells fail loudly.
 //!
 //! ```no_run
@@ -21,7 +21,6 @@
 //! # }
 //! ```
 
-pub use openrsxl_core::StyleId;
 pub use openrsxl_core::{
     AccessPattern, AutoMemory, DecisionReason, MemoryPolicy, MemorySource, ReadDecision, ReadMode,
 };
@@ -29,5 +28,6 @@ pub use openrsxl_core::{
     Cell, CellAddress, CellValue, ColumnIndex, Error, ErrorKind, MAX_COLUMNS, MAX_ROWS,
     ReadOptions, ResourceLimits, Result, Row, RowBatch, RowIndex, SheetData,
 };
+pub use openrsxl_core::{CellError, CellText, ExactInteger, StyleId};
 pub use openrsxl_xlsx::{AdaptiveRead, ReadData};
 pub use openrsxl_xlsx::{Rows, SheetInfo, SheetKind, WorkbookReader};

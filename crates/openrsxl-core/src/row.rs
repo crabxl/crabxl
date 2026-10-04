@@ -1,4 +1,4 @@
-use crate::{CellAddress, ColumnIndex, RowIndex};
+use crate::{CellAddress, CellError, CellText, ColumnIndex, ExactInteger, RowIndex};
 use std::ops::RangeInclusive;
 
 /// Values supported by the current scalar reader.
@@ -14,6 +14,34 @@ pub enum CellValue {
     Number(f64),
     /// A literal spreadsheet boolean, distinct from numeric zero or one.
     Boolean(bool),
+    /// An exact signed integer literal within i64.
+    Integer(i64),
+    /// An exact decimal integer outside i64; no floating-point conversion.
+    BigInteger(Box<ExactInteger>),
+    /// Owned text with whitespace preserved.
+    Text(Box<CellText>),
+    /// A literal spreadsheet error token.
+    Error(Box<CellError>),
+}
+
+impl CellValue {
+    /// Bytes retained outside the fixed-size cell value, excluding allocator overhead.
+    pub fn heap_bytes(&self) -> usize {
+        match self {
+            Self::BigInteger(value) => value.memory_bytes(),
+            Self::Text(value) => value.memory_bytes(),
+            Self::Error(value) => value.memory_bytes(),
+            _ => 0,
+        }
+    }
+    /// Construct an owned text value.
+    pub fn text(value: impl Into<Box<str>>) -> Self {
+        Self::Text(Box::new(CellText::new(value)))
+    }
+    /// Construct an owned spreadsheet error value.
+    pub fn error(code: impl Into<Box<str>>) -> Self {
+        Self::Error(Box::new(CellError::new(code)))
+    }
 }
 
 /// A present cell with its actual coordinate.
@@ -43,7 +71,13 @@ impl Row {
     }
     /// Estimate resident row allocation, including the vector's capacity.
     pub fn memory_bytes(&self) -> usize {
-        size_of::<Self>() + self.cells.capacity() * size_of::<Cell>()
+        size_of::<Self>()
+            + self.cells.capacity() * size_of::<Cell>()
+            + self
+                .cells
+                .iter()
+                .map(|cell| cell.value.heap_bytes())
+                .sum::<usize>()
     }
 }
 
@@ -61,12 +95,12 @@ impl RowBatch {
             + self
                 .rows
                 .iter()
-                .map(|r| r.cells.capacity() * size_of::<Cell>())
+                .map(|r| r.memory_bytes() - size_of::<Row>())
                 .sum::<usize>()
     }
 }
 
-/// An explicitly materialized numeric worksheet snapshot.
+/// An explicitly materialized scalar worksheet snapshot.
 ///
 /// This owns all sparse rows; memory grows with loaded cells. It is not the
 /// future editable workbook model and cannot save or preserve workbook parts.
@@ -83,7 +117,7 @@ impl SheetData {
             + self
                 .rows
                 .iter()
-                .map(|row| row.cells.capacity() * size_of::<Cell>())
+                .map(|row| row.memory_bytes() - size_of::<Row>())
                 .sum::<usize>()
     }
 }
