@@ -1,13 +1,13 @@
 # Architecture
 
-Status: development proposal; Rust implementation has not started. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. Language bindings are deferred.
+Status: first M1 numeric streaming checkpoint implemented. The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. Language bindings are deferred. Current ownership and resource decisions are recorded in [ADR 0001](decisions/0001-numeric-streaming.md).
 
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).
 
 - Architecture reference checkout: Mercurial `52c77fdee169`, default branch.
-- Proposed compatibility baseline: openpyxl 3.1.5, tag revision `13627b03ca25a1a98becf40e533b955615b13429`; M0 must complete the public-feature inventory against this version.
+- Compatibility baseline: openpyxl 3.1.5, tag revision `13627b03ca25a1a98becf40e533b955615b13429`; M0 must complete the public-feature inventory against this version.
 - Sources: README, development, optimized modes, performance, formula, date/time, pivot, and feature documentation.
 - Documentation: https://openpyxl.readthedocs.io/en/stable/ . Default-branch documentation may differ from the release baseline.
 
@@ -51,7 +51,7 @@ openrsxl/
 └── docs/
 ```
 
-This is the planned layout, not existing code. Dependencies flow from facade to XLSX to core; the facade also exposes core types. Start with modules and split additional crates only when useful.
+The three workspace crates now exist. Tests currently generate small OOXML fixtures in memory rather than storing a binary fixture directory. Dependencies flow from facade to XLSX to core; the facade also exposes core types. Start with modules and split additional crates only when useful.
 
 ```mermaid
 flowchart TD
@@ -90,7 +90,7 @@ Separate WorkbookReader, WorkbookWriter, and editable Workbook capabilities. Use
 
 ## Port allocation
 
-The following allocations are initial candidates, not completed ports. Exact source revisions are recorded in [upstream sources](upstream-sources.md).
+The following allocations describe the overall port plan. Numeric package/cell/coordinate parsing is the first completed subset, traced in [ports.json](../third_party/ports.json). Remaining allocations are candidates. Exact source revisions are recorded in [upstream sources](upstream-sources.md).
 
 | Upstream | Destination | Refactoring |
 |---|---|---|
@@ -108,6 +108,8 @@ Port coherent modules, retain mature algorithms, and integrate them into one arc
 
 ## Memory strategy
 
+The user requires both intelligent automatic allocation and explicit memory budgets, with advanced tuning. More available RAM should enable measured faster strategies, such as bounded caches, larger useful batches, indexing, or independent-sheet parallelism; low RSS is not the objective by itself. Auto must use effective available memory (including container limits), keep headroom, adapt to workload, and stop increasing allocations when measurements show no benefit. A specified budget must take precedence. This policy is planned in [ADR 0002](decisions/0002-adaptive-memory.md); current `ResourceLimits` are individual component controls, not a global process RSS ceiling. `input_buffer_bytes` exposes the first tuning axis for measurement. `read_sheet` explicitly materializes a bounded numeric snapshot through the same decoder; this is separate from the later full editable workbook model.
+
 Read ZIP metadata, select a worksheet, stream decompression/XML events, decode selected cells, and produce bounded rows/batches. Validate entry lifetimes without solving ownership by buffering an entire worksheet.
 
 - Bound buffers/batches by bytes and cell/row count; retain sparse positions and expand only explicitly requested finite rectangles.
@@ -123,6 +125,6 @@ Initial Rust source inspection confirms calamine already has a low-level cell re
 
 Readers plus writers do not automatically provide safe modification of existing files. Preserve original part inventory, unknown subtrees, namespace context, binary content, and references. Rebuild affected parts only, synchronizing styles/strings IDs, formulas, relationships, and content types. Opaque preservation is a separate capability from reading/creating/editing a feature. Reject unsupported destructive edits rather than silently dropping content. Signed-document behavior needs an explicit policy.
 
-## Existing benchmark
+## Benchmark evidence
 
-On one numeric 100,000-row by 10-column file, openpyxl 3.1.5 read-only took a median 4.415 seconds with 41.8 MiB peak RSS; calamine 0.36.1 release took 0.255 seconds with 70.3 MiB. These are process-level measurements with warm filesystem cache, without baseline subtraction or binding conversion. They demonstrate potential, not future openrsxl performance. The next experiment must validate speed together with a flat numeric streaming memory curve.
+The earlier feasibility benchmark compared openpyxl and calamine only. Current openrsxl measurements use a reproducible three-scale numeric experiment with checksums, raw runs, wall time, and kernel peak RSS; see [benchmark evidence](../benchmarks/README.md). Results apply to raw numeric streaming, not the future full-feature library or bindings.

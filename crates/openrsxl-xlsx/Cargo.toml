@@ -1,0 +1,18 @@
+[package]
+name = "openrsxl-xlsx"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Bounded streaming XLSX processing for openrsxl"
+
+[dependencies]
+openrsxl-core.workspace = true
+zip.workspace = true
+quick-xml.workspace = true
+fast-float2.workspace = true
+percent-encoding.workspace = true
+
+[lints]
+workspace = true

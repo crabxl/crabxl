@@ -1,0 +1,29 @@
+[workspace]
+members = ["crates/openrsxl", "crates/openrsxl-core", "crates/openrsxl-xlsx"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/cmostw/openrsxl"
+
+[workspace.dependencies]
+openrsxl-core = { path = "crates/openrsxl-core", version = "0.1.0" }
+openrsxl-xlsx = { path = "crates/openrsxl-xlsx", version = "0.1.0" }
+zip = { version = "8.6", default-features = false, features = ["deflate"] }
+quick-xml = "0.41"
+fast-float2 = "0.2"
+percent-encoding = "2.3"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+
+[profile.release]
+lto = "thin"

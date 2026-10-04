@@ -1,6 +1,6 @@
 # Development roadmap
 
-Status: planning; no Rust code has been ported yet. Use mature upstream source as the starting point, integrate it into shared models, and retain full openpyxl public feature coverage. Deliver a Rust crate first; language bindings follow separately.
+Status: first M1 numeric streaming checkpoint implemented and tested. Selected calamine parsing logic has been ported into the three-crate workspace. The detailed baseline inventory remains incomplete; [features.json](features.json) records the verified subset and planned groups without claiming full coverage. Deliver a Rust crate first; language bindings follow separately.
 
 Consult [pending MR risks](openpyxl-mr-review.md) when implementing affected features. Defects are regression cases to fix or avoid, not behavior that compatibility requires reproducing.
 
@@ -45,6 +45,8 @@ Acceptance: reproducible sources, traceable inventory, and one shared model; do 
 
 ## M1: Port streaming numeric reads
 
+Current checkpoint: relationship-based workbook/sheet discovery, sparse numeric/empty rows, strict/transitional namespaces, projection, reusable rows, owned batches, explicit numeric sheet materialization, configurable input buffers/data budgets, and cleanup/error tests. This is raw numeric reading; style-zero formatting is not interpreted. Results and reproduction commands are in [benchmarks](../benchmarks/README.md). The complete M0 inventory, adaptive Auto policy, and later value/style semantics remain open.
+
 - Extract package/metadata/cell parsing from calamine. Make row/batch output the streaming path and keep Range materialization separate.
 - Resolve workbook/sheet parts through relationships. Handle multiple sheets, sparse coordinates, incorrect dimensions, namespaces, malformed input, resource release, and error context.
 - Apply projection using the current cell coordinate before expensive decoding, avoiding the stale-counter risk in MR !454.
@@ -54,6 +56,8 @@ Acceptance: correct counts/checksums, raw timing/RSS results, numeric streaming 
 
 ## M2: Complete value semantics and large strings
 
+- Add a portable `Auto` memory policy and an explicit memory budget with advanced buffer/batch/cache/concurrency overrides. Auto must account for host availability, container/process limits, headroom, workload, and measured speed benefits; it must not fill RAM without a useful strategy. Define budget accounting and diagnostics before claiming a global memory limit.
+- Extend raw M1 `f64` numbers to preserve the baseline's integer/float distinctions and exact integer literals where required; document representation and overflow behavior without silent precision loss.
 - Port inline/shared strings, booleans, errors, rich text, dates/number formats, formula text, and cached values into the common representation.
 - Test both date systems, absent cached results, shared/array formula metadata, whitespace-only text, and empty runs.
 - Add disk-backed shared-string indexing, bounded cache, byte limits, cleanup, and temporary-storage metrics.

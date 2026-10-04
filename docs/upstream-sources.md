@@ -1,6 +1,6 @@
 # Upstream sources
 
-Status: cloned and inspected in part; no code has been ported. Local source repositories live under `/workspace/upstream/` and are not vendored or runtime dependencies.
+Status: cloned and inspected in part; selected calamine numeric/package parsing has been ported and refactored. Exact symbols, destinations, notices, changes, and tests are in [ports.json](../third_party/ports.json). rust_xlsxwriter remains a planned writer source. Local source repositories live under `/workspace/upstream/` and are not vendored or runtime dependencies.
 
 | Project | Repository | Pinned commit | Package version | Metadata license |
 |---|---|---|---|---|

@@ -1,0 +1,507 @@
+{
+  "schema_version": 1,
+  "baseline": {
+    "project": "openpyxl",
+    "version": "3.1.5",
+    "revision": "13627b03ca25a1a98becf40e533b955615b13429"
+  },
+  "inventory_complete": false,
+  "policy": "Planned categories are not exhaustive; no baseline feature may be removed. Read/create/edit/preserve are tracked separately. Resource/API utilities use read as a checkpoint grouping, not a file feature preservation claim.",
+  "items": [
+    {
+      "id": "package.discovery",
+      "description": "Relationship-based XLSX-family package discovery",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/openrsxl-core/src",
+        "crates/openrsxl-xlsx/src"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::resolves_nonstandard_parts_and_unescapes_names"
+      ],
+      "limitations": "First numeric checkpoint; see README and ADR 0001. Verification is scoped to listed behavior, not comprehensive OOXML support."
+    },
+    {
+      "id": "sheets.catalog",
+      "description": "Sheet names, order, kinds, resolved parts, and date epoch flag",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/openrsxl-core/src",
+        "crates/openrsxl-xlsx/src"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::multiple_sheets_follow_relationship_ids_and_can_be_reopened"
+      ],
+      "limitations": "First numeric checkpoint; see README and ADR 0001. Verification is scoped to listed behavior, not comprehensive OOXML support."
+    },
+    {
+      "id": "read.numeric",
+      "description": "Raw finite f64 numeric and physically present empty cells; exact large integer semantics remain planned",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming",
+        "numeric-materialized"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/openrsxl-core/src",
+        "crates/openrsxl-xlsx/src"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::numeric_entities_and_zero_style_are_supported"
+      ],
+      "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
+    },
+    {
+      "id": "read.sparse",
+      "description": "Actual sparse coordinates without dimension-driven expansion",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming",
+        "numeric-materialized"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/openrsxl-core/src",
+        "crates/openrsxl-xlsx/src"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::inferred_coordinates_and_empty_rows_preserve_sparsity"
+      ],
+      "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
+    },
+    {
+      "id": "read.projection",
+      "description": "Inclusive typed row/column projection before decoding",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming",
+        "numeric-materialized"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/openrsxl-core/src",
+        "crates/openrsxl-xlsx/src"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::projection_uses_current_sparse_coordinate_before_decoding"
+      ],
+      "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
+    },
+    {
+      "id": "read.row-reuse",
+      "description": "Caller-owned reusable sparse row allocation",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming",
+        "numeric-materialized"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/openrsxl-core/src",
+        "crates/openrsxl-xlsx/src"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::reuse_buffer_and_release_early_reader"
+      ],
+      "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
+    },
+    {
+      "id": "read.batches",
+      "description": "Owned rows and batches with capacity accounting",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming",
+        "numeric-materialized"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/openrsxl-core/src",
+        "crates/openrsxl-xlsx/src"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::owned_batches_obey_byte_budget_and_outlive_workbook"
+      ],
+      "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
+    },
+    {
+      "id": "resources.xml",
+      "description": "Archive/metadata/XML/value component budgets",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/openrsxl-core/src",
+        "crates/openrsxl-xlsx/src"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::event_cell_row_depth_and_metadata_limits_are_enforced"
+      ],
+      "limitations": "First numeric checkpoint; see README and ADR 0001. Verification is scoped to listed behavior, not comprehensive OOXML support."
+    },
+    {
+      "id": "resources.rows",
+      "description": "Row/batch count and allocation budgets",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-streaming"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
+      "modules": [
+        "crates/openrsxl-core/src",
+        "crates/openrsxl-xlsx/src"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::tiny_batch_limit_fails_without_partial_delivery"
+      ],
+      "limitations": "First numeric checkpoint; see README and ADR 0001. Verification is scoped to listed behavior, not comprehensive OOXML support."
+    },
+    {
+      "id": "read.materialized",
+      "description": "Explicit owned sparse numeric sheet snapshot with a retained-data budget",
+      "status": "verified",
+      "milestone": "M1",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "numeric-materialized"
+      ],
+      "reference": "docs/decisions/0001-numeric-streaming.md",
+      "modules": [
+        "crates/openrsxl-core/src/row.rs",
+        "crates/openrsxl-xlsx/src/package.rs"
+      ],
+      "tests": [
+        "crates/openrsxl-xlsx/tests/streaming.rs::materialized_sheet_matches_streaming_and_outlives_workbook",
+        "crates/openrsxl-xlsx/tests/streaming.rs::materialization_budget_fails_and_releases_reader"
+      ],
+      "limitations": "Same raw numeric restrictions as streaming; retained-data budget excludes parser/catalog and one current row. Auto and the full editable workbook remain planned."
+    },
+    {
+      "id": "planned.workbook",
+      "description": "Full workbook lifecycle, properties, names, visibility, templates and macros",
+      "status": "planned",
+      "milestones": [
+        "M1",
+        "M4",
+        "M5"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.values",
+      "description": "Strings, booleans, errors, dates/times/durations, rich text and hyperlinks",
+      "status": "planned",
+      "milestones": [
+        "M2",
+        "M4",
+        "M5"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.editing",
+      "description": "Random access, structural edits, worksheet layout, views, and sparse editable model",
+      "status": "planned",
+      "milestones": [
+        "M4",
+        "M5"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.modes",
+      "description": "Full editable and streaming write modes; complete row/column iteration semantics",
+      "status": "planned",
+      "milestones": [
+        "M3",
+        "M4"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.styles",
+      "description": "All baseline styles, named styles, themes, formats and inherited formatting",
+      "status": "planned",
+      "milestones": [
+        "M2",
+        "M3",
+        "M5"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.formulas",
+      "description": "Formula/cache metadata, shared/array/data-table formulas, tokenization and translation",
+      "status": "planned",
+      "milestones": [
+        "M2",
+        "M5"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.tables-rules",
+      "description": "Tables, filters, sort, validation and conditional formatting",
+      "status": "planned",
+      "milestones": [
+        "M5"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.comments",
+      "description": "Baseline comments, authors, dimensions and notes/VML preservation",
+      "status": "planned",
+      "milestones": [
+        "M5"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.drawings",
+      "description": "Images, anchors, drawings and reusable resources across saves",
+      "status": "planned",
+      "milestones": [
+        "M6"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.charts",
+      "description": "All baseline chart types including combined/3D, axes/layout and chartsheets",
+      "status": "planned",
+      "milestones": [
+        "M6"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.pivots",
+      "description": "Baseline pivot/cache/records and supported editable settings",
+      "status": "planned",
+      "milestones": [
+        "M6"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.printing-protection",
+      "description": "Print settings, headers/footers/breaks and workbook/sheet protection",
+      "status": "planned",
+      "milestones": [
+        "M5"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.extended-data",
+      "description": "VBA, external links/caches, extensions, cm/vm and dynamic metadata",
+      "status": "planned",
+      "milestones": [
+        "M4",
+        "M6"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    },
+    {
+      "id": "planned.utilities",
+      "description": "Complete public coordinate/date utilities and row data exchange",
+      "status": "planned",
+      "milestones": [
+        "M2",
+        "M7"
+      ],
+      "capabilities": {
+        "read": "planned",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "reference": "docs/roadmap.md#initial-feature-inventory",
+      "tests": [],
+      "limitations": "Category placeholder; the detailed release-specific public-feature inventory remains incomplete."
+    }
+  ]
+}

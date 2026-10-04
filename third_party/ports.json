@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "ports": [
+    {
+      "project": "calamine",
+      "repository": "https://github.com/tafia/calamine",
+      "commit": "0af05f4f6030351e3b8a999ea0810c8618368776",
+      "license": "MIT",
+      "notice": "Copyright 2016-2026 Johann Tuffe",
+      "license_file": "third_party/licenses/calamine-MIT.txt",
+      "source_symbols": [
+        "src/xlsx/cells_reader.rs: XlsxCellReader::new, next_cell, read_value, read_v",
+        "src/xlsx/mod.rs: xml_reader, read_workbook, read_relationships, get_row_and_optional_column"
+      ],
+      "destinations": [
+        "crates/openrsxl-core/src/address.rs",
+        "crates/openrsxl-xlsx/src/xml.rs",
+        "crates/openrsxl-xlsx/src/package.rs",
+        "crates/openrsxl-xlsx/src/reader.rs"
+      ],
+      "changes": [
+        "Adapted event-driven cell and workbook parsing to shared openrsxl types without Range materialization",
+        "Separated generic numeric row streaming from eager workbook strings/styles and formula machinery",
+        "Resolved OPC root/workbook/sheet relationships and normalized internal part URIs",
+        "Kept namespace and end-tag validation enabled and added bounded input per XML event",
+        "Added checked coordinate arithmetic, sparse row ordering, projection before decoding, reusable rows and owned batches",
+        "Unsupported selected features fail explicitly; numeric decoding rejects invalid and non-finite values instead of falling back to strings",
+        "Added contextual errors and resource budgets; retained no global or interpreter-exit resource registry"
+      ],
+      "tests": "New in-memory OOXML fixtures in crates/openrsxl-xlsx/tests/streaming.rs; no upstream binary fixture copies",
+      "inventory_items": ["package.discovery", "sheets.catalog", "read.numeric", "read.sparse", "read.projection", "read.row-reuse", "read.batches", "resources.xml", "resources.rows"]
+    }
+  ]
+}

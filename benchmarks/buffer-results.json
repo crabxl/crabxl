@@ -1,0 +1,100 @@
+{
+  "rows": 1000000,
+  "columns": 10,
+  "cells": 10000000,
+  "checksum": 49999995000000,
+  "measurement": "Same environment/input as numeric-results.json; native Linux wait4; one warmup per size, rotating serial order, three measured runs by default; no baseline subtraction",
+  "rust": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "samples": {
+    "32768": [
+      {
+        "seconds": 7.106202532,
+        "cpu_seconds": 7.105788,
+        "peak_rss_kib": 1492
+      },
+      {
+        "seconds": 7.358070086,
+        "cpu_seconds": 7.352971,
+        "peak_rss_kib": 1540
+      },
+      {
+        "seconds": 7.092130451,
+        "cpu_seconds": 7.088412,
+        "peak_rss_kib": 1496
+      }
+    ],
+    "262144": [
+      {
+        "seconds": 7.349719371,
+        "cpu_seconds": 7.34914,
+        "peak_rss_kib": 1540
+      },
+      {
+        "seconds": 7.028248614,
+        "cpu_seconds": 7.027725,
+        "peak_rss_kib": 1640
+      },
+      {
+        "seconds": 7.244650822,
+        "cpu_seconds": 7.238471,
+        "peak_rss_kib": 1536
+      }
+    ],
+    "1048576": [
+      {
+        "seconds": 7.097464772,
+        "cpu_seconds": 7.096622,
+        "peak_rss_kib": 2472
+      },
+      {
+        "seconds": 7.342803256,
+        "cpu_seconds": 7.342138,
+        "peak_rss_kib": 2456
+      },
+      {
+        "seconds": 7.152685171,
+        "cpu_seconds": 7.146626,
+        "peak_rss_kib": 2388
+      }
+    ],
+    "8388608": [
+      {
+        "seconds": 6.902863101,
+        "cpu_seconds": 6.902081,
+        "peak_rss_kib": 9640
+      },
+      {
+        "seconds": 6.941057189,
+        "cpu_seconds": 6.939927,
+        "peak_rss_kib": 9640
+      },
+      {
+        "seconds": 7.259101087,
+        "cpu_seconds": 7.25266,
+        "peak_rss_kib": 9624
+      }
+    ]
+  },
+  "medians": {
+    "32768": {
+      "seconds": 7.106202532,
+      "cpu_seconds": 7.105788,
+      "peak_rss_kib": 1496
+    },
+    "262144": {
+      "seconds": 7.244650822,
+      "cpu_seconds": 7.238471,
+      "peak_rss_kib": 1540
+    },
+    "1048576": {
+      "seconds": 7.152685171,
+      "cpu_seconds": 7.146626,
+      "peak_rss_kib": 2456
+    },
+    "8388608": {
+      "seconds": 6.941057189,
+      "cpu_seconds": 6.939927,
+      "peak_rss_kib": 9640
+    }
+  }
+}
