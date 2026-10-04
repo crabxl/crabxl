@@ -5,41 +5,20 @@ use crabxl_core::{CellStyle, Error, ErrorKind, Result};
 use std::io::{self, Write};
 
 pub(crate) fn validate(style: &CellStyle, maximum: usize) -> Result<()> {
-    if style.heap_bytes() > maximum
-        || style.font.name.chars().count() > 31
-        || style.number_format.chars().count() > 255
-    {
+    if style.heap_bytes() > maximum {
         return Err(Error::new(
             ErrorKind::LimitExceeded,
             "Style payload exceeds metadata limit",
         ));
     }
-    if style.font.name.is_empty()
-        || style.number_format.is_empty()
-        || !style.font.size.is_finite()
-        || !(0.0..=409.0).contains(&style.font.size)
-        || style.font.size == 0.0
-        || style.rotation > 180
-        || (style.wrap_text && style.shrink_to_fit)
-    {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            "Invalid basic cell format",
-        ));
+    if style.number_format.is_empty() {
+        return Err(Error::new(ErrorKind::InvalidData, "Number format is empty"));
     }
-    crate::encode::validate_xml_text(&style.font.name)?;
+    crate::formatting::validate_font(&style.font)?;
     crate::encode::validate_xml_text(&style.number_format)?;
-    for color in [style.font.color, style.fill]
-        .into_iter()
-        .chain(style.borders.iter().flatten().map(|side| side.color))
-    {
-        if color.is_some_and(|value| value > 0xffffff) {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                "Color is not an RGB value",
-            ));
-        }
-    }
+    crate::style_codec::validate_fill(&style.fill)?;
+    crate::style_codec::validate_border(&style.borders)?;
+    crate::style_codec::validate_alignment(&style.alignment)?;
     Ok(())
 }
 pub(crate) fn attr(value: &str) -> String {
@@ -65,26 +44,7 @@ pub(crate) fn write_styles(output: &mut impl Write, styles: &[CellStyle]) -> io:
     }
     write!(output, "</numFmts><fonts count=\"{}\">", styles.len())?;
     for style in styles {
-        let font = &style.font;
-        write!(
-            output,
-            "<font><sz val=\"{}\"/><name val=\"{}\"/>",
-            font.size,
-            attr(&font.name)
-        )?;
-        if font.bold {
-            output.write_all(b"<b/>")?;
-        }
-        if font.italic {
-            output.write_all(b"<i/>")?;
-        }
-        if font.underline {
-            output.write_all(b"<u/>")?;
-        }
-        if let Some(rgb) = font.color {
-            write!(output, "<color rgb=\"FF{rgb:06X}\"/>")?;
-        }
-        output.write_all(b"</font>")?;
+        crate::formatting::write_font(output, &style.font, crate::formatting::FontContext::Cell)?;
     }
     write!(
         output,
@@ -92,30 +52,11 @@ pub(crate) fn write_styles(output: &mut impl Write, styles: &[CellStyle]) -> io:
         styles.len() + 2
     )?;
     for style in styles {
-        if let Some(rgb) = style.fill {
-            write!(
-                output,
-                "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF{rgb:06X}\"/><bgColor indexed=\"64\"/></patternFill></fill>"
-            )?;
-        } else {
-            output.write_all(b"<fill><patternFill patternType=\"none\"/></fill>")?;
-        }
+        crate::style_codec::write_fill(output, &style.fill)?;
     }
     write!(output, "</fills><borders count=\"{}\">", styles.len())?;
     for style in styles {
-        output.write_all(b"<border>")?;
-        for (name, side) in ["left", "right", "top", "bottom"].iter().zip(style.borders) {
-            if let Some(side) = side {
-                write!(output, "<{name} style=\"{}\">", side.line.as_str())?;
-                if let Some(rgb) = side.color {
-                    write!(output, "<color rgb=\"FF{rgb:06X}\"/>")?;
-                }
-                write!(output, "</{name}>")?;
-            } else {
-                write!(output, "<{name}/>")?;
-            }
-        }
-        output.write_all(b"<diagonal/></border>")?;
+        crate::style_codec::write_border(output, &style.borders)?;
     }
     write!(
         output,
@@ -126,16 +67,12 @@ pub(crate) fn write_styles(output: &mut impl Write, styles: &[CellStyle]) -> io:
         let num_fmt = if index == 0 { 0 } else { index + 163 };
         write!(
             output,
-            "<xf numFmtId=\"{num_fmt}\" fontId=\"{index}\" fillId=\"{}\" borderId=\"{index}\" xfId=\"0\" applyNumberFormat=\"1\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\" applyProtection=\"1\"><alignment horizontal=\"{}\" vertical=\"{}\" wrapText=\"{}\" shrinkToFit=\"{}\" textRotation=\"{}\"/><protection locked=\"{}\" hidden=\"{}\"/></xf>",
-            if index == 0 { 0 } else { index + 2 },
-            style.horizontal.as_str(),
-            style.vertical.as_str(),
-            u8::from(style.wrap_text),
-            u8::from(style.shrink_to_fit),
-            style.rotation,
-            u8::from(style.locked),
-            u8::from(style.hidden)
+            "<xf numFmtId=\"{num_fmt}\" fontId=\"{index}\" fillId=\"{}\" borderId=\"{index}\" xfId=\"0\" applyNumberFormat=\"1\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\" applyProtection=\"1\">",
+            if index == 0 { 0 } else { index + 2 }
         )?;
+        crate::style_codec::write_alignment(output, &style.alignment)?;
+        crate::style_codec::write_protection(output, &style.protection)?;
+        output.write_all(b"</xf>")?;
     }
     output.write_all(b"</cellXfs><cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles></styleSheet>")
 }

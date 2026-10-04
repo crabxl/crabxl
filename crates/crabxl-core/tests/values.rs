@@ -68,3 +68,19 @@ fn formulas_distinguish_missing_cache_and_typed_zero_and_count_payloads() {
     );
     assert_eq!(size_of::<CellValue>(), 16);
 }
+
+#[test]
+fn distant_calendar_rounding_uses_fractional_day_precision() {
+    // Public openpyxl 3.1.5 from_excel probe: absolute-day scaling rounds this
+    // source to two milliseconds, while the baseline rounds its fraction to one.
+    let date = Date::from_serial(2958465.000000017, Windows1900, DateTime).unwrap();
+    assert_eq!(
+        date.to_datetime().unwrap().to_string(),
+        "9999-12-31 00:00:00.001"
+    );
+    assert!(date.is_reference_representable());
+    let time = Date::from_serial(0.5, Windows1900, Time).unwrap();
+    assert_eq!(time.to_time().unwrap().to_string(), "12:00:00");
+    let elapsed = Date::from_serial(-1.25, Mac1904, Duration).unwrap();
+    assert_eq!(elapsed.to_duration().unwrap().num_seconds(), -108000);
+}

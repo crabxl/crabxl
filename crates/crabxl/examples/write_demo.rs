@@ -30,22 +30,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let style = if mode.starts_with("features") {
         let mut style = CellStyle {
             number_format: "0.00".into(),
-            fill: Some(0xFFE699),
-            horizontal: HorizontalAlignment::Center,
-            vertical: VerticalAlignment::Top,
-            wrap_text: true,
-            rotation: 30,
-            locked: false,
-            hidden: true,
+            fill: crabxl::Fill::Pattern(crabxl::PatternFill {
+                pattern: Some(crabxl::FillPattern::Solid),
+                foreground: Some(crabxl::Color {
+                    kind: crabxl::ColorKind::Argb(0xFFFFE699),
+                    tint: None,
+                }),
+                background: Some(crabxl::Color {
+                    kind: crabxl::ColorKind::Indexed(64),
+                    tint: None,
+                }),
+            }),
+            alignment: crabxl::Alignment {
+                horizontal: Some(HorizontalAlignment::Center),
+                vertical: Some(VerticalAlignment::Top),
+                wrap_text: Some(true),
+                rotation: Some(30),
+                ..Default::default()
+            },
+            protection: crabxl::Protection {
+                locked: Some(false),
+                hidden: Some(true),
+            },
             ..CellStyle::default()
         };
-        style.font.bold = true;
-        style.font.italic = true;
-        style.font.underline = true;
-        style.font.color = Some(0x123456);
-        style.borders[0] = Some(BorderSide {
-            line: BorderLine::Thin,
-            color: Some(0xABCDEF),
+        style.font.bold = Some(true);
+        style.font.italic = Some(true);
+        style.font.underline = Some(crabxl::Underline::Single);
+        style.font.color = Some(crabxl::Color {
+            kind: crabxl::ColorKind::Argb(0xFF123456),
+            tint: None,
+        });
+        style.borders.sides[0] = Some(BorderSide {
+            line: Some(BorderLine::Thin),
+            color: Some(crabxl::Color {
+                kind: crabxl::ColorKind::Argb(0xFFABCDEF),
+                tint: None,
+            }),
         });
         writer.register_style(style)?
     } else {

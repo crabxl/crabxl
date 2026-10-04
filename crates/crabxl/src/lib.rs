@@ -59,3 +59,12 @@ pub use crabxl_core::{
     Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText, RichTextRun, RunFont,
     TextVerticalAlignment, Underline,
 };
+
+pub use crabxl_core::{
+    Alignment, Border, Fill, FillPattern, GradientFill, GradientKind, GradientStop, PatternFill,
+    Protection,
+};
+
+pub use crabxl_core::{CellFormat, NamedStyle, NumberFormat, StyleCatalog};
+
+pub use crabxl_core::DateReadPolicy;

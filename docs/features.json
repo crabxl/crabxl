@@ -16871,6 +16871,39 @@
         "crates/crabxl-xlsx/tests/writer.rs::rich_existing_literal_replacement_preserves_other_cells_and_repeats"
       ],
       "limitations": "Narrow checkpoint, not the full rich public baseline. Imported font/theme resolution and new phonetic font assignment in existing packages are staged. Unknown extensions reject typed access. Python rich_text=True remains explicitly unsupported until compatible rich classes/conversion exist."
+    },
+    {
+      "id": "read.styles-catalog.numeric-dates",
+      "description": "Bounded imported style components/identities and numeric date/time/duration interpretation",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "partial"
+      },
+      "modes": [
+        "streaming",
+        "materialized",
+        "sequential-write"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/styles.html",
+      "modules": [
+        "crates/crabxl-core/src/style_catalog.rs",
+        "crates/crabxl-core/src/style_components.rs",
+        "crates/crabxl-xlsx/src/style_reader.rs",
+        "crates/crabxl-xlsx/src/style_codec.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/streaming.rs::styled_dates_epochs_duration_cached_formulas_and_general_values_stream",
+        "crates/crabxl-xlsx/tests/streaming.rs::imported_style_components_keep_ids_optional_overrides_palettes_and_staged_sections",
+        "crates/crabxl-xlsx/tests/streaming.rs::style_catalog_actual_counts_bytes_bad_components_and_duplicate_ids_are_guarded",
+        "crates/crabxl-xlsx/tests/streaming.rs::materialized_date_policy_retains_serials_without_losing_style_identity",
+        "crates/crabxl-xlsx/tests/writer.rs::complete_style_components_round_trip_through_shared_catalog_without_flattening",
+        "benchmarks/verify_style_fixture.py"
+      ],
+      "limitations": "Narrow component/catalog and numeric-date checkpoint, not complete style/date baseline or M2. Theme resolution, differential/table/extension typed editing, normalized writer catalog integration, ISO dates/durations, calendar construction precision and aggregate/adaptive catalog accounting remain staged. Complete catalogs are additional retained allocations. Source preservation does not verify catalog export. Original-package date/new phonetic assignment remains guarded."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

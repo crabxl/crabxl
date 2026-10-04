@@ -136,6 +136,15 @@ impl SheetData {
     }
 }
 
+/// How numeric date-formatted values outside the reference calendar range are read.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DateReadPolicy {
+    /// Return a spreadsheet #VALUE! error for unrepresentable baseline dates/durations.
+    #[default]
+    Compatible,
+    /// Keep finite source serials even when a calendar/runtime conversion is unavailable.
+    RetainSerial,
+}
 /// Projection performed before expensive cell-value decoding.
 #[derive(Clone, Debug, Default)]
 pub struct ReadOptions {
@@ -148,6 +157,8 @@ pub struct ReadOptions {
     /// Preserve rich-text runs and pronunciation metadata rather than projecting
     /// display text. Plain projection is the reference-compatible default.
     pub rich_text: bool,
+    /// Baseline date errors by default; exact raw-serial retention is an extension.
+    pub date_policy: DateReadPolicy,
 }
 impl ReadOptions {
     /// Whether the selected row range includes this index.
