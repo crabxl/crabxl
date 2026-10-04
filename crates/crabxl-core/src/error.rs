@@ -19,7 +19,7 @@ pub enum ErrorKind {
     Unsupported,
     /// A configured resource budget was exceeded.
     LimitExceeded,
-    /// Retained sheet data exceeded the operation's memory budget.
+    /// Managed operation allocations exceeded the selected memory allowance.
     MemoryBudgetExceeded,
     /// The requested worksheet does not exist.
     SheetNotFound,

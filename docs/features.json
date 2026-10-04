@@ -17167,6 +17167,39 @@
         "crates/crabxl-xlsx/tests/editor.rs::replacing_annotated_cells_drops_only_target_references_and_preserves_metadata_parts"
       ],
       "limitations": "Visible reference projections do not retain typed cm/vm identities or implement metadata graph/spill editing. Only overwritten physical target references are removed; others and opaque parts remain. No core milestone completion is claimed."
+    },
+    {
+      "id": "resources.joint-managed-policy",
+      "description": "Adaptive operation-local joint catalog/string/cache/template/library-row allowance with Auto lending and strict forced storage",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "not-applicable"
+      },
+      "modes": [
+        "adaptive-streaming",
+        "adaptive-materialized",
+        "adaptive-owned-batches"
+      ],
+      "modules": [
+        "crates/crabxl-xlsx/src/aggregate.rs",
+        "crates/crabxl-xlsx/src/adaptive.rs",
+        "crates/crabxl-xlsx/src/package.rs",
+        "crates/crabxl-xlsx/src/reader.rs",
+        "crates/crabxl-xlsx/src/strings.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/streaming.rs::aggregate_scan_charges_prepared_catalogs_and_shared_formula_storage",
+        "crates/crabxl-xlsx/tests/streaming.rs::aggregate_auto_rebalances_existing_strings_and_bounds_mixed_components",
+        "crates/crabxl-xlsx/tests/streaming.rs::aggregate_repeated_access_can_retain_rows_after_lending_string_table_memory",
+        "crates/crabxl-xlsx/tests/streaming.rs::aggregate_batches_lend_cache_space_and_release_library_retention_on_delivery",
+        "crates/crabxl-xlsx/tests/streaming.rs::aggregate_failed_auto_spill_keeps_the_existing_table_and_cleans_partial_temp_storage",
+        "benchmarks/aggregate_read_checkpoint.py"
+      ],
+      "limitations": "Policy API currently uses default ReadOptions; composition is staged. Direct component APIs remain independent. Not a hard RSS cap: dependency/allocator overhead, OS cache and caller-held outputs are additional. Prior prepared Auto table rebalancing temporarily retains prior storage until successful transfer. No milestone completion claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

@@ -302,6 +302,72 @@ impl<R: Read + Seek> WorkbookReader<R> {
             .as_ref()
             .map_or(0, crabxl_core::Theme::memory_bytes)
     }
+    /// Managed package names/catalogs and prepared style/theme payloads.
+    /// ZIP dependency allocations and shared-string storage are separate.
+    pub fn catalog_memory_bytes(&self) -> usize {
+        size_of::<Self>()
+            .saturating_add(
+                self.sheets
+                    .capacity()
+                    .saturating_mul(size_of::<SheetInfo>()),
+            )
+            .saturating_add(
+                self.sheets
+                    .iter()
+                    .map(|s| s.name.capacity().saturating_add(s.part.capacity()))
+                    .sum::<usize>(),
+            )
+            .saturating_add(self.workbook_part.capacity())
+            .saturating_add(
+                [&self.shared_string_part, &self.style_part, &self.theme_part]
+                    .into_iter()
+                    .flatten()
+                    .map(String::capacity)
+                    .sum::<usize>(),
+            )
+            .saturating_add(
+                self.shared_string_options
+                    .temp_directory
+                    .as_ref()
+                    .map_or(0, |path| path.capacity()),
+            )
+            .saturating_add(self.style_memory_bytes())
+            .saturating_add(self.theme_memory_bytes())
+    }
+    pub(crate) fn policy_catalog_bytes(&self) -> usize {
+        self.catalog_memory_bytes().saturating_add(
+            self.shared_strings
+                .as_ref()
+                .map_or(0, SharedStrings::minimum_managed_bytes),
+        )
+    }
+    pub(crate) fn rebalance_strings_for_retained(
+        &mut self,
+        desired: usize,
+        allowance: usize,
+    ) -> Result<()> {
+        if self.shared_string_options.storage == crate::SharedStringStorage::Memory {
+            return Ok(());
+        }
+        let Some(maximum) = allowance
+            .checked_sub(self.catalog_memory_bytes())
+            .and_then(|n| n.checked_sub(desired))
+        else {
+            return Ok(());
+        };
+        if let Some(strings) = &mut self.shared_strings {
+            strings.limit_or_spill(&self.shared_string_options, maximum)?;
+        }
+        Ok(())
+    }
+    pub(crate) fn shared_cache_bytes(&self) -> usize {
+        self.shared_strings.as_ref().map_or(0, |strings| {
+            strings
+                .stats()
+                .managed_bytes
+                .saturating_sub(strings.minimum_managed_bytes())
+        })
+    }
     /// Load and borrow the shared style catalog without materializing a worksheet.
     /// Unknown/staged root sections remain explicitly listed; original-package
     /// preservation does not imply typed support for those sections.
@@ -316,7 +382,16 @@ impl<R: Read + Seek> WorkbookReader<R> {
             .map_or(0, |s| s.memory_bytes())
     }
     fn prepare_styles(&mut self) -> Result<()> {
+        self.prepare_styles_with_allowance(None)
+    }
+    fn prepare_styles_with_allowance(&mut self, allowance: Option<usize>) -> Result<()> {
         if self.imported_styles.is_some() {
+            if allowance.is_some_and(|maximum| self.style_memory_bytes() > maximum) {
+                return Err(Error::new(
+                    ErrorKind::MemoryBudgetExceeded,
+                    "Prepared styles exceed aggregate allowance",
+                ));
+            }
             return Ok(());
         }
         let Some(part) = &self.style_part else {
@@ -335,16 +410,18 @@ impl<R: Read + Seek> WorkbookReader<R> {
         }
         let mut style_limits = self.limits;
         style_limits.max_part_bytes = maximum;
+        let style_allowance = allowance
+            .unwrap_or(self.limits.max_style_bytes)
+            .min(self.limits.max_style_bytes);
         let catalog = crate::style_reader::read(
             BufReader::with_capacity(self.limits.input_buffer_bytes, file),
             part.clone(),
             style_limits,
-            self.limits.max_style_bytes,
+            style_allowance,
             self.limits.max_style_records,
         )?;
-        let imported =
-            crate::style_reader::ImportedStyles::new(catalog, self.limits.max_style_bytes)
-                .map_err(|e| e.with_part(part))?;
+        let imported = crate::style_reader::ImportedStyles::new(catalog, style_allowance)
+            .map_err(|e| e.with_part(part))?;
         self.imported_styles = Some(imported);
         self.style_metadata_remaining -= style_input_bytes;
         Ok(())
@@ -390,6 +467,15 @@ impl<R: Read + Seek> WorkbookReader<R> {
         maximum: usize,
         options: ReadOptions,
     ) -> Result<SheetData> {
+        self.collect_sheet_with_allowance(name, maximum, options, None)
+    }
+    pub(crate) fn collect_sheet_with_allowance(
+        &mut self,
+        name: &str,
+        maximum: usize,
+        options: ReadOptions,
+        allowance: Option<usize>,
+    ) -> Result<SheetData> {
         let part = self
             .sheets
             .iter()
@@ -405,7 +491,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 None => error,
             }
         };
-        let mut stream = self.rows_with_options(name, options)?;
+        let mut stream = self.rows_with_allowance(name, options, allowance)?;
         let mut sheet = SheetData { rows: Vec::new() };
         let mut cell_bytes = 0usize;
         while let Some(row) = stream.next_row()? {
@@ -413,7 +499,8 @@ impl<R: Read + Seek> WorkbookReader<R> {
             cell_bytes = cell_bytes
                 .checked_add(row_bytes)
                 .ok_or_else(materialization_limit)?;
-            let available_rows = maximum
+            let row_allowance = maximum.min(stream.available_retained_bytes()?);
+            let available_rows = row_allowance
                 .saturating_sub(size_of::<SheetData>())
                 .saturating_sub(cell_bytes)
                 / size_of::<Row>();
@@ -427,6 +514,11 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 if wanted <= sheet.rows.len() {
                     return Err(materialization_limit());
                 }
+                stream.set_aggregate_retained(
+                    size_of::<SheetData>()
+                        .saturating_add(wanted.saturating_mul(size_of::<Row>()))
+                        .saturating_add(cell_bytes),
+                )?;
                 sheet
                     .rows
                     .try_reserve_exact(wanted - sheet.rows.len())
@@ -445,9 +537,10 @@ impl<R: Read + Seek> WorkbookReader<R> {
             let retained = size_of::<SheetData>()
                 .saturating_add(sheet.rows.capacity().saturating_mul(size_of::<Row>()))
                 .saturating_add(cell_bytes);
-            if retained > maximum {
+            if retained > row_allowance {
                 return Err(materialization_limit());
             }
+            stream.set_aggregate_retained(retained)?;
             sheet.rows.push(row);
         }
         if sheet.memory_bytes() > maximum {
@@ -462,6 +555,14 @@ impl<R: Read + Seek> WorkbookReader<R> {
     }
     /// Stream selected sparse rows and columns, without decoding excluded cells.
     pub fn rows_with_options(&mut self, name: &str, options: ReadOptions) -> Result<Rows<'_, R>> {
+        self.rows_with_allowance(name, options, None)
+    }
+    pub(crate) fn rows_with_allowance(
+        &mut self,
+        name: &str,
+        options: ReadOptions,
+        allowance: Option<usize>,
+    ) -> Result<Rows<'_, R>> {
         if options.rows.as_ref().is_some_and(|r| r.start() > r.end())
             || options
                 .columns
@@ -483,7 +584,40 @@ impl<R: Read + Seek> WorkbookReader<R> {
             ));
         }
         let part = sheet.part.clone();
-        self.prepare_styles()?;
+        let style_allowance = allowance
+            .map(|maximum| {
+                maximum
+                    .checked_sub(
+                        self.catalog_memory_bytes()
+                            .saturating_sub(self.style_memory_bytes()),
+                    )
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorKind::MemoryBudgetExceeded,
+                            "Package catalogs exceed aggregate allowance",
+                        )
+                    })
+            })
+            .transpose()?;
+        self.prepare_styles_with_allowance(style_allowance)?;
+        let fixed_bytes = self.catalog_memory_bytes();
+        let pool = allowance
+            .map(|maximum| {
+                maximum
+                    .checked_sub(fixed_bytes)
+                    .map(|pool_bytes| crate::aggregate::ReadPool {
+                        fixed_bytes,
+                        pool_bytes,
+                        retained_bytes: 0,
+                    })
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorKind::MemoryBudgetExceeded,
+                            "Prepared catalogs exceed aggregate allowance",
+                        )
+                    })
+            })
+            .transpose()?;
         if options.rich_text
             && self
                 .shared_strings
@@ -504,15 +638,32 @@ impl<R: Read + Seek> WorkbookReader<R> {
                         limit("Shared-string part size limit exceeded").with_part(string_part)
                     );
                 }
+                let mut string_options = self.shared_string_options.clone();
+                if let Some(pool) = &pool {
+                    let details =
+                        crate::memory_allowance(string_options.memory_policy, self.limits)?;
+                    let retained = details.retained_data_bytes.min(pool.pool_bytes);
+                    string_options.memory_policy = crabxl_core::MemoryPolicy::Budget(
+                        details
+                            .working_reserve_bytes
+                            .checked_add(retained)
+                            .ok_or_else(|| {
+                                invalid("Aggregate shared-string allowance overflows")
+                            })?,
+                    );
+                }
                 let strings = SharedStrings::parse(
                     BufReader::with_capacity(self.limits.input_buffer_bytes, file),
                     string_part.clone(),
                     self.limits,
-                    &self.shared_string_options,
+                    &string_options,
                     options.rich_text,
                 )?;
                 self.shared_strings = Some(strings);
             }
+        }
+        if let (Some(pool), Some(strings)) = (&pool, &mut self.shared_strings) {
+            strings.limit_or_spill(&self.shared_string_options, pool.pool_bytes)?;
         }
         let file = self.archive.by_name(&part).map_err(|e| {
             Error::caused_by(ErrorKind::Archive, "Cannot open worksheet part", e)
@@ -533,7 +684,8 @@ impl<R: Read + Seek> WorkbookReader<R> {
             } else {
                 crabxl_core::DateEpoch::Windows1900
             },
-        )
+        )?
+        .with_read_pool(pool, &self.shared_string_options)
     }
     /// Configure shared-string storage. This releases any prepared table/cache and
     /// owned temporary files; the next row stream rebuilds from the original source.

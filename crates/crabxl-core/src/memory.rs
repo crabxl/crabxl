@@ -91,7 +91,11 @@ pub struct ReadDecision {
     pub budget_bytes: usize,
     /// Conservative component reserve for parser buffers and one current row.
     pub working_reserve_bytes: usize,
-    /// Maximum retained row/vector capacity for this operation.
+    /// Non-evictable managed package/style/theme/shared-string catalog storage.
+    pub catalog_bytes: usize,
+    /// Current optional decoded shared-string cache, sharing the row/template allowance.
+    pub cache_bytes: usize,
+    /// Initial row/vector allowance after prepared catalogs; later templates/cache growth also consume it.
     pub retained_data_bytes: usize,
     /// Sample-based estimate, absent for sequential scans.
     pub estimated_data_bytes: Option<usize>,

@@ -185,6 +185,28 @@ impl SharedFormulas {
                 .saturating_add(16)
         }
     }
+    pub(crate) fn required_bytes(&self, index: u32, expression_bytes: usize) -> usize {
+        if self.contains(index) {
+            return self.stats.accounted_bytes;
+        }
+        let capacity = self.templates.capacity();
+        let buckets = if self.templates.len() == capacity {
+            if capacity == 0 {
+                Self::bucket_bytes(3)
+            } else {
+                Self::bucket_bytes(capacity).saturating_mul(2)
+            }
+        } else {
+            Self::bucket_bytes(capacity)
+        };
+        size_of::<Self>()
+            .saturating_add(buckets)
+            .saturating_add(self.payload)
+            .saturating_add(expression_bytes)
+    }
+    pub(crate) fn set_maximum(&mut self, maximum: usize) {
+        self.maximum = maximum;
+    }
     pub(crate) fn stats(&self) -> SharedFormulaStats {
         self.stats
     }

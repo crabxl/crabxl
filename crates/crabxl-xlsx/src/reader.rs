@@ -35,6 +35,8 @@ pub struct Rows<'a, R: Read + Seek> {
     styles: Option<&'a crate::style_reader::ImportedStyles>,
     epoch: crabxl_core::DateEpoch,
     shared_formulas: crate::formula_codec::SharedFormulas,
+    aggregate: Option<crate::aggregate::ReadPool>,
+    shared_string_policy: Option<&'a crate::SharedStringOptions>,
 }
 impl<'a, R: Read + Seek> Rows<'a, R> {
     pub(crate) fn new(
@@ -88,6 +90,8 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             value_buffer: String::with_capacity(64.min(limits.max_cell_bytes)),
             decoded_cells: 0,
             projected_metadata_cells: 0,
+            aggregate: None,
+            shared_string_policy: None,
             row_payload_bytes: 0,
             shared_strings,
             styles,
@@ -99,6 +103,115 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         })
     }
 
+    pub(crate) fn with_read_pool(
+        mut self,
+        pool: Option<crate::aggregate::ReadPool>,
+        string_policy: &'a crate::SharedStringOptions,
+    ) -> Result<Self> {
+        self.aggregate = pool;
+        self.shared_string_policy = pool.map(|_| string_policy);
+        self.limit_string_cache()?;
+        Ok(self)
+    }
+    pub(crate) fn policy_catalog_bytes(&self) -> usize {
+        self.aggregate
+            .as_ref()
+            .map_or(0, |pool| pool.fixed_bytes)
+            .saturating_add(
+                self.shared_strings
+                    .as_ref()
+                    .map_or(0, |strings| strings.minimum_managed_bytes()),
+            )
+    }
+    pub(crate) fn shared_cache_bytes(&self) -> usize {
+        self.shared_strings.as_ref().map_or(0, |strings| {
+            strings
+                .stats()
+                .managed_bytes
+                .saturating_sub(strings.minimum_managed_bytes())
+        })
+    }
+    pub(crate) fn available_retained_bytes(&self) -> Result<usize> {
+        self.aggregate.as_ref().map_or(Ok(usize::MAX), |pool| {
+            let shared = self
+                .shared_strings
+                .as_ref()
+                .map_or(0, |strings| strings.minimum_managed_bytes());
+            pool.pool_bytes
+                .checked_sub(shared)
+                .and_then(|n| n.checked_sub(self.shared_formulas.stats().accounted_bytes))
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::MemoryBudgetExceeded,
+                        "Aggregate component allowance exceeded",
+                    )
+                })
+        })
+    }
+    pub(crate) fn set_aggregate_retained(&mut self, bytes: usize) -> Result<()> {
+        if let Some(pool) = &mut self.aggregate {
+            pool.retained_bytes = bytes;
+        }
+        self.limit_string_cache()
+    }
+    fn limit_string_cache(&mut self) -> Result<()> {
+        if let Some(pool) = &self.aggregate {
+            let maximum = pool.available(self.shared_formulas.stats().accounted_bytes)?;
+            if let Some(strings) = &mut self.shared_strings {
+                if let Some(policy) = self.shared_string_policy {
+                    strings.limit_or_spill(policy, maximum)?;
+                } else {
+                    strings.limit_managed_bytes(maximum)?;
+                }
+            }
+        }
+        Ok(())
+    }
+    fn limit_formula_storage(
+        &mut self,
+        metadata: &crabxl_core::FormulaMetadata,
+        expression: &str,
+    ) -> Result<()> {
+        if let (Some(pool), crabxl_core::FormulaType::Shared { index, .. }) =
+            (&self.aggregate, metadata.kind)
+        {
+            let required = self.shared_formulas.required_bytes(index, expression.len());
+            let available = pool.available(required)?;
+            if let Some(strings) = &mut self.shared_strings {
+                if let Some(policy) = self.shared_string_policy {
+                    strings.limit_or_spill(policy, available)?;
+                } else {
+                    strings.limit_managed_bytes(available)?;
+                }
+            }
+            let strings = self
+                .shared_strings
+                .as_ref()
+                .map_or(0, |strings| strings.stats().managed_bytes);
+            self.shared_formulas.set_maximum(
+                pool.available(strings)?
+                    .min(self.limits.max_formula_table_bytes),
+            );
+        }
+        Ok(())
+    }
+    /// Live managed retained storage participating in this policy operation.
+    /// Working reserve and caller-retained outputs are reported separately.
+    pub fn managed_retained_bytes(&self) -> usize {
+        let shared = self
+            .shared_strings
+            .as_ref()
+            .map_or(0, |strings| strings.stats().managed_bytes);
+        let formula = self.shared_formulas.stats().accounted_bytes;
+        self.aggregate
+            .as_ref()
+            .map_or(shared.saturating_add(formula), |pool| {
+                pool.fixed_bytes
+                    .saturating_add(pool.retained_bytes)
+                    .saturating_add(shared)
+                    .saturating_add(formula)
+            })
+    }
     /// Count selected cells sent through scalar decoding, useful for projection diagnostics.
     pub fn decoded_cells(&self) -> u64 {
         self.decoded_cells
@@ -158,27 +271,49 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     /// At most one additional bounded row is retained as lookahead if it does
     /// not fit this batch. A single row larger than the batch budget is an error.
     pub fn read_batch(&mut self) -> Result<Option<RowBatch>> {
-        let outer = self
+        let previous = self
+            .aggregate
+            .as_ref()
+            .map_or(0, |pool| pool.retained_bytes);
+        let result = self.read_batch_impl();
+        if let Some(pool) = &mut self.aggregate {
+            pool.retained_bytes = previous;
+        }
+        result
+    }
+    fn read_batch_impl(&mut self) -> Result<Option<RowBatch>> {
+        let maximum = self
             .limits
             .max_batch_bytes
+            .min(self.available_retained_bytes()?);
+        let outer = maximum
             .checked_sub(size_of::<RowBatch>())
             .ok_or_else(|| self.limit("Batch byte limit is too small"))?;
-        let capacity = self.limits.max_batch_rows.min(outer / size_of::<Row>());
+        let row_slots = if self.aggregate.is_some() {
+            size_of::<Row>().saturating_add(16 * size_of::<Cell>())
+        } else {
+            size_of::<Row>()
+        };
+        let capacity = self.limits.max_batch_rows.min(outer / row_slots);
         if capacity == 0 {
             return Err(self.limit("Batch byte limit is too small"));
         }
+        self.set_aggregate_retained(
+            size_of::<RowBatch>().saturating_add(capacity.saturating_mul(size_of::<Row>())),
+        )?;
         let mut batch = RowBatch { rows: Vec::new() };
         batch.rows.try_reserve_exact(capacity).map_err(|e| {
             Error::caused_by(ErrorKind::LimitExceeded, "Cannot allocate batch", e)
                 .with_part(self.xml.part())
         })?;
         let mut bytes = batch.memory_bytes();
+        self.set_aggregate_retained(bytes)?;
         while batch.rows.len() < capacity {
             let Some(row) = self.next_row()? else {
                 break;
             };
             let cell_bytes = row.memory_bytes() - size_of::<Row>();
-            if bytes.saturating_add(cell_bytes) > self.limits.max_batch_bytes {
+            if bytes.saturating_add(cell_bytes) > maximum.min(self.available_retained_bytes()?) {
                 if batch.rows.is_empty() {
                     self.exhausted = true;
                     return Err(self.limit("A row exceeds the batch byte limit"));
@@ -187,6 +322,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 break;
             }
             bytes += cell_bytes;
+            self.set_aggregate_retained(bytes)?;
             batch.rows.push(row);
         }
         Ok((!batch.rows.is_empty()).then_some(batch))
@@ -434,6 +570,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         || self.options.formula_policy
                             == crabxl_core::FormulaReadPolicy::ValidateGroups
                     {
+                        self.limit_formula_storage(&metadata, &expression)?;
                         expression = self.shared_formulas.resolve(
                             address,
                             expression,
@@ -547,6 +684,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             let id = self.value_buffer.trim_ascii().parse::<u64>().map_err(|e| {
                 Error::caused_by(ErrorKind::InvalidData, "Invalid shared-string ID", e)
             })?;
+            self.limit_string_cache()?;
             return self
                 .shared_strings
                 .as_mut()
@@ -675,6 +813,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                             || self.options.formula_policy
                                 == crabxl_core::FormulaReadPolicy::ValidateGroups
                         {
+                            self.limit_formula_storage(&metadata, &expression)?;
                             self.shared_formulas.resolve(
                                 address,
                                 expression,
