@@ -1145,6 +1145,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                                         child,
                                         old.decoder,
                                         limits.max_cell_bytes,
+                                        crabxl_core::FormulaReadPolicy::ValidateGroups,
                                     )
                                     .map_err(|error| error.with_cell(cell.address))?;
                                     if matches!(

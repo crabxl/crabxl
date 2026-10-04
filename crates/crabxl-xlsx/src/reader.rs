@@ -574,6 +574,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         &e,
                         frame.decoder,
                         self.limits.max_cell_bytes,
+                        self.options.formula_policy,
                     )?;
                     let mut expression = self.read_formula_text()?;
                     if !self.options.data_only
@@ -850,6 +851,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                             &e,
                             frame.decoder,
                             self.limits.max_cell_bytes,
+                            self.options.formula_policy,
                         )?;
                         let expression = self.read_formula_text()?;
                         let index = match metadata.kind {
