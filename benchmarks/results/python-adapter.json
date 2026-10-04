@@ -14,7 +14,7 @@
           "cpu_seconds": 0.152569,
           "peak_rss_kib": 18416,
           "observed_temp_bytes": 3345739,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 303503,
           "checksum": "100000 4999950000",
           "cleanup": true
@@ -44,7 +44,7 @@
           "cpu_seconds": 0.145987,
           "peak_rss_kib": 18500,
           "observed_temp_bytes": 3345739,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 303503,
           "checksum": "100000 4999950000",
           "cleanup": true
@@ -54,7 +54,7 @@
           "cpu_seconds": 0.148137,
           "peak_rss_kib": 18404,
           "observed_temp_bytes": 3379421,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 303503,
           "checksum": "100000 4999950000",
           "cleanup": true
@@ -81,7 +81,7 @@
           "cpu_seconds": 0.713718,
           "peak_rss_kib": 10760,
           "observed_temp_bytes": 404010,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 411715,
           "checksum": "100000 4999949999",
           "cleanup": true
@@ -111,7 +111,7 @@
           "cpu_seconds": 0.716547,
           "peak_rss_kib": 10756,
           "observed_temp_bytes": 404010,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 411715,
           "checksum": "100000 4999949999",
           "cleanup": true
@@ -121,7 +121,7 @@
           "cpu_seconds": 0.721649,
           "peak_rss_kib": 10752,
           "observed_temp_bytes": 404010,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 411715,
           "checksum": "100000 4999949999",
           "cleanup": true
@@ -148,7 +148,7 @@
           "cpu_seconds": 1.382015,
           "peak_rss_kib": 88316,
           "observed_temp_bytes": 35773024,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 2941295,
           "checksum": "1000000 499999500000",
           "cleanup": true
@@ -178,7 +178,7 @@
           "cpu_seconds": 1.391387,
           "peak_rss_kib": 88224,
           "observed_temp_bytes": 35806192,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 2941295,
           "checksum": "1000000 499999500000",
           "cleanup": true
@@ -188,7 +188,7 @@
           "cpu_seconds": 1.369653,
           "peak_rss_kib": 88380,
           "observed_temp_bytes": 35751439,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 2941295,
           "checksum": "1000000 499999500000",
           "cleanup": true
@@ -215,7 +215,7 @@
           "cpu_seconds": 6.653314,
           "peak_rss_kib": 10708,
           "observed_temp_bytes": 3852249,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 3868672,
           "checksum": "1000000 499999499999",
           "cleanup": true
@@ -245,7 +245,7 @@
           "cpu_seconds": 6.584482,
           "peak_rss_kib": 10644,
           "observed_temp_bytes": 3852249,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 3868672,
           "checksum": "1000000 499999499999",
           "cleanup": true
@@ -255,7 +255,7 @@
           "cpu_seconds": 6.523351,
           "peak_rss_kib": 10644,
           "observed_temp_bytes": 3852249,
-          "engine": "openrsxl",
+          "engine": "crabxl",
           "output_bytes": 3868672,
           "checksum": "1000000 499999499999",
           "cleanup": true

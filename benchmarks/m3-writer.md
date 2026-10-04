@@ -48,11 +48,11 @@ Require Linux, `cc`, Rust 1.88.0 and `openpyxl==3.1.5`:
 cc -O2 benchmarks/measure.c -o benchmarks/measure
 cargo build --release --examples --locked
 python benchmarks/writer_checkpoint.py
-git worktree add /tmp/openrsxl-m1 74c082a58e8b
-CARGO_TARGET_DIR=/tmp/openrsxl-m1-target cargo build --release --manifest-path /tmp/openrsxl-m1/Cargo.toml --example sum
+git worktree add /tmp/crabxl-m1 74c082a58e8b
+CARGO_TARGET_DIR=/tmp/crabxl-m1-target cargo build --release --manifest-path /tmp/crabxl-m1/Cargo.toml --example sum
 python benchmarks/write_baseline.py benchmarks/data/numbers-100000.xlsx 100000
 python benchmarks/write_baseline.py benchmarks/data/numbers-1000000.xlsx 1000000
-python benchmarks/scalar_checkpoint.py --numeric-before /tmp/openrsxl-m1-target/release/examples/sum --after-label M3 --output benchmarks/results/m3-scalar-regression.json
+python benchmarks/scalar_checkpoint.py --numeric-before /tmp/crabxl-m1-target/release/examples/sum --after-label M3 --output benchmarks/results/m3-scalar-regression.json
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 ```

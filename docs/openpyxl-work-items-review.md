@@ -16,7 +16,7 @@ Milestone [#2209](https://foss.heptapod.net/openpyxl/openpyxl/-/work_items/2209)
 
 ## Required regression coverage
 
-Numbers below link to the corresponding `/work_items/<number>` under the project URL. All findings in this table are reported risks, not independently confirmed defects in openrsxl.
+Numbers below link to the corresponding `/work_items/<number>` under the project URL. All findings in this table are reported risks, not independently confirmed defects in crabxl.
 
 | Reports | Risk and required behavior | Stage |
 |---|---|---|

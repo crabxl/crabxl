@@ -38,7 +38,7 @@ for rows in (10000,100000):
         book=openpyxl.Workbook(write_only=True);sheet=book.create_sheet('Sheet')
         for row in range(rows):sheet.append([row*10+c for c in range(10)])
         book.save(source)
-    with tempfile.TemporaryDirectory(prefix='openrsxl-chain-') as name:
+    with tempfile.TemporaryDirectory(prefix='crabxl-chain-') as name:
         directory=Path(name);chained=directory/'source.xlsx';target=directory/'output.xlsx'
         with zipfile.ZipFile(source) as original,zipfile.ZipFile(chained,'w',zipfile.ZIP_DEFLATED) as out:
             replacements=0
@@ -57,7 +57,7 @@ for rows in (10000,100000):
             out.writestr('custom/order.xml',chain)
         assert replacements==rows
         for workload,commands in [
-            ('chain-edit',{'openrsxl-native':[ROOT/'target/release/examples/edit_demo',chained,target,'edit'],'openpyxl':[sys.executable,ROOT/'benchmarks/edit_baseline.py',chained,target]}),
+            ('chain-edit',{'crabxl-native':[ROOT/'target/release/examples/edit_demo',chained,target,'edit'],'openpyxl':[sys.executable,ROOT/'benchmarks/edit_baseline.py',chained,target]}),
             ('editor-regression',{'before':[args.before_editor,source,target,'edit'],'current':[ROOT/'target/release/examples/edit_demo',source,target,'edit']}),
         ]:
             for cmd in commands.values():measure(cmd,directory)

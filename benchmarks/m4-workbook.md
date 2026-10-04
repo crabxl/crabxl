@@ -12,9 +12,9 @@ CPython 3.12, openpyxl 3.1.5, Rust 1.88 release. One warmup and three alternatin
 
 | Rows per sheet | Engine | Wall seconds | CPU seconds | RSS MiB | Observed temp MiB | Output MiB |
 |---|---|---:|---:|---:|---:|---:|
-| 10,000 | openrsxl-native | 0.199 | 0.198 | 17.25 | 5.87 | 0.58 |
+| 10,000 | crabxl-native | 0.199 | 0.198 | 17.25 | 5.87 | 0.58 |
 | 10,000 | openpyxl | 1.325 | 1.488 | 91.97 | 3.51 | 0.62 |
-| 100,000 | openrsxl-native | 2.264 | 2.212 | 153.96 | 62.69 | 5.61 |
+| 100,000 | crabxl-native | 2.264 | 2.212 | 153.96 | 62.69 | 5.61 |
 | 100,000 | openpyxl | 12.780 | 12.962 | 603.50 | 37.07 | 5.99 |
 
 Both copied sheets remain resident: this is not constant-memory model loading. At 100,000 rows per sheet, conservative managed accounting is 512,000,523 bytes for two million physical cells; measured RSS is lower because the allowance deliberately estimates BTree nodes conservatively. The explicit copy duplicates payloads, as required for independent editable models. This numeric sample meets the faster-than-openpyxl target and desired lower RSS; no calamine comparison applies to creation/copy and no rust_xlsxwriter comparison is claimed here.

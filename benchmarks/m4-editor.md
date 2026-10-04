@@ -23,7 +23,7 @@ Public generated fixtures verify styles, dates, comments, hyperlinks, merges, di
 Raw runs, CPU, RSS, temp/output sizes and assertions: [results/m4-editor.json](results/m4-editor.json).
 
 ```sh
-cargo build --release -p openrsxl --examples --locked
+cargo build --release -p crabxl --examples --locked
 # Preserve the previous M3 sum binary before rebuilding to reproduce regression comparisons.
 python benchmarks/editor_checkpoint.py --before-reader /path/to/m3-sum
 ```

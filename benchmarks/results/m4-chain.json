@@ -14,7 +14,7 @@
           "peak_rss_kib": 2616,
           "stdout": "5 4 3639543 536",
           "observed_extra_temp_bytes": 432827,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "checksum": "90000 4499989999",
           "output_bytes": 444048,
           "cleanup": true
@@ -47,7 +47,7 @@
           "peak_rss_kib": 2708,
           "stdout": "5 4 3639543 536",
           "observed_extra_temp_bytes": 432827,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "checksum": "90000 4499989999",
           "output_bytes": 444048,
           "cleanup": true
@@ -58,7 +58,7 @@
           "peak_rss_kib": 2680,
           "stdout": "5 4 3639543 536",
           "observed_extra_temp_bytes": 432827,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "checksum": "90000 4499989999",
           "output_bytes": 444048,
           "cleanup": true
@@ -162,7 +162,7 @@
           "peak_rss_kib": 2708,
           "stdout": "5 4 38469555 536",
           "observed_extra_temp_bytes": 4109287,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "checksum": "900000 449999899999",
           "output_bytes": 4123677,
           "cleanup": true
@@ -195,7 +195,7 @@
           "peak_rss_kib": 2712,
           "stdout": "5 4 38469555 536",
           "observed_extra_temp_bytes": 4109287,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "checksum": "900000 449999899999",
           "output_bytes": 4123677,
           "cleanup": true
@@ -206,7 +206,7 @@
           "peak_rss_kib": 2572,
           "stdout": "5 4 38469555 536",
           "observed_extra_temp_bytes": 4109287,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "checksum": "900000 449999899999",
           "output_bytes": 4123677,
           "cleanup": true

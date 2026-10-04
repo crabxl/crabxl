@@ -1,0 +1,15 @@
+[package]
+name = "crabxl"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "A Rust spreadsheet library with bounded streaming XLSX reads"
+
+[dependencies]
+crabxl-core.workspace = true
+crabxl-xlsx.workspace = true
+
+[lints]
+workspace = true

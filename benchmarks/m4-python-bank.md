@@ -6,9 +6,9 @@ CPython 3.12, openpyxl 3.1.5 and Rust 1.88 release. One warmup and three alterna
 
 | Rows per sheet | Python engine | Wall seconds | CPU seconds | RSS MiB | Observed temp MiB |
 |---|---|---:|---:|---:|---:|
-| 10,000 | openrsxl | 0.290 | 0.247 | 25.86 | 6.43 |
+| 10,000 | crabxl | 0.290 | 0.247 | 25.86 | 6.43 |
 | 10,000 | openpyxl | 2.057 | 1.424 | 92.10 | 3.51 |
-| 100,000 | openrsxl | 2.459 | 2.458 | 162.38 | 68.28 |
+| 100,000 | crabxl | 2.459 | 2.458 | 162.38 | 68.28 |
 | 100,000 | openpyxl | 12.923 | 12.998 | 603.48 | 37.07 |
 
 The 100k sample meets the required faster-than-openpyxl target and desired lower RSS. It uses more worksheet temporary space: both Rust sheet spools remain until ZIP packaging, while the Python reference serializes each materialized sheet separately. Full independent copies necessarily retain two models. No calamine or rust_xlsxwriter comparison is implied for this Python copy/edit workload.

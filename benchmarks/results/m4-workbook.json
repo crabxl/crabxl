@@ -13,7 +13,7 @@
           "cpu_seconds": 0.201271,
           "peak_rss_kib": 17660,
           "observed_temp_bytes": 6153782,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "model": {
             "cells": 200000,
             "sum": 9999900000,
@@ -62,7 +62,7 @@
           "cpu_seconds": 0.198434,
           "peak_rss_kib": 17540,
           "observed_temp_bytes": 6153782,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "model": {
             "cells": 200000,
             "sum": 9999900000,
@@ -79,7 +79,7 @@
           "cpu_seconds": 0.19747,
           "peak_rss_kib": 17660,
           "observed_temp_bytes": 6153782,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "model": {
             "cells": 200000,
             "sum": 9999900000,
@@ -187,7 +187,7 @@
           "cpu_seconds": 2.263077,
           "peak_rss_kib": 157644,
           "observed_temp_bytes": 65733804,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "model": {
             "cells": 2000000,
             "sum": 999999000000,
@@ -236,7 +236,7 @@
           "cpu_seconds": 2.211828,
           "peak_rss_kib": 157652,
           "observed_temp_bytes": 65733804,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "model": {
             "cells": 2000000,
             "sum": 999999000000,
@@ -253,7 +253,7 @@
           "cpu_seconds": 2.193123,
           "peak_rss_kib": 157668,
           "observed_temp_bytes": 65733804,
-          "engine": "openrsxl-native",
+          "engine": "crabxl-native",
           "model": {
             "cells": 2000000,
             "sum": 999999000000,

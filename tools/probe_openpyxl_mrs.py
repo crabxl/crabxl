@@ -59,7 +59,7 @@ with (
         if entry.filename == "xl/worksheets/sheet1.xml":
             payload = payload.replace(
                 b"</worksheet>",
-                b'<extLst><ext uri="{OPENRSXL-PROBE}"><probe:marker xmlns:probe="urn:openrsxl:probe" value="keep"/></ext></extLst></worksheet>',
+                b'<extLst><ext uri="{OPENRSXL-PROBE}"><probe:marker xmlns:probe="urn:crabxl:probe" value="keep"/></ext></extLst></worksheet>',
             )
         target.writestr(entry, payload)
 with warnings.catch_warnings(record=True) as caught:

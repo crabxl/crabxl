@@ -11,7 +11,7 @@ assert openpyxl.__version__ == "3.1.5"
 for rows in (10000, 100000):
     source = ROOT / f"benchmarks/data/numbers-{rows}.xlsx"
     runs = []
-    with tempfile.TemporaryDirectory(prefix="openrsxl-insert-") as name:
+    with tempfile.TemporaryDirectory(prefix="crabxl-insert-") as name:
         output = Path(name) / "out.xlsx"
         command = [str(ROOT / "target/release/examples/edit_demo"), str(source), str(output), "insert"]
         subprocess.run(command, check=True, capture_output=True)

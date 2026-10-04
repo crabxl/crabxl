@@ -69,7 +69,7 @@ for rows in [10000,100000,1000000]:
     if not source.exists():subprocess.run([sys.executable,str(ROOT/'benchmarks/write_baseline.py'),str(source),str(rows)],check=True)
     for mode in ['unchanged','edit']:
         runs=[]
-        with tempfile.TemporaryDirectory(prefix='openrsxl-edit-bench-') as temp:
+        with tempfile.TemporaryDirectory(prefix='crabxl-edit-bench-') as temp:
             directory=Path(temp);output=directory/'out.xlsx'
             command=[ROOT/'target/release/examples/edit_demo',source,output,mode]
             measure(command,directory)
@@ -87,7 +87,7 @@ for rows in [10000,100000,1000000]:
                     assert all(original.getinfo(name).CRC==saved.getinfo(name).CRC and original.getinfo(name).compress_size==saved.getinfo(name).compress_size for name in original.namelist())
         case={'workload':mode,'rows':rows,'columns':10,'rust_runs':runs,'checksum_verified':True,'public_python_values_verified':mode=='edit' and rows<=100000}
         if mode=='edit' and rows<=100000:
-            with tempfile.TemporaryDirectory(prefix='openrsxl-python-edit-bench-') as temp:
+            with tempfile.TemporaryDirectory(prefix='crabxl-python-edit-bench-') as temp:
                 directory=Path(temp);output=directory/'python.xlsx'
                 result=measure([sys.executable,ROOT/'benchmarks/edit_baseline.py',source,output],directory)
                 assert result.pop('stdout')=='Edited A1';result['output_bytes']=output.stat().st_size
@@ -113,7 +113,7 @@ for rows in [100000,1000000]:
     print('Reader regression',rows,'checksum passed',flush=True)
 # Public generated workbook: styles, dates, comments, merges, dimensions, rules,
 # image relationships and unknown original binary/XML parts survive two saves.
-with tempfile.TemporaryDirectory(prefix='openrsxl-interop-') as temp:
+with tempfile.TemporaryDirectory(prefix='crabxl-interop-') as temp:
     directory=Path(temp);image=directory/'image.png';PillowImage.new('RGB',(8,8),'red').save(image)
     book=openpyxl.Workbook();sheet=book.active;sheet.title='Sheet';sheet['A1']=1;sheet['A1'].font=Font(bold=True,color='123456');sheet['B1']='=A1+1';sheet['C1']=datetime.datetime(2024,2,29);sheet['D1'].comment=Comment('Retain comment','Author');sheet['E1']='link';sheet['E1'].hyperlink='https://example.com';sheet.merge_cells('B3:C3');sheet.column_dimensions['A'].width=23;sheet.print_area='A1:E4';sheet.add_image(Image(image),'G1')
     rule=DataValidation(type='whole',operator='between',formula1='0',formula2='100');sheet.add_data_validation(rule);rule.add('A2:A4');book.properties.creator='Preservation fixture'

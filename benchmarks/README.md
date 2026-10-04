@@ -6,13 +6,13 @@ Rust 1.88.0 release builds use thin LTO. Baselines are openpyxl 3.1.5 read-only/
 
 Wall time includes process startup, imports, package discovery, reading, summing, and cleanup. Generation and builds are excluded. Each scale has one warmup and five serial measured runs with rotating implementation order and warm filesystem cache. Peak RSS is the kernel per-process high-water mark from a native Linux fork/exec/wait4 launcher, without baseline subtraction. The native launcher avoids carrying a Python measurement harness's larger startup high-water mark into tiny Rust processes. There is no read-time temporary storage; generation may spool temporary XML and is excluded.
 
-| Rows × columns | openrsxl time / peak RSS | openpyxl time / peak RSS | calamine time / peak RSS |
+| Rows × columns | crabxl time / peak RSS | openpyxl time / peak RSS | calamine time / peak RSS |
 |---|---|---|---|
 | 10,000 × 10 | 0.072 s / 1.52 MiB | 0.538 s / 33.80 MiB | 0.032 s / 8.54 MiB |
 | 100,000 × 10 | 0.713 s / 1.54 MiB | 4.382 s / 41.68 MiB | 0.316 s / 70.42 MiB |
 | 1,000,000 × 10 | 6.943 s / 1.50 MiB | 56.569 s / 119.25 MiB | 3.103 s / 688.43 MiB |
 
-Time and RSS are independent medians. Numeric streaming memory remains approximately flat as rows increase. At the largest scale openrsxl is about 8.1 times faster than openpyxl and 2.2 times slower than calamine. Different validation, models, and execution paths mean this is not proof that streaming alone explains the speed difference. Bindings, text, styles, formulas, editing, and preservation are not measured.
+Time and RSS are independent medians. Numeric streaming memory remains approximately flat as rows increase. At the largest scale crabxl is about 8.1 times faster than openpyxl and 2.2 times slower than calamine. Different validation, models, and execution paths mean this is not proof that streaming alone explains the speed difference. Bindings, text, styles, formulas, editing, and preservation are not measured.
 
 ## Input buffer tuning
 

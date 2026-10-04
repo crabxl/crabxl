@@ -4,9 +4,9 @@
 
 Rust core is the only canonical implementation. Models, validation, algorithms and feature semantics belong in the shared Rust implementation; adapters translate language-specific calls, objects, ownership and errors. Do not implement a second spreadsheet engine in a binding or silently fall back to its reference package.
 
-For languages with a dominant reference package, match that package's public API and mental model. Capabilities already present in the reference package use its compatibility interface rather than a newly invented OpenRSXL API. Additional core capabilities receive idiomatic language extensions. A reference package's missing capabilities never restrict Rust core, and Rust API structure never dictates binding API structure.
+For languages with a dominant reference package, match that package's public API and mental model. Capabilities already present in the reference package use its compatibility interface rather than a newly invented CrabXL API. Additional core capabilities receive idiomatic language extensions. A reference package's missing capabilities never restrict Rust core, and Rust API structure never dictates binding API structure.
 
-Compatibility surfaces and OpenRSXL extensions must be clearly distinguishable and independently evolvable. Keep their documentation, tests and compatibility/version policies separate. Extensions must not change reference-compatible defaults or introduce ambiguous competing calls for existing reference capabilities. Choose concrete extension namespaces per language when implementing its adapter.
+Compatibility surfaces and CrabXL extensions must be clearly distinguishable and independently evolvable. Keep their documentation, tests and compatibility/version policies separate. Extensions must not change reference-compatible defaults or introduce ambiguous competing calls for existing reference capabilities. Choose concrete extension namespaces per language when implementing its adapter.
 
 ## Binding priority
 
@@ -33,9 +33,9 @@ Here, greater speed means lower elapsed time for the same completed operation, a
 
 | Reference | Speed target | RAM target | Scope |
 |---|---|---|---|
-| openpyxl | Required: OpenRSXL faster | Desired: OpenRSXL lower | Equivalent supported behavior and modes |
-| calamine | Desired: OpenRSXL faster | Desired: OpenRSXL lower | Overlapping read capabilities only |
-| rust_xlsxwriter | Desired: OpenRSXL faster | Desired: OpenRSXL lower | Overlapping write capabilities only |
+| openpyxl | Required: CrabXL faster | Desired: CrabXL lower | Equivalent supported behavior and modes |
+| calamine | Desired: CrabXL faster | Desired: CrabXL lower | Overlapping read capabilities only |
+| rust_xlsxwriter | Desired: CrabXL faster | Desired: CrabXL lower | Overlapping write capabilities only |
 
 These are acceptance goals, not assertions about current results. Functional correctness and full planned feature coverage remain required. Record a failed required speed target as unresolved; do not hide it behind a faster unrelated workload or remove the feature.
 

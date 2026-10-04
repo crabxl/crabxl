@@ -62,7 +62,7 @@ def main():
                 sheet.append([row * 10 + column for column in range(10)])
             workbook.save(path)
         commands = {
-            "openrsxl": [ROOT / "target/release/examples/sum", path],
+            "crabxl": [ROOT / "target/release/examples/sum", path],
             "openpyxl": [sys.executable, HERE / "read_openpyxl.py", path],
             "calamine": [HERE / "calamine/target/release/calamine-baseline", path],
         }

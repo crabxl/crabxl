@@ -24,11 +24,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
-        "crates/openrsxl-core/src",
-        "crates/openrsxl-xlsx/src"
+        "crates/crabxl-core/src",
+        "crates/crabxl-xlsx/src"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::resolves_nonstandard_parts_and_unescapes_names"
+        "crates/crabxl-xlsx/tests/streaming.rs::resolves_nonstandard_parts_and_unescapes_names"
       ],
       "limitations": "First numeric checkpoint; see README and ADR 0001. Verification is scoped to listed behavior, not comprehensive OOXML support."
     },
@@ -48,11 +48,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
-        "crates/openrsxl-core/src",
-        "crates/openrsxl-xlsx/src"
+        "crates/crabxl-core/src",
+        "crates/crabxl-xlsx/src"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::multiple_sheets_follow_relationship_ids_and_can_be_reopened"
+        "crates/crabxl-xlsx/tests/streaming.rs::multiple_sheets_follow_relationship_ids_and_can_be_reopened"
       ],
       "limitations": "First numeric checkpoint; see README and ADR 0001. Verification is scoped to listed behavior, not comprehensive OOXML support."
     },
@@ -73,11 +73,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
-        "crates/openrsxl-core/src",
-        "crates/openrsxl-xlsx/src"
+        "crates/crabxl-core/src",
+        "crates/crabxl-xlsx/src"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::numeric_entities_and_zero_style_are_supported"
+        "crates/crabxl-xlsx/tests/streaming.rs::numeric_entities_and_zero_style_are_supported"
       ],
       "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
     },
@@ -98,11 +98,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
-        "crates/openrsxl-core/src",
-        "crates/openrsxl-xlsx/src"
+        "crates/crabxl-core/src",
+        "crates/crabxl-xlsx/src"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::inferred_coordinates_and_empty_rows_preserve_sparsity"
+        "crates/crabxl-xlsx/tests/streaming.rs::inferred_coordinates_and_empty_rows_preserve_sparsity"
       ],
       "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
     },
@@ -123,11 +123,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
-        "crates/openrsxl-core/src",
-        "crates/openrsxl-xlsx/src"
+        "crates/crabxl-core/src",
+        "crates/crabxl-xlsx/src"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::projection_uses_current_sparse_coordinate_before_decoding"
+        "crates/crabxl-xlsx/tests/streaming.rs::projection_uses_current_sparse_coordinate_before_decoding"
       ],
       "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
     },
@@ -148,11 +148,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
-        "crates/openrsxl-core/src",
-        "crates/openrsxl-xlsx/src"
+        "crates/crabxl-core/src",
+        "crates/crabxl-xlsx/src"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::reuse_buffer_and_release_early_reader"
+        "crates/crabxl-xlsx/tests/streaming.rs::reuse_buffer_and_release_early_reader"
       ],
       "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
     },
@@ -173,11 +173,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
-        "crates/openrsxl-core/src",
-        "crates/openrsxl-xlsx/src"
+        "crates/crabxl-core/src",
+        "crates/crabxl-xlsx/src"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::owned_batches_obey_byte_budget_and_outlive_workbook"
+        "crates/crabxl-xlsx/tests/streaming.rs::owned_batches_obey_byte_budget_and_outlive_workbook"
       ],
       "limitations": "First numeric checkpoint; f64 may round large integer literals. Style-zero formatting is not interpreted. See README and ADR 0001; verification is scoped to listed behavior, not comprehensive OOXML support."
     },
@@ -197,11 +197,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
-        "crates/openrsxl-core/src",
-        "crates/openrsxl-xlsx/src"
+        "crates/crabxl-core/src",
+        "crates/crabxl-xlsx/src"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::event_cell_row_depth_and_metadata_limits_are_enforced"
+        "crates/crabxl-xlsx/tests/streaming.rs::event_cell_row_depth_and_metadata_limits_are_enforced"
       ],
       "limitations": "First numeric checkpoint; see README and ADR 0001. Verification is scoped to listed behavior, not comprehensive OOXML support."
     },
@@ -221,11 +221,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
-        "crates/openrsxl-core/src",
-        "crates/openrsxl-xlsx/src"
+        "crates/crabxl-core/src",
+        "crates/crabxl-xlsx/src"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::tiny_batch_limit_fails_without_partial_delivery"
+        "crates/crabxl-xlsx/tests/streaming.rs::tiny_batch_limit_fails_without_partial_delivery"
       ],
       "limitations": "First numeric checkpoint; see README and ADR 0001. Verification is scoped to listed behavior, not comprehensive OOXML support."
     },
@@ -245,12 +245,12 @@
       ],
       "reference": "docs/decisions/0001-numeric-streaming.md",
       "modules": [
-        "crates/openrsxl-core/src/row.rs",
-        "crates/openrsxl-xlsx/src/package.rs"
+        "crates/crabxl-core/src/row.rs",
+        "crates/crabxl-xlsx/src/package.rs"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::materialized_sheet_matches_streaming_and_outlives_workbook",
-        "crates/openrsxl-xlsx/tests/streaming.rs::materialization_budget_fails_and_releases_reader"
+        "crates/crabxl-xlsx/tests/streaming.rs::materialized_sheet_matches_streaming_and_outlives_workbook",
+        "crates/crabxl-xlsx/tests/streaming.rs::materialization_budget_fails_and_releases_reader"
       ],
       "limitations": "Same raw numeric restrictions as streaming; retained-data budget excludes parser/catalog and one current row. Auto and the full editable workbook remain planned."
     },
@@ -271,14 +271,14 @@
       ],
       "reference": "docs/decisions/0002-adaptive-memory.md",
       "modules": [
-        "crates/openrsxl-core/src/memory.rs",
-        "crates/openrsxl-xlsx/src/adaptive.rs"
+        "crates/crabxl-core/src/memory.rs",
+        "crates/crabxl-xlsx/src/adaptive.rs"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/streaming.rs::adaptive_scan_streams_without_sampling_and_respects_fixed_budget",
-        "crates/openrsxl-xlsx/tests/streaming.rs::adaptive_repeated_access_materializes_using_available_memory",
-        "crates/openrsxl-xlsx/tests/streaming.rs::adaptive_heterogeneous_input_falls_back_at_actual_budget",
-        "crates/openrsxl-xlsx/tests/streaming.rs::adaptive_errors_are_not_hidden_by_streaming_fallback"
+        "crates/crabxl-xlsx/tests/streaming.rs::adaptive_scan_streams_without_sampling_and_respects_fixed_budget",
+        "crates/crabxl-xlsx/tests/streaming.rs::adaptive_repeated_access_materializes_using_available_memory",
+        "crates/crabxl-xlsx/tests/streaming.rs::adaptive_heterogeneous_input_falls_back_at_actual_budget",
+        "crates/crabxl-xlsx/tests/streaming.rs::adaptive_errors_are_not_hidden_by_streaming_fallback"
       ],
       "limitations": "Initial raw numeric policy only; Linux cgroup v2/host/process probes and portable caller override. Other OS/cgroup v1 use conservative fallback. Budgets exclude existing catalog, dependency overhead and caller-owned outputs; not a global RSS cap. String/style caches and concurrent strategies remain planned."
     },
@@ -16353,8 +16353,8 @@
       ],
       "reference": "openpyxl.cell.cell and public openpyxl 3.1.5 load_workbook behavior",
       "modules": [
-        "crates/openrsxl-core/src/row.rs",
-        "crates/openrsxl-xlsx/src/reader.rs"
+        "crates/crabxl-core/src/row.rs",
+        "crates/crabxl-xlsx/src/reader.rs"
       ],
       "tests": [
         "boolean_literals_preserve_type_and_reuse_all_read_modes",
@@ -16382,8 +16382,8 @@
       ],
       "reference": "openpyxl 3.1.5 public scalar behavior and generated mixed-scalar fixtures",
       "modules": [
-        "crates/openrsxl-core/src/scalar.rs",
-        "crates/openrsxl-xlsx/src/reader.rs"
+        "crates/crabxl-core/src/scalar.rs",
+        "crates/crabxl-xlsx/src/reader.rs"
       ],
       "tests": [
         "exact_integers_float_lexemes_errors_and_plain_inline_text"
@@ -16409,8 +16409,8 @@
       ],
       "reference": "openpyxl 3.1.5 public scalar behavior and generated mixed-scalar fixtures",
       "modules": [
-        "crates/openrsxl-core/src/scalar.rs",
-        "crates/openrsxl-xlsx/src/reader.rs"
+        "crates/crabxl-core/src/scalar.rs",
+        "crates/crabxl-xlsx/src/reader.rs"
       ],
       "tests": [
         "exact_integers_float_lexemes_errors_and_plain_inline_text",
@@ -16437,8 +16437,8 @@
       ],
       "reference": "openpyxl 3.1.5 public scalar behavior and generated mixed-scalar fixtures",
       "modules": [
-        "crates/openrsxl-core/src/scalar.rs",
-        "crates/openrsxl-xlsx/src/reader.rs"
+        "crates/crabxl-core/src/scalar.rs",
+        "crates/crabxl-xlsx/src/reader.rs"
       ],
       "tests": [
         "owned_text_payloads_are_counted_in_row_batch_and_materialization_limits",
@@ -16462,8 +16462,8 @@
       ],
       "reference": "Selected pinned rust_xlsxwriter serializers and constant-memory packager; see third_party/ports.json",
       "modules": [
-        "crates/openrsxl-xlsx/src/writer.rs",
-        "crates/openrsxl-xlsx/src/encode.rs"
+        "crates/crabxl-xlsx/src/writer.rs",
+        "crates/crabxl-xlsx/src/encode.rs"
       ],
       "tests": [
         "scalar_round_trip_sparse_rows_empty_sheet_and_epoch",
@@ -16488,8 +16488,8 @@
       ],
       "reference": "Selected pinned rust_xlsxwriter serializers and constant-memory packager; see third_party/ports.json",
       "modules": [
-        "crates/openrsxl-xlsx/src/writer.rs",
-        "crates/openrsxl-xlsx/src/encode.rs"
+        "crates/crabxl-xlsx/src/writer.rs",
+        "crates/crabxl-xlsx/src/encode.rs"
       ],
       "tests": [
         "abort_and_drop_clean_every_owned_file_without_saving",
@@ -16515,11 +16515,11 @@
       ],
       "reference": "Pinned rust_xlsxwriter serializers and public openpyxl 3.1.5 interoperability; third_party/ports.json",
       "modules": [
-        "crates/openrsxl-core/src/date.rs",
-        "crates/openrsxl-core/src/formula.rs",
-        "crates/openrsxl-core/src/style.rs",
-        "crates/openrsxl-xlsx/src/encode.rs",
-        "crates/openrsxl-xlsx/src/styles.rs"
+        "crates/crabxl-core/src/date.rs",
+        "crates/crabxl-core/src/formula.rs",
+        "crates/crabxl-core/src/style.rs",
+        "crates/crabxl-xlsx/src/encode.rs",
+        "crates/crabxl-xlsx/src/styles.rs"
       ],
       "tests": [
         "date_serials_formats_and_epoch_flags_are_encoded_consistently",
@@ -16548,8 +16548,8 @@
       ],
       "reference": "Pinned rust_xlsxwriter serializers and public openpyxl 3.1.5 interoperability; third_party/ports.json",
       "modules": [
-        "crates/openrsxl-core/src/formula.rs",
-        "crates/openrsxl-xlsx/src/reader.rs"
+        "crates/crabxl-core/src/formula.rs",
+        "crates/crabxl-xlsx/src/reader.rs"
       ],
       "tests": [
         "normal_formula_round_trip_and_data_only_caches",
@@ -16573,12 +16573,12 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
       "modules": [
-        "crates/openrsxl-core/src/worksheet.rs",
-        "crates/openrsxl-xlsx/src/writer.rs"
+        "crates/crabxl-core/src/worksheet.rs",
+        "crates/crabxl-xlsx/src/writer.rs"
       ],
       "tests": [
-        "crates/openrsxl-core/tests/worksheet.rs",
-        "crates/openrsxl-xlsx/tests/writer.rs"
+        "crates/crabxl-core/tests/worksheet.rs",
+        "crates/crabxl-xlsx/tests/writer.rs"
       ],
       "limitations": "Core models and new-file borrowed export only; formulas/styles move verbatim. Existing-file structural edits and workbook aggregate remain planned."
     },
@@ -16598,10 +16598,10 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
       "modules": [
-        "crates/openrsxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/editor.rs"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/editor.rs"
+        "crates/crabxl-xlsx/tests/editor.rs"
       ],
       "limitations": "Opaque preservation only, not typed feature access. Default raw copy trusts catalog CRC; optional validation consumes unchanged payloads. Signed/calc-chain files allow unchanged save only."
     },
@@ -16621,10 +16621,10 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
       "modules": [
-        "crates/openrsxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/editor.rs"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/editor.rs",
+        "crates/crabxl-xlsx/tests/editor.rs",
         "benchmarks/editor_checkpoint.py"
       ],
       "limitations": "Physical target checked on save. set_value rejects missing cells; upsert_value inserts them. Date values, cm/vm and non-normal target formulas are unsupported. Old caches cleared globally; automatic recalculation requested. M4 remains in progress."
@@ -16645,11 +16645,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "crates/openrsxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/editor.rs"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/editor.rs::upserts_fill_sparse_gaps_and_preserve_inferred_positions_and_row_metadata",
-        "crates/openrsxl-xlsx/tests/editor.rs::upserts_create_rows_in_empty_strict_sheet_and_reject_non_anchor_merges_atomically",
+        "crates/crabxl-xlsx/tests/editor.rs::upserts_fill_sparse_gaps_and_preserve_inferred_positions_and_row_metadata",
+        "crates/crabxl-xlsx/tests/editor.rs::upserts_create_rows_in_empty_strict_sheet_and_reject_non_anchor_merges_atomically",
         "benchmarks/insertion_checkpoint.py"
       ],
       "limitations": "Explicit upsert_value; default style for new cells. set_value remains existing-only. Non-anchor merged targets are rejected at save. Existing structural edits remain planned."
@@ -16671,13 +16671,13 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "bindings/python/src/lib.rs",
-        "bindings/python/python/openrsxl/__init__.py"
+        "https://github.com/crabxl/crabxl-python/blob/main/src/lib.rs",
+        "https://github.com/crabxl/crabxl-python/blob/main/python/crabxl/__init__.py"
       ],
       "tests": [
-        "bindings/python/tests/test_upstream_worksheet.py",
-        "bindings/python/tests/test_parity.py",
-        "tools/verify_python_test_provenance.py",
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_upstream_worksheet.py",
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py",
+        "https://github.com/crabxl/crabxl-python/blob/main/tools/verify_python_test_provenance.py",
         "benchmarks/python_adapter_checkpoint.py"
       ],
       "limitations": "Only listed scalar/formula/model/overlay calls, not whole baseline modules or M7 acceptance. 46 selected upstream worksheet/translator methods with unchanged assertions now pass. Full styles/dates/shared strings, complete tokenizer and advanced features, loaded structural edits, read-only/write-only/file-like Python modes and complete exception behavior remain staged. Native core stays Python-independent."
@@ -16699,13 +16699,13 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/formula.html",
       "modules": [
-        "crates/openrsxl-core/src/translate.rs",
-        "bindings/python/python/openrsxl/formula/translate.py"
+        "crates/crabxl-core/src/translate.rs",
+        "https://github.com/crabxl/crabxl-python/blob/main/python/crabxl/formula/translate.py"
       ],
       "tests": [
-        "crates/openrsxl-core/tests/translate.rs",
-        "bindings/python/tests/test_upstream_translate.py",
-        "bindings/python/tests/test_parity.py"
+        "crates/crabxl-core/tests/translate.rs",
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_upstream_translate.py",
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py"
       ],
       "limitations": "Selected A1 scanner/translator behavior, not a complete tokenizer/parser or calculation engine. Spill/unknown error syntax rejected; origin/axis row labels fit u64 and formula references follow the baseline seven-digit grammar. Full tokenizer API and general malformed-input/exception equivalence remain staged."
     },
@@ -16726,11 +16726,11 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
       "modules": [
-        "crates/openrsxl-core/src/worksheet.rs"
+        "crates/crabxl-core/src/worksheet.rs"
       ],
       "tests": [
-        "crates/openrsxl-core/tests/translate.rs",
-        "bindings/python/tests/test_upstream_worksheet.py"
+        "crates/crabxl-core/tests/translate.rs",
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_upstream_worksheet.py"
       ],
       "limitations": "Prevalidates all translations and managed staging allowance. Drops caches of translated formulas, preserves styles and other values. Does not update external dependents or perform loaded-package structural edits."
     },
@@ -16750,13 +16750,13 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "crates/openrsxl-core/src/workbook.rs",
-        "crates/openrsxl-xlsx/src/writer.rs"
+        "crates/crabxl-core/src/workbook.rs",
+        "crates/crabxl-xlsx/src/writer.rs"
       ],
       "tests": [
-        "crates/openrsxl-core/tests/workbook.rs",
-        "crates/openrsxl-xlsx/tests/writer.rs::owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values",
-        "bindings/python/tests/test_parity.py"
+        "crates/crabxl-core/tests/workbook.rs",
+        "crates/crabxl-xlsx/tests/writer.rs::owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values",
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py"
       ],
       "limitations": "Independent scalar/formula model copies only; no original feature-graph copying or existing-file sheet surgery. Loaded-model aggregate integration and complete style/feature catalogs remain planned. Aggregate managed accounting is not hard RSS."
     },
@@ -16776,13 +16776,13 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "bindings/python/src/lib.rs",
-        "bindings/python/python/openrsxl/__init__.py",
-        "crates/openrsxl-core/src/workbook.rs"
+        "https://github.com/crabxl/crabxl-python/blob/main/src/lib.rs",
+        "https://github.com/crabxl/crabxl-python/blob/main/python/crabxl/__init__.py",
+        "crates/crabxl-core/src/workbook.rs"
       ],
       "tests": [
-        "bindings/python/tests/test_upstream_workbook.py",
-        "bindings/python/tests/test_parity.py"
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_upstream_workbook.py",
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py"
       ],
       "limitations": "Scalar/formula models only; full feature catalogs and loaded structural/feature-graph copies remain required. New registered sheets share managed bank allowance; loaded, standalone, removed caller-retained models and Python heap are separate. Not a hard RSS cap."
     },
@@ -16803,15 +16803,15 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/formula.html",
       "modules": [
-        "crates/openrsxl-xlsx/src/editor.rs",
-        "crates/openrsxl-xlsx/src/package.rs"
+        "crates/crabxl-xlsx/src/editor.rs",
+        "crates/crabxl-xlsx/src/package.rs"
       ],
       "tests": [
-        "crates/openrsxl-xlsx/tests/editor.rs::edited_chain_removes_part_and_package_refs_with_repeat_save_and_revert",
-        "crates/openrsxl-xlsx/tests/editor.rs::foreign_chain_consumers_and_chain_extensions_reject_edits_without_loss",
-        "crates/openrsxl-xlsx/tests/editor.rs::strict_chain_relationships_are_removed_but_untyped_targets_are_guarded",
-        "crates/openrsxl-xlsx/tests/editor.rs::chain_graph_scan_is_bounded_and_alternate_consumers_guarded",
-        "bindings/python/tests/test_parity.py::test_loaded_calculation_chain_edit_removes_derived_parts"
+        "crates/crabxl-xlsx/tests/editor.rs::edited_chain_removes_part_and_package_refs_with_repeat_save_and_revert",
+        "crates/crabxl-xlsx/tests/editor.rs::foreign_chain_consumers_and_chain_extensions_reject_edits_without_loss",
+        "crates/crabxl-xlsx/tests/editor.rs::strict_chain_relationships_are_removed_but_untyped_targets_are_guarded",
+        "crates/crabxl-xlsx/tests/editor.rs::chain_graph_scan_is_bounded_and_alternate_consumers_guarded",
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py::test_loaded_calculation_chain_edit_removes_derived_parts"
       ],
       "limitations": "Derived ordering is not read/created as a typed editable model. Conventional content-type overrides only; unsafe or unsupported relationship graphs reject edits. Digital-signature editing remains rejected."
     }
