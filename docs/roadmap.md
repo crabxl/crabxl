@@ -4,7 +4,7 @@ Status: M0 architecture/inventory and M1 raw numeric streaming acceptance comple
 
 Consult [pending MR risks](openpyxl-mr-review.md) and [work-item, board, and milestone risks](openpyxl-work-items-review.md) when implementing affected features. Defects are regression cases to fix or avoid, not behavior that compatibility requires reproducing.
 
-See [binding priorities, interface principles and performance targets](binding-contract.md). Python is tier 1, followed by JS/TS, then .NET and Java/Kotlin, PHP and Go, and finally Ruby, Swift and Dart. Rust core remains canonical; compatibility interfaces and language-specific extensions evolve separately. Faster-than-openpyxl performance is required; faster native overlap and lower RAM targets are desired, with equivalent-workload evidence.
+See [binding priorities, interface principles and performance targets](binding-contract.md). Python is tier 1, followed by JS/TS on Node and WASM sharing one ExcelJS-compatible API, then .NET and Java/Kotlin, PHP and Go, and finally Ruby, Swift and Dart. Rust core remains canonical; compatibility interfaces and language-specific extensions evolve separately. Faster-than-openpyxl performance is required; faster native overlap and lower RAM targets are desired, with equivalent-workload evidence.
 
 ## Scope and completion
 

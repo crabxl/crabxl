@@ -13,7 +13,8 @@ Compatibility surfaces and OpenRSXL extensions must be clearly distinguishable a
 | Tier | Language | Reference interface |
 |---|---|---|
 | 1 | Python | openpyxl |
-| 2 | JavaScript / TypeScript | ExcelJS |
+| 2 | JavaScript / TypeScript on Node | ExcelJS-compatible API |
+| 2 | JavaScript / TypeScript through WASM | The same ExcelJS-compatible API |
 | 3 | C# / .NET | ClosedXML |
 | 3 | Java / Kotlin | Apache POI |
 | 4 | PHP | PhpSpreadsheet |
@@ -21,6 +22,8 @@ Compatibility surfaces and OpenRSXL extensions must be clearly distinguishable a
 | 5 | Ruby | RubyXL and caxlsx |
 | 5 | Swift | A separately designed idiomatic interface |
 | 5 | Dart | excel |
+
+The Node and WASM adapters share one ExcelJS-compatible public API and mental model. Platform adapters handle host I/O, ownership and runtime constraints; core behavior remains canonical in Rust. Exercise shared compatibility tests on both targets and document host-specific capabilities without inventing a second spreadsheet API.
 
 Python implementation is authorized now. Other adapters are planned in this order; this contract does not claim they exist. Pin each reference version, inventory its public behavior, and define overlapping or mode-specific surfaces before implementing its adapter. Ruby's read/edit and creation references require an explicit compatibility map rather than an invented merged API.
 
