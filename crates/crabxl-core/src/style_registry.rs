@@ -318,9 +318,9 @@ impl StyleRegistry {
         let number = self
             .numbers
             .find_by(fingerprint(&style.number_format), |id| {
-                self.catalog.number_formats[id as usize].code == style.number_format
+                self.catalog.number_formats[id as usize].code() == style.number_format.as_ref()
             })
-            .map(|id| self.catalog.number_formats[id as usize].id)
+            .map(|id| self.catalog.number_formats[id as usize].id())
             .or_else(|| builtin_number_format_id(&style.number_format));
         let number_id = match number {
             Some(id) => id,
@@ -483,10 +483,9 @@ impl StyleRegistry {
         }
         if let Some(index) = number_index {
             let id = self.catalog.number_formats.len() as u32;
-            self.catalog.number_formats.push(NumberFormat {
-                id: number_id,
-                code: style.number_format,
-            });
+            self.catalog
+                .number_formats
+                .push(NumberFormat::new(number_id, style.number_format));
             self.numbers.insert(number_hash, id, index);
         }
         let id = self.catalog.cell_formats.len() as u32;

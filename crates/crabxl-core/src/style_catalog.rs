@@ -5,10 +5,39 @@ use crate::{Alignment, Border, Color, Fill, Font, Protection, StyleId};
 /// A declared number-format code without dense allocation from its numeric ID.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NumberFormat {
-    /// Format identity; built-in or custom definitions may appear in input.
-    pub id: u32,
-    /// Literal format code.
-    pub code: Box<str>,
+    id: u32,
+    code: Box<str>,
+    date_kind: Option<crate::DateKind>,
+}
+impl NumberFormat {
+    /// Retain the literal code and its allocation-free canonical classification.
+    pub fn new(id: u32, code: impl Into<Box<str>>) -> Self {
+        let code = code.into();
+        let date_kind = crate::classify_number_format(&code);
+        Self {
+            id,
+            code,
+            date_kind,
+        }
+    }
+    /// Source identity, including custom declarations overriding built-ins.
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+    /// Borrow the original format spelling.
+    pub fn code(&self) -> &str {
+        &self.code
+    }
+    /// Cached date/duration classification of the literal code.
+    pub fn date_kind(&self) -> Option<crate::DateKind> {
+        self.date_kind
+    }
+    /// Replace the code while keeping its classification consistent.
+    pub fn set_code(&mut self, code: impl Into<Box<str>>) {
+        let code = code.into();
+        self.date_kind = crate::classify_number_format(&code);
+        self.code = code;
+    }
 }
 /// A format record referring to workbook component tables.
 #[derive(Clone, Debug, Default, PartialEq, Hash)]

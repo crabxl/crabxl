@@ -17257,6 +17257,33 @@
         "benchmarks/probe_formula_attributes.py"
       ],
       "limitations": "Physical formula replacement only; array spill/shared/metadata graph synchronization remains staged. Source flags differ deliberately from assigned boolean values. No milestone completion claimed."
+    },
+    {
+      "id": "styles.canonical-format-classification",
+      "description": "Allocation-free core classification retained by immutable-ID number-format records, with mutation-safe cached kinds and no duplicate reader scratch catalog",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "streaming",
+        "materialized",
+        "sequential-write"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/number_formats.rs",
+        "crates/crabxl-core/src/style_catalog.rs",
+        "crates/crabxl-xlsx/src/style_reader.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/values.rs::number_format_classification_stays_consistent_when_the_owned_code_changes",
+        "benchmarks/style_classification_checkpoint.py"
+      ],
+      "limitations": "Canonical record mutation does not complete loaded-workbook style catalog editing. Unknown locale formats are not fabricated; complete style scratch accounting and milestone acceptance remain staged."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

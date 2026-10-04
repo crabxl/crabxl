@@ -176,7 +176,7 @@ pub(crate) fn encode_cells<'a>(
             if cell.style.get() != 0
                 && styles
                     .number_format(cell.style.get())
-                    .and_then(crate::styles::date_format)
+                    .and_then(crabxl_core::classify_number_format)
                     != Some(expected)
             {
                 return Err(Error::new(

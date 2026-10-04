@@ -251,7 +251,7 @@ fn read_impl<B: BufRead>(
                                     let heap = code.len();
                                     budget.push(
                                         &mut result.number_formats,
-                                        NumberFormat { id, code },
+                                        NumberFormat::new(id, code),
                                         heap,
                                     )?;
                                 }
@@ -353,11 +353,11 @@ fn read_impl<B: BufRead>(
             _ => return Err(invalid("Invalid style catalog document")),
         }
     }
-    result.number_formats.sort_unstable_by_key(|n| n.id);
+    result.number_formats.sort_unstable_by_key(|n| n.id());
     if result
         .number_formats
         .windows(2)
-        .any(|pair| pair[0].id == pair[1].id)
+        .any(|pair| pair[0].id() == pair[1].id())
     {
         return Err(invalid("Duplicate number-format identity"));
     }
@@ -481,19 +481,6 @@ pub(crate) struct ImportedStyles {
 }
 impl ImportedStyles {
     pub(crate) fn new(catalog: StyleCatalog, maximum: usize) -> Result<Self> {
-        let mut declared = Vec::new();
-        declared
-            .try_reserve_exact(catalog.number_formats.len())
-            .map_err(|e| {
-                Error::caused_by(
-                    ErrorKind::MemoryBudgetExceeded,
-                    "Cannot classify number formats",
-                    e,
-                )
-            })?;
-        for format in &catalog.number_formats {
-            declared.push((format.id, crate::styles::date_format(&format.code)));
-        }
         let count = catalog.cell_formats.len();
         if catalog
             .memory_bytes()
@@ -511,10 +498,11 @@ impl ImportedStyles {
             )
         })?;
         for format in &catalog.cell_formats {
-            let kind = declared
-                .binary_search_by_key(&format.number_format_id, |v| v.0)
+            let kind = catalog
+                .number_formats
+                .binary_search_by_key(&format.number_format_id, NumberFormat::id)
                 .ok()
-                .map(|i| declared[i].1)
+                .map(|i| catalog.number_formats[i].date_kind())
                 .unwrap_or_else(|| match format.number_format_id {
                     14..=22 | 45 | 47 => Some(crabxl_core::DateKind::DateTime),
                     46 => Some(crabxl_core::DateKind::Duration),
