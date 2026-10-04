@@ -412,7 +412,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     }
                     next_column = header.address.column.get() + 1;
                     if !self.options.includes(header.address) {
-                        self.skip_cell(header.address)?;
+                        self.skip_cell(header.address).map_err(|error| {
+                            error.with_part(self.xml.part()).with_cell(header.address)
+                        })?;
                         continue;
                     }
                     if matches!(header.kind, ScalarKind::Unsupported)
@@ -787,6 +789,13 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         }
     }
     fn skip_cell(&mut self, address: CellAddress) -> Result<()> {
+        let strict = self.options.formula_policy == crabxl_core::FormulaReadPolicy::ValidateGroups;
+        let future_selected_rows = self
+            .options
+            .rows
+            .as_ref()
+            .is_none_or(|range| address.row <= *range.end());
+        let retain_shared = strict || (!self.options.data_only && future_selected_rows);
         loop {
             let frame = self.xml.next()?;
             match frame.event {
@@ -794,9 +803,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 5
                         && e.local_name().as_ref() == b"f"
-                        && (!self.options.data_only
-                            || self.options.formula_policy
-                                == crabxl_core::FormulaReadPolicy::ValidateGroups) =>
+                        && retain_shared =>
                 {
                     if crate::formula_codec::is_shared(&e, frame.decoder)? {
                         let mut metadata = crate::formula_codec::header(

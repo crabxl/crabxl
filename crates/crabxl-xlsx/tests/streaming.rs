@@ -2615,3 +2615,172 @@ fn aggregate_failed_auto_spill_keeps_the_existing_table_and_cleans_partial_temp_
     assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
     assert!(book.rows("A & B").unwrap().next_row().unwrap().is_some());
 }
+
+#[test]
+fn aggregate_policy_options_retain_projected_shared_metadata_and_cache_modes() {
+    use crabxl_core::FormulaType;
+    for access in [AccessPattern::Scan, AccessPattern::RepeatedAccess] {
+        for data_only in [false, true] {
+            let mut book = open(
+                "<row r=\"1\"><c r=\"A1\"><f t=\"shared\" si=\"9\" ref=\"A1:A2\">A1+1</f><v>2</v></c></row><row r=\"2\"><c r=\"A2\"><f t=\"shared\" si=\"9\"/><v>3</v></c></row>",
+            );
+            let mut output = book
+                .read_with_policy_options(
+                    "A & B",
+                    ReadOptions {
+                        rows: Some(
+                            crabxl_core::RowIndex::new(1).unwrap()
+                                ..=crabxl_core::RowIndex::new(1).unwrap(),
+                        ),
+                        data_only,
+                        formula_metadata: true,
+                        ..Default::default()
+                    },
+                    access,
+                    MemoryPolicy::Budget(8 * 1024 * 1024),
+                )
+                .unwrap();
+            let check = |row: &crabxl_core::Row| {
+                assert_eq!(row.index.get(), 1);
+                assert_eq!(row.cells.len(), 1);
+                if data_only {
+                    assert_eq!(row.cells[0].value, CellValue::Integer(3));
+                } else {
+                    let CellValue::Formula(formula) = &row.cells[0].value else {
+                        panic!("Expected shared formula");
+                    };
+                    assert_eq!(formula.expression(), "A2+1");
+                    assert_eq!(
+                        formula.formula_type(),
+                        FormulaType::Shared {
+                            index: 9,
+                            master: false
+                        }
+                    );
+                }
+            };
+            match &mut output.data {
+                ReadData::Streaming(rows) => {
+                    check(&rows.next_row().unwrap().unwrap());
+                    assert!(rows.next_row().unwrap().is_none());
+                }
+                ReadData::Materialized(sheet) => {
+                    assert_eq!(sheet.rows.len(), 1);
+                    check(&sheet.rows[0]);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn aggregate_policy_options_upgrade_rich_strings_and_preserve_raw_date_extension() {
+    use crabxl_core::{DateReadPolicy, RowIndex};
+    let bytes = with_strings(
+        "<row><c t=\"s\"><v>0</v></c></row>",
+        "<si><r><rPr><b/></rPr><t>rich</t></r></si>",
+    );
+    let mut book = WorkbookReader::new(Cursor::new(bytes)).unwrap();
+    assert_eq!(
+        book.rows("A & B")
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap()
+            .cells[0]
+            .value,
+        CellValue::text("rich")
+    );
+    let mut output = book
+        .read_with_policy_options(
+            "A & B",
+            ReadOptions {
+                rich_text: true,
+                ..Default::default()
+            },
+            AccessPattern::RepeatedAccess,
+            MemoryPolicy::Budget(8 * 1024 * 1024),
+        )
+        .unwrap();
+    let ReadData::Materialized(ref mut sheet) = output.data else {
+        panic!("Expected rich owned rows");
+    };
+    let CellValue::RichText(rich) = &sheet.rows[0].cells[0].value else {
+        panic!("Expected retained runs");
+    };
+    assert_eq!(rich.runs[0].font.as_ref().unwrap().bold, Some(true));
+    drop(output);
+    assert!(book.shared_string_stats().unwrap().rich_text_preserved);
+    let styles = basic_styles("<xf numFmtId=\"14\"/>");
+    let mut dates = WorkbookReader::new(Cursor::new(with_styles(
+        "<row r=\"1\"><c r=\"A1\"><v>10000000</v></c></row>",
+        &styles,
+        false,
+    )))
+    .unwrap();
+    let mut output = dates
+        .read_with_policy_options(
+            "A & B",
+            ReadOptions {
+                rows: Some(RowIndex::new(0).unwrap()..=RowIndex::new(0).unwrap()),
+                date_policy: DateReadPolicy::RetainSerial,
+                ..Default::default()
+            },
+            AccessPattern::RepeatedAccess,
+            MemoryPolicy::Budget(8 * 1024 * 1024),
+        )
+        .unwrap();
+    let ReadData::Materialized(ref mut sheet) = output.data else {
+        panic!("Expected date owned rows");
+    };
+    let CellValue::DateTime(date) = &sheet.rows[0].cells[0].value else {
+        panic!("Expected exact source serial");
+    };
+    assert_eq!(date.serial(), 10_000_000.0);
+}
+
+#[test]
+fn projected_policy_does_not_retain_shared_groups_after_the_requested_last_row() {
+    use crabxl_core::{FormulaReadPolicy, RowIndex};
+    let content = "<row r=\"1\"><c><v>7</v></c></row>".to_owned() + &(2..=1000).map(|index| format!("<row r=\"{index}\"><c r=\"A{index}\"><f t=\"shared\" si=\"{index}\" ref=\"A{index}\">A{index}+1</f><v>{index}</v></c></row>")).collect::<String>();
+    let mut book = open(&content);
+    let working =
+        crabxl_xlsx::memory_allowance(MemoryPolicy::Budget(usize::MAX), ResourceLimits::default())
+            .unwrap()
+            .working_reserve_bytes;
+    let maximum = book.catalog_memory_bytes() + 4096;
+    let mut output = book
+        .read_with_policy_options(
+            "A & B",
+            ReadOptions {
+                rows: Some(RowIndex::new(0).unwrap()..=RowIndex::new(0).unwrap()),
+                ..Default::default()
+            },
+            AccessPattern::Scan,
+            MemoryPolicy::Budget(working + maximum),
+        )
+        .unwrap();
+    let ReadData::Streaming(ref mut rows) = output.data else {
+        panic!("Expected stream");
+    };
+    assert_eq!(
+        rows.next_row().unwrap().unwrap().cells[0].value,
+        CellValue::Integer(7)
+    );
+    assert!(rows.next_row().unwrap().is_none());
+    assert_eq!(rows.shared_formula_stats().templates, 0);
+    drop(output);
+    let mut strict = book
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                rows: Some(RowIndex::new(0).unwrap()..=RowIndex::new(0).unwrap()),
+                formula_policy: FormulaReadPolicy::ValidateGroups,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(strict.next_row().unwrap().is_some());
+    assert!(strict.next_row().unwrap().is_none());
+    assert_eq!(strict.shared_formula_stats().templates, 999);
+}

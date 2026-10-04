@@ -17197,9 +17197,13 @@
         "crates/crabxl-xlsx/tests/streaming.rs::aggregate_repeated_access_can_retain_rows_after_lending_string_table_memory",
         "crates/crabxl-xlsx/tests/streaming.rs::aggregate_batches_lend_cache_space_and_release_library_retention_on_delivery",
         "crates/crabxl-xlsx/tests/streaming.rs::aggregate_failed_auto_spill_keeps_the_existing_table_and_cleans_partial_temp_storage",
-        "benchmarks/aggregate_read_checkpoint.py"
+        "benchmarks/aggregate_read_checkpoint.py",
+        "crates/crabxl-xlsx/tests/streaming.rs::aggregate_policy_options_retain_projected_shared_metadata_and_cache_modes",
+        "crates/crabxl-xlsx/tests/streaming.rs::aggregate_policy_options_upgrade_rich_strings_and_preserve_raw_date_extension",
+        "crates/crabxl-xlsx/tests/streaming.rs::projected_policy_does_not_retain_shared_groups_after_the_requested_last_row",
+        "benchmarks/policy_options_checkpoint.py"
       ],
-      "limitations": "Policy API currently uses default ReadOptions; composition is staged. Direct component APIs remain independent. Not a hard RSS cap: dependency/allocator overhead, OS cache and caller-held outputs are additional. Prior prepared Auto table rebalancing temporarily retains prior storage until successful transfer. No milestone completion claimed."
+      "limitations": "ReadOptions composition is verified for sampling, materialization and fallback; compatible projection avoids unrelated shared masters beyond the requested last row. Direct component APIs remain independent. Not a hard RSS cap: dependency/allocator overhead, OS cache and caller-held outputs are additional. Prior prepared Auto table rebalancing temporarily retains prior storage until successful transfer. No milestone completion claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

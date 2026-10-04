@@ -59,7 +59,7 @@ fn load(path: &str, sheet: &str) -> crabxl::Result<crabxl::SheetData> {
 
 The default direct `read_sheet` retained-data budget is 256 MiB. Parser/catalog memory and one current row are additional. A budget failure returns `MemoryBudgetExceeded`, discards partial output, and releases the reader. `SheetData` is a numeric snapshot, not a saveable editable workbook. Current component budgets are not a hard process RSS limit.
 
-For automatic numeric mode selection use `read_with_policy`. A scan streams; repeated access samples at most 128 rows and retains data when its estimate fits. If later rows exceed the actual allowance, partial materialization is discarded and the operation returns a fresh stream. Other input errors propagate. Inspect `output.decision` for budget, estimate, source, mode, and reason:
+For automatic mode selection use `read_with_policy`; `read_with_policy_options` composes the same projection, rich-text, cache, date and formula options as direct reads. A scan streams; repeated access samples at most 128 rows and retains data when its estimate fits. If later rows exceed the actual allowance, partial materialization is discarded and the operation returns a fresh stream. Other input errors propagate. Inspect `output.decision` for budget, estimate, source, mode, and reason:
 
 ```rust
 use crabxl::{AccessPattern, MemoryPolicy, ReadData, WorkbookReader};
