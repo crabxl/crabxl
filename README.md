@@ -2,7 +2,7 @@
 
 A Rust spreadsheet library focused on fast, memory-efficient XLSX processing and full coverage of the public openpyxl feature baseline. Internal implementation and Rust API naming may be idiomatic Rust; external capabilities and observable behavior must remain complete.
 
-M1 provides bounded sparse XLSX row streaming and explicit owned sheet materialization. M2 adds exact integers, plain inline/value text, booleans/errors and owned-payload budgets. M3 sequential writer acceptance is complete: scalars, dates/time/duration, normal formulas/caches and basic styles use shared core types and selected rust_xlsxwriter codecs. Full read-side dates/styles, advanced styles/formulas, rich/shared strings, editing/preservation and language bindings remain staged.
+M1 provides bounded sparse XLSX row streaming and explicit owned sheet materialization. M2 adds exact integers, plain inline/value text, booleans/errors and owned-payload budgets. M3 sequential writer acceptance is complete: scalars, dates/time/duration, normal formulas/caches and basic styles use shared core types and selected rust_xlsxwriter codecs. Full read-side dates/styles, advanced styles/formulas, rich/shared strings, complete editing/preservation, full Python compatibility and other language bindings remain staged.
 
 Rust 1.88.0 or later is required. Run the example against an unstyled numeric worksheet:
 
@@ -134,3 +134,19 @@ fn edit(source: &str, target: &str) -> openrsxl::Result<()> {
 M4 remains in progress. Existing-file structural edits, sheet mutations and typed date/style/string catalogs remain staged. Unsafe metadata/signature/calculation-chain edits are rejected. See [ownership and limitations](docs/decisions/0005-sparse-preserving-editor.md) and [Rust/openpyxl edit measurements](benchmarks/m4-editor.md).
 
 For missing cells use `WorkbookEditor::upsert_value`; it inserts sparse cells/rows with default style, keeps inferred original positions and expands an existing dimension. Non-anchor merged targets are rejected. [Insertion measurements](benchmarks/m4-insertion.md) include public readback and temporary-output costs.
+
+## Optional Python compatibility adapter
+
+The adapter uses openpyxl call conventions; migrating supported code changes the import:
+
+```python
+import openrsxl as openpyxl
+
+wb = openpyxl.Workbook()
+ws = wb.active
+ws["A1"] = 123
+ws.append([True, "text", "=A1+1"])
+wb.save("example.xlsx")
+```
+
+Build/install/test instructions and the explicit capability limits are in [bindings/python/README.md](bindings/python/README.md). The standalone Rust crate has no Python dependency. Compatibility is partial and verified by selected original openpyxl tests plus shared public-API cases; advanced features remain in the roadmap.

@@ -21,3 +21,23 @@ jobs:
       - run: cargo doc --workspace --no-deps --locked
         env:
           RUSTDOCFLAGS: -Dwarnings
+
+  python-adapter:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: cargo fmt --manifest-path bindings/python/Cargo.toml -- --check
+      - run: cargo clippy --manifest-path bindings/python/Cargo.toml --all-targets --locked -- -D warnings
+      - run: python -m pip install maturin "pytest>=8,<9" "openpyxl==3.1.5" Pillow
+      - run: maturin build --release --locked --manifest-path bindings/python/Cargo.toml --out bindings/python/dist
+      - run: python -m pip install bindings/python/dist/*.whl
+      - run: python -m pytest bindings/python/tests -q

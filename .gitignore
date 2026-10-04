@@ -4,3 +4,8 @@
 /benchmarks/data/
 /benchmarks/*.local.json
 __pycache__/
+
+/bindings/python/target/
+/bindings/python/dist/
+/bindings/python/.venv/
+.pytest_cache/

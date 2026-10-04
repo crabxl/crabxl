@@ -81,6 +81,25 @@ impl Worksheet {
     pub fn name(&self) -> &str {
         &self.name
     }
+    /// Rename a model within its retained-data allowance. Format-specific
+    /// name rules remain the responsibility of codecs and adapters.
+    pub fn rename(&mut self, name: impl Into<Box<str>>) -> Result<()> {
+        let name = name.into();
+        if name.is_empty() {
+            return Err(invalid("Worksheet name is empty"));
+        }
+        let charged = self
+            .charged
+            .saturating_sub(self.name.len())
+            .saturating_add(name.len());
+        self.check(charged, self.len())?;
+        if self.name != name {
+            self.name = name;
+            self.charged = charged;
+            self.dirty = true;
+        }
+        Ok(())
+    }
     /// Number of physically present cells, including explicit Empty values.
     pub fn len(&self) -> usize {
         self.cells.len()

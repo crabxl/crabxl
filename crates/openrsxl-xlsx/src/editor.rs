@@ -365,6 +365,20 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .get(&(address.row.get(), address.column.get()))
             .map(|patch| &patch.cell.value)
     }
+    /// Borrow pending cells for one original sheet in row/column order.
+    /// Style IDs here are placeholders; original styles are resolved on save.
+    pub fn pending_cells(&self, sheet: &str) -> impl Iterator<Item = &Cell> {
+        let part = self
+            .book
+            .sheets()
+            .iter()
+            .find(|info| info.name() == sheet)
+            .map(SheetInfo::part);
+        part.into_iter()
+            .flat_map(|part| self.patches.get(part))
+            .flat_map(|patches| patches.values())
+            .map(|patch| &patch.cell)
+    }
     /// Revert all overlays to the original source; releases owned payloads.
     /// This does not adopt a previously saved file as the new source.
     pub fn clear_edits(&mut self) {

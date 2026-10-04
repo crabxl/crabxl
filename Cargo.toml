@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/openrsxl", "crates/openrsxl-core", "crates/openrsxl-xlsx"]
+exclude = ["bindings/python"]
 resolver = "2"
 
 [workspace.package]

@@ -1,6 +1,6 @@
 # Development roadmap
 
-Status: M0 architecture/inventory and M1 raw numeric streaming acceptance complete; M2 is in progress with exact integers, boolean/error literals, and plain inline text with owned-payload accounting; M3 sequential writer acceptance is complete for scalar/date/time/duration, normal formula/cache and basic-style creation. Selected calamine parsing logic has been ported into the three-crate workspace. [features.json](features.json) maps every pinned public surface and release documentation topic, while verified behavior remains a narrow subset. See [milestone evidence](milestones.md). Deliver a Rust crate first; language bindings follow separately.
+Status: M0 architecture/inventory and M1 raw numeric streaming acceptance complete; M2 is in progress with exact integers, boolean/error literals, and plain inline text with owned-payload accounting; M3 sequential writer acceptance is complete for scalar/date/time/duration, normal formula/cache and basic-style creation. Selected calamine parsing logic has been ported into the three-crate workspace. [features.json](features.json) maps every pinned public surface and release documentation topic, while verified behavior remains a narrow subset. See [milestone evidence](milestones.md). Deliver the independent Rust crate while the optional Python adapter enables shared compatibility tests; other language adapters follow separately.
 
 Consult [pending MR risks](openpyxl-mr-review.md) and [work-item, board, and milestone risks](openpyxl-work-items-review.md) when implementing affected features. Defects are regression cases to fix or avoid, not behavior that compatibility requires reproducing.
 
@@ -10,7 +10,7 @@ The compatibility baseline is openpyxl 3.1.5, Mercurial tag revision `13627b03ca
 
 For each item record reference documentation, source modules, read/create/edit/preserve capabilities, supported modes, tests, limitations, and milestone. Use planned/ported/verified status. Missing features stay in the roadmap; neither upstream availability nor benchmark results justify removing them.
 
-Internal design can be deeply idiomatic Rust. Public function names and syntax may differ, but core data and behavior must fulfill the same capabilities. Binding adapters map language-specific calls later. An Excel calculation engine is not part of openpyxl's existing formula support.
+Internal design can be deeply idiomatic Rust. Public function names and syntax may differ, but core data and behavior must fulfill the same capabilities. The optional Python adapter uses openpyxl-compatible calls now; other binding adapters map language-specific calls later. An Excel calculation engine is not part of openpyxl's existing formula support.
 
 ## Initial feature inventory
 
@@ -112,3 +112,7 @@ Acceptance: a directly usable Rust crate with the full verified baseline matrix.
 ## Evidence policy
 
 Use source tests to preserve behavior, integrate common models, decouple I/O, refactor streaming, and then measure. Add failure cases for known defects before changing behavior. Keep timing benchmarks separate from deterministic correctness tests; do not claim unmeasured memory improvements.
+
+## Parallel Python compatibility acceptance
+
+The user moved a thin optional Python adapter ahead of milestone completion to share tests and ease migration. Workbook/Worksheet/Cell calls must match openpyxl; Rust internals and public Rust naming remain independent. Selectively reuse pinned upstream tests with exact assertions/provenance, then expand the tested surface along M4-M7. Unsupported behavior stays explicit and planned, including read-only/write-only binding modes, full style/date/string reading, formula translation, loaded structural edits and advanced features. This does not complete M4-M7 or the whole Python compatibility suite.

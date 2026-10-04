@@ -16653,6 +16653,34 @@
         "benchmarks/insertion_checkpoint.py"
       ],
       "limitations": "Explicit upsert_value; default style for new cells. set_value remains existing-only. Non-anchor merged targets are rejected at save. Existing structural edits remain planned."
+    },
+    {
+      "id": "binding.python-scalar-interface",
+      "description": "Optional openpyxl-compatible Workbook/Worksheet/Cell call surface for shared tests",
+      "status": "verified",
+      "milestone": "M7",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "python-owned-sparse-model",
+        "python-original-package-overlay"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
+      "modules": [
+        "bindings/python/src/lib.rs",
+        "bindings/python/python/openrsxl/__init__.py"
+      ],
+      "tests": [
+        "bindings/python/tests/test_upstream_worksheet.py",
+        "bindings/python/tests/test_parity.py",
+        "tools/verify_python_test_provenance.py",
+        "benchmarks/python_adapter_checkpoint.py"
+      ],
+      "limitations": "Only listed scalar/formula/model/overlay calls, not whole baseline modules or M7 acceptance. 37 selected upstream methods, with formula translation a strict expected failure. Full styles/dates/shared strings, advanced features, loaded structural edits, read-only/write-only/file-like Python modes and complete exception behavior remain staged. Native core stays Python-independent."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."
