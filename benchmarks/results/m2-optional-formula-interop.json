@@ -1,0 +1,67 @@
+{
+  "reference": "3.1.5",
+  "literal_expression_presence": [
+    null,
+    "",
+    "=1"
+  ],
+  "xml_records_equal": [
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": null
+    },
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": null
+    },
+    {
+      "attributes": {
+        "t": "array"
+      },
+      "body": "1"
+    }
+  ],
+  "public_readback": [
+    [
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "=1"
+      }
+    ],
+    [
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "="
+      },
+      {
+        "ref": null,
+        "text": "=1"
+      }
+    ]
+  ],
+  "cache_projection": [
+    null,
+    null,
+    null
+  ],
+  "missing_data_table_ref_reference_defect": {
+    "exception": "TypeError",
+    "message": "DataTableFormula.__init__() missing 1 required positional argument: 'ref'"
+  }
+}

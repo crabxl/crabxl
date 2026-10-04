@@ -3,14 +3,14 @@ use crate::{CellValue, Error, ErrorKind, FormulaMetadata, FormulaType, Result};
 /// no calculation engine or fabricated cache is implied.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Formula {
-    expression: Box<str>,
+    expression: Option<Box<str>>,
     cached: Option<Box<CellValue>>,
     metadata: Option<Box<FormulaMetadata>>,
 }
 impl Formula {
     /// Construct a formula, stripping one optional leading equals sign.
     pub fn new(expression: impl Into<Box<str>>, cached: Option<CellValue>) -> Result<Self> {
-        Self::build(expression.into(), cached, None, true)
+        Self::build(Some(expression.into()), cached, None, true)
     }
     /// Construct a typed shared/array/table record, retaining optional fields.
     pub fn with_metadata(
@@ -19,7 +19,29 @@ impl Formula {
         metadata: FormulaMetadata,
     ) -> Result<Self> {
         metadata.validate()?;
-        Self::build(expression.into(), cached, Some(Box::new(metadata)), true)
+        Self::build(
+            Some(expression.into()),
+            cached,
+            Some(Box::new(metadata)),
+            true,
+        )
+    }
+    /// Construct an array/data-table value whose expression may be absent.
+    /// Absence is distinct from an explicit empty literal before serialization.
+    /// Reading an empty XML body creates a present empty source expression.
+    pub fn with_optional_expression(
+        expression: Option<Box<str>>,
+        cached: Option<CellValue>,
+        metadata: FormulaMetadata,
+    ) -> Result<Self> {
+        if !matches!(metadata.kind, FormulaType::Array | FormulaType::DataTable) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Optional expression requires an array or data-table formula",
+            ));
+        }
+        metadata.validate()?;
+        Self::build(expression, cached, Some(Box::new(metadata)), true)
     }
     /// Own an XML expression body verbatim, including an empty body or an
     /// additional equals operator. No literal-call prefix normalization occurs.
@@ -31,24 +53,31 @@ impl Formula {
         if let Some(metadata) = &metadata {
             metadata.validate()?;
         }
-        Self::build(expression.into(), cached, metadata.map(Box::new), false)
+        Self::build(
+            Some(expression.into()),
+            cached,
+            metadata.map(Box::new),
+            false,
+        )
     }
     fn build(
-        expression: Box<str>,
+        expression: Option<Box<str>>,
         cached: Option<CellValue>,
         metadata: Option<Box<FormulaMetadata>>,
         strip_equals: bool,
     ) -> Result<Self> {
         let expression = if strip_equals {
-            expression
-                .strip_prefix('=')
-                .map(Box::<str>::from)
-                .unwrap_or(expression)
+            expression.map(|expression| {
+                expression
+                    .strip_prefix('=')
+                    .map(Box::<str>::from)
+                    .unwrap_or(expression)
+            })
         } else {
             expression
         };
         if (strip_equals
-            && expression.is_empty()
+            && expression.as_deref().is_none_or(str::is_empty)
             && metadata.as_ref().is_none_or(|v| {
                 matches!(
                     v.kind,
@@ -72,7 +101,11 @@ impl Formula {
     }
     /// Stored XML expression body; literal constructors remove one optional equals sign.
     pub fn expression(&self) -> &str {
-        &self.expression
+        self.expression.as_deref().unwrap_or_default()
+    }
+    /// Literal/source expression presence, independent of the XML body's empty view.
+    pub fn optional_expression(&self) -> Option<&str> {
+        self.expression.as_deref()
     }
     /// Formula encoding category; default expanded expressions are normal.
     pub fn formula_type(&self) -> FormulaType {
@@ -91,7 +124,10 @@ impl Formula {
     /// Owned payload bytes, excluding allocator overhead.
     pub fn memory_bytes(&self) -> usize {
         size_of::<Self>()
-            + self.expression.len()
+            + self
+                .expression
+                .as_ref()
+                .map_or(0, |expression| expression.len())
             + self.metadata.as_ref().map_or(0, |v| v.memory_bytes())
             + self
                 .cached
