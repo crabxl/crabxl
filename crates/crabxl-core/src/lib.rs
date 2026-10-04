@@ -33,3 +33,9 @@ pub use translate::{formula_position, translate_axis, translate_expression};
 
 mod workbook;
 pub use workbook::{SheetId, Workbook, WorkbookLimits, WorksheetEditor};
+
+mod rich_text;
+pub use rich_text::{
+    Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText, RichTextRun, RunFont,
+    TextVerticalAlignment, Underline,
+};

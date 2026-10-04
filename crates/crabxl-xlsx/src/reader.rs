@@ -484,7 +484,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         "Cell refers to a missing shared-string table",
                     )
                 })?
-                .get(id);
+                .get(id, self.options.rich_text);
         }
         let value = self.value_buffer.trim_ascii();
         if value.is_empty() {
@@ -514,40 +514,17 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     }
 
     fn read_inline_text(&mut self) -> Result<CellValue> {
-        let mut value = CellValue::text("");
-        let mut seen = false;
-        loop {
-            let frame = self.xml.next()?;
-            match frame.event {
-                Event::Start(e)
-                    if frame.scope == Scope::Spreadsheet
-                        && frame.depth == 6
-                        && e.local_name().as_ref() == b"t" =>
-                {
-                    if seen {
-                        return Err(self.invalid("Inline string has multiple plain text elements"));
-                    }
-                    seen = true;
-                    value = self.read_value::<false>(ScalarKind::InlineText)?;
-                }
-                Event::End(e)
-                    if frame.scope == Scope::Spreadsheet
-                        && frame.depth == 4
-                        && e.local_name().as_ref() == b"is" =>
-                {
-                    return Ok(value);
-                }
-                Event::Text(t) if t.iter().all(u8::is_ascii_whitespace) => {}
-                Event::Comment(_) | Event::PI(_) => {}
-                Event::Start(_) => {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Rich or phonetic inline text is not supported yet",
-                    ));
-                }
-                _ => return Err(self.invalid("Invalid inline string content")),
-            }
+        let mut parsed = crate::rich_text::read_container(
+            &mut self.xml,
+            5,
+            b"is",
+            self.limits.max_cell_bytes,
+            self.options.rich_text,
+        )?;
+        if self.options.rich_text {
+            parsed.unprotect();
         }
+        Ok(parsed.into_value())
     }
 
     fn skip_cell(&mut self) -> Result<()> {

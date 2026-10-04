@@ -885,17 +885,20 @@ fn exact_integers_float_lexemes_errors_and_plain_inline_text() {
     assert_eq!(size_of::<CellValue>(), 16);
 }
 #[test]
-fn inline_text_rejects_unmodeled_rich_runs_and_malformed_structure() {
-    for content in [
-        "<is><r><t>rich</t></r></is>",
-        "<is><rPh><t>phonetic</t></rPh></is>",
-    ] {
-        let mut book = open(&format!("<row><c t=\"inlineStr\">{content}</c></row>"));
-        assert_eq!(
-            book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
-            ErrorKind::Unsupported
-        );
-    }
+fn inline_plain_projection_and_malformed_structure() {
+    let mut book = open(
+        "<row><c t=\"inlineStr\"><is><r><rPr><b/></rPr><t> rich </t></r><r><t>&amp;tail</t></r><rPh sb=\"0\" eb=\"1\"><t>pronunciation</t></rPh></is></c></row>",
+    );
+    assert_eq!(
+        book.rows("A & B")
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap()
+            .cells[0]
+            .value,
+        CellValue::text(" rich &tail")
+    );
     for content in [
         "<is><t>a</t><t>b</t></is>",
         "<is/><is/>",
@@ -1249,9 +1252,32 @@ fn shared_string_limits_invalid_ids_and_deferred_rich_entries() {
             CellValue::text("plain")
         );
         assert_eq!(
-            book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
-            ErrorKind::Unsupported
+            book.rows("A & B")
+                .unwrap()
+                .next_row()
+                .unwrap()
+                .unwrap()
+                .cells[0]
+                .value,
+            CellValue::text("rich")
         );
+        let typed = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    rich_text: true,
+                    ..ReadOptions::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap();
+        let CellValue::RichText(value) = &typed.cells[0].value else {
+            panic!("Expected rich text")
+        };
+        assert_eq!(value.runs[0].font.as_ref().unwrap().bold, Some(true));
+        assert_eq!(value.runs[0].text.as_ref(), "rich");
     }
     for (entries, temp) in [(0, 1024), (1, 0)] {
         let directory = tempfile::tempdir().unwrap();
@@ -1368,4 +1394,291 @@ fn shared_string_auto_availability_and_strict_namespaces() {
             .value,
         CellValue::text("strict")
     );
+}
+
+#[test]
+fn shared_rich_metadata_upgrade_disk_cache_and_protected_run_boundaries() {
+    use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    let body = "<si><r><rPr><b/><i val=\"0\"/><color theme=\"2\" tint=\"0.25\"/></rPr><t>_x005F</t></r><r><t>_x0041_</t></r><rPh sb=\"0\" eb=\"1\"><t>annotation</t></rPh><phoneticPr fontId=\"0\" type=\"Hiragana\" alignment=\"center\"/></si>";
+    for storage in [
+        SharedStringStorage::Memory,
+        SharedStringStorage::Disk,
+        SharedStringStorage::Auto,
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let mut book = WorkbookReader::new(Cursor::new(with_strings(
+            "<row><c t=\"s\"><v>0</v></c><c t=\"s\"><v>0</v></c></row>",
+            body,
+        )))
+        .unwrap();
+        book.set_shared_string_options(SharedStringOptions {
+            storage,
+            temp_directory: Some(directory.path().into()),
+            ..SharedStringOptions::default()
+        });
+        let plain = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+        assert_eq!(plain.cells[0].value, CellValue::text("_x0041_"));
+        assert!(!book.shared_string_stats().unwrap().rich_text_preserved);
+        let typed = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    rich_text: true,
+                    ..ReadOptions::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap();
+        let CellValue::RichText(value) = &typed.cells[0].value else {
+            panic!("Expected rich text")
+        };
+        assert_eq!(value.plain_text().unwrap().as_ref(), "_x005F_x0041_");
+        assert_eq!(value.runs[0].font.as_ref().unwrap().bold, Some(true));
+        assert_eq!(value.runs[0].font.as_ref().unwrap().italic, Some(false));
+        assert_eq!(value.phonetic_runs[0].text.as_ref(), "annotation");
+        assert_eq!(value.phonetic_properties.as_ref().unwrap().font_id, 0);
+        assert_eq!(typed.cells[1].value, typed.cells[0].value);
+        let stats = book.shared_string_stats().unwrap();
+        assert!(stats.rich_text_preserved);
+        if storage == SharedStringStorage::Disk {
+            assert_eq!(stats.disk_reads, 1);
+            assert_eq!(stats.cache_hits, 1);
+            assert!(stats.temp_bytes > body.len() as u64);
+        }
+        let again = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+        assert_eq!(again, plain);
+        drop(book);
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+        assert_eq!(value.runs[1].text.as_ref(), "_x0041_");
+    }
+}
+
+#[test]
+fn rich_unknown_properties_are_projectable_but_typed_access_is_explicit() {
+    use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    for storage in [SharedStringStorage::Memory, SharedStringStorage::Disk] {
+        let body = "<si><r><rPr><future/></rPr><t>visible</t></r></si><si><t>plain</t></si>";
+        let mut book = WorkbookReader::new(Cursor::new(with_strings(
+            "<row><c t=\"s\"><v>0</v></c><c t=\"s\"><v>1</v></c></row>",
+            body,
+        )))
+        .unwrap();
+        book.set_shared_string_options(SharedStringOptions {
+            storage,
+            ..SharedStringOptions::default()
+        });
+        assert_eq!(
+            book.rows("A & B")
+                .unwrap()
+                .next_row()
+                .unwrap()
+                .unwrap()
+                .cells[0]
+                .value,
+            CellValue::text("visible")
+        );
+        assert_eq!(
+            book.rows_with_options(
+                "A & B",
+                ReadOptions {
+                    rich_text: true,
+                    ..columns(1, 1)
+                }
+            )
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap()
+            .cells[0]
+                .value,
+            CellValue::text("plain")
+        );
+        let error = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    rich_text: true,
+                    ..ReadOptions::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Unsupported);
+        assert_eq!(error.cell().unwrap().to_string(), "A1");
+    }
+}
+
+#[test]
+fn rich_projection_limits_and_illegal_characters_reject_partial_rows() {
+    for body in [
+        "<is><r><t>bad\0text</t></r></is>",
+        "<is><t>&#xFFFF;</t></is>",
+    ] {
+        let mut book = open(&format!("<row><c t=\"inlineStr\">{body}</c></row>"));
+        assert_eq!(
+            book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
+            ErrorKind::InvalidData
+        );
+    }
+    let mut parts = entries(&format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData><row><c t=\"inlineStr\"><is><r><t>12345</t></r><r><t>67890</t></r></is></c></row></sheetData></worksheet>"
+    ));
+    let data = fixture(
+        &parts
+            .iter()
+            .map(|(n, v)| (n.as_str(), v.as_str()))
+            .collect::<Vec<_>>(),
+    );
+    let mut book = WorkbookReader::with_limits(
+        Cursor::new(data),
+        ResourceLimits {
+            max_cell_bytes: 9,
+            ..ResourceLimits::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
+        ErrorKind::LimitExceeded
+    );
+    parts[4].1 = parts[4].1.replace(
+        "<t>12345</t>",
+        "<rPr><color rgb=\"FF000000\" tint=\"2\"/></rPr><t>12345</t>",
+    );
+    let mut book = from_entries(&parts);
+    assert_eq!(
+        book.rows_with_options(
+            "A & B",
+            ReadOptions {
+                rich_text: true,
+                ..ReadOptions::default()
+            }
+        )
+        .unwrap()
+        .next_row()
+        .unwrap_err()
+        .kind(),
+        ErrorKind::InvalidData
+    );
+}
+
+#[test]
+fn rich_metadata_budget_spill_cache_bypass_and_failure_cleanup() {
+    use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    let text = "x".repeat(1000);
+    let rich = format!("<si><r><rPr><b/></rPr><t>{text}</t></r></si>");
+    let bytes = with_strings(
+        "<row><c t=\"s\"><v>9</v></c><c t=\"s\"><v>9</v></c></row>",
+        &rich.repeat(10),
+    );
+    let directory = tempfile::tempdir().unwrap();
+    let mut book = WorkbookReader::new(Cursor::new(bytes)).unwrap();
+    let reserve = crabxl_xlsx::memory_allowance(
+        MemoryPolicy::Budget(4 * 1024 * 1024),
+        ResourceLimits::default(),
+    )
+    .unwrap()
+    .working_reserve_bytes;
+    let options = SharedStringOptions {
+        memory_policy: MemoryPolicy::Budget(reserve + 4000),
+        cache_bytes: 500,
+        temp_directory: Some(directory.path().into()),
+        ..Default::default()
+    };
+    book.set_shared_string_options(options.clone());
+    let projection = ReadOptions {
+        rich_text: true,
+        ..Default::default()
+    };
+    let row = book
+        .rows_with_options("A & B", projection.clone())
+        .unwrap()
+        .next_row()
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.cells[0].value, row.cells[1].value);
+    let CellValue::RichText(value) = &row.cells[0].value else {
+        panic!("Expected rich text")
+    };
+    assert_eq!(value.runs[0].text.as_ref(), text);
+    assert_eq!(value.runs[0].font.as_ref().unwrap().bold, Some(true));
+    let stats = book.shared_string_stats().unwrap();
+    assert!(stats.disk_backed);
+    assert!(stats.temp_bytes > 10_000 + 10 * 16);
+    assert!(stats.managed_bytes <= 500);
+    assert_eq!(stats.disk_reads, 2);
+    assert_eq!(stats.cache_hits, 0);
+    book.set_shared_string_options(SharedStringOptions {
+        storage: SharedStringStorage::Memory,
+        ..options.clone()
+    });
+    assert!(
+        matches!(book.rows_with_options("A & B", projection.clone()), Err(e) if e.kind() == ErrorKind::MemoryBudgetExceeded)
+    );
+    assert!(book.shared_string_stats().is_none());
+    book.set_shared_string_options(SharedStringOptions {
+        storage: SharedStringStorage::Disk,
+        max_temp_bytes: 100,
+        ..options
+    });
+    assert!(
+        matches!(book.rows_with_options("A & B", projection), Err(e) if e.kind() == ErrorKind::LimitExceeded)
+    );
+    assert!(book.shared_string_stats().is_none());
+    drop(book);
+    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    assert_eq!(value.runs[0].text.as_ref(), text);
+}
+
+#[test]
+fn typed_inline_protection_matches_public_reference_per_run() {
+    for (content, plain, typed) in [
+        ("<t>_x005F_x0041_</t>", "_x005F_x0041_", "_x0041_"),
+        ("<r><t>_x005F_x0041_</t></r>", "_x005F_x0041_", "_x0041_"),
+        (
+            "<r><rPr><b/></rPr><t>_x005F_x0041_</t></r>",
+            "_x005F_x0041_",
+            "_x0041_",
+        ),
+        (
+            "<r><t>_x005F</t></r><r><t>_x0041_</t></r>",
+            "_x005F_x0041_",
+            "_x005F_x0041_",
+        ),
+    ] {
+        let mut book = open(&format!(
+            "<row><c t=\"inlineStr\"><is>{content}</is></c></row>"
+        ));
+        assert_eq!(
+            book.rows("A & B")
+                .unwrap()
+                .next_row()
+                .unwrap()
+                .unwrap()
+                .cells[0]
+                .value,
+            CellValue::text(plain)
+        );
+        let row = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    rich_text: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap();
+        let display = match &row.cells[0].value {
+            CellValue::RichText(value) => value.plain_text().unwrap(),
+            CellValue::Text(value) => value.as_str().into(),
+            _ => panic!("Expected text"),
+        };
+        assert_eq!(display.as_ref(), typed);
+    }
 }

@@ -1,5 +1,7 @@
 # M2 plain shared-string checkpoint
 
+Historical measurements from core `dd38e85ae81b5f56e620b9b04a63b0a631905490`. Subsequent typed rich-text support and separate measurements do not change these original samples.
+
 Rust 1.88 release; openpyxl 3.1.5 read-only; calamine 0.36.1 public Range. Generated fixtures contain ten columns of 110-byte strings, either 128 repeated strings or one unique string per cell. Every engine verifies every complete value and its position, not only counts. One warmup and five rotating serial measurements include initialization and full SST parsing, worksheet decoding, owned value conversion and validation. Raw runs, input hashes, CPU, RSS and store diagnostics are in [results](results/m2-shared-strings.json).
 
 | Rows / cardinality | Rust RAM s / MiB | Rust disk s / MiB | Rust Auto s / MiB | calamine s / MiB | openpyxl s / MiB |

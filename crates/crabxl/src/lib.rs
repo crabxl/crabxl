@@ -54,3 +54,8 @@ pub use crabxl_core::{formula_position, translate_axis, translate_expression};
 pub use crabxl_core::{SheetId, Workbook, WorkbookLimits, WorksheetEditor};
 
 pub use crabxl_xlsx::{SharedStringOptions, SharedStringStats, SharedStringStorage};
+
+pub use crabxl_core::{
+    Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText, RichTextRun, RunFont,
+    TextVerticalAlignment, Underline,
+};

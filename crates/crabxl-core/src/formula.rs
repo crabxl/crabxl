@@ -15,9 +15,9 @@ impl Formula {
             .map(Box::<str>::from)
             .unwrap_or(expression);
         if expression.is_empty()
-            || cached
-                .as_ref()
-                .is_some_and(|value| matches!(value, CellValue::Formula(_)))
+            || cached.as_ref().is_some_and(|value| {
+                matches!(value, CellValue::Formula(_) | CellValue::RichText(_))
+            })
         {
             return Err(Error::new(
                 ErrorKind::InvalidData,

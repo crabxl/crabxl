@@ -44,7 +44,7 @@
         "Full tokenizer/parser and dynamic spill syntax remain staged; translator origins/axis helpers require positive labels fitting u64",
         "Refactor shared-string event flow into incremental namespace-aware parsing with relationship-resolved paths and actual-entry limits; never reserve from advertised uniqueCount",
         "Replace eager Vec-only strings with shared Memory/Disk/Auto placement, bounded direct-slot decoded cache and complete disk-backed fixed-width index; actual over-budget data spills without sheet materialization",
-        "Retain unsupported rich/phonetic entry IDs for projected plain access; selected rich values remain explicit errors rather than flattened text",
+        "Retain unsupported extension entry IDs for projection; the subsequent shared rich codec adds default display-text projection and explicit typed metadata without changing ID order",
         "Match pinned public shared-string x005F_ protection removal separately from unchanged inline literal spelling; do not import calamine general escape decoding",
         "Share bounded XML character/entity accumulation across scalar and shared-string codecs"
       ],
@@ -112,6 +112,40 @@
         "resources.writer-lifecycle",
         "write.dates-formulas-basic-styles",
         "read.normal-formulas"
+      ]
+    },
+    {
+      "project": "umya-spreadsheet",
+      "repository": "https://github.com/MathNya/umya-spreadsheet",
+      "commit": "1bcf4d0be5b666e5b9788244f14b55ce72fa4f3f",
+      "license": "MIT",
+      "notice": "Copyright (c) 2020 MathNya",
+      "license_file": "third_party/licenses/umya-spreadsheet-MIT.txt",
+      "source_symbols": [
+        "src/structs/rich_text.rs: RichText run composition and text projection",
+        "src/structs/text_element.rs: TextElement read/write run and rPr layouts",
+        "src/structs/font.rs: Font read/write optional run-property mappings",
+        "src/structs/color.rs: Color optional ARGB/theme/indexed/auto/tint identity"
+      ],
+      "destinations": [
+        "crates/crabxl-core/src/rich_text.rs",
+        "crates/crabxl-xlsx/src/rich_text.rs",
+        "crates/crabxl-xlsx/src/strings.rs"
+      ],
+      "changes": [
+        "Replace upstream workbook/font types with shared runtime-independent optional run overrides and owned rich text; distinguish absent properties from explicit false",
+        "Replace repeated format-based concatenation with checked single-allocation linear projection and borrowed text iteration",
+        "Rewrite parsing with namespace-aware bounded XML, fallible validation and contextual errors; no upstream eager worksheet model or panic paths",
+        "Stream encoding through the common XML text/attribute escaping helpers; preserve empty styled runs and separate phonetic annotations",
+        "Implement phonetic metadata independently; upstream phonetic_run.rs stub was inspected but not ported",
+        "Add explicit default plain projection and opt-in typed metadata; prepare compact SST entries without rich models when metadata is not requested",
+        "Persist rich values through complete disk-backed indexes, bounded decoded caches and streamed owned fragments; rebuild plain SST once when typed access is first requested",
+        "Match public openpyxl protection-marker differences between flat text and individual rich runs without general OOXML escape decoding",
+        "Keep imported font/theme catalog resolution and phonetic-font assignment in existing packages staged; reject assignments requiring unresolved font references"
+      ],
+      "tests": "Generated inline/SST RAM/Disk/Auto integration, mode upgrades, malformed metadata, cache ownership, writer/edit repeated round trips in streaming.rs and writer.rs; full public openpyxl rich-run benchmarks",
+      "inventory_items": [
+        "read.rich-text"
       ]
     }
   ]
