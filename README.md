@@ -8,3 +8,4 @@ The project is in the planning stage. No Rust reader or writer has been implemen
 - [Roadmap and feature inventory](docs/roadmap.md)
 - [Upstream sources](docs/upstream-sources.md)
 - [Pending openpyxl fixes and regression risks](docs/openpyxl-mr-review.md)
+- [AI agent instructions](AGENTS.md)
