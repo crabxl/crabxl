@@ -392,7 +392,7 @@ fn shared_styles_are_deduplicated_bounded_and_references_are_checked() {
     use crabxl_core::{CellStyle, DateEpoch, DateKind, ExcelDateTime, Formula, StyleId};
     let directory = tempfile::tempdir().unwrap();
     let mut writer = WorkbookWriter::new(WriteOptions {
-        max_styles: 5,
+        max_styles: 6,
         ..options(&directory)
     })
     .unwrap();
@@ -1080,9 +1080,90 @@ fn malformed_complete_styles_fail_before_registration_or_spooling() {
         assert_eq!(writer.temporary_bytes(), before);
     }
     let id = writer.register_style(complete_style()).unwrap();
-    assert_eq!(id.get(), 4);
+    assert_eq!(id.get(), 5);
     let mut input = row(0, vec![CellValue::Integer(1)]);
     input.cells[0].style = id;
     writer.write_row(&input).unwrap();
     assert!(writer.finish(Cursor::new(Vec::new())).is_ok());
+}
+
+#[test]
+fn iso_creation_preserves_date_kind_calendar_day_and_truncated_fraction() {
+    use crabxl_core::{DateKind, ExcelDateTime};
+    for mac in [false, true] {
+        let mut writer = WorkbookWriter::new(WriteOptions {
+            iso_dates: true,
+            date_1904: mac,
+            ..Default::default()
+        })
+        .unwrap();
+        writer.start_sheet("Sheet").unwrap();
+        let input = row(
+            0,
+            vec![
+                CellValue::DateTime(Box::new(ExcelDateTime::from_ymd(1899, 12, 31).unwrap())),
+                CellValue::DateTime(Box::new(
+                    ExcelDateTime::from_ymd_hms_micro(2024, 2, 29, 12, 3, 4, 123456).unwrap(),
+                )),
+                CellValue::DateTime(Box::new(
+                    ExcelDateTime::from_hms_micro(12, 3, 4, 123456).unwrap(),
+                )),
+                CellValue::DateTime(Box::new(
+                    ExcelDateTime::from_duration_parts(1, 0, 0).unwrap(),
+                )),
+            ],
+        );
+        writer.write_row(&input).unwrap();
+        let mut book =
+            WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+        let loaded = book.read_sheet("Sheet").unwrap();
+        let expected = [
+            (DateKind::Date, "1899-12-31"),
+            (DateKind::DateTime, "2024-02-29T12:03:04.123"),
+            (DateKind::Time, "12:03:04.123"),
+        ];
+        for (cell, (kind, iso)) in loaded.rows[0].cells.iter().zip(expected) {
+            let CellValue::DateTime(value) = &cell.value else {
+                panic!("Expected calendar/clock")
+            };
+            assert_eq!(value.kind(), kind);
+            assert_eq!(value.to_iso8601().unwrap(), iso);
+        }
+        let CellValue::DateTime(duration) = &loaded.rows[0].cells[3].value else {
+            panic!("Expected duration")
+        };
+        assert_eq!(duration.kind(), DateKind::Duration);
+        assert_eq!(duration.to_duration().unwrap().num_seconds(), 86400);
+        assert_eq!(loaded.rows[0].cells[0].style.get(), 4);
+    }
+}
+
+#[test]
+fn iso_payload_limits_fail_before_spooling_and_allow_retry() {
+    use crabxl_core::ExcelDateTime;
+    let directory = tempfile::tempdir().unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        iso_dates: true,
+        max_cell_bytes: 12,
+        ..options(&directory)
+    })
+    .unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let before = writer.temporary_bytes();
+    let datetime = CellValue::DateTime(Box::new(
+        ExcelDateTime::from_ymd_hms_micro(2024, 1, 1, 0, 0, 0, 123456).unwrap(),
+    ));
+    assert_eq!(
+        writer
+            .write_row(&row(0, vec![datetime]))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::LimitExceeded
+    );
+    assert_eq!(writer.temporary_bytes(), before);
+    assert_eq!(writer.stats().rows, 0);
+    let date = CellValue::DateTime(Box::new(ExcelDateTime::from_ymd(2024, 1, 1).unwrap()));
+    writer.write_row(&row(0, vec![date])).unwrap();
+    writer.finish(Cursor::new(Vec::new())).unwrap();
+    assert_eq!(files(&directory), 0);
 }

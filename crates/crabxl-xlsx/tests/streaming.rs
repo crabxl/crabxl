@@ -1989,3 +1989,49 @@ fn materialized_date_policy_retains_serials_without_losing_style_identity() {
     };
     assert_eq!(time.to_time().unwrap().to_string(), "12:00:00");
 }
+
+#[test]
+fn iso_cells_dates_clocks_durations_and_formula_caches_share_read_modes() {
+    use crabxl_core::DateKind;
+    let mut book = open(
+        "<row><c t=\"d\"><v>2024-02-29</v></c><c t=\"d\"><v>12:34:56.123456</v></c><c t=\"d\"><v>PT1H2M3.123S</v></c><c t=\"d\"><f>1</f><v>2024-02-29T12:34:56.123</v></c><c t=\"d\"><v/></c></row>",
+    );
+    let loaded = book.read_sheet("A & B").unwrap();
+    let values = &loaded.rows[0].cells;
+    let CellValue::DateTime(date) = &values[0].value else {
+        panic!("Expected date")
+    };
+    assert_eq!(date.kind(), DateKind::Date);
+    assert_eq!(date.to_date().unwrap().to_string(), "2024-02-29");
+    let CellValue::DateTime(clock) = &values[1].value else {
+        panic!("Expected clock")
+    };
+    assert_eq!(clock.to_time().unwrap().to_string(), "12:34:56.123");
+    let CellValue::DateTime(duration) = &values[2].value else {
+        panic!("Expected duration")
+    };
+    assert_eq!(duration.to_duration().unwrap().num_milliseconds(), 3723123);
+    let CellValue::Formula(formula) = &values[3].value else {
+        panic!("Expected formula")
+    };
+    assert!(matches!(formula.cached(), Some(CellValue::DateTime(_))));
+    assert_eq!(values[4].value, CellValue::Empty);
+    let cached = book
+        .read_sheet_with_options(
+            "A & B",
+            ReadOptions {
+                data_only: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(&cached.rows[0].cells[3].value, formula.cached().unwrap());
+    for value in [" 2024-02-29", "2024-02-30", "PT999999999999999999999H"] {
+        let mut invalid = open(&format!(
+            "<row><c r=\"B1\" t=\"d\"><v>{value}</v></c></row>"
+        ));
+        let error = invalid.rows("A & B").unwrap().next_row().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        assert_eq!(error.cell(), Some(CellAddress::new(0, 1).unwrap()));
+    }
+}

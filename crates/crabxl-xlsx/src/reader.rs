@@ -514,6 +514,10 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 })?
                 .get(id, self.options.rich_text);
         }
+        if matches!(kind, ScalarKind::IsoDate) {
+            return Ok(crabxl_core::parse_iso8601(&self.value_buffer)?
+                .map_or(CellValue::Empty, |v| CellValue::DateTime(Box::new(v))));
+        }
         let value = self.value_buffer.trim_ascii();
         if value.is_empty() {
             return Ok(CellValue::Empty);
@@ -651,6 +655,7 @@ enum ScalarKind {
     Text,
     InlineText,
     SharedText,
+    IsoDate,
     Error,
     Unsupported,
 }
@@ -700,6 +705,7 @@ impl CellHeader {
                         "inlineStr" => ScalarKind::InlineText,
                         "s" => ScalarKind::SharedText,
                         "e" => ScalarKind::Error,
+                        "d" => ScalarKind::IsoDate,
                         _ => ScalarKind::Unsupported,
                     };
                 }

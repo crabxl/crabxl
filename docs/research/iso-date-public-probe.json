@@ -1,0 +1,232 @@
+{
+  "reference": "3.1.5",
+  "inspection": "Public APIs only; prefix acceptance and fraction truncation are observed baseline behavior",
+  "cases": [
+    {
+      "input": "",
+      "type": "NoneType",
+      "value": "None"
+    },
+    {
+      "input": "2024-02-29",
+      "type": "date",
+      "value": "2024-02-29",
+      "iso": "2024-02-29"
+    },
+    {
+      "input": "2024-02-29T12:34:56.123456",
+      "type": "datetime",
+      "value": "2024-02-29 12:34:56.123000",
+      "iso": "2024-02-29T12:34:56.123"
+    },
+    {
+      "input": "12:34:56.123456",
+      "type": "time",
+      "value": "12:34:56.123000",
+      "iso": "12:34:56.123"
+    },
+    {
+      "input": "2024-02-29T12:34",
+      "type": "datetime",
+      "value": "2024-02-29 12:34:00",
+      "iso": "2024-02-29T12:34:00"
+    },
+    {
+      "input": "12:34",
+      "type": "time",
+      "value": "12:34:00",
+      "iso": "12:34:00"
+    },
+    {
+      "input": "2024-02-29Z",
+      "type": "date",
+      "value": "2024-02-29",
+      "iso": "2024-02-29"
+    },
+    {
+      "input": "2024-02-29T12:34:56+02:00",
+      "type": "datetime",
+      "value": "2024-02-29 12:34:56",
+      "iso": "2024-02-29T12:34:56"
+    },
+    {
+      "input": "PT1H2M3.123456S",
+      "type": "timedelta",
+      "value": "1:02:00"
+    },
+    {
+      "input": "P1DT2H",
+      "error": "ValueError",
+      "message": "Invalid datetime value P1DT2H"
+    },
+    {
+      "input": "PT0.123456S",
+      "error": "ValueError",
+      "message": "Invalid datetime value PT0.123456S"
+    },
+    {
+      "input": "2024-02-29garbage",
+      "type": "date",
+      "value": "2024-02-29",
+      "iso": "2024-02-29"
+    },
+    {
+      "input": "2024-02",
+      "error": "ValueError",
+      "message": "Invalid datetime value 2024-02"
+    },
+    {
+      "input": "2024-02-29T24:00:00",
+      "error": "ValueError",
+      "message": "hour must be in 0..23"
+    },
+    {
+      "input": "12",
+      "error": "ValueError",
+      "message": "Invalid datetime value 12"
+    },
+    {
+      "input": "12:",
+      "error": "ValueError",
+      "message": "Invalid datetime value 12:"
+    },
+    {
+      "input": "12:34:",
+      "type": "time",
+      "value": "12:34:00",
+      "iso": "12:34:00"
+    },
+    {
+      "input": "12:34:56.1",
+      "type": "time",
+      "value": "12:34:56.100000",
+      "iso": "12:34:56.100"
+    },
+    {
+      "input": "12:34:56.12",
+      "type": "time",
+      "value": "12:34:56.120000",
+      "iso": "12:34:56.120"
+    },
+    {
+      "input": "12:34:56.1234",
+      "type": "time",
+      "value": "12:34:56.123000",
+      "iso": "12:34:56.123"
+    },
+    {
+      "input": "2024-02-29T",
+      "type": "date",
+      "value": "2024-02-29",
+      "iso": "2024-02-29"
+    },
+    {
+      "input": "2024-02-29T12",
+      "type": "date",
+      "value": "2024-02-29",
+      "iso": "2024-02-29"
+    },
+    {
+      "input": "2024-02-29t12:34",
+      "type": "date",
+      "value": "2024-02-29",
+      "iso": "2024-02-29"
+    },
+    {
+      "input": "PT1H",
+      "type": "timedelta",
+      "value": "1:00:00"
+    },
+    {
+      "input": "PT1M",
+      "type": "timedelta",
+      "value": "0:01:00"
+    },
+    {
+      "input": "PT1S",
+      "type": "timedelta",
+      "value": "0:00:01"
+    },
+    {
+      "input": "PT1.2S",
+      "type": "timedelta",
+      "value": "0:00:01.200000"
+    },
+    {
+      "input": "PT1.234S",
+      "type": "timedelta",
+      "value": "0:00:01.234000"
+    },
+    {
+      "input": "PT1H2.3S",
+      "type": "timedelta",
+      "value": "1:00:02.300000"
+    },
+    {
+      "input": "PT1H2M3.123S",
+      "type": "timedelta",
+      "value": "1:02:03.123000"
+    },
+    {
+      "input": "PT1H2M3.12S",
+      "type": "timedelta",
+      "value": "1:02:03.120000"
+    },
+    {
+      "input": "PT0S",
+      "type": "timedelta",
+      "value": "0:00:00"
+    },
+    {
+      "input": "PT",
+      "error": "ValueError",
+      "message": "Invalid datetime value PT"
+    },
+    {
+      "input": "-PT1S",
+      "error": "ValueError",
+      "message": "Invalid datetime value -PT1S"
+    },
+    {
+      "input": "PT100H",
+      "type": "timedelta",
+      "value": "4 days, 4:00:00"
+    },
+    {
+      "input": "PT1Mgarbage",
+      "type": "timedelta",
+      "value": "0:01:00"
+    },
+    {
+      "input": "PT1.5H",
+      "error": "ValueError",
+      "message": "Invalid datetime value PT1.5H"
+    },
+    {
+      "input": "12:99garbage",
+      "error": "ValueError",
+      "message": "minute must be in 0..59"
+    },
+    {
+      "input": "2024-02-29 12:34:56",
+      "type": "date",
+      "value": "2024-02-29",
+      "iso": "2024-02-29"
+    },
+    {
+      "input": " 2024-02-29",
+      "error": "ValueError",
+      "message": "Invalid datetime value  2024-02-29"
+    },
+    {
+      "input": "2024-02-30",
+      "error": "ValueError",
+      "message": "day is out of range for month"
+    },
+    {
+      "input": "0000-01-01",
+      "error": "ValueError",
+      "message": "year 0 is out of range"
+    }
+  ]
+}

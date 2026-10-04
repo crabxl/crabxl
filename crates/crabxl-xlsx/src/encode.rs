@@ -5,6 +5,11 @@
 use crabxl_core::{CellValue, Error, ErrorKind, Result};
 use std::io::{self, Write};
 
+pub(crate) struct DateEncoding {
+    pub(crate) epoch: crabxl_core::DateEpoch,
+    pub(crate) iso_dates: bool,
+}
+
 pub(crate) struct RowBuffer {
     pub data: Vec<u8>,
     pub maximum: usize,
@@ -66,8 +71,9 @@ pub(crate) fn encode_cells<'a>(
     maximum_cell: usize,
     maximum_cells: usize,
     styles: &[crabxl_core::CellStyle],
-    epoch: crabxl_core::DateEpoch,
+    date_encoding: DateEncoding,
 ) -> Result<()> {
+    let DateEncoding { epoch, iso_dates } = date_encoding;
     buffer.data.clear();
     let mut next_column = 0;
     let mut count = 0;
@@ -94,8 +100,22 @@ pub(crate) fn encode_cells<'a>(
             )
             .with_cell(cell.address));
         }
-        validate_value(&cell.value, maximum_cell, epoch)
+        let iso_date = iso_dates
+            && date_value(&cell.value)
+                .is_some_and(|date| date.kind() != crabxl_core::DateKind::Duration);
+        let validation_epoch = if iso_date {
+            date_value(&cell.value).map_or(epoch, |date| date.epoch())
+        } else {
+            epoch
+        };
+        validate_value(&cell.value, maximum_cell, validation_epoch)
             .map_err(|error| error.with_cell(cell.address))?;
+        if iso_date {
+            if let Some(date) = date_value(&cell.value) {
+                validate_text(&date.to_iso8601()?, maximum_cell)
+                    .map_err(|error| error.with_cell(cell.address))?;
+            }
+        }
         if let CellValue::RichText(value) = &cell.value {
             if value
                 .phonetic_properties
@@ -132,6 +152,7 @@ pub(crate) fn encode_cells<'a>(
         for cell in cells {
             let style = if cell.style.get() == 0 {
                 date_value(&cell.value).map_or(0, |date| match date.kind() {
+                    crabxl_core::DateKind::Date => 4,
                     crabxl_core::DateKind::DateTime => 1,
                     crabxl_core::DateKind::Time => 2,
                     crabxl_core::DateKind::Duration => 3,
@@ -157,6 +178,11 @@ pub(crate) fn encode_cells<'a>(
                 }
                 Some(CellValue::Boolean(_)) => buffer.write_all(b" t=\"b\"")?,
                 Some(CellValue::Error(_)) => buffer.write_all(b" t=\"e\"")?,
+                Some(CellValue::DateTime(value))
+                    if iso_dates && value.kind() != crabxl_core::DateKind::Duration =>
+                {
+                    buffer.write_all(b" t=\"d\"")?
+                }
                 _ => {}
             }
             buffer.write_all(b">")?;
@@ -186,11 +212,19 @@ pub(crate) fn encode_cells<'a>(
                         CellValue::Boolean(value) => write!(buffer, "{}", u8::from(*value))?,
                         CellValue::Text(value) => write_text(buffer, value.as_str())?,
                         CellValue::Error(value) => write_text(buffer, value.as_str())?,
-                        CellValue::DateTime(value) => write!(
-                            buffer,
-                            "{:?}",
-                            value.serial_in(epoch).map_err(io::Error::other)?
-                        )?,
+                        CellValue::DateTime(value) => {
+                            if iso_dates && value.kind() != crabxl_core::DateKind::Duration {
+                                buffer.write_all(
+                                    value.to_iso8601().map_err(io::Error::other)?.as_bytes(),
+                                )?;
+                            } else {
+                                write!(
+                                    buffer,
+                                    "{:?}",
+                                    value.serial_in(epoch).map_err(io::Error::other)?
+                                )?;
+                            }
+                        }
                         _ => {
                             return Err(io::Error::new(
                                 io::ErrorKind::Unsupported,
