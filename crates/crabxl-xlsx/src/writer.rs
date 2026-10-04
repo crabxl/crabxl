@@ -28,6 +28,17 @@ pub enum NonFiniteWritePolicy {
     Reject,
 }
 
+/// Serialization of optional formula flags and empty data-table inputs.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FormulaWritePolicy {
+    /// Omit newly assigned false flags and empty table inputs like the public baseline.
+    /// Original source flag spellings are retained, including zero/false strings.
+    #[default]
+    Compatible,
+    /// Retain explicit optional false flags and empty table inputs.
+    RetainExplicit,
+}
+
 /// Serialization of alignment attributes with zero/false values.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum StyleWritePolicy {
@@ -68,6 +79,8 @@ pub struct WriteOptions {
     pub iso_dates: bool,
     /// Nonfinite serialization is compatible by default, with explicit strict rejection.
     pub non_finite: NonFiniteWritePolicy,
+    /// Compatible formula omission or explicit attribute retention.
+    pub formula_attributes: FormulaWritePolicy,
     /// Compatible alignment omission or explicit attribute retention.
     pub style_attributes: StyleWritePolicy,
     /// Reference default, opaque/validated custom bytes, or explicit omission.
@@ -90,6 +103,7 @@ impl Default for WriteOptions {
             date_1904: false,
             iso_dates: false,
             non_finite: NonFiniteWritePolicy::default(),
+            formula_attributes: FormulaWritePolicy::default(),
             style_attributes: StyleWritePolicy::default(),
             theme: crate::ThemeWritePolicy::default(),
             active_sheet: 0,
@@ -419,6 +433,7 @@ impl WorkbookWriter {
                 },
                 iso_dates: self.options.iso_dates,
                 non_finite: self.options.non_finite,
+                formula_attributes: self.options.formula_attributes,
             },
         )
         .map_err(|error| error.with_part(&part))?;

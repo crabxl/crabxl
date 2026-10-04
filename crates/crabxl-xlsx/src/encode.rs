@@ -38,6 +38,7 @@ pub(crate) struct DateEncoding {
     pub(crate) epoch: crabxl_core::DateEpoch,
     pub(crate) iso_dates: bool,
     pub(crate) non_finite: crate::NonFiniteWritePolicy,
+    pub(crate) formula_attributes: crate::FormulaWritePolicy,
 }
 
 pub(crate) struct RowBuffer {
@@ -107,6 +108,7 @@ pub(crate) fn encode_cells<'a>(
         epoch,
         iso_dates,
         non_finite,
+        formula_attributes,
     } = date_encoding;
     buffer.data.clear();
     let mut next_column = 0;
@@ -225,7 +227,7 @@ pub(crate) fn encode_cells<'a>(
             }
             buffer.write_all(b">")?;
             if let Some(formula) = formula {
-                crate::formula_codec::write(buffer, formula)?;
+                crate::formula_codec::write(buffer, formula, formula_attributes)?;
             }
             match literal {
                 None | Some(CellValue::Empty) => {}

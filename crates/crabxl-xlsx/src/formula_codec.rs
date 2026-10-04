@@ -323,8 +323,19 @@ impl SharedFormulas {
     }
 }
 
-fn flag(output: &mut impl Write, name: &str, value: &Option<FormulaFlag>) -> std::io::Result<()> {
+fn flag(
+    output: &mut impl Write,
+    name: &str,
+    value: &Option<FormulaFlag>,
+    policy: crate::FormulaWritePolicy,
+) -> std::io::Result<()> {
     if let Some(value) = value {
+        if policy == crate::FormulaWritePolicy::Compatible
+            && value.source().is_none()
+            && !value.value()
+        {
+            return Ok(());
+        }
         attribute(
             output,
             name,
@@ -335,7 +346,11 @@ fn flag(output: &mut impl Write, name: &str, value: &Option<FormulaFlag>) -> std
     }
     Ok(())
 }
-pub(crate) fn write(output: &mut impl Write, formula: &Formula) -> std::io::Result<()> {
+pub(crate) fn write(
+    output: &mut impl Write,
+    formula: &Formula,
+    policy: crate::FormulaWritePolicy,
+) -> std::io::Result<()> {
     output.write_all(b"<f")?;
     if let Some(metadata) = formula.metadata() {
         match metadata.kind {
@@ -355,19 +370,23 @@ pub(crate) fn write(output: &mut impl Write, formula: &Formula) -> std::io::Resu
                 attribute(output, "ref", &reference.spelling())?;
             }
         }
-        flag(output, "aca", &metadata.flags.always_calculate)?;
-        flag(output, "ca", &metadata.flags.calculate_cell)?;
-        flag(output, "bx", &metadata.flags.data_box)?;
+        flag(output, "aca", &metadata.flags.always_calculate, policy)?;
+        flag(output, "ca", &metadata.flags.calculate_cell, policy)?;
+        flag(output, "bx", &metadata.flags.data_box, policy)?;
         if let Some(table) = &metadata.data_table {
-            flag(output, "dt2D", &table.two_dimensions)?;
-            flag(output, "dtr", &table.row_table)?;
-            flag(output, "del1", &table.deleted1)?;
-            flag(output, "del2", &table.deleted2)?;
+            flag(output, "dt2D", &table.two_dimensions, policy)?;
+            flag(output, "dtr", &table.row_table, policy)?;
+            flag(output, "del1", &table.deleted1, policy)?;
+            flag(output, "del2", &table.deleted2, policy)?;
             if let Some(reference) = &table.input1 {
-                attribute(output, "r1", reference)?;
+                if !reference.is_empty() || policy == crate::FormulaWritePolicy::RetainExplicit {
+                    attribute(output, "r1", reference)?;
+                }
             }
             if let Some(reference) = &table.input2 {
-                attribute(output, "r2", reference)?;
+                if !reference.is_empty() || policy == crate::FormulaWritePolicy::RetainExplicit {
+                    attribute(output, "r2", reference)?;
+                }
             }
         }
     }

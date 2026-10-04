@@ -156,10 +156,12 @@ pub struct DataTableOptions {
     pub deleted2: Option<FormulaFlag>,
 }
 impl DataTableOptions {
-    /// Validate input coordinates without normalizing their source property.
+    /// Validate nonempty input coordinates without normalizing their source property.
     pub fn validate(&self) -> Result<()> {
         for reference in [&self.input1, &self.input2].into_iter().flatten() {
-            reference.parse::<CellAddress>()?;
+            if !reference.is_empty() {
+                reference.parse::<CellAddress>()?;
+            }
         }
         Ok(())
     }

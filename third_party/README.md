@@ -14,3 +14,5 @@ Selected umya-spreadsheet run/font/color layouts are adapted into shared typed r
 Composable managed ReadOptions and projected shared-template tail retention are original integration changes to the existing attributed readers. Verification uses synthetic OOXML and public openpyxl 3.1.5 calls, without further upstream implementation inspection; see ADR 0022 and benchmarks/m2-policy-options.md.
 
 Cache-only formula projection is an original change to the attributed scalar reader, verified through synthetic fixtures and public openpyxl 3.1.5 observations; see ADR 0023 and benchmarks/m2-formula-cache.md. No additional upstream implementation was inspected.
+
+Formula attribute write policies are original shared-model/codec integration changes to the previously attributed formula layouts. Public constructor/save/reload evidence and synthetic fixtures verify omission versus source retention without additional upstream implementation inspection; see ADR 0024.

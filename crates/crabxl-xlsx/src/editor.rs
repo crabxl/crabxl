@@ -64,6 +64,8 @@ pub struct EditorOptions {
     pub calculation_chain: CalculationChainPolicy,
     /// Nonfinite value/caches use compatible blanks unless strict rejection is requested.
     pub non_finite: crate::NonFiniteWritePolicy,
+    /// Formula attribute omission for assigned replacement values.
+    pub formula_attributes: crate::FormulaWritePolicy,
 }
 impl Default for EditorOptions {
     fn default() -> Self {
@@ -74,6 +76,7 @@ impl Default for EditorOptions {
             max_patch_cells: 10_000_000,
             calculation_chain: CalculationChainPolicy::default(),
             non_finite: crate::NonFiniteWritePolicy::default(),
+            formula_attributes: crate::FormulaWritePolicy::default(),
         }
     }
 }
@@ -501,6 +504,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         &part.name,
                         self.patches.get(part.name.as_ref()),
                         self.options.resources,
+                        self.options.formula_attributes,
                     )
                 } else if workbook {
                     patch_workbook(file, budget, &part.name, self.options.resources)
@@ -703,6 +707,7 @@ fn write_body<W: Write>(
     cell: &Cell,
     buffer: &mut RowBuffer,
     limits: ResourceLimits,
+    formula_attributes: crate::FormulaWritePolicy,
 ) -> Result<()> {
     encode_cells(
         buffer,
@@ -715,6 +720,7 @@ fn write_body<W: Write>(
             epoch: DateEpoch::Windows1900,
             iso_dates: false,
             non_finite: crate::NonFiniteWritePolicy::Blank,
+            formula_attributes,
         },
     )
     .map_err(|error| error.with_cell(cell.address))?;
@@ -756,6 +762,7 @@ fn write_inserted_cell<W: Write>(
     uri: &str,
     buffer: &mut RowBuffer,
     limits: ResourceLimits,
+    formula_attributes: crate::FormulaWritePolicy,
 ) -> Result<()> {
     if !patch.insert_missing {
         return Err(
@@ -768,7 +775,7 @@ fn write_inserted_cell<W: Write>(
     base.push_attribute(("r", reference.as_str()));
     let start = patched_start(&base, uri, &patch.cell.value)?;
     emit(writer, Event::Start(start))?;
-    write_body(writer, &patch.cell, buffer, limits)?;
+    write_body(writer, &patch.cell, buffer, limits, formula_attributes)?;
     emit(writer, Event::End(quick_xml::events::BytesEnd::new("c")))
 }
 fn positioned_start(
@@ -837,6 +844,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
     part: &str,
     patches: Option<&Patches>,
     limits: ResourceLimits,
+    formula_attributes: crate::FormulaWritePolicy,
 ) -> Result<u64> {
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -978,7 +986,14 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                         let patch = pending
                             .next()
                             .ok_or_else(|| invalid("Missing pending cell"))?;
-                        write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                        write_inserted_cell(
+                            &mut writer,
+                            patch,
+                            uri,
+                            &mut buffer,
+                            limits,
+                            formula_attributes,
+                        )?;
                         found += 1;
                     }
                     emit(
@@ -1014,7 +1029,14 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                         .next()
                         .ok_or_else(|| invalid("Missing pending cell"))?;
                     let uri = data_uri.ok_or_else(|| invalid("Worksheet namespace is missing"))?;
-                    write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                    write_inserted_cell(
+                        &mut writer,
+                        patch,
+                        uri,
+                        &mut buffer,
+                        limits,
+                        formula_attributes,
+                    )?;
                     found += 1;
                 }
                 emit(&mut writer, Event::Start(e))?;
@@ -1050,7 +1072,14 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                             .ok_or_else(|| invalid("Missing pending cell"))?;
                         let uri =
                             data_uri.ok_or_else(|| invalid("Worksheet namespace is missing"))?;
-                        write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                        write_inserted_cell(
+                            &mut writer,
+                            patch,
+                            uri,
+                            &mut buffer,
+                            limits,
+                            formula_attributes,
+                        )?;
                         found += 1;
                     }
                     next_column = address.column.get() + 1;
@@ -1125,7 +1154,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                         }
                     }
                     emit(&mut writer, Event::Start(start))?;
-                    write_body(&mut writer, cell, &mut buffer, limits)?;
+                    write_body(&mut writer, cell, &mut buffer, limits, formula_attributes)?;
                     let name = std::str::from_utf8(&name).map_err(|error| {
                         Error::caused_by(ErrorKind::Xml, "Invalid cell name", error)
                     })?;
@@ -1200,7 +1229,14 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                         .next()
                         .ok_or_else(|| invalid("Missing pending cell"))?;
                     let uri = data_uri.ok_or_else(|| invalid("Worksheet namespace is missing"))?;
-                    write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                    write_inserted_cell(
+                        &mut writer,
+                        patch,
+                        uri,
+                        &mut buffer,
+                        limits,
+                        formula_attributes,
+                    )?;
                     found += 1;
                 }
                 in_row = false;
@@ -1227,7 +1263,14 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                         let patch = pending
                             .next()
                             .ok_or_else(|| invalid("Missing pending cell"))?;
-                        write_inserted_cell(&mut writer, patch, uri, &mut buffer, limits)?;
+                        write_inserted_cell(
+                            &mut writer,
+                            patch,
+                            uri,
+                            &mut buffer,
+                            limits,
+                            formula_attributes,
+                        )?;
                         found += 1;
                     }
                     emit(

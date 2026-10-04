@@ -14,7 +14,8 @@ pub use package::{SheetInfo, SheetKind, WorkbookReader};
 pub use reader::Rows;
 
 pub use writer::{
-    NonFiniteWritePolicy, StyleWritePolicy, WorkbookWriter, WriteOptions, WriteStats,
+    FormulaWritePolicy, NonFiniteWritePolicy, StyleWritePolicy, WorkbookWriter, WriteOptions,
+    WriteStats,
 };
 
 mod editor;
