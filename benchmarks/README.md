@@ -73,3 +73,5 @@ M2 typed boolean checkpoint and its measured numeric regression: [m2-boolean.md]
 M2 exact scalar fidelity, mixed inline text, and owned-payload budgets: [m2-scalars.md](m2-scalars.md).
 
 Completed M3 sequential writer, public openpyxl readback and temporary-disk cost: [m3-writer.md](m3-writer.md).
+
+M4 sparse/editor checkpoint: [report](m4-editor.md), [raw results](results/m4-editor.json), and `editor_checkpoint.py`. Existing-cell edit/save is compared directly with openpyxl general-mode load/edit/save; preservation, explicit sparse-model costs and reader regression are separate workloads.

@@ -111,6 +111,26 @@ impl<R: Read + Seek> WorkbookReader<R> {
 }
 
 fn memory_decision(policy: MemoryPolicy, limits: ResourceLimits) -> Result<ReadDecision> {
+    let allowance = memory_allowance(policy, limits)?;
+    Ok(ReadDecision {
+        mode: ReadMode::Streaming,
+        budget_bytes: allowance.budget_bytes,
+        working_reserve_bytes: allowance.working_reserve_bytes,
+        retained_data_bytes: allowance.retained_data_bytes,
+        estimated_data_bytes: None,
+        available_bytes: allowance.available_bytes,
+        memory_source: allowance.memory_source,
+        reason: DecisionReason::SequentialAccess,
+    })
+}
+
+/// Compute an allowance using the reader/editor's shared availability policy.
+/// Reserves the configured parser components. Catalogs, dependencies, allocator
+/// overhead and caller-retained data are additional; this is not a hard RSS cap.
+pub fn memory_allowance(
+    policy: MemoryPolicy,
+    limits: ResourceLimits,
+) -> Result<openrsxl_core::MemoryAllowance> {
     let (budget, available, source) = match policy {
         MemoryPolicy::Budget(bytes) => (bytes, None, MemorySource::ExplicitBudget),
         MemoryPolicy::Auto(auto) => {
@@ -149,15 +169,12 @@ fn memory_decision(policy: MemoryPolicy, limits: ResourceLimits) -> Result<ReadD
                 "Operation budget cannot cover the configured working reserve",
             )
         })?;
-    Ok(ReadDecision {
-        mode: ReadMode::Streaming,
+    Ok(openrsxl_core::MemoryAllowance {
         budget_bytes: budget,
         working_reserve_bytes: working,
         retained_data_bytes: retained,
-        estimated_data_bytes: None,
         available_bytes: available,
         memory_source: source,
-        reason: DecisionReason::SequentialAccess,
     })
 }
 

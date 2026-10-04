@@ -128,3 +128,7 @@ Readers plus writers do not automatically provide safe modification of existing 
 ## Benchmark evidence
 
 The earlier feasibility benchmark compared openpyxl and calamine only. Current openrsxl measurements use a reproducible three-scale numeric experiment with checksums, raw runs, wall time, and kernel peak RSS; see [benchmark evidence](../benchmarks/README.md). Results apply to raw numeric streaming, not the future full-feature library or bindings.
+
+## Initial editable/preservation implementation
+
+M4 now separates an I/O-free sparse `Worksheet` from a lazy `WorkbookEditor` holding original parts and bounded cell overlays. Both use the shared core values and existing XLSX codecs. See [ADR 0005](decisions/0005-sparse-preserving-editor.md) for ownership, budgets, cache invalidation, atomic path output and unsupported edits. This first checkpoint does not complete M4 existing-file structural editing.

@@ -66,6 +66,7 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     sheets: Vec<SheetInfo>,
     pub(crate) limits: ResourceLimits,
     date_1904: bool,
+    pub(crate) workbook_part: String,
 }
 impl WorkbookReader<File> {
     /// Open a local XLSX file with default resource limits.
@@ -173,6 +174,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
             sheets,
             limits,
             date_1904,
+            workbook_part,
         })
     }
     /// Inspect workbook sheets without loading their data.
@@ -566,7 +568,7 @@ fn relationship_part(part: &str) -> String {
         None => format!("_rels/{part}.rels"),
     }
 }
-fn resolve_part(source: &str, target: &str) -> Result<String> {
+pub(crate) fn resolve_part(source: &str, target: &str) -> Result<String> {
     let decoded = percent_encoding::percent_decode_str(target)
         .decode_utf8()
         .map_err(|e| Error::caused_by(ErrorKind::InvalidData, "Invalid part URI encoding", e))?;

@@ -2,7 +2,7 @@
 // Cell XML layouts adapted from rust_xlsxwriter, Copyright 2022-2026 John McNamara.
 // Source provenance and changes: third_party/ports.json.
 
-use openrsxl_core::{CellValue, Error, ErrorKind, Result, Row};
+use openrsxl_core::{CellValue, Error, ErrorKind, Result};
 use std::io::{self, Write};
 
 pub(crate) struct RowBuffer {
@@ -68,24 +68,27 @@ pub(crate) fn validate_xml_text(value: &str) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn encode_row(
+pub(crate) fn encode_cells<'a>(
     buffer: &mut RowBuffer,
-    row: &Row,
+    index: openrsxl_core::RowIndex,
+    cells: impl Iterator<Item = &'a openrsxl_core::Cell> + Clone,
     maximum_cell: usize,
     maximum_cells: usize,
     styles: &[openrsxl_core::CellStyle],
     epoch: openrsxl_core::DateEpoch,
 ) -> Result<()> {
     buffer.data.clear();
-    if row.cells.len() > maximum_cells {
-        return Err(Error::new(
-            ErrorKind::LimitExceeded,
-            "Writer row cell count limit exceeded",
-        ));
-    }
     let mut next_column = 0;
-    for cell in &row.cells {
-        if cell.address.row != row.index || cell.address.column.get() < next_column {
+    let mut count = 0;
+    for cell in cells.clone() {
+        count += 1;
+        if count > maximum_cells {
+            return Err(Error::new(
+                ErrorKind::LimitExceeded,
+                "Writer row cell count limit exceeded",
+            ));
+        }
+        if cell.address.row != index || cell.address.column.get() < next_column {
             return Err(Error::new(
                 ErrorKind::InvalidData,
                 "Writer cell coordinates must be ordered within their row",
@@ -121,8 +124,8 @@ pub(crate) fn encode_row(
         }
     }
     let result = (|| -> io::Result<()> {
-        write!(buffer, "<row r=\"{}\">", row.index.get() + 1)?;
-        for cell in &row.cells {
+        write!(buffer, "<row r=\"{}\">", index.get() + 1)?;
+        for cell in cells {
             let style = if cell.style.get() == 0 {
                 date_value(&cell.value).map_or(0, |date| match date.kind() {
                     openrsxl_core::DateKind::DateTime => 1,
@@ -208,7 +211,7 @@ fn date_value(value: &CellValue) -> Option<&openrsxl_core::ExcelDateTime> {
         _ => None,
     }
 }
-fn validate_value(
+pub(crate) fn validate_value(
     value: &CellValue,
     maximum: usize,
     epoch: openrsxl_core::DateEpoch,

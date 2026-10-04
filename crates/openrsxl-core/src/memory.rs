@@ -32,7 +32,7 @@ impl Default for AutoMemory {
     }
 }
 
-/// Memory policy for automatic numeric read-mode selection.
+/// Shared managed-memory policy for reading and editable operations.
 #[derive(Clone, Copy, Debug)]
 pub enum MemoryPolicy {
     /// Derive an operation budget from effective availability and headroom.
@@ -101,4 +101,21 @@ pub struct ReadDecision {
     pub memory_source: MemorySource,
     /// Strategy selection/fallback reason.
     pub reason: DecisionReason,
+}
+
+/// Runtime-independent diagnostics for a managed operation allowance.
+/// Existing catalogs, dependency allocations and caller data are additional;
+/// this is a snapshot of availability, not a reservation or hard RSS ceiling.
+#[derive(Clone, Debug)]
+pub struct MemoryAllowance {
+    /// Policy budget before working space is reserved.
+    pub budget_bytes: usize,
+    /// Conservative parser/row working reserve.
+    pub working_reserve_bytes: usize,
+    /// Bytes available for managed retained data after the reserve.
+    pub retained_data_bytes: usize,
+    /// Effective observed or caller-supplied availability.
+    pub available_bytes: Option<u64>,
+    /// Source of the availability/budget information.
+    pub memory_source: MemorySource,
 }

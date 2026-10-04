@@ -16,10 +16,14 @@ pub use error::{Error, ErrorKind, Result};
 pub use formula::Formula;
 pub use limits::ResourceLimits;
 pub use memory::{
-    AccessPattern, AutoMemory, DecisionReason, MemoryPolicy, MemorySource, ReadDecision, ReadMode,
+    AccessPattern, AutoMemory, DecisionReason, MemoryAllowance, MemoryPolicy, MemorySource,
+    ReadDecision, ReadMode,
 };
 pub use row::{Cell, CellValue, ReadOptions, Row, RowBatch, SheetData};
 pub use scalar::{CellError, CellText, ExactInteger};
 pub use style::{
     BorderLine, BorderSide, CellStyle, Font, HorizontalAlignment, StyleId, VerticalAlignment,
 };
+
+mod worksheet;
+pub use worksheet::{CellRange, EditLimits, Worksheet};
