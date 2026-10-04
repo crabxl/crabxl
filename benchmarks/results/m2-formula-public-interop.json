@@ -1,0 +1,154 @@
+{
+  "reference": "3.1.5",
+  "inspection": "Public load APIs and newly generated OOXML only",
+  "checked": [
+    {
+      "name": "shared-anchor",
+      "data_only": false,
+      "values": {
+        "B1": "=B1+$B$2+C3",
+        "D1": "=D1+$B$2+E3",
+        "A2": "=A2+$B$2+B4"
+      }
+    },
+    {
+      "name": "shared-anchor",
+      "data_only": true,
+      "values": {
+        "B1": 0,
+        "D1": 1,
+        "A2": 2
+      }
+    },
+    {
+      "name": "outside-range",
+      "data_only": false,
+      "values": {
+        "A1": "=A1+1",
+        "B1": "=B1+1"
+      }
+    },
+    {
+      "name": "outside-range",
+      "data_only": true,
+      "values": {
+        "A1": 0,
+        "B1": 1
+      }
+    },
+    {
+      "name": "missing-master",
+      "data_only": false,
+      "values": {
+        "A1": "="
+      }
+    },
+    {
+      "name": "missing-master",
+      "data_only": true,
+      "values": {
+        "A1": 1
+      }
+    },
+    {
+      "name": "text-no-ref",
+      "data_only": false,
+      "values": {
+        "A1": "=A1+1",
+        "B1": "=B1+1"
+      }
+    },
+    {
+      "name": "text-no-ref",
+      "data_only": true,
+      "values": {
+        "A1": 0,
+        "B1": 1
+      }
+    },
+    {
+      "name": "reused-master",
+      "data_only": false,
+      "values": {
+        "A1": "=A1+1",
+        "B1": "=B1+1",
+        "C1": "=C1+1",
+        "D1": "=D1+1"
+      }
+    },
+    {
+      "name": "reused-master",
+      "data_only": true,
+      "values": {
+        "A1": 0,
+        "B1": 1,
+        "C1": 0,
+        "D1": 1
+      }
+    },
+    {
+      "name": "array-table",
+      "data_only": false,
+      "values": {
+        "A1": {
+          "type": "ArrayFormula",
+          "properties": {
+            "ref": "A1:B2",
+            "text": "=SUM(C1:C2)"
+          }
+        },
+        "D1": {
+          "type": "DataTableFormula",
+          "properties": {
+            "ref": "D1:E2",
+            "ca": "0",
+            "dt2D": "1",
+            "dtr": "0",
+            "r1": "A1",
+            "r2": "B1",
+            "del1": "0",
+            "del2": "1"
+          }
+        }
+      }
+    },
+    {
+      "name": "array-table",
+      "data_only": true,
+      "values": {
+        "A1": 5,
+        "D1": 0
+      }
+    },
+    {
+      "name": "missing-caches",
+      "data_only": false,
+      "values": {
+        "A1": "=1",
+        "B1": "=1",
+        "C1": "=1",
+        "D1": "=1"
+      }
+    },
+    {
+      "name": "missing-caches",
+      "data_only": true,
+      "values": {
+        "C1": false,
+        "D1": "#DIV/0!"
+      }
+    }
+  ],
+  "deferred": [
+    {
+      "name": "overflow-numeric",
+      "data_only": false,
+      "reason": "Nonfinite numeric compatibility remains a separate M2 value checkpoint"
+    },
+    {
+      "name": "overflow-numeric",
+      "data_only": true,
+      "reason": "Nonfinite numeric compatibility remains a separate M2 value checkpoint"
+    }
+  ]
+}

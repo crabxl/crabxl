@@ -382,7 +382,10 @@ fn normal_formula_round_trip_and_data_only_caches() {
         actual,
         caches
             .into_iter()
-            .map(|cache| cache.unwrap_or(CellValue::Empty))
+            .map(|cache| match cache {
+                Some(CellValue::Text(text)) if text.as_str().is_empty() => CellValue::Empty,
+                other => other.unwrap_or(CellValue::Empty),
+            })
             .collect::<Vec<_>>()
     );
     assert_eq!(files(&directory), 0);
@@ -1164,6 +1167,168 @@ fn iso_payload_limits_fail_before_spooling_and_allow_retry() {
     assert_eq!(writer.stats().rows, 0);
     let date = CellValue::DateTime(Box::new(ExcelDateTime::from_ymd(2024, 1, 1).unwrap()));
     writer.write_row(&row(0, vec![date])).unwrap();
+    writer.finish(Cursor::new(Vec::new())).unwrap();
+    assert_eq!(files(&directory), 0);
+}
+
+#[test]
+fn array_table_metadata_and_verbatim_source_formulas_round_trip() {
+    use crabxl_core::{
+        DataTableOptions, Formula, FormulaFlag, FormulaFlags, FormulaMetadata, FormulaRange,
+        FormulaType,
+    };
+    let array = Formula::with_metadata(
+        "=SUM(C1:C2)",
+        Some(CellValue::Integer(5)),
+        FormulaMetadata {
+            kind: FormulaType::Array,
+            reference: Some(FormulaRange::from_xml("$A$1:$B$2").unwrap()),
+            flags: FormulaFlags {
+                always_calculate: Some(FormulaFlag::new(false)),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let table = Formula::with_metadata(
+        "",
+        Some(CellValue::Integer(0)),
+        FormulaMetadata {
+            kind: FormulaType::DataTable,
+            reference: Some(FormulaRange::from_xml("D1:E2").unwrap()),
+            flags: FormulaFlags {
+                calculate_cell: Some(FormulaFlag::from_xml("false").unwrap()),
+                ..Default::default()
+            },
+            data_table: Some(Box::new(DataTableOptions {
+                two_dimensions: Some(true.into()),
+                row_table: Some(false.into()),
+                input1: Some("$A$1".into()),
+                input2: Some("B1".into()),
+                deleted1: Some(false.into()),
+                deleted2: Some(true.into()),
+            })),
+        },
+    )
+    .unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let mut input = row(
+        0,
+        vec![
+            CellValue::Formula(Box::new(array)),
+            CellValue::Formula(Box::new(table)),
+            CellValue::Formula(Box::new(Formula::from_source("=1", None, None).unwrap())),
+            CellValue::Formula(Box::new(Formula::from_source("", None, None).unwrap())),
+        ],
+    );
+    input.cells[1].address = CellAddress::new(0, 3).unwrap();
+    input.cells[2].address = CellAddress::new(0, 5).unwrap();
+    input.cells[3].address = CellAddress::new(0, 6).unwrap();
+    writer.write_row(&input).unwrap();
+    let mut book = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    let loaded = book.read_sheet("Sheet").unwrap();
+    let get = |index: usize| {
+        let CellValue::Formula(value) = &loaded.rows[0].cells[index].value else {
+            panic!("Expected formula")
+        };
+        value
+    };
+    assert_eq!(get(0).formula_type(), FormulaType::Array);
+    assert_eq!(get(0).expression(), "SUM(C1:C2)");
+    assert_eq!(get(0).cached(), Some(&CellValue::Integer(5)));
+    assert_eq!(
+        get(0)
+            .metadata()
+            .unwrap()
+            .reference
+            .as_ref()
+            .unwrap()
+            .spelling(),
+        "$A$1:$B$2"
+    );
+    let table = get(1);
+    assert_eq!(table.formula_type(), FormulaType::DataTable);
+    assert_eq!(table.cached(), Some(&CellValue::Integer(0)));
+    assert_eq!(
+        table
+            .metadata()
+            .unwrap()
+            .flags
+            .calculate_cell
+            .as_ref()
+            .unwrap()
+            .source(),
+        Some("false")
+    );
+    assert_eq!(
+        table
+            .metadata()
+            .unwrap()
+            .data_table
+            .as_ref()
+            .unwrap()
+            .input1
+            .as_deref(),
+        Some("$A$1")
+    );
+    assert_eq!(get(2).expression(), "=1");
+    assert_eq!(get(3).expression(), "");
+}
+
+#[test]
+fn structured_formula_payload_and_input_validation_are_atomic() {
+    use crabxl_core::{DataTableOptions, Formula, FormulaFlag, FormulaMetadata, FormulaType};
+    assert!(
+        Formula::with_metadata(
+            "",
+            None,
+            FormulaMetadata {
+                kind: FormulaType::DataTable,
+                data_table: Some(Box::new(DataTableOptions {
+                    input1: Some("XFE1".into()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }
+        )
+        .is_err()
+    );
+    assert!(FormulaFlag::from_xml("\u{000b}true").is_err());
+    let directory = tempfile::tempdir().unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        max_cell_bytes: 64,
+        ..options(&directory)
+    })
+    .unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let before = writer.temporary_bytes();
+    let large = Formula::with_metadata(
+        "1",
+        None,
+        FormulaMetadata {
+            flags: crabxl_core::FormulaFlags {
+                calculate_cell: Some(
+                    FormulaFlag::from_xml(format!("{}true", " ".repeat(1024))).unwrap(),
+                ),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        writer
+            .write_row(&row(0, vec![CellValue::Formula(Box::new(large))]))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::LimitExceeded
+    );
+    assert_eq!(writer.temporary_bytes(), before);
+    writer
+        .write_row(&row(0, vec![CellValue::Integer(1)]))
+        .unwrap();
     writer.finish(Cursor::new(Vec::new())).unwrap();
     assert_eq!(files(&directory), 0);
 }

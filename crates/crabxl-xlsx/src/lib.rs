@@ -2,6 +2,7 @@
 
 mod adaptive;
 mod encode;
+mod formula_codec;
 mod package;
 mod reader;
 mod styles;
@@ -31,3 +32,5 @@ mod formatting;
 mod style_codec;
 
 mod style_reader;
+
+pub use formula_codec::SharedFormulaStats;

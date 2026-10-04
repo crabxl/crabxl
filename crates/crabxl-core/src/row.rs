@@ -145,6 +145,15 @@ pub enum DateReadPolicy {
     /// Keep finite source serials even when a calendar/runtime conversion is unavailable.
     RetainSerial,
 }
+/// Validation of worksheet-local shared formula groups.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FormulaReadPolicy {
+    /// Match reference expansion, including missing templates and source range quirks.
+    #[default]
+    Compatible,
+    /// Reject unresolved/duplicate masters and followers outside declared ranges.
+    ValidateGroups,
+}
 /// Projection performed before expensive cell-value decoding.
 #[derive(Clone, Debug, Default)]
 pub struct ReadOptions {
@@ -159,6 +168,11 @@ pub struct ReadOptions {
     pub rich_text: bool,
     /// Baseline date errors by default; exact raw-serial retention is an extension.
     pub date_policy: DateReadPolicy,
+    /// Expose shared source metadata instead of only expanded normal expressions.
+    /// Array/table metadata is always retained when returning formulas.
+    pub formula_metadata: bool,
+    /// Reference-compatible shared groups or explicit structural validation.
+    pub formula_policy: FormulaReadPolicy,
 }
 impl ReadOptions {
     /// Whether the selected row range includes this index.

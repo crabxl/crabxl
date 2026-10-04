@@ -36,6 +36,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "crabxl"
+version = "0.1.0"
+dependencies = [
+ "crabxl-core",
+ "crabxl-xlsx",
+]
+
+[[package]]
+name = "crabxl-core"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+]
+
+[[package]]
+name = "crabxl-xlsx"
+version = "0.1.0"
+dependencies = [
+ "crabxl-core",
+ "fast-float2",
+ "percent-encoding",
+ "quick-xml",
+ "tempfile",
+ "zip",
+]
+
+[[package]]
 name = "crc32fast"
 version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -146,33 +173,6 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
-
-[[package]]
-name = "crabxl"
-version = "0.1.0"
-dependencies = [
- "crabxl-core",
- "crabxl-xlsx",
-]
-
-[[package]]
-name = "crabxl-core"
-version = "0.1.0"
-dependencies = [
- "chrono",
-]
-
-[[package]]
-name = "crabxl-xlsx"
-version = "0.1.0"
-dependencies = [
- "fast-float2",
- "crabxl-core",
- "percent-encoding",
- "quick-xml",
- "tempfile",
- "zip",
-]
 
 [[package]]
 name = "percent-encoding"

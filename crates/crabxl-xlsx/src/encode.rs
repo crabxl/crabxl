@@ -187,9 +187,7 @@ pub(crate) fn encode_cells<'a>(
             }
             buffer.write_all(b">")?;
             if let Some(formula) = formula {
-                buffer.write_all(b"<f>")?;
-                write_text(buffer, formula.expression())?;
-                buffer.write_all(b"</f>")?;
+                crate::formula_codec::write(buffer, formula)?;
             }
             match literal {
                 None | Some(CellValue::Empty) => {}
@@ -281,6 +279,15 @@ pub(crate) fn validate_value(
         )),
         CellValue::DateTime(value) => value.serial_in(epoch).map(|_| ()),
         CellValue::Formula(value) => {
+            if let Some(metadata) = value.metadata() {
+                metadata.validate()?;
+                if metadata.payload_bytes() > maximum {
+                    return Err(Error::new(
+                        ErrorKind::LimitExceeded,
+                        "Formula metadata exceeds writer cell limit",
+                    ));
+                }
+            }
             if value.expression().len() > maximum || value.expression().chars().count() > 8192 {
                 return Err(Error::new(
                     ErrorKind::LimitExceeded,
@@ -302,7 +309,15 @@ pub(crate) fn validate_value(
     }
 }
 
+pub(crate) fn write_attribute(output: &mut impl Write, name: &str, value: &str) -> io::Result<()> {
+    write!(output, " {name}=\"")?;
+    write_xml(output, value, true)?;
+    output.write_all(b"\"")
+}
 pub(crate) fn write_text(output: &mut impl Write, text: &str) -> io::Result<()> {
+    write_xml(output, text, false)
+}
+fn write_xml(output: &mut impl Write, text: &str, attribute: bool) -> io::Result<()> {
     let mut start = 0;
     for (offset, ch) in text.char_indices() {
         let replacement = match ch {
@@ -310,6 +325,10 @@ pub(crate) fn write_text(output: &mut impl Write, text: &str) -> io::Result<()> 
             '<' => b"&lt;".as_slice(),
             '>' => b"&gt;".as_slice(),
             '\r' => b"&#13;".as_slice(),
+            '\n' if attribute => b"&#10;".as_slice(),
+            '\t' if attribute => b"&#9;".as_slice(),
+            '\"' if attribute => b"&quot;".as_slice(),
+            '\'' if attribute => b"&apos;".as_slice(),
             _ => continue,
         };
         output.write_all(&text.as_bytes()[start..offset])?;

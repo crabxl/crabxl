@@ -16964,6 +16964,35 @@
         "benchmarks/verify_iso_fixture.py"
       ],
       "limitations": "Pinned prefix compatibility, not strict ISO validation or timezone-aware values. Numeric creation defaults remain separate; elapsed durations are numeric in ISO mode. Full source style editing/normalization and original-package date assignment remain staged. Python compatibility integration is separately pinned and tested."
+    },
+    {
+      "id": "formula.structured-records",
+      "description": "Bounded sparse shared expansion and typed array/data-table source records",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "streaming-read",
+        "materialized-read",
+        "sequential-write"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/simple_formulae.html",
+      "modules": [
+        "crates/crabxl-core/src/formula_metadata.rs",
+        "crates/crabxl-xlsx/src/formula_codec.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/streaming.rs::shared_formulas_use_actual_anchors_sparse_ids_and_projected_dependencies",
+        "crates/crabxl-xlsx/tests/writer.rs::array_table_metadata_and_verbatim_source_formulas_round_trip",
+        "benchmarks/verify_formula_probe.py",
+        "benchmarks/verify_structured_formula_fixture.py"
+      ],
+      "limitations": "Narrow checkpoint; resolved shared write output is normalized, not a group-creation API. Dynamic cm/vm graphs, complete expression parsing, nonfinite numeric caches, shared graph editing and aggregate adaptive budgets remain staged. See ADR 0014 and benchmarks/m2-formulas.md."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

@@ -496,8 +496,8 @@ fn foreign_cell_namespace_is_not_decoded_as_spreadsheet_data() {
 #[test]
 fn selected_unsupported_features_fail_with_cell_context() {
     for content in [
-        "<c><f t=\"shared\" si=\"0\">1+1</f><v>2</v></c>",
         "<c vm=\"1\"><v>1</v></c>",
+        "<c><f t=\"futureFormula\">1</f></c>",
     ] {
         let mut book = open(&format!("<row>{content}</row>"));
         let mut rows = book.rows("A & B").unwrap();
@@ -1035,7 +1035,6 @@ fn formula_payload_limits_projection_and_invalid_structure_are_enforced() {
         .unwrap();
     assert_eq!(row.cells[0].value, CellValue::Integer(7));
     for content in [
-        "<row><c><f/><v>1</v></c></row>",
         "<row><c><f>1</f><f>2</f></c></row>",
         "<row><c><f>1</f><v>1</v><v>2</v></c></row>",
     ] {
@@ -2034,4 +2033,229 @@ fn iso_cells_dates_clocks_durations_and_formula_caches_share_read_modes() {
         assert_eq!(error.kind(), ErrorKind::InvalidData);
         assert_eq!(error.cell(), Some(CellAddress::new(0, 1).unwrap()));
     }
+}
+
+const SHARED_ANCHOR: &str = "<row r=\"1\"><c r=\"B1\"><f t=\"shared\" si=\"4294967295\" ref=\"A1:D2\">B1+$B$2+C3</f><v>0</v></c><c r=\"D1\"><f t=\"shared\" si=\"4294967295\"/><v>1</v></c></row><row r=\"2\"><c r=\"A2\"><f t=\"shared\" si=\"4294967295\"/><v>2</v></c></row>";
+
+#[test]
+fn shared_formulas_use_actual_anchors_sparse_ids_and_projected_dependencies() {
+    use crabxl_core::FormulaType;
+    let mut book = open(SHARED_ANCHOR);
+    let loaded = book.read_sheet("A & B").unwrap();
+    for (cell, expected) in loaded.rows.iter().flat_map(|row| &row.cells).zip([
+        "B1+$B$2+C3",
+        "D1+$B$2+E3",
+        "A2+$B$2+B4",
+    ]) {
+        let CellValue::Formula(formula) = &cell.value else {
+            panic!("Expected formula")
+        };
+        assert_eq!(formula.expression(), expected);
+        assert_eq!(formula.formula_type(), FormulaType::Normal);
+    }
+    let options = ReadOptions {
+        rows: Some(RowIndex::new(1).unwrap()..=RowIndex::new(1).unwrap()),
+        columns: Some(ColumnIndex::new(0).unwrap()..=ColumnIndex::new(0).unwrap()),
+        formula_metadata: true,
+        ..Default::default()
+    };
+    let mut rows = book.rows_with_options("A & B", options).unwrap();
+    let row = rows.next_row().unwrap().unwrap();
+    let CellValue::Formula(formula) = &row.cells[0].value else {
+        panic!("Expected projected formula")
+    };
+    assert_eq!(formula.expression(), "A2+$B$2+B4");
+    assert_eq!(
+        formula.formula_type(),
+        FormulaType::Shared {
+            index: u32::MAX,
+            master: false
+        }
+    );
+    assert_eq!(rows.decoded_cells(), 1);
+    let stats = rows.shared_formula_stats();
+    assert_eq!(stats.templates, 1);
+    assert_eq!(stats.expanded, 1);
+    assert!(stats.accounted_bytes < 2048);
+    assert!(rows.next_row().unwrap().is_none());
+    drop(rows);
+    let escaped = SHARED_ANCHOR.replace("t=\"shared\"", "t=\"shar&#101;d\"");
+    let mut book = open(&escaped);
+    let row = book
+        .rows_with_options("A & B", columns(3, 3))
+        .unwrap()
+        .next_row()
+        .unwrap()
+        .unwrap();
+    let CellValue::Formula(formula) = &row.cells[0].value else {
+        panic!("Expected escaped dependency")
+    };
+    assert_eq!(formula.expression(), "D1+$B$2+E3");
+}
+
+#[test]
+fn shared_compatibility_preserves_first_templates_and_strict_policy_is_explicit() {
+    use crabxl_core::FormulaReadPolicy;
+    for (content, expected) in [
+        (
+            "<row><c><f t=\"shared\" si=\"1\"/><v>1</v></c></row>",
+            vec![""],
+        ),
+        (
+            "<row><c r=\"A1\"><f t=\"shared\" si=\"1\" ref=\"A1:A2\">A1+1</f></c><c r=\"B1\"><f t=\"shared\" si=\"1\"/></c></row>",
+            vec!["A1+1", "B1+1"],
+        ),
+        (
+            "<row><c r=\"A1\"><f t=\"shared\" si=\"1\">A1+1</f></c><c r=\"B1\"><f t=\"shared\" si=\"1\">B1+2</f></c></row>",
+            vec!["A1+1", "B1+1"],
+        ),
+    ] {
+        let mut book = open(content);
+        let row = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+        for (cell, expression) in row.cells.iter().zip(expected) {
+            let CellValue::Formula(value) = &cell.value else {
+                panic!("Expected formula")
+            };
+            assert_eq!(value.expression(), expression);
+        }
+        let error = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    formula_policy: FormulaReadPolicy::ValidateGroups,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        assert!(error.cell().is_some());
+    }
+    let mut book = open(
+        "<row><c r=\"A1\"><f t=\"shared\" si=\"7\"/></c><c r=\"B1\"><f t=\"shared\" si=\"7\">B1+2</f></c></row>",
+    );
+    let row = book
+        .rows_with_options("A & B", columns(1, 1))
+        .unwrap()
+        .next_row()
+        .unwrap()
+        .unwrap();
+    let CellValue::Formula(value) = &row.cells[0].value else {
+        panic!("Expected unresolved source")
+    };
+    assert_eq!(value.expression(), "");
+}
+
+#[test]
+fn shared_template_counts_bytes_and_cache_only_storage_are_bounded() {
+    let content = "<row><c><f t=\"shared\" si=\"4294967295\">A1+1</f><v>7</v></c><c><f t=\"shared\" si=\"1\">B1+1</f><v>8</v></c></row>";
+    for limits in [
+        ResourceLimits {
+            max_shared_formulas: 1,
+            ..Default::default()
+        },
+        ResourceLimits {
+            max_formula_table_bytes: 1,
+            ..Default::default()
+        },
+    ] {
+        let mut book = WorkbookReader::with_limits(
+            Cursor::new(fixture(
+                &entries(&format!(
+                    "<worksheet xmlns=\"{MAIN}\"><sheetData>{content}</sheetData></worksheet>"
+                ))
+                .iter()
+                .map(|(n, v)| (n.as_str(), v.as_str()))
+                .collect::<Vec<_>>(),
+            )),
+            limits,
+        )
+        .unwrap();
+        let mut rows = book.rows("A & B").unwrap();
+        let error = rows.next_row().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+        assert!(rows.next_row().unwrap().is_none());
+    }
+    let mut book = open(content);
+    let mut rows = book
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                data_only: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let row = rows.next_row().unwrap().unwrap();
+    assert_eq!(row.cells[0].value, CellValue::Integer(7));
+    assert_eq!(row.cells[1].value, CellValue::Integer(8));
+    assert_eq!(rows.shared_formula_stats().templates, 0);
+}
+
+#[test]
+fn array_table_source_properties_caches_and_empty_bodies_remain_distinct() {
+    use crabxl_core::FormulaType;
+    let mut book = open(
+        "<row><c><f t=\"array\" ref=\"$A$1:$B$2\" aca=\"0\">SUM(C1:C2)</f><v>5</v></c><c r=\"D1\"><f t=\"dataTable\" ref=\"D1:E2\" dt2D=\"1\" dtr=\"0\" r1=\"$A$1\" r2=\"B1\" ca=\"0\" del1=\"0\" del2=\"1\"/><v>0</v></c><c r=\"F1\"><f/><v>1</v></c><c r=\"G1\"><f>=1</f></c></row>",
+    );
+    let loaded = book.read_sheet("A & B").unwrap();
+    let cells = &loaded.rows[0].cells;
+    let get = |index: usize| {
+        let CellValue::Formula(value) = &cells[index].value else {
+            panic!("Expected structured formula")
+        };
+        value
+    };
+    let array = get(0);
+    assert_eq!(array.formula_type(), FormulaType::Array);
+    assert_eq!(array.expression(), "SUM(C1:C2)");
+    assert_eq!(
+        array
+            .metadata()
+            .unwrap()
+            .reference
+            .as_ref()
+            .unwrap()
+            .spelling(),
+        "$A$1:$B$2"
+    );
+    assert!(
+        !array
+            .metadata()
+            .unwrap()
+            .flags
+            .always_calculate
+            .as_ref()
+            .unwrap()
+            .value()
+    );
+    let table = get(1);
+    assert_eq!(table.formula_type(), FormulaType::DataTable);
+    assert_eq!(table.expression(), "");
+    let metadata = table.metadata().unwrap();
+    assert_eq!(
+        metadata.flags.calculate_cell.as_ref().unwrap().source(),
+        Some("0")
+    );
+    let options = metadata.data_table.as_ref().unwrap();
+    assert_eq!(options.input1.as_deref(), Some("$A$1"));
+    assert!(options.two_dimensions.as_ref().unwrap().value());
+    assert_eq!(options.row_table.as_ref().unwrap().source(), Some("0"));
+    assert_eq!(table.cached(), Some(&CellValue::Integer(0)));
+    assert_eq!(get(2).expression(), "");
+    assert_eq!(get(3).expression(), "=1");
+    let cached = book
+        .read_sheet_with_options(
+            "A & B",
+            ReadOptions {
+                data_only: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(cached.rows[0].cells[0].value, CellValue::Integer(5));
+    assert_eq!(cached.rows[0].cells[1].value, CellValue::Integer(0));
+    assert_eq!(cached.rows[0].cells[2].value, CellValue::Integer(1));
+    assert_eq!(cached.rows[0].cells[3].value, CellValue::Empty);
 }
