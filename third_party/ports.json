@@ -26,7 +26,8 @@
         "crates/crabxl-core/src/translate.rs",
         "crates/crabxl-xlsx/src/strings.rs",
         "crates/crabxl-core/src/formula_metadata.rs",
-        "crates/crabxl-xlsx/src/formula_codec.rs"
+        "crates/crabxl-xlsx/src/formula_codec.rs",
+        "crates/crabxl-core/src/number_formats.rs"
       ],
       "changes": [
         "Adapted event-driven cell and workbook parsing to shared crabxl types without Range materialization",

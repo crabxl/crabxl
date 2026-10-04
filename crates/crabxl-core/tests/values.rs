@@ -230,14 +230,8 @@ fn builtin_format_resolution_keeps_declared_overrides_and_unknown_identities() {
     assert_eq!(builtin_number_format_id("m/d/yy"), None);
     let catalog = StyleCatalog {
         number_formats: vec![
-            NumberFormat {
-                id: 14,
-                code: "yyyy-mm-dd".into(),
-            },
-            NumberFormat {
-                id: u32::MAX,
-                code: "0.000".into(),
-            },
+            NumberFormat::new(14, "yyyy-mm-dd"),
+            NumberFormat::new(u32::MAX, "0.000"),
         ],
         ..Default::default()
     };
@@ -282,4 +276,22 @@ fn borrowed_style_views_share_components_and_do_not_install_inheritance() {
     catalog.cell_formats[0].font_id = 100;
     assert!(catalog.cell_style(StyleId::new(0)).is_err());
     assert!(catalog.cell_style(StyleId::new(99)).is_err());
+}
+
+#[test]
+fn number_format_classification_stays_consistent_when_the_owned_code_changes() {
+    use crabxl_core::{DateKind, NumberFormat, classify_number_format};
+    let mut format = NumberFormat::new(14, "0.000");
+    assert_eq!(format.date_kind(), None);
+    format.set_code("[h]:mm:ss.000");
+    assert_eq!(format.date_kind(), Some(DateKind::Duration));
+    assert_eq!(format.code(), "[h]:mm:ss.000");
+    assert_eq!(format.id(), 14);
+    let snapshot = format.clone();
+    format.set_code("yyyy-mm-dd");
+    assert_eq!(format.date_kind(), Some(DateKind::DateTime));
+    assert_eq!(snapshot.date_kind(), Some(DateKind::Duration));
+    for code in ["0.00", "\"day\"0", "\\d0", "[Red]0.00", "0;yyyy"] {
+        assert_eq!(classify_number_format(code), None, "{code}");
+    }
 }

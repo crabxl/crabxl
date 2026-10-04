@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Built-in table composition selected from umya-spreadsheet numbering_format.rs
 // and rust_xlsxwriter format.rs; Copyright (c) 2020 MathNya;
-// Copyright 2022-2026 John McNamara. Exact baseline codes were validated through
+// Copyright 2022-2026 John McNamara. Format classification is adapted from
+// calamine formats.rs, Copyright 2016-2026 Johann Tuffe.
+// Exact baseline codes were validated through
 // the public openpyxl 3.1.5 BUILTIN_FORMATS mapping, without reading its source.
 
 /// Known portable built-in format identities and reference-compatible spelling.
@@ -65,4 +67,42 @@ pub fn builtin_number_format_id(code: &str) -> Option<u32> {
         .iter()
         .find(|(_, value)| *value == code)
         .map(|(id, _)| *id)
+}
+
+/// Classify an Excel format's first section without allocation.
+/// Quoted/escaped literals and elapsed-time brackets retain the shared codec rules.
+pub fn classify_number_format(format: &str) -> Option<crate::DateKind> {
+    let mut escaped = false;
+    let mut quote = false;
+    let mut brackets = 0usize;
+    let mut previous = ' ';
+    let mut elapsed = false;
+    let mut am_pm = false;
+    for ch in format.chars() {
+        match (ch, escaped, quote, am_pm, brackets) {
+            (_, true, ..) => escaped = false,
+            ('_' | '\\' | '*', ..) => escaped = true,
+            ('"', _, true, _, _) => quote = false,
+            (_, _, true, _, _) => {}
+            ('"', _, _, _, _) => quote = true,
+            (';', ..) => return None,
+            ('[', ..) => brackets += 1,
+            (']', .., 1) if elapsed => return Some(crate::DateKind::Duration),
+            (']', ..) => brackets = brackets.saturating_sub(1),
+            ('a' | 'A', _, _, false, 0) => am_pm = true,
+            ('p' | 'm' | '/' | 'P' | 'M', _, _, true, 0) => {
+                return Some(crate::DateKind::DateTime);
+            }
+            ('d' | 'm' | 'h' | 'y' | 's' | 'D' | 'M' | 'H' | 'Y' | 'S', _, _, false, 0) => {
+                return Some(crate::DateKind::DateTime);
+            }
+            _ => {
+                if !(elapsed && ch.eq_ignore_ascii_case(&previous)) {
+                    elapsed = previous == '[' && matches!(ch, 'm' | 'h' | 's' | 'M' | 'H' | 'S');
+                }
+            }
+        }
+        previous = ch;
+    }
+    None
 }
