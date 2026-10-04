@@ -496,7 +496,6 @@ fn foreign_cell_namespace_is_not_decoded_as_spreadsheet_data() {
 #[test]
 fn selected_unsupported_features_fail_with_cell_context() {
     for content in [
-        "<c s=\"1\"><v>1</v></c>",
         "<c><f t=\"shared\" si=\"0\">1+1</f><v>2</v></c>",
         "<c vm=\"1\"><v>1</v></c>",
     ] {
@@ -1681,4 +1680,312 @@ fn typed_inline_protection_matches_public_reference_per_run() {
         };
         assert_eq!(display.as_ref(), typed);
     }
+}
+
+fn with_styles(sheet: &str, styles: &str, date_1904: bool) -> Vec<u8> {
+    let mut parts = entries(&format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData>{sheet}</sheetData></worksheet>"
+    ));
+    for (name, value) in &mut parts {
+        if name == "book/workbook.xml" && !date_1904 {
+            *value = value.replace("date1904=\"1\"", "date1904=\"0\"");
+        }
+        if name == "book/_rels/workbook.xml.rels" {
+            *value=value.replace("</Relationships>",&format!("<Relationship Id=\"styles\" Type=\"{REL}/styles\" Target=\"../meta/styles.xml\"/></Relationships>"));
+        }
+        if name == "[Content_Types].xml" {
+            *value=value.replace("</Types>","<Override PartName=\"/meta/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/></Types>");
+        }
+    }
+    parts.push((
+        "meta/styles.xml".into(),
+        format!("<styleSheet xmlns=\"{MAIN}\">{styles}</styleSheet>"),
+    ));
+    let refs: Vec<_> = parts
+        .iter()
+        .map(|(n, v)| (n.as_str(), v.as_str()))
+        .collect();
+    fixture(&refs)
+}
+fn basic_styles(formats: &str) -> String {
+    format!(
+        "<numFmts><numFmt numFmtId=\"164\" formatCode=\"[h]:mm:ss.000\"/><numFmt numFmtId=\"4294967295\" formatCode=\"0.00 &quot;d&quot;\"/></numFmts><fonts count=\"4294967295\"><font><name val=\"Calibri\"/><sz val=\"11\"/></font></fonts><fills><fill><patternFill patternType=\"none\"/></fill></fills><borders><border/></borders><cellStyleXfs><xf/></cellStyleXfs><cellXfs>{formats}</cellXfs><cellStyles><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>"
+    )
+}
+
+#[test]
+fn styled_dates_epochs_duration_cached_formulas_and_general_values_stream() {
+    use crabxl_core::{DateKind, DateReadPolicy};
+    let styles = basic_styles(
+        "<xf/><xf numFmtId=\"14\"/><xf numFmtId=\"164\"/><xf numFmtId=\"4294967295\"/>",
+    );
+    let sheet = "<row><c s=\"1\"><v>0</v></c><c s=\"1\"><v>0.5</v></c><c s=\"1\"><v>0.99999999999</v></c><c s=\"1\"><v>59</v></c><c s=\"1\"><v>60</v></c><c s=\"1\"><v>61</v></c><c s=\"1\"><v>-0.5</v></c><c s=\"1\"><v>2958466</v></c><c s=\"2\"><v>1.25</v></c><c s=\"3\"><v>1.5</v></c><c s=\"1\" t=\"b\"><v>0</v></c><c s=\"1\" t=\"inlineStr\"><is><t>text</t></is></c><c s=\"1\"><f>1</f><v>61</v></c><c s=\"1\"><f>1</f></c></row>";
+    for mac in [false, true] {
+        let mut book = WorkbookReader::new(Cursor::new(with_styles(sheet, &styles, mac))).unwrap();
+        let row = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+        let date = |i: usize| {
+            let CellValue::DateTime(value) = &row.cells[i].value else {
+                panic!("Expected date/time at {i}")
+            };
+            **value
+        };
+        assert_eq!(date(0).kind(), DateKind::Time);
+        assert_eq!(date(0).to_time().unwrap().to_string(), "00:00:00");
+        assert_eq!(date(1).to_time().unwrap().to_string(), "12:00:00");
+        assert_eq!(date(2).kind(), DateKind::DateTime);
+        assert_eq!(
+            date(2).to_datetime().unwrap().to_string(),
+            if mac {
+                "1904-01-02 00:00:00"
+            } else {
+                "1900-01-01 00:00:00"
+            }
+        );
+        assert_eq!(date(4).serial(), 60.0);
+        assert_eq!(
+            date(4).to_datetime().unwrap().to_string(),
+            if mac {
+                "1904-03-01 00:00:00"
+            } else {
+                "1900-02-28 00:00:00"
+            }
+        );
+        assert_eq!(
+            date(6).to_datetime().unwrap().to_string(),
+            if mac {
+                "1903-12-31 12:00:00"
+            } else {
+                "1899-12-29 12:00:00"
+            }
+        );
+        assert_eq!(row.cells[7].value, CellValue::error("#VALUE!"));
+        assert_eq!(date(8).kind(), DateKind::Duration);
+        assert_eq!(date(8).to_duration().unwrap().num_seconds(), 108000);
+        assert_eq!(row.cells[9].value, CellValue::Number(1.5));
+        assert_eq!(row.cells[10].value, CellValue::Boolean(false));
+        assert_eq!(row.cells[11].value, CellValue::text("text"));
+        let CellValue::Formula(formula) = &row.cells[12].value else {
+            panic!("Expected formula")
+        };
+        assert!(matches!(formula.cached(), Some(CellValue::DateTime(_))));
+        let CellValue::Formula(missing) = &row.cells[13].value else {
+            panic!("Expected formula")
+        };
+        assert!(missing.cached().is_none());
+        assert_eq!(row.cells[9].style.get(), 3);
+        let cached = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    data_only: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap();
+        assert_eq!(cached.cells[12].value, formula.cached().unwrap().clone());
+        assert_eq!(cached.cells[13].value, CellValue::Empty);
+        let raw = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    date_policy: DateReadPolicy::RetainSerial,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap();
+        assert!(matches!(&raw.cells[7].value,CellValue::DateTime(v) if v.serial()==2958466.0));
+        assert!(book.style_memory_bytes() < 16000);
+        assert_eq!(
+            book.style_catalog().unwrap().unwrap().number_formats.len(),
+            2
+        );
+    }
+}
+
+#[test]
+fn style_zero_date_format_is_interpreted_and_missing_format_context_is_explicit() {
+    let styles = basic_styles("<xf numFmtId=\"14\"/>");
+    let mut book = WorkbookReader::new(Cursor::new(with_styles(
+        "<row><c><v>61</v></c></row>",
+        &styles,
+        false,
+    )))
+    .unwrap();
+    assert!(matches!(
+        book.rows("A & B")
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap()
+            .cells[0]
+            .value,
+        CellValue::DateTime(_)
+    ));
+    for styled in [false, true] {
+        let mut book = if styled {
+            WorkbookReader::new(Cursor::new(with_styles(
+                "<row><c s=\"9\"><v>1</v></c></row>",
+                &styles,
+                false,
+            )))
+            .unwrap()
+        } else {
+            open("<row><c s=\"1\"><v>1</v></c></row>")
+        };
+        let error = book.rows("A & B").unwrap().next_row().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        assert_eq!(error.cell().unwrap().to_string(), "A1");
+    }
+}
+
+#[test]
+fn imported_style_components_keep_ids_optional_overrides_palettes_and_staged_sections() {
+    use crabxl_core::{ColorKind, Fill, GradientKind, Underline};
+    let styles = "<fonts count=\"4000000000\"><font><name val=\"Named\"/><sz val=\"12.5\"/><b val=\"0\"/><i/><u val=\"double\"/><color theme=\"7\" tint=\"0.25\"/><scheme val=\"major\"/></font></fonts><fills><fill><gradientFill type=\"path\" left=\"0.1\" right=\"0.2\" top=\"0.3\" bottom=\"0.4\"><stop position=\"0\"><color rgb=\"80112233\"/></stop><stop position=\"1\"><color indexed=\"64\"/></stop></gradientFill></fill></fills><borders><border diagonalUp=\"1\" diagonalDown=\"0\" outline=\"0\"><left/><start style=\"mediumDashDot\"><color auto=\"0\"/></start><diagonal style=\"slantDashDot\"/></border></borders><cellStyleXfs><xf/></cellStyleXfs><cellXfs><xf xfId=\"0\" applyFont=\"0\" quotePrefix=\"1\" pivotButton=\"0\"><alignment horizontal=\"distributed\" vertical=\"justify\" textRotation=\"255\" wrapText=\"1\" shrinkToFit=\"1\" indent=\"2.5\" relativeIndent=\"-1.5\" readingOrder=\"2\"/><protection locked=\"0\" hidden=\"1\"/><extLst/></xf></cellXfs><cellStyles><cellStyle name=\"Visible\" xfId=\"0\" builtinId=\"0\" hidden=\"0\" customBuiltin=\"0\" iLevel=\"1\"/></cellStyles><colors><indexedColors><rgbColor rgb=\"FFAABBCC\"/></indexedColors><mruColors><color theme=\"4\" tint=\"0\"/></mruColors></colors><tableStyles count=\"0\"/><dxfs count=\"0\"/>";
+    let mut book = WorkbookReader::new(Cursor::new(with_styles(
+        "<row><c><v>7</v></c></row>",
+        styles,
+        false,
+    )))
+    .unwrap();
+    assert_eq!(
+        book.rows("A & B")
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap()
+            .cells[0]
+            .value,
+        CellValue::Integer(7)
+    );
+    let catalog = book.style_catalog().unwrap().unwrap();
+    assert_eq!(catalog.fonts.len(), 1);
+    let font = &catalog.fonts[0];
+    assert_eq!(font.name.as_deref(), Some("Named"));
+    assert_eq!(font.bold, Some(false));
+    assert_eq!(font.italic, Some(true));
+    assert_eq!(font.underline, Some(Underline::Double));
+    assert_eq!(font.color.unwrap().kind, ColorKind::Theme(7));
+    let Fill::Gradient(fill) = &catalog.fills[0] else {
+        panic!("Expected gradient")
+    };
+    assert_eq!(fill.kind, Some(GradientKind::Path));
+    assert_eq!(fill.edges, [Some(0.1), Some(0.2), Some(0.3), Some(0.4)]);
+    assert_eq!(fill.stops[0].color.kind, ColorKind::Argb(0x80112233));
+    let border = &catalog.borders[0];
+    assert_eq!(border.diagonal_up, Some(true));
+    assert_eq!(border.diagonal_down, Some(false));
+    assert_eq!(border.outline, Some(false));
+    assert!(border.sides[0].is_some());
+    assert!(border.sides[1].is_none());
+    assert_eq!(
+        border.sides[7].unwrap().color.unwrap().kind,
+        ColorKind::Auto(false)
+    );
+    let format = &catalog.cell_formats[0];
+    assert_eq!(format.apply_font, Some(false));
+    assert_eq!(format.quote_prefix, Some(true));
+    assert!(format.unmodeled_extensions);
+    assert_eq!(format.alignment.as_ref().unwrap().rotation, Some(255));
+    assert_eq!(format.alignment.as_ref().unwrap().indent, Some(2.5));
+    assert_eq!(format.protection.unwrap().locked, Some(false));
+    assert_eq!(catalog.named_styles[0].name.as_ref(), "Visible");
+    assert_eq!(catalog.named_styles[0].hidden, Some(false));
+    assert_eq!(catalog.indexed_colors, [0xFFAABBCC]);
+    assert_eq!(catalog.recent_colors[0].tint, Some(0.0));
+    assert_eq!(
+        catalog
+            .unmodeled_sections
+            .iter()
+            .map(|s| s.as_ref())
+            .collect::<Vec<_>>(),
+        ["tableStyles", "dxfs"]
+    );
+}
+
+#[test]
+fn style_catalog_actual_counts_bytes_bad_components_and_duplicate_ids_are_guarded() {
+    let valid = basic_styles("<xf/>");
+    for limits in [
+        ResourceLimits {
+            max_style_records: 1,
+            ..Default::default()
+        },
+        ResourceLimits {
+            max_style_bytes: 300,
+            ..Default::default()
+        },
+    ] {
+        let mut book =
+            WorkbookReader::with_limits(Cursor::new(with_styles("<row/>", &valid, false)), limits)
+                .unwrap();
+        let error = book.style_catalog().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+        assert_eq!(error.part(), Some("meta/styles.xml"));
+        assert_eq!(book.style_memory_bytes(), 0);
+    }
+    for invalid in [
+        valid.replace("<xf/>", "<xf fontId=\"1000000\"/>"),
+        valid.replace("<xf/>", "<xf numFmtId=\"165\"/>"),
+        valid.replace(
+            "<numFmt numFmtId=\"164\"",
+            "<numFmt numFmtId=\"4294967295\"",
+        ),
+        valid.replace(
+            "<cellXfs>",
+            "<cellXfs><xf><alignment textRotation=\"181\"/></xf>",
+        ),
+    ] {
+        let mut book =
+            WorkbookReader::new(Cursor::new(with_styles("<row/>", &invalid, false))).unwrap();
+        let error = book.style_catalog().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        assert_eq!(book.style_memory_bytes(), 0);
+    }
+    let unknown = valid.replace("<font>", "<font unsupported=\"1\">");
+    let mut book =
+        WorkbookReader::new(Cursor::new(with_styles("<row/>", &unknown, false))).unwrap();
+    assert_eq!(
+        book.style_catalog().unwrap_err().kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(book.style_memory_bytes(), 0);
+}
+
+#[test]
+fn materialized_date_policy_retains_serials_without_losing_style_identity() {
+    use crabxl_core::{DateReadPolicy, StyleId};
+    let styles = basic_styles("<xf/><xf numFmtId=\"14\"/>");
+    let sheet = "<row><c s=\"1\"><v>2958466</v></c><c s=\"1\"><f>1</f><v>0.5</v></c></row>";
+    let mut book = WorkbookReader::new(Cursor::new(with_styles(sheet, &styles, false))).unwrap();
+    let compatible = book.read_sheet("A & B").unwrap();
+    assert_eq!(
+        compatible.rows[0].cells[0].value,
+        CellValue::error("#VALUE!")
+    );
+    let raw = book
+        .read_sheet_with_options(
+            "A & B",
+            ReadOptions {
+                data_only: true,
+                date_policy: DateReadPolicy::RetainSerial,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let CellValue::DateTime(value) = &raw.rows[0].cells[0].value else {
+        panic!("Expected retained date serial")
+    };
+    assert_eq!(value.serial(), 2958466.0);
+    assert_eq!(raw.rows[0].cells[0].style, StyleId::new(1));
+    let CellValue::DateTime(time) = &raw.rows[0].cells[1].value else {
+        panic!("Expected cached time")
+    };
+    assert_eq!(time.to_time().unwrap().to_string(), "12:00:00");
 }

@@ -19,11 +19,9 @@ pub use memory::{
     AccessPattern, AutoMemory, DecisionReason, MemoryAllowance, MemoryPolicy, MemorySource,
     ReadDecision, ReadMode,
 };
-pub use row::{Cell, CellValue, ReadOptions, Row, RowBatch, SheetData};
+pub use row::{Cell, CellValue, DateReadPolicy, ReadOptions, Row, RowBatch, SheetData};
 pub use scalar::{CellError, CellText, ExactInteger};
-pub use style::{
-    BorderLine, BorderSide, CellStyle, Font, HorizontalAlignment, StyleId, VerticalAlignment,
-};
+pub use style::{CellStyle, Font, StyleId};
 
 mod worksheet;
 pub use worksheet::{CellRange, EditLimits, Worksheet};
@@ -39,3 +37,12 @@ pub use rich_text::{
     Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText, RichTextRun, RunFont,
     TextVerticalAlignment, Underline,
 };
+
+mod style_components;
+pub use style_components::{
+    Alignment, Border, BorderLine, BorderSide, Fill, FillPattern, GradientFill, GradientKind,
+    GradientStop, HorizontalAlignment, PatternFill, Protection, VerticalAlignment,
+};
+
+mod style_catalog;
+pub use style_catalog::{CellFormat, NamedStyle, NumberFormat, StyleCatalog};

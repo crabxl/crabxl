@@ -31,6 +31,8 @@ pub struct Rows<'a, R: Read + Seek> {
     decoded_cells: u64,
     row_payload_bytes: usize,
     shared_strings: Option<&'a mut crate::strings::SharedStrings>,
+    styles: Option<&'a crate::style_reader::ImportedStyles>,
+    epoch: crabxl_core::DateEpoch,
 }
 impl<'a, R: Read + Seek> Rows<'a, R> {
     pub(crate) fn new(
@@ -39,6 +41,8 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         limits: ResourceLimits,
         options: ReadOptions,
         shared_strings: Option<&'a mut crate::strings::SharedStrings>,
+        styles: Option<&'a crate::style_reader::ImportedStyles>,
+        epoch: crabxl_core::DateEpoch,
     ) -> Result<Self> {
         let mut xml = XmlStream::new(input, part, limits.max_part_bytes, limits);
         loop {
@@ -83,6 +87,8 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             decoded_cells: 0,
             row_payload_bytes: 0,
             shared_strings,
+            styles,
+            epoch,
         })
     }
 
@@ -251,10 +257,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         self.skip_cell()?;
                         continue;
                     }
-                    if matches!(header.kind, ScalarKind::Unsupported)
-                        || header.styled
-                        || header.metadata
-                    {
+                    if matches!(header.kind, ScalarKind::Unsupported) || header.metadata {
                         return Err(Error::new(
                             ErrorKind::Unsupported,
                             "Selected cell type, style, or metadata is not supported yet",
@@ -262,10 +265,16 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         .with_part(self.xml.part())
                         .with_cell(header.address));
                     }
+                    let style_kind = match self.styles {
+                        Some(styles) => styles.kind(header.style),
+                        None if header.style.get() == 0 => Ok(None),
+                        None => Err(self.invalid("Cell has a style ID without a style catalog")),
+                    }
+                    .map_err(|e| e.with_cell(header.address))?;
                     self.decoded_cells += 1;
                     let value = match header.kind {
-                        ScalarKind::Boolean => self.read_cell::<true>(header.kind),
-                        _ => self.read_cell::<false>(header.kind),
+                        ScalarKind::Boolean => self.read_cell::<true>(header.kind, style_kind),
+                        _ => self.read_cell::<false>(header.kind, style_kind),
                     }
                     .map_err(|e| e.with_part(self.xml.part()).with_cell(header.address))?;
                     self.push_cell(
@@ -273,7 +282,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         Cell {
                             address: header.address,
                             value,
-                            style: crabxl_core::StyleId::new(0),
+                            style: header.style,
                         },
                     )?;
                 }
@@ -338,7 +347,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         Ok(())
     }
 
-    fn read_cell<const BOOLEAN: bool>(&mut self, kind: ScalarKind) -> Result<CellValue> {
+    fn read_cell<const BOOLEAN: bool>(
+        &mut self,
+        kind: ScalarKind,
+        date_kind: Option<crabxl_core::DateKind>,
+    ) -> Result<CellValue> {
         let mut value = CellValue::Empty;
         let mut seen_value = false;
         let mut formula = None;
@@ -407,6 +420,21 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         && frame.depth == 3
                         && e.local_name().as_ref() == b"c" =>
                 {
+                    value = self.interpret_date(value, date_kind)?;
+                    if let CellValue::RichText(rich) = &value {
+                        if rich
+                            .phonetic_properties
+                            .as_ref()
+                            .is_some_and(|p| match self.styles {
+                                Some(styles) => p.font_id as usize >= styles.catalog.fonts.len(),
+                                None => p.font_id != 0,
+                            })
+                        {
+                            return Err(
+                                self.invalid("Phonetic text references a missing workbook font")
+                            );
+                        }
+                    }
                     if let Some(expression) = formula {
                         if seen_value
                             && matches!(kind, ScalarKind::Text)
@@ -513,6 +541,47 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         Ok(CellValue::Number(number))
     }
 
+    fn interpret_date(
+        &self,
+        value: CellValue,
+        kind: Option<crabxl_core::DateKind>,
+    ) -> Result<CellValue> {
+        use crabxl_core::{DateKind, DateReadPolicy, ExcelDateTime};
+        let Some(mut kind) = kind else {
+            return Ok(value);
+        };
+        let serial = match &value {
+            CellValue::Integer(v) => *v as f64,
+            CellValue::Number(v) => *v,
+            CellValue::BigInteger(v) => v
+                .as_str()
+                .parse::<f64>()
+                .map_err(|_| self.invalid("Invalid numeric date serial"))?,
+            _ => return Ok(value),
+        };
+        if !serial.is_finite() {
+            return if self.options.date_policy == DateReadPolicy::Compatible {
+                Ok(CellValue::error("#VALUE!"))
+            } else {
+                Err(self.invalid("Non-finite date serial"))
+            };
+        }
+        let raw = ExcelDateTime::from_serial(serial, self.epoch, kind)?;
+        if kind == DateKind::DateTime
+            && (0.0..1.0).contains(&serial)
+            && raw.fraction_milliseconds() < 86_400_000
+        {
+            kind = DateKind::Time;
+        }
+        let date = ExcelDateTime::from_serial(serial, self.epoch, kind)?;
+        if self.options.date_policy == DateReadPolicy::Compatible {
+            let valid = date.is_reference_representable();
+            if !valid {
+                return Ok(CellValue::error("#VALUE!"));
+            }
+        }
+        Ok(CellValue::DateTime(Box::new(date)))
+    }
     fn read_inline_text(&mut self) -> Result<CellValue> {
         let mut parsed = crate::rich_text::read_container(
             &mut self.xml,
@@ -589,7 +658,7 @@ enum ScalarKind {
 struct CellHeader {
     address: CellAddress,
     kind: ScalarKind,
-    styled: bool,
+    style: crabxl_core::StyleId,
     metadata: bool,
 }
 impl CellHeader {
@@ -601,7 +670,7 @@ impl CellHeader {
     ) -> Result<Self> {
         let mut address = None;
         let mut kind = ScalarKind::Numeric;
-        let mut styled = false;
+        let mut style = crabxl_core::StyleId::new(0);
         let mut metadata = false;
         for attribute in e.attributes() {
             let attribute = attribute
@@ -635,14 +704,20 @@ impl CellHeader {
                     };
                 }
                 b"s" => {
-                    styled = attribute
-                        .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
-                        .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid style index", e))?
-                        .parse::<u32>()
-                        .map_err(|e| {
-                            Error::caused_by(ErrorKind::InvalidData, "Invalid style index", e)
-                        })?
-                        != 0;
+                    style = crabxl_core::StyleId::new(
+                        attribute
+                            .decoded_and_normalized_value(
+                                quick_xml::XmlVersion::Implicit1_0,
+                                decoder,
+                            )
+                            .map_err(|e| {
+                                Error::caused_by(ErrorKind::Xml, "Invalid style index", e)
+                            })?
+                            .parse::<u32>()
+                            .map_err(|e| {
+                                Error::caused_by(ErrorKind::InvalidData, "Invalid style index", e)
+                            })?,
+                    );
                 }
                 b"cm" | b"vm" => {
                     metadata = true;
@@ -653,7 +728,7 @@ impl CellHeader {
         Ok(Self {
             address: address.map_or_else(|| CellAddress::new(row.get(), column), Ok)?,
             kind,
-            styled,
+            style,
             metadata,
         })
     }

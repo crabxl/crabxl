@@ -125,12 +125,20 @@
         "src/structs/rich_text.rs: RichText run composition and text projection",
         "src/structs/text_element.rs: TextElement read/write run and rPr layouts",
         "src/structs/font.rs: Font read/write optional run-property mappings",
-        "src/structs/color.rs: Color optional ARGB/theme/indexed/auto/tint identity"
+        "src/structs/color.rs: Color optional ARGB/theme/indexed/auto/tint identity",
+        "src/structs/stylesheet.rs and cell_format.rs: component tables, base/cell format identities and optional apply flags",
+        "src/structs/pattern_fill.rs and gradient_fill.rs: fill kind and stop serialization",
+        "src/structs/borders.rs, border.rs, alignment.rs and protection.rs: component field layouts and XML mappings"
       ],
       "destinations": [
         "crates/crabxl-core/src/rich_text.rs",
         "crates/crabxl-xlsx/src/rich_text.rs",
-        "crates/crabxl-xlsx/src/strings.rs"
+        "crates/crabxl-xlsx/src/strings.rs",
+        "crates/crabxl-core/src/style_components.rs",
+        "crates/crabxl-core/src/style_catalog.rs",
+        "crates/crabxl-xlsx/src/formatting.rs",
+        "crates/crabxl-xlsx/src/style_codec.rs",
+        "crates/crabxl-xlsx/src/style_reader.rs"
       ],
       "changes": [
         "Replace upstream workbook/font types with shared runtime-independent optional run overrides and owned rich text; distinguish absent properties from explicit false",
@@ -141,11 +149,17 @@
         "Add explicit default plain projection and opt-in typed metadata; prepare compact SST entries without rich models when metadata is not requested",
         "Persist rich values through complete disk-backed indexes, bounded decoded caches and streamed owned fragments; rebuild plain SST once when typed access is first requested",
         "Match public openpyxl protection-marker differences between flat text and individual rich runs without general OOXML escape decoding",
-        "Keep imported font/theme catalog resolution and phonetic-font assignment in existing packages staged; reject assignments requiring unresolved font references"
+        "Keep imported font/theme catalog resolution and phonetic-font assignment in existing packages staged; reject assignments requiring unresolved font references",
+        "Unify cell and run fonts through one optional core type and parameterized XML codec; remove the initial duplicated limited style representation",
+        "Refactor selected style table/component mappings into capacity-accounted shared typed catalogs with actual-record limits; advertised counts and arbitrary custom number-format IDs never size allocations",
+        "Add complete path-gradient geometry, optional nine-position borders, alignment and protection fields beyond the inspected upstream subset; retain absent versus explicit false/zero",
+        "Keep ID-based catalogs separate from typed support for unmodeled differential/table/extension sections; preserve original payloads only through the existing original-package editor",
+        "Precompute custom number-format classification once per code; interpret numeric styled values and formula caches without copying style records per cell"
       ],
-      "tests": "Generated inline/SST RAM/Disk/Auto integration, mode upgrades, malformed metadata, cache ownership, writer/edit repeated round trips in streaming.rs and writer.rs; full public openpyxl rich-run benchmarks",
+      "tests": "Generated inline/SST RAM/Disk/Auto integration, mode upgrades, malformed metadata, cache ownership, writer/edit repeated round trips in streaming.rs and writer.rs; full public openpyxl rich-run benchmarks; generated complete component/catalog round trips and bounded malformed catalog cases; public style creation readback in benchmarks/verify_style_fixture.py; numeric date/cache overlap in benchmarks/styled_checkpoint.py",
       "inventory_items": [
-        "read.rich-text"
+        "read.rich-text",
+        "read.styles-catalog.numeric-dates"
       ]
     }
   ]

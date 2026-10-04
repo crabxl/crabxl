@@ -25,3 +25,9 @@ mod strings;
 pub use strings::{SharedStringOptions, SharedStringStats, SharedStringStorage};
 
 mod rich_text;
+
+mod formatting;
+
+mod style_codec;
+
+mod style_reader;

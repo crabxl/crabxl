@@ -136,21 +136,84 @@ impl ExcelDateTime {
         }
         .and_then(|date| date.and_hms_opt(0, 0, 0))
         .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid date epoch"))?;
-        let adjusted = self.serial
-            + if self.epoch == DateEpoch::Windows1900 && self.serial > 0.0 && self.serial < 60.0 {
-                1.0
-            } else {
-                0.0
-            };
-        let millis = adjusted * 86_400_000.0;
-        if millis < i64::MIN as f64 || millis >= i64::MAX as f64 {
+        let day = self.serial.floor();
+        if day < i64::MIN as f64 || day >= i64::MAX as f64 {
             return Err(Error::new(
                 ErrorKind::InvalidData,
                 "Calendar serial out of range",
             ));
         }
-        chrono::Duration::try_milliseconds(millis.round() as i64)
+        let offset =
+            if self.epoch == DateEpoch::Windows1900 && self.serial > 0.0 && self.serial < 60.0 {
+                1
+            } else {
+                0
+            };
+        let days = (day as i64)
+            .checked_add(offset)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Calendar day overflows"))?;
+        let millis = self.fraction_milliseconds();
+        chrono::Duration::try_days(days)
             .and_then(|duration| epoch.checked_add_signed(duration))
+            .and_then(|date| date.checked_add_signed(chrono::Duration::milliseconds(millis)))
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Calendar serial out of range"))
+    }
+    /// Fractional-day milliseconds with baseline ties-to-even rounding.
+    /// Gregorian day arithmetic stays separate to avoid losing sub-millisecond precision.
+    pub fn fraction_milliseconds(self) -> i64 {
+        (((self.serial - self.serial.floor()) * 86400.0) * 1000.0).round_ties_even() as i64
+    }
+    /// Convert a time-only value to millisecond-resolution clock time.
+    pub fn to_time(self) -> Result<chrono::NaiveTime> {
+        if self.kind != DateKind::Time {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Value is not a clock time",
+            ));
+        }
+        let millis = self.fraction_milliseconds();
+        if !(0..86_400_000).contains(&millis) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Clock rounding crosses a day boundary",
+            ));
+        }
+        chrono::NaiveTime::from_num_seconds_from_midnight_opt(
+            (millis / 1000) as u32,
+            ((millis % 1000) * 1_000_000) as u32,
+        )
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid clock time"))
+    }
+    /// Convert elapsed days to millisecond-resolution duration without applying an epoch.
+    pub fn to_duration(self) -> Result<chrono::Duration> {
+        if self.kind != DateKind::Duration {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Value is not an elapsed duration",
+            ));
+        }
+        let millis = (self.serial * 86_400_000.0).round_ties_even();
+        if millis < i64::MIN as f64 || millis >= i64::MAX as f64 {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Duration serial out of range",
+            ));
+        }
+        chrono::Duration::try_milliseconds(millis as i64)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Duration serial out of range"))
+    }
+    /// Whether conversion fits the pinned reference's calendar/duration value range.
+    /// Raw serial retention remains available independently of this compatibility check.
+    pub fn is_reference_representable(self) -> bool {
+        match self.kind {
+            DateKind::DateTime => self
+                .to_datetime()
+                .is_ok_and(|date| (1..=9999).contains(&chrono::Datelike::year(&date))),
+            DateKind::Time => self.to_time().is_ok(),
+            DateKind::Duration => self.to_duration().is_ok_and(|duration| {
+                (-999_999_999..=999_999_999)
+                    .contains(&duration.num_milliseconds().div_euclid(86_400_000))
+            }),
+        }
     }
 }

@@ -72,6 +72,9 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     shared_string_part: Option<String>,
     shared_strings: Option<SharedStrings>,
     shared_string_options: SharedStringOptions,
+    style_part: Option<String>,
+    imported_styles: Option<crate::style_reader::ImportedStyles>,
+    style_metadata_remaining: u64,
 }
 impl WorkbookReader<File> {
     /// Open a local XLSX file with default resource limits.
@@ -189,6 +192,21 @@ impl<R: Read + Seek> WorkbookReader<R> {
         if string_rels.next().is_some() {
             return Err(invalid("Duplicate shared-string relationships"));
         }
+        let mut style_rels = relationships
+            .values()
+            .filter(|r| relationship_is(&r.kind, "styles"));
+        let style_part = style_rels
+            .next()
+            .map(|r| {
+                if r.external {
+                    return Err(invalid("Style relationship must be internal"));
+                }
+                resolve_part(&workbook_part, &r.target)
+            })
+            .transpose()?;
+        if style_rels.next().is_some() {
+            return Err(invalid("Duplicate style relationships"));
+        }
         Ok(Self {
             archive,
             sheets,
@@ -199,7 +217,55 @@ impl<R: Read + Seek> WorkbookReader<R> {
             shared_string_part,
             shared_strings: None,
             shared_string_options: SharedStringOptions::default(),
+            style_part,
+            imported_styles: None,
+            style_metadata_remaining: metadata_remaining,
         })
+    }
+    /// Load and borrow the shared style catalog without materializing a worksheet.
+    /// Unknown/staged root sections remain explicitly listed; original-package
+    /// preservation does not imply typed support for those sections.
+    pub fn style_catalog(&mut self) -> Result<Option<&crabxl_core::StyleCatalog>> {
+        self.prepare_styles()?;
+        Ok(self.imported_styles.as_ref().map(|s| &s.catalog))
+    }
+    /// Retained style catalog plus derived number-format classifications.
+    pub fn style_memory_bytes(&self) -> usize {
+        self.imported_styles
+            .as_ref()
+            .map_or(0, |s| s.memory_bytes())
+    }
+    fn prepare_styles(&mut self) -> Result<()> {
+        if self.imported_styles.is_some() {
+            return Ok(());
+        }
+        let Some(part) = &self.style_part else {
+            return Ok(());
+        };
+        let file = self.archive.by_name(part).map_err(|e| {
+            Error::caused_by(ErrorKind::Archive, "Cannot open style catalog", e).with_part(part)
+        })?;
+        let maximum = self
+            .limits
+            .max_part_bytes
+            .min(self.style_metadata_remaining);
+        if file.size() > maximum {
+            return Err(limit("Combined style metadata input exceeds allowance").with_part(part));
+        }
+        let mut style_limits = self.limits;
+        style_limits.max_part_bytes = maximum;
+        let catalog = crate::style_reader::read(
+            BufReader::with_capacity(self.limits.input_buffer_bytes, file),
+            part.clone(),
+            style_limits,
+            self.limits.max_style_bytes,
+            self.limits.max_style_records,
+        )?;
+        let imported =
+            crate::style_reader::ImportedStyles::new(catalog, self.limits.max_style_bytes)
+                .map_err(|e| e.with_part(part))?;
+        self.imported_styles = Some(imported);
+        Ok(())
     }
     /// Inspect workbook sheets without loading their data.
     pub fn sheets(&self) -> &[SheetInfo] {
@@ -224,7 +290,24 @@ impl<R: Read + Seek> WorkbookReader<R> {
     pub fn read_sheet(&mut self, name: &str) -> Result<SheetData> {
         self.collect_sheet(name, self.limits.max_materialized_bytes)
     }
+    /// Materialize selected cells using the same rich/date/formula policies as streaming.
+    /// Catalogs and one current row remain separately bounded working allocations.
+    pub fn read_sheet_with_options(
+        &mut self,
+        name: &str,
+        options: ReadOptions,
+    ) -> Result<SheetData> {
+        self.collect_sheet_options(name, self.limits.max_materialized_bytes, options)
+    }
     pub(crate) fn collect_sheet(&mut self, name: &str, maximum: usize) -> Result<SheetData> {
+        self.collect_sheet_options(name, maximum, ReadOptions::default())
+    }
+    fn collect_sheet_options(
+        &mut self,
+        name: &str,
+        maximum: usize,
+        options: ReadOptions,
+    ) -> Result<SheetData> {
         let part = self
             .sheets
             .iter()
@@ -240,7 +323,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 None => error,
             }
         };
-        let mut stream = self.rows(name)?;
+        let mut stream = self.rows_with_options(name, options)?;
         let mut sheet = SheetData { rows: Vec::new() };
         let mut cell_bytes = 0usize;
         while let Some(row) = stream.next_row()? {
@@ -318,6 +401,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
             ));
         }
         let part = sheet.part.clone();
+        self.prepare_styles()?;
         if options.rich_text
             && self
                 .shared_strings
@@ -361,6 +445,12 @@ impl<R: Read + Seek> WorkbookReader<R> {
             self.limits,
             options,
             self.shared_strings.as_mut(),
+            self.imported_styles.as_ref(),
+            if self.date_1904 {
+                crabxl_core::DateEpoch::Mac1904
+            } else {
+                crabxl_core::DateEpoch::Windows1900
+            },
         )
     }
     /// Configure shared-string storage. This releases any prepared table/cache and

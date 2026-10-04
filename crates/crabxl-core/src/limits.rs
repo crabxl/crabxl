@@ -24,6 +24,10 @@ pub struct ResourceLimits {
     pub max_xml_event_bytes: usize,
     /// Maximum bytes in one decoded cell value.
     pub max_cell_bytes: usize,
+    /// Maximum retained style catalog and derived classification bytes.
+    pub max_style_bytes: usize,
+    /// Maximum actual records in each style table; declared counts are ignored.
+    pub max_style_records: usize,
     /// Maximum XML nesting depth.
     pub max_xml_depth: usize,
     /// Maximum worksheet catalog entries.
@@ -49,6 +53,8 @@ impl Default for ResourceLimits {
             max_metadata_bytes: 16 * 1024 * 1024,
             max_xml_event_bytes: 64 * 1024,
             max_cell_bytes: 64 * 1024,
+            max_style_bytes: 16 * 1024 * 1024,
+            max_style_records: 100_000,
             max_xml_depth: 64,
             max_sheets: 1024,
             max_row_cells: 16_384,

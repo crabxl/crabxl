@@ -397,13 +397,16 @@ fn shared_styles_are_deduplicated_bounded_and_references_are_checked() {
     })
     .unwrap();
     let mut style = CellStyle::default();
-    style.font.bold = true;
+    style.font.bold = Some(true);
     let id = writer.register_style(style.clone()).unwrap();
     assert_eq!(writer.register_style(style).unwrap(), id);
     assert_eq!(
         writer
             .register_style(CellStyle {
-                fill: Some(0x123456),
+                fill: crabxl_core::Fill::solid(crabxl_core::Color {
+                    kind: crabxl_core::ColorKind::Argb(0xFF123456),
+                    tint: None
+                }),
                 ..CellStyle::default()
             })
             .unwrap_err()
@@ -413,7 +416,10 @@ fn shared_styles_are_deduplicated_bounded_and_references_are_checked() {
     assert_eq!(
         writer
             .register_style(CellStyle {
-                rotation: 181,
+                alignment: crabxl_core::Alignment {
+                    rotation: Some(181),
+                    ..Default::default()
+                },
                 ..CellStyle::default()
             })
             .unwrap_err()
@@ -571,8 +577,18 @@ fn explicit_date_formats_validate_literals_escapes_and_duration_kind() {
         number_format: "x".repeat(256).into(),
         ..CellStyle::default()
     };
+    // Public reference permits long format codes; the configured byte budget bounds them.
+    assert!(writer.register_style(style).is_ok());
     assert_eq!(
-        writer.register_style(style).unwrap_err().kind(),
+        writer
+            .register_style(CellStyle {
+                number_format: "x"
+                    .repeat(WriteOptions::default().max_metadata_bytes + 1)
+                    .into(),
+                ..Default::default()
+            })
+            .unwrap_err()
+            .kind(),
         ErrorKind::LimitExceeded
     );
 }
@@ -906,4 +922,167 @@ fn rich_color_references_and_absent_or_zero_tints_round_trip() {
         .unwrap()
         .unwrap();
     assert_eq!(actual.cells, expected.cells);
+}
+
+fn complete_style() -> crabxl_core::CellStyle {
+    use crabxl_core::*;
+    let mut style = CellStyle {
+        number_format: "0.00".into(),
+        font: Font {
+            name: Some("A".repeat(80).into()),
+            size: Some(12.5),
+            bold: Some(false),
+            italic: Some(true),
+            strike: Some(true),
+            outline: Some(false),
+            shadow: Some(true),
+            condense: Some(false),
+            extend: Some(true),
+            underline: Some(Underline::DoubleAccounting),
+            vertical: Some(TextVerticalAlignment::Subscript),
+            charset: Some(128),
+            family: Some(3),
+            scheme: Some(FontScheme::Major),
+            color: Some(Color {
+                kind: ColorKind::Argb(0x80445566),
+                tint: Some(-0.25),
+            }),
+        },
+        fill: Fill::Gradient(GradientFill {
+            kind: Some(GradientKind::Path),
+            degree: Some(35.0),
+            edges: [Some(0.1), Some(0.2), Some(0.3), Some(0.4)],
+            stops: vec![
+                GradientStop {
+                    position: 0.0,
+                    color: Color {
+                        kind: ColorKind::Argb(0x80AABBCC),
+                        tint: None,
+                    },
+                },
+                GradientStop {
+                    position: 1.0,
+                    color: Color {
+                        kind: ColorKind::Indexed(64),
+                        tint: Some(0.0),
+                    },
+                },
+            ],
+        }),
+        borders: Border {
+            sides: [None; 9],
+            diagonal_up: Some(true),
+            diagonal_down: Some(false),
+            outline: Some(false),
+        },
+        alignment: Alignment {
+            horizontal: Some(HorizontalAlignment::Distributed),
+            vertical: Some(VerticalAlignment::Justify),
+            rotation: Some(255),
+            wrap_text: Some(true),
+            shrink_to_fit: Some(true),
+            indent: Some(2.5),
+            relative_indent: Some(-1.5),
+            reading_order: Some(2.0),
+            justify_last_line: Some(true),
+            merge_cell: None,
+        },
+        protection: Protection {
+            locked: Some(false),
+            hidden: Some(true),
+        },
+    };
+    for (i, line) in [
+        BorderLine::Thin,
+        BorderLine::Medium,
+        BorderLine::Thick,
+        BorderLine::Dashed,
+        BorderLine::SlantDashDot,
+        BorderLine::MediumDashDot,
+        BorderLine::MediumDashDotDot,
+        BorderLine::Hair,
+        BorderLine::None,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        style.borders.sides[i] = Some(BorderSide {
+            line: Some(line),
+            color: Some(Color {
+                kind: ColorKind::Auto(i % 2 == 0),
+                tint: Some(0.25),
+            }),
+        });
+    }
+    style
+}
+
+#[test]
+fn complete_style_components_round_trip_through_shared_catalog_without_flattening() {
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    let expected = complete_style();
+    let id = writer.register_style(expected.clone()).unwrap();
+    assert_eq!(writer.register_style(expected.clone()).unwrap(), id);
+    writer.start_sheet("Sheet").unwrap();
+    let mut input = row(0, vec![CellValue::Number(1.5)]);
+    input.cells[0].style = id;
+    writer.write_row(&input).unwrap();
+    let mut book = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    let actual = book.rows("Sheet").unwrap().next_row().unwrap().unwrap();
+    assert_eq!(actual.cells, input.cells);
+    let catalog = book.style_catalog().unwrap().unwrap();
+    let record = catalog.cell_format(id).unwrap();
+    assert_eq!(&catalog.fonts[record.font_id as usize], &expected.font);
+    assert_eq!(&catalog.fills[record.fill_id as usize], &expected.fill);
+    assert_eq!(
+        &catalog.borders[record.border_id as usize],
+        &expected.borders
+    );
+    assert_eq!(record.alignment.as_deref(), Some(&expected.alignment));
+    assert_eq!(record.protection, Some(expected.protection));
+    assert_eq!(
+        catalog.declared_number_format(record.number_format_id),
+        Some("0.00")
+    );
+}
+
+#[test]
+fn malformed_complete_styles_fail_before_registration_or_spooling() {
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let before = writer.temporary_bytes();
+    for kind in 0..5 {
+        let mut style = complete_style();
+        match kind {
+            0 => style.font.size = Some(f64::NAN),
+            1 => {
+                let crabxl_core::Fill::Gradient(v) = &mut style.fill else {
+                    unreachable!()
+                };
+                v.stops[1].position = 0.0;
+            }
+            2 => style.alignment.relative_indent = Some(-256.0),
+            3 => style.font.family = Some(15),
+            _ => {
+                style.borders.sides[0]
+                    .as_mut()
+                    .unwrap()
+                    .color
+                    .as_mut()
+                    .unwrap()
+                    .tint = Some(2.0)
+            }
+        }
+        assert_eq!(
+            writer.register_style(style).unwrap_err().kind(),
+            ErrorKind::InvalidData
+        );
+        assert_eq!(writer.temporary_bytes(), before);
+    }
+    let id = writer.register_style(complete_style()).unwrap();
+    assert_eq!(id.get(), 4);
+    let mut input = row(0, vec![CellValue::Integer(1)]);
+    input.cells[0].style = id;
+    writer.write_row(&input).unwrap();
+    assert!(writer.finish(Cursor::new(Vec::new())).is_ok());
 }

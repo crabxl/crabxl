@@ -1,0 +1,332 @@
+{
+  "reference": "3.1.5",
+  "inspection": "Public API only",
+  "constructors": {
+    "font_name_80": {
+      "accepted": true
+    },
+    "wrap_and_shrink": {
+      "accepted": true
+    },
+    "family_255": {
+      "accepted": false,
+      "error": "ValueError",
+      "message": "Max value is 14"
+    },
+    "family_14": {
+      "accepted": true
+    },
+    "family_15": {
+      "accepted": false,
+      "error": "ValueError",
+      "message": "Max value is 14"
+    }
+  },
+  "serials": [
+    {
+      "epoch": "Windows1900",
+      "serial": 0,
+      "duration": false,
+      "type": "time",
+      "value": "00:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 0,
+      "duration": true,
+      "type": "timedelta",
+      "value": "0:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 0.5,
+      "duration": false,
+      "type": "time",
+      "value": "12:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 0.5,
+      "duration": true,
+      "type": "timedelta",
+      "value": "12:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 0.99999999999,
+      "duration": false,
+      "type": "datetime",
+      "value": "1900-01-01 00:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 0.99999999999,
+      "duration": true,
+      "type": "timedelta",
+      "value": "1 day, 0:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 1,
+      "duration": false,
+      "type": "datetime",
+      "value": "1900-01-01 00:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 1,
+      "duration": true,
+      "type": "timedelta",
+      "value": "1 day, 0:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 59,
+      "duration": false,
+      "type": "datetime",
+      "value": "1900-02-28 00:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 59,
+      "duration": true,
+      "type": "timedelta",
+      "value": "59 days, 0:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 60,
+      "duration": false,
+      "type": "datetime",
+      "value": "1900-02-28 00:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 60,
+      "duration": true,
+      "type": "timedelta",
+      "value": "60 days, 0:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 61,
+      "duration": false,
+      "type": "datetime",
+      "value": "1900-03-01 00:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 61,
+      "duration": true,
+      "type": "timedelta",
+      "value": "61 days, 0:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": -0.5,
+      "duration": false,
+      "type": "datetime",
+      "value": "1899-12-29 12:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": -0.5,
+      "duration": true,
+      "type": "timedelta",
+      "value": "-1 day, 12:00:00"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 45292.123456789,
+      "duration": false,
+      "type": "datetime",
+      "value": "2024-01-01 02:57:46.667000"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 45292.123456789,
+      "duration": true,
+      "type": "timedelta",
+      "value": "45292 days, 2:57:46.667000"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 2958465.000000017,
+      "duration": false,
+      "type": "datetime",
+      "value": "9999-12-31 00:00:00.001000"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 2958465.000000017,
+      "duration": true,
+      "type": "timedelta",
+      "value": "2958465 days, 0:00:00.001000"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 2958466,
+      "duration": false,
+      "error": "OverflowError"
+    },
+    {
+      "epoch": "Windows1900",
+      "serial": 2958466,
+      "duration": true,
+      "type": "timedelta",
+      "value": "2958466 days, 0:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 0,
+      "duration": false,
+      "type": "time",
+      "value": "00:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 0,
+      "duration": true,
+      "type": "timedelta",
+      "value": "0:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 0.5,
+      "duration": false,
+      "type": "time",
+      "value": "12:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 0.5,
+      "duration": true,
+      "type": "timedelta",
+      "value": "12:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 0.99999999999,
+      "duration": false,
+      "type": "datetime",
+      "value": "1904-01-02 00:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 0.99999999999,
+      "duration": true,
+      "type": "timedelta",
+      "value": "1 day, 0:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 1,
+      "duration": false,
+      "type": "datetime",
+      "value": "1904-01-02 00:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 1,
+      "duration": true,
+      "type": "timedelta",
+      "value": "1 day, 0:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 59,
+      "duration": false,
+      "type": "datetime",
+      "value": "1904-02-29 00:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 59,
+      "duration": true,
+      "type": "timedelta",
+      "value": "59 days, 0:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 60,
+      "duration": false,
+      "type": "datetime",
+      "value": "1904-03-01 00:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 60,
+      "duration": true,
+      "type": "timedelta",
+      "value": "60 days, 0:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 61,
+      "duration": false,
+      "type": "datetime",
+      "value": "1904-03-02 00:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 61,
+      "duration": true,
+      "type": "timedelta",
+      "value": "61 days, 0:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": -0.5,
+      "duration": false,
+      "type": "datetime",
+      "value": "1903-12-31 12:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": -0.5,
+      "duration": true,
+      "type": "timedelta",
+      "value": "-1 day, 12:00:00"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 45292.123456789,
+      "duration": false,
+      "type": "datetime",
+      "value": "2028-01-02 02:57:46.667000"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 45292.123456789,
+      "duration": true,
+      "type": "timedelta",
+      "value": "45292 days, 2:57:46.667000"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 2958465.000000017,
+      "duration": false,
+      "error": "OverflowError"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 2958465.000000017,
+      "duration": true,
+      "type": "timedelta",
+      "value": "2958465 days, 0:00:00.001000"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 2958466,
+      "duration": false,
+      "error": "OverflowError"
+    },
+    {
+      "epoch": "Mac1904",
+      "serial": 2958466,
+      "duration": true,
+      "type": "timedelta",
+      "value": "2958466 days, 0:00:00"
+    }
+  ]
+}
