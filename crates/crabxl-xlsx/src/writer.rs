@@ -530,18 +530,23 @@ impl WorkbookWriter {
             return Err(state("Sequential writer cannot revisit a flushed row"));
         }
         let part = format!("xl/worksheets/sheet{}.xml", self.sheets.len() + 1);
+        let style_allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes());
         encode_cells(
             &mut self.row_buffer,
             index,
             cells.clone(),
             self.options.max_cell_bytes,
             self.options.max_row_cells,
-            StyleContext::Catalog(
-                self.styles
-                    .as_ref()
-                    .ok_or_else(|| state("Writer style catalog is released"))?
-                    .catalog(),
-            ),
+            StyleContext::Registry {
+                registry: self
+                    .styles
+                    .as_mut()
+                    .ok_or_else(|| state("Writer style catalog is released"))?,
+                maximum: style_allowance,
+            },
             ValueEncoding {
                 epoch: if self.options.date_1904 {
                     DateEpoch::Mac1904
@@ -781,10 +786,10 @@ fn register_date_styles(styles: &mut StyleRegistry) -> Result<DateStyleIds> {
         styles.register_format(format).map_err(writer_style_error)
     };
     Ok(DateStyleIds {
-        datetime: register("yyyy-mm-dd hh:mm:ss.000")?,
-        time: register("hh:mm:ss.000")?,
-        duration: register("[h]:mm:ss.000")?,
-        date: register("yyyy-mm-dd")?,
+        datetime: register(crabxl_core::DateKind::DateTime.default_number_format())?,
+        time: register(crabxl_core::DateKind::Time.default_number_format())?,
+        duration: register(crabxl_core::DateKind::Duration.default_number_format())?,
+        date: register(crabxl_core::DateKind::Date.default_number_format())?,
     })
 }
 

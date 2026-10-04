@@ -1,0 +1,538 @@
+{
+  "assigned_formats": [
+    "General",
+    "0.00",
+    "yyyy-mm-dd",
+    "hh:mm:ss",
+    "[h]:mm:ss"
+  ],
+  "temporal_kinds": [
+    "date",
+    "datetime",
+    "time",
+    "timedelta"
+  ],
+  "public_records_equal": true,
+  "records": [
+    {
+      "value_type": "datetime",
+      "value": "2024-01-02 00:00:00",
+      "format": "yyyy-mm-dd",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "datetime",
+      "value": "2024-01-02 00:00:00",
+      "format": "yyyy-mm-dd",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "datetime",
+      "value": "2024-01-02 00:00:00",
+      "format": "yyyy-mm-dd",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "datetime",
+      "value": "2024-01-02 00:00:00",
+      "format": "hh:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "timedelta",
+      "value": "45293 days, 0:00:00",
+      "format": "[h]:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "datetime",
+      "value": "2024-01-02 03:04:05.679000",
+      "format": "yyyy-mm-dd h:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "datetime",
+      "value": "2024-01-02 03:04:05.679000",
+      "format": "yyyy-mm-dd h:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "datetime",
+      "value": "2024-01-02 03:04:05.679000",
+      "format": "yyyy-mm-dd",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "datetime",
+      "value": "2024-01-02 03:04:05.679000",
+      "format": "hh:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "timedelta",
+      "value": "45293 days, 3:04:05.679000",
+      "format": "[h]:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "time",
+      "value": "03:04:05.679000",
+      "format": "h:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "time",
+      "value": "03:04:05.679000",
+      "format": "h:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "time",
+      "value": "03:04:05.679000",
+      "format": "yyyy-mm-dd",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "time",
+      "value": "03:04:05.679000",
+      "format": "hh:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "timedelta",
+      "value": "3:04:05.679000",
+      "format": "[h]:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "timedelta",
+      "value": "2 days, 0:00:03.679000",
+      "format": "[hh]:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "timedelta",
+      "value": "2 days, 0:00:03.679000",
+      "format": "[hh]:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "datetime",
+      "value": "1900-01-02 00:00:03.679000",
+      "format": "yyyy-mm-dd",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "datetime",
+      "value": "1900-01-02 00:00:03.679000",
+      "format": "hh:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    },
+    {
+      "value_type": "timedelta",
+      "value": "2 days, 0:00:03.679000",
+      "format": "[h]:mm:ss",
+      "font": [
+        "Public temporal font",
+        14.0,
+        true,
+        "rgb",
+        "FF112233"
+      ],
+      "fill": [
+        "solid",
+        "rgb",
+        "FF445566"
+      ],
+      "border": [
+        "thin",
+        "rgb",
+        "FF778899"
+      ],
+      "alignment": [
+        2.5,
+        true
+      ]
+    }
+  ]
+}
