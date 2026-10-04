@@ -42,8 +42,8 @@ pub use workbook::{SheetId, Workbook, WorkbookLimits, WorksheetEditor};
 
 mod rich_text;
 pub use rich_text::{
-    Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText, RichTextRun, RunFont,
-    TextVerticalAlignment, Underline,
+    ArgbLiteral, Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText,
+    RichTextRun, RunFont, TextVerticalAlignment, Underline,
 };
 
 mod style_components;

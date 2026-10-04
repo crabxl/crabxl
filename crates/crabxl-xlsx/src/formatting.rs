@@ -200,17 +200,7 @@ pub(crate) fn read_color(e: &BytesStart<'_>, decoder: Decoder) -> Result<Color> 
                 return Err(invalid("Conflicting color identities"));
             }
             kind = Some(match key {
-                b"rgb" => {
-                    if !matches!(value.len(), 6 | 8)
-                        || !value.bytes().all(|c| c.is_ascii_hexdigit())
-                    {
-                        return Err(invalid("Invalid ARGB color"));
-                    }
-                    ColorKind::Argb(
-                        u32::from_str_radix(&value, 16)
-                            .map_err(|_| invalid("Invalid ARGB color"))?,
-                    )
-                }
+                b"rgb" => crabxl_core::ArgbLiteral::parse(&value)?.into_kind(),
                 b"theme" => {
                     ColorKind::Theme(value.parse().map_err(|_| invalid("Invalid theme color"))?)
                 }
@@ -342,6 +332,7 @@ pub(crate) fn write_color(output: &mut impl Write, element: &str, color: Color) 
     match color.kind {
         ColorKind::Unspecified => write!(output, "<{element}"),
         ColorKind::Argb(v) => write!(output, "<{element} rgb=\"{v:08X}\""),
+        ColorKind::ArgbLiteral(v) => write!(output, "<{element} rgb=\"{v}\""),
         ColorKind::Theme(v) => write!(output, "<{element} theme=\"{v}\""),
         ColorKind::Indexed(v) => write!(output, "<{element} indexed=\"{v}\""),
         ColorKind::Auto(v) => write!(output, "<{element} auto=\"{}\"", u8::from(v)),

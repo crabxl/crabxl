@@ -28,7 +28,10 @@ impl Font {
         {
             return Err(invalid("Invalid font size"));
         }
-        if font.family.is_some_and(|family| family > 14) {
+        if font
+            .family
+            .is_some_and(|family| !family.is_finite() || !(0.0..=14.0).contains(&family))
+        {
             return Err(invalid("Font family exceeds the public baseline range"));
         }
         if let Some(color) = font.color {

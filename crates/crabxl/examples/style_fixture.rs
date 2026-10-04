@@ -35,7 +35,7 @@ fn complete_style() -> crabxl::CellStyle {
             underline: Some(Underline::DoubleAccounting),
             vertical: Some(TextVerticalAlignment::Subscript),
             charset: Some(128),
-            family: Some(3),
+            family: Some(3.0),
             scheme: Some(FontScheme::Major),
             color: Some(Color {
                 kind: ColorKind::Argb(0x80445566),

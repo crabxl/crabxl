@@ -715,7 +715,7 @@ fn rich_value() -> CellValue {
                     underline: Some(Underline::DoubleAccounting),
                     vertical: Some(TextVerticalAlignment::Superscript),
                     charset: Some(128),
-                    family: Some(3),
+                    family: Some(3.0),
                     scheme: Some(FontScheme::Minor),
                     color: Some(Color {
                         kind: ColorKind::Argb(0x80445566),
@@ -949,7 +949,7 @@ fn complete_style() -> crabxl_core::CellStyle {
             underline: Some(Underline::DoubleAccounting),
             vertical: Some(TextVerticalAlignment::Subscript),
             charset: Some(128),
-            family: Some(3),
+            family: Some(3.0),
             scheme: Some(FontScheme::Major),
             color: Some(Color {
                 kind: ColorKind::Argb(0x80445566),
@@ -1067,7 +1067,7 @@ fn malformed_complete_styles_fail_before_registration_or_spooling() {
                 v.stops[1].position = 0.0;
             }
             2 => style.alignment.relative_indent = Some(-256.0),
-            3 => style.font.family = Some(15),
+            3 => style.font.family = Some(15.0),
             _ => {
                 style.borders.sides[0]
                     .as_mut()
@@ -1505,5 +1505,38 @@ fn alignment_zero_serialization_has_compatible_and_explicit_policies() {
         } else {
             assert_eq!(loaded, &alignment);
         }
+    }
+}
+
+#[test]
+fn public_font_domains_and_case_sensitive_colors_roundtrip() {
+    use crabxl_core::{ArgbLiteral, CellStyle, Color, ColorKind};
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    let mut ids = Vec::new();
+    for (charset, kind) in [
+        (-1, ColorKind::Theme(-1)),
+        (256, ColorKind::Indexed(-1)),
+        (4096, ArgbLiteral::parse("aaBbCcDd").unwrap().into_kind()),
+    ] {
+        let mut style = CellStyle::default();
+        style.font.family = Some(2.5);
+        style.font.charset = Some(charset);
+        style.font.color = Some(Color { kind, tint: None });
+        ids.push((writer.register_style(style).unwrap(), charset, kind));
+    }
+    writer.start_sheet("Sheet").unwrap();
+    for (index, (id, _, _)) in ids.iter().enumerate() {
+        let mut value = row(index as u32, vec![CellValue::Integer(1)]);
+        value.cells[0].style = *id;
+        writer.write_row(&value).unwrap();
+    }
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(Cursor::new(output.into_inner())).unwrap();
+    let catalog = reader.style_catalog().unwrap().unwrap();
+    for (id, charset, kind) in ids {
+        let font = catalog.cell_style(id).unwrap().font;
+        assert_eq!(font.family, Some(2.5));
+        assert_eq!(font.charset, Some(charset));
+        assert_eq!(font.color.unwrap().kind, kind);
     }
 }
