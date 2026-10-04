@@ -90,7 +90,8 @@
         "src/xmlwriter.rs: escape_xml_data, match_xml_char, escape_xml_escapes (inspection; unsupported text escape cases explicitly deferred)",
         "src/worksheet.rs: write_formula_cell (typed cache XML layout)",
         "src/styles.rs: write_fonts/write_font, write_fill, write_border, write_cell_xf, write_alignment, write_protection, write_num_fmt",
-        "src/datetime.rs: chrono_date_to_excel, chrono_datetime_to_excel (epoch/leapday conversion)"
+        "src/datetime.rs: chrono_date_to_excel, chrono_datetime_to_excel (epoch/leapday conversion)",
+        "src/format.rs: set_num_format_index selected builtin mapping composition; source spellings differ from public reference and were corrected"
       ],
       "destinations": [
         "crates/crabxl-xlsx/src/writer.rs",
@@ -136,7 +137,8 @@
         "src/structs/color.rs: Color optional ARGB/theme/indexed/auto/tint identity",
         "src/structs/stylesheet.rs and cell_format.rs: component tables, base/cell format identities and optional apply flags",
         "src/structs/pattern_fill.rs and gradient_fill.rs: fill kind and stop serialization",
-        "src/structs/borders.rs, border.rs, alignment.rs and protection.rs: component field layouts and XML mappings"
+        "src/structs/borders.rs, border.rs, alignment.rs and protection.rs: component field layouts and XML mappings",
+        "src/structs/numbering_format.rs: FILL_BUILT_IN_FORMAT_CODES (selected sparse lookup/table composition)"
       ],
       "destinations": [
         "crates/crabxl-core/src/rich_text.rs",
@@ -146,7 +148,8 @@
         "crates/crabxl-core/src/style_catalog.rs",
         "crates/crabxl-xlsx/src/formatting.rs",
         "crates/crabxl-xlsx/src/style_codec.rs",
-        "crates/crabxl-xlsx/src/style_reader.rs"
+        "crates/crabxl-xlsx/src/style_reader.rs",
+        "crates/crabxl-core/src/number_formats.rs"
       ],
       "changes": [
         "Replace upstream workbook/font types with shared runtime-independent optional run overrides and owned rich text; distinguish absent properties from explicit false",
@@ -162,7 +165,8 @@
         "Refactor selected style table/component mappings into capacity-accounted shared typed catalogs with actual-record limits; advertised counts and arbitrary custom number-format IDs never size allocations",
         "Add complete path-gradient geometry, optional nine-position borders, alignment and protection fields beyond the inspected upstream subset; retain absent versus explicit false/zero",
         "Keep ID-based catalogs separate from typed support for unmodeled differential/table/extension sections; preserve original payloads only through the existing original-package editor",
-        "Precompute custom number-format classification once per code; interpret numeric styled values and formula caches without copying style records per cell"
+        "Precompute custom number-format classification once per code; interpret numeric styled values and formula caches without copying style records per cell",
+        "Portable builtin format codes validated against the pinned public reference mapping; retain exact reference spellings for currency/date/time/accounting, and do not fabricate locale-reserved formats. Borrowed StyleView resolves shared components and original flags without payload clones or inferred inheritance."
       ],
       "tests": "Generated inline/SST RAM/Disk/Auto integration, mode upgrades, malformed metadata, cache ownership, writer/edit repeated round trips in streaming.rs and writer.rs; full public openpyxl rich-run benchmarks; generated complete component/catalog round trips and bounded malformed catalog cases; public style creation readback in benchmarks/verify_style_fixture.py; numeric date/cache overlap in benchmarks/styled_checkpoint.py",
       "inventory_items": [

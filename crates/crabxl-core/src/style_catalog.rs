@@ -70,6 +70,26 @@ pub struct NamedStyle {
     /// Optional outline level.
     pub outline_level: Option<u32>,
 }
+/// Borrowed appearance components for an existing cell-format identity.
+/// Source application/base-style flags remain accessible through format.
+/// This view installs no inferred defaults or locale-specific format codes.
+#[derive(Clone, Copy, Debug)]
+pub struct StyleView<'a> {
+    /// Original format record, including flags and table identities.
+    pub format: &'a CellFormat,
+    /// Declared or portable built-in number format, absent for an unknown ID.
+    pub number_format: Option<&'a str>,
+    /// Shared font component.
+    pub font: &'a Font,
+    /// Shared fill component.
+    pub fill: &'a Fill,
+    /// Shared border component.
+    pub border: &'a Border,
+    /// Explicit alignment component, retaining source absence.
+    pub alignment: Option<&'a Alignment>,
+    /// Explicit protection overrides.
+    pub protection: Option<&'a Protection>,
+}
 /// Shared imported style catalog. Original indices remain stable; declarations
 /// never reserve from an advertised count. Derived value classification belongs
 /// to the format codec, not a second style model.
@@ -102,6 +122,35 @@ impl StyleCatalog {
     pub fn cell_format(&self, id: StyleId) -> Option<&CellFormat> {
         self.cell_formats.get(id.get() as usize)
     }
+    /// Resolve shared components without cloning names, gradients or wrappers.
+    /// This does not invent base-style inheritance beyond explicit table links.
+    pub fn cell_style(&self, id: StyleId) -> crate::Result<StyleView<'_>> {
+        let invalid = || {
+            crate::Error::new(
+                crate::ErrorKind::InvalidData,
+                "Cell format references a missing style component",
+            )
+        };
+        let format = self.cell_format(id).ok_or_else(invalid)?;
+        Ok(StyleView {
+            format,
+            number_format: self.number_format(format.number_format_id),
+            font: self
+                .fonts
+                .get(format.font_id as usize)
+                .ok_or_else(invalid)?,
+            fill: self
+                .fills
+                .get(format.fill_id as usize)
+                .ok_or_else(invalid)?,
+            border: self
+                .borders
+                .get(format.border_id as usize)
+                .ok_or_else(invalid)?,
+            alignment: format.alignment.as_deref(),
+            protection: format.protection.as_ref(),
+        })
+    }
     /// Borrow a declared format code; imported declarations take priority over built-ins.
     pub fn declared_number_format(&self, id: u32) -> Option<&str> {
         self.number_formats
@@ -114,6 +163,12 @@ impl StyleCatalog {
                     .find(|format| format.id == id)
                     .map(|format| format.code.as_ref())
             })
+    }
+    /// Borrow a declared or portable built-in code without per-call allocation.
+    /// Unknown locale identities remain None; original numeric IDs stay intact.
+    pub fn number_format(&self, id: u32) -> Option<&str> {
+        self.declared_number_format(id)
+            .or_else(|| crate::builtin_number_format(id))
     }
     /// Estimated retained heap including actual vector capacities and boxed payloads.
     pub fn memory_bytes(&self) -> usize {

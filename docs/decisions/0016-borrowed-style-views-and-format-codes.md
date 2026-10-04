@@ -1,0 +1,9 @@
+# ADR 0016: Borrowed style views and portable format codes
+
+StyleCatalog exposes cell_style(StyleId) as a borrowed StyleView. Font names, gradient vectors, borders and optional alignment/protection remain references to the canonical tables; acquiring a view neither clones payloads nor installs inferred defaults. The original CellFormat is exposed with application flags and base links. Invalid component identities are typed errors. This accessor is independent of per-cell parsing and preserves existing streaming behavior.
+
+Portable builtin_number_format and reverse exact-code lookup share a static sparse table. All 36 entries match the pinned public openpyxl 3.1.5 mapping; selected upstream Rust table composition was inspected and recorded, but differing currency/accounting/date/time spellings were corrected through public observations. Unknown locale-reserved IDs remain unknown rather than mapped to an invented General format. Imported declarations take priority over builtin IDs, including sparse u32 identities. No runtime table allocation or dense numeric-ID indexing is used.
+
+The public mapping snapshot and independent native comparison are recorded under docs/research/builtin-number-formats-public.json and benchmarks/results/m2-builtin-format-interop.json. Reproduce with the builtin_formats release example and benchmarks/verify_builtin_formats.py. Pointer-identity tests verify shared component borrowing, while format tests verify every portable identity, custom overrides and unknown IDs. Existing parser/writer paths are unchanged, so this accessor checkpoint makes no speed claim and requires no unrelated timing rerun.
+
+Normalized writer/model catalog registration, theme resolution, named/differential/table-style editing and aggregate adaptive accounting remain required. This checkpoint does not complete M2 or M5 styles.

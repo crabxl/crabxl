@@ -17047,6 +17047,32 @@
         "benchmarks/verify_formula_probe.py"
       ],
       "limitations": "Compatible serialization deliberately converts nonfinite values to blanks; it is not exact IEEE-754 round-trip storage. Nonfinite datetime/style fields remain invalid. Aggregate budgets, complete style/theme catalogs and dynamic formula graphs remain staged."
+    },
+    {
+      "id": "styles.borrowed-views-builtins",
+      "description": "Borrowed shared style components and complete portable reference builtin number-format mapping",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "explicit-style-catalog"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/api/openpyxl.styles.numbers.html",
+      "modules": [
+        "crates/crabxl-core/src/number_formats.rs",
+        "crates/crabxl-core/src/style_catalog.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/values.rs::builtin_format_resolution_keeps_declared_overrides_and_unknown_identities",
+        "crates/crabxl-core/tests/values.rs::borrowed_style_views_share_components_and_do_not_install_inheritance",
+        "benchmarks/verify_builtin_formats.py"
+      ],
+      "limitations": "No new parser or per-cell allocation is introduced. Unknown locale IDs stay explicit; custom declarations override builtins. Borrowed view does not fabricate base-style application or inheritance. Writer catalog normalization, themes and aggregate budgets remain staged."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

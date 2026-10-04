@@ -1,0 +1,6 @@
+{
+  "reference": "openpyxl 3.1.5",
+  "inspection": "Public constant mapping only; no source inspection",
+  "formats_checked": 36,
+  "equal": true
+}

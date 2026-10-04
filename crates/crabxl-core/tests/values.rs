@@ -212,3 +212,74 @@ fn formula_ranges_and_literal_source_prefixes_keep_distinct_identities() {
     assert!("B2:A1".parse::<CellRange>().is_err());
     assert!("A1:B2:C3".parse::<CellRange>().is_err());
 }
+
+#[test]
+fn builtin_format_resolution_keeps_declared_overrides_and_unknown_identities() {
+    use crabxl_core::{
+        BUILTIN_NUMBER_FORMATS, NumberFormat, StyleCatalog, builtin_number_format,
+        builtin_number_format_id,
+    };
+    for (id, code) in BUILTIN_NUMBER_FORMATS {
+        assert_eq!(builtin_number_format(*id), Some(*code));
+        assert_eq!(builtin_number_format_id(code), Some(*id));
+    }
+    assert_eq!(builtin_number_format(14), Some("mm-dd-yy"));
+    assert_eq!(builtin_number_format(47), Some("mmss.0"));
+    assert_eq!(builtin_number_format(23), None);
+    assert_eq!(builtin_number_format(u32::MAX), None);
+    assert_eq!(builtin_number_format_id("m/d/yy"), None);
+    let catalog = StyleCatalog {
+        number_formats: vec![
+            NumberFormat {
+                id: 14,
+                code: "yyyy-mm-dd".into(),
+            },
+            NumberFormat {
+                id: u32::MAX,
+                code: "0.000".into(),
+            },
+        ],
+        ..Default::default()
+    };
+    assert_eq!(catalog.number_format(14), Some("yyyy-mm-dd"));
+    assert_eq!(catalog.number_format(49), Some("@"));
+    assert_eq!(catalog.number_format(u32::MAX), Some("0.000"));
+    assert_eq!(catalog.number_format(27), None);
+}
+
+#[test]
+fn borrowed_style_views_share_components_and_do_not_install_inheritance() {
+    use crabxl_core::{CellFormat, Font, StyleCatalog, StyleId};
+    let mut catalog = StyleCatalog {
+        fonts: vec![Font {
+            name: Some("Shared face".into()),
+            ..Default::default()
+        }],
+        fills: vec![Default::default()],
+        borders: vec![Default::default()],
+        cell_formats: vec![
+            CellFormat {
+                number_format_id: 14,
+                apply_font: Some(false),
+                ..Default::default()
+            },
+            CellFormat {
+                number_format_id: 27,
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    };
+    let first = catalog.cell_style(StyleId::new(0)).unwrap();
+    let second = catalog.cell_style(StyleId::new(1)).unwrap();
+    assert!(std::ptr::eq(first.font, second.font));
+    assert!(std::ptr::eq(first.fill, second.fill));
+    assert_eq!(first.number_format, Some("mm-dd-yy"));
+    assert_eq!(second.number_format, None);
+    assert_eq!(first.format.apply_font, Some(false));
+    assert!(first.alignment.is_none());
+    assert!(first.protection.is_none());
+    catalog.cell_formats[0].font_id = 100;
+    assert!(catalog.cell_style(StyleId::new(0)).is_err());
+    assert!(catalog.cell_style(StyleId::new(99)).is_err());
+}
