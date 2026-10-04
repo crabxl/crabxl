@@ -1678,6 +1678,10 @@ fn formula_attribute_policies_distinguish_owned_false_from_source_spellings() {
         FormulaMetadata {
             kind: FormulaType::DataTable,
             reference: Some(crabxl_core::FormulaRange::from_xml("A1:B2").unwrap()),
+            flags: crabxl_core::FormulaFlags {
+                calculate_cell: Some(FormulaFlag::from_literal("")),
+                ..Default::default()
+            },
             data_table: Some(Box::new(DataTableOptions {
                 two_dimensions: Some(FormulaFlag::new(false)),
                 row_table: Some(FormulaFlag::from_xml("0").unwrap()),
@@ -1711,6 +1715,10 @@ fn formula_attribute_policies_distinguish_owned_false_from_source_spellings() {
             .unwrap()
             .read_to_string(&mut xml)
             .unwrap();
+        assert_eq!(
+            xml.contains("ca=\"\""),
+            policy == FormulaWritePolicy::RetainExplicit
+        );
         assert!(xml.contains("dtr=\"0\""));
         assert!(xml.contains("del1=\"false\""));
         assert!(xml.contains("del2=\"1\""));
@@ -2066,5 +2074,45 @@ fn literal_empty_formula_references_follow_compatible_and_retained_policies() {
                 policy == FormulaWritePolicy::RetainExplicit
             );
         }
+    }
+}
+
+#[test]
+fn literal_formula_metadata_xml_validation_is_atomic_before_spooling() {
+    use crabxl_core::{
+        DataTableOptions, Formula, FormulaFlag, FormulaMetadata, FormulaReference, FormulaType,
+    };
+    for property in 0..3 {
+        let mut metadata = FormulaMetadata {
+            kind: FormulaType::DataTable,
+            ..Default::default()
+        };
+        match property {
+            0 => metadata.reference = Some(FormulaReference::from_literal("bad\0reference")),
+            1 => metadata.flags.calculate_cell = Some(FormulaFlag::from_literal("bad\0flag")),
+            _ => {
+                metadata.data_table = Some(Box::new(DataTableOptions {
+                    input1: Some("bad\0input".into()),
+                    ..Default::default()
+                }))
+            }
+        }
+        let formula = Formula::with_optional_expression(None, None, metadata).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let mut writer = WorkbookWriter::new(options(&directory)).unwrap();
+        writer.start_sheet("Sheet").unwrap();
+        let before = writer.temporary_bytes();
+        assert_eq!(
+            writer
+                .write_row(&row(0, vec![CellValue::Formula(Box::new(formula))]))
+                .unwrap_err()
+                .kind(),
+            ErrorKind::InvalidData
+        );
+        assert_eq!(writer.temporary_bytes(), before);
+        writer
+            .write_row(&row(0, vec![CellValue::Integer(1)]))
+            .unwrap();
+        writer.finish(Cursor::new(Vec::new())).unwrap();
     }
 }

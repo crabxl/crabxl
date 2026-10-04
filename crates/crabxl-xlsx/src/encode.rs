@@ -368,6 +368,35 @@ pub(crate) fn validate_value(
         CellValue::Formula(value) => {
             if let Some(metadata) = value.metadata() {
                 metadata.validate()?;
+                if let Some(reference) = &metadata.reference {
+                    validate_xml_text(&reference.spelling())?;
+                }
+                for flag in [
+                    &metadata.flags.always_calculate,
+                    &metadata.flags.calculate_cell,
+                    &metadata.flags.data_box,
+                ]
+                .into_iter()
+                .flatten()
+                {
+                    validate_xml_text(flag.spelling())?;
+                }
+                if let Some(table) = &metadata.data_table {
+                    for flag in [
+                        &table.two_dimensions,
+                        &table.row_table,
+                        &table.deleted1,
+                        &table.deleted2,
+                    ]
+                    .into_iter()
+                    .flatten()
+                    {
+                        validate_xml_text(flag.spelling())?;
+                    }
+                    for input in [&table.input1, &table.input2].into_iter().flatten() {
+                        validate_xml_text(input)?;
+                    }
+                }
                 if metadata.payload_bytes() > maximum {
                     return Err(Error::new(
                         ErrorKind::LimitExceeded,

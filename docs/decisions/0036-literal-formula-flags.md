@@ -1,0 +1,9 @@
+# ADR 0036: Literal structured formula flags and XML preflight
+
+FormulaFlag now retains a typed Boolean or a raw public string with optional Boolean meaning. value() returns Option<bool>; opaque strings have no fabricated Boolean meaning. from_xml() remains strict, while from_literal() retains public constructor/source properties in one owned Box. Shared literal classification avoids duplicate semantic helpers. Decoded owned XML flag strings transfer into their retained payloads without an extra copy.
+
+Compatible array/table headers ignore irrelevant attributes after validating XML/entities and individual byte limits. Known flag properties retain raw strings, including non-Boolean values accepted by the pinned public reference. ValidateGroups and editor dependency analysis remain strict. Compatible output omits empty literal flags and newly assigned typed false, but preserves nonempty source strings; RetainExplicit retains empty attributes. Array public views remain ref/text; extra retained array calculation hints belong to the Rust model.
+
+Writer preflight now validates XML characters in every retained reference, input and flag before mutating worksheet spools, in addition to payload limits. Permitting opaque public values is not permission to write illegal XML. Tests cover atomic rejection/retry, empty flag output policy, raw properties, optional Boolean meaning, irrelevant structured hints and strict rejection.
+
+Public constructors and serializers verify all five data-table flag properties across empty, false/zero, opaque and whitespace-bearing literals. Streaming comparisons verify every flag, and a preserved immediate core measures ordinary/shared regression. See benchmarks/m2-literal-flags.md. No reference implementation is inspected and no formula evaluator is added. Arbitrary shared-index properties, structured edits and remaining value/date/style cases keep M2/M4 open.
