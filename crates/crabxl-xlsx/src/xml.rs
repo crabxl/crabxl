@@ -286,3 +286,63 @@ pub(crate) fn required_attribute(
         )
     })
 }
+
+/// Append one XML character-data event into a bounded reusable value buffer.
+pub(crate) fn append_xml_text(
+    output: &mut String,
+    event: &Event<'_>,
+    maximum: usize,
+) -> Result<()> {
+    let append = |output: &mut String, text: &str| -> Result<()> {
+        if output.len().saturating_add(text.len()) > maximum {
+            return Err(Error::new(
+                ErrorKind::LimitExceeded,
+                "Cell value byte limit exceeded",
+            ));
+        }
+        output.try_reserve_exact(text.len()).map_err(|e| {
+            Error::caused_by(
+                ErrorKind::LimitExceeded,
+                "Cannot allocate cell value buffer",
+                e,
+            )
+        })?;
+        output.push_str(text);
+        Ok(())
+    };
+    match event {
+        Event::Text(t) => append(
+            output,
+            &t.xml10_content()
+                .map_err(|e| Error::caused_by(ErrorKind::Xml, "Cannot decode XML text", e))?,
+        ),
+        Event::CData(t) => append(
+            output,
+            &t.xml10_content()
+                .map_err(|e| Error::caused_by(ErrorKind::Xml, "Cannot decode XML text", e))?,
+        ),
+        Event::GeneralRef(e) => {
+            let entity = e
+                .decode()
+                .map_err(|e| Error::caused_by(ErrorKind::Xml, "Cannot decode XML entity", e))?;
+            if let Some(text) = quick_xml::escape::resolve_xml_entity(&entity) {
+                append(output, text)
+            } else if let Some(character) = e
+                .resolve_char_ref()
+                .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid XML entity", e))?
+            {
+                let mut bytes = [0u8; 4];
+                append(output, character.encode_utf8(&mut bytes))
+            } else {
+                Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Unrecognized XML entity",
+                ))
+            }
+        }
+        _ => Err(Error::new(
+            ErrorKind::InvalidData,
+            "Expected XML character data",
+        )),
+    }
+}

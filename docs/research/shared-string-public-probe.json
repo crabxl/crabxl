@@ -1,0 +1,45 @@
+{
+  "reference": "openpyxl 3.1.5 public read-only API",
+  "pairs": [
+    [
+      "_x0041_",
+      "_x0041_"
+    ],
+    [
+      "_x005F_x0041_",
+      "_x0041_"
+    ],
+    [
+      "_x005F__x0041_",
+      "__x0041_"
+    ],
+    [
+      "_x000D_",
+      "_x000D_"
+    ],
+    [
+      "_xD83D__xDE00_",
+      "_xD83D__xDE00_"
+    ],
+    [
+      "prefixx005F_suffix",
+      "prefixsuffix"
+    ],
+    [
+      "x005f_suffix",
+      "x005f_suffix"
+    ],
+    [
+      "  a & b  ",
+      "  a & b  "
+    ],
+    [
+      "",
+      ""
+    ],
+    [
+      "_x005F_",
+      "_"
+    ]
+  ]
+}

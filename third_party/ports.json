@@ -12,7 +12,8 @@
         "src/xlsx/cells_reader.rs: XlsxCellReader::new, next_cell, read_value, read_v",
         "src/xlsx/mod.rs: xml_reader, read_workbook, read_relationships, get_row_and_optional_column",
         "src/formats.rs: detect_custom_number_format (quoted/escaped first-section date/duration detection)",
-        "src/xlsx/mod.rs: Reference::parse/offset/format, offset_range, expand_shared_formula_with_offset_into (selected A1 translation logic)"
+        "src/xlsx/mod.rs: Reference::parse/offset/format, offset_range, expand_shared_formula_with_offset_into (selected A1 translation logic)",
+        "src/xlsx/mod.rs: Xlsx::read_shared_strings (SST root/entry event flow)"
       ],
       "destinations": [
         "crates/crabxl-core/src/address.rs",
@@ -21,7 +22,8 @@
         "crates/crabxl-xlsx/src/reader.rs",
         "crates/crabxl-core/src/scalar.rs",
         "crates/crabxl-xlsx/src/styles.rs",
-        "crates/crabxl-core/src/translate.rs"
+        "crates/crabxl-core/src/translate.rs",
+        "crates/crabxl-xlsx/src/strings.rs"
       ],
       "changes": [
         "Adapted event-driven cell and workbook parsing to shared crabxl types without Range materialization",
@@ -39,7 +41,12 @@
         "Rewrite translation scanning to preserve single-quoted sheet qualifiers, doubled quoted strings and structured/external bracket context; do not rewrite reference-looking sheet/table names",
         "Match public openpyxl formula-reference grammar and utility bounds separately from physical worksheet limits; out-of-range relative references return typed errors instead of silently retaining the original",
         "Bound output capacity, share column formatting with core addresses, and prevalidate formula/range move staging before mutation; translated formulas drop old cached results",
-        "Full tokenizer/parser and dynamic spill syntax remain staged; translator origins/axis helpers require positive labels fitting u64"
+        "Full tokenizer/parser and dynamic spill syntax remain staged; translator origins/axis helpers require positive labels fitting u64",
+        "Refactor shared-string event flow into incremental namespace-aware parsing with relationship-resolved paths and actual-entry limits; never reserve from advertised uniqueCount",
+        "Replace eager Vec-only strings with shared Memory/Disk/Auto placement, bounded direct-slot decoded cache and complete disk-backed fixed-width index; actual over-budget data spills without sheet materialization",
+        "Retain unsupported rich/phonetic entry IDs for projected plain access; selected rich values remain explicit errors rather than flattened text",
+        "Match pinned public shared-string x005F_ protection removal separately from unchanged inline literal spelling; do not import calamine general escape decoding",
+        "Share bounded XML character/entity accumulation across scalar and shared-string codecs"
       ],
       "tests": "New in-memory OOXML fixtures in crates/crabxl-xlsx/tests/streaming.rs; no upstream binary fixture copies",
       "inventory_items": [
@@ -57,7 +64,8 @@
         "read.plain-text-errors",
         "resources.scalar-payloads",
         "formula.a1-translation",
-        "edit.translated-model-move"
+        "edit.translated-model-move",
+        "read.shared-strings.bounded"
       ]
     },
     {
