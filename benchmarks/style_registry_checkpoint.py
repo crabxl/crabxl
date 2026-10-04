@@ -17,17 +17,18 @@ from iso_checkpoint import measure
 MAIN = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
 
-def reference(path, count):
-    book = openpyxl.Workbook(write_only=True)
-    sheet = book.create_sheet("Sheet")
+def reference(path, count, materialized=False):
+    book = openpyxl.Workbook(write_only=not materialized)
+    sheet = book.active if materialized else book.create_sheet("Sheet")
     fonts = [Font(name="Calibri", size=11, family=2, scheme="minor", color=f'{0xFF000000 | index:08X}') for index in range(16)]
     fills = [PatternFill(patternType="solid", fgColor=f'{0xFF100000 | index:08X}') for index in range(16)]
     alignments = [Alignment(horizontal="general", vertical="bottom", textRotation=index, wrap_text=True, shrink_to_fit=True) for index in range(32)]
     for index in range(count):
-        cell = WriteOnlyCell(sheet, value=index+.25)
+        cell = sheet.cell(index+1, 1, index+.25) if materialized else WriteOnlyCell(sheet, value=index+.25)
         cell.font, cell.fill, cell.alignment = fonts[index % 16], fills[(index // 16) % 16], alignments[(index // 256) % 32]
         cell.number_format = "0.000"
-        sheet.append([cell])
+        if not materialized:
+            sheet.append([cell])
     book.save(path)
     book.close()
     print(count)

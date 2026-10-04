@@ -39,7 +39,9 @@ mod translate;
 pub use translate::{formula_position, translate_axis, translate_expression};
 
 mod workbook;
-pub use workbook::{SheetId, Workbook, WorkbookLimits, WorksheetEditor};
+pub use workbook::{
+    OwnedWorksheets, SheetId, Workbook, WorkbookLimits, WorkbookParts, WorksheetEditor,
+};
 
 mod rich_text;
 pub use rich_text::{

@@ -31,6 +31,28 @@ fn limit() -> Error {
         "Style catalog allowance exceeded",
     )
 }
+fn validate_table_limits(catalog: &StyleCatalog, limits: StyleLimits) -> Result<()> {
+    if limits.max_bytes == 0 || limits.max_records == 0 || limits.max_records > u32::MAX as usize {
+        return Err(limit());
+    }
+    for count in [
+        catalog.fonts.len(),
+        catalog.fills.len(),
+        catalog.borders.len(),
+        catalog.number_formats.len(),
+        catalog.cell_formats.len(),
+        catalog.base_formats.len(),
+        catalog.named_styles.len(),
+        catalog.indexed_colors.len(),
+        catalog.recent_colors.len(),
+        catalog.unmodeled_sections.len(),
+    ] {
+        if count > limits.max_records {
+            return Err(limit());
+        }
+    }
+    Ok(())
+}
 fn allocation(error: impl std::error::Error + Send + Sync + 'static) -> Error {
     Error::caused_by(
         ErrorKind::MemoryBudgetExceeded,
@@ -275,28 +297,7 @@ impl StyleRegistry {
     /// Duplicate components remain present; new registration reuses the first equal record.
     /// Source custom-number IDs are sparse and never size a dense allocation.
     pub fn from_catalog(mut catalog: StyleCatalog, limits: StyleLimits) -> Result<Self> {
-        if limits.max_bytes == 0
-            || limits.max_records == 0
-            || limits.max_records > u32::MAX as usize
-        {
-            return Err(limit());
-        }
-        for count in [
-            catalog.fonts.len(),
-            catalog.fills.len(),
-            catalog.borders.len(),
-            catalog.number_formats.len(),
-            catalog.cell_formats.len(),
-            catalog.base_formats.len(),
-            catalog.named_styles.len(),
-            catalog.indexed_colors.len(),
-            catalog.recent_colors.len(),
-            catalog.unmodeled_sections.len(),
-        ] {
-            if count > limits.max_records {
-                return Err(limit());
-            }
-        }
+        validate_table_limits(&catalog, limits)?;
         if catalog.memory_bytes().saturating_add(size_of::<Self>()) > limits.max_bytes {
             return Err(limit());
         }
@@ -453,6 +454,16 @@ impl StyleRegistry {
             next += 1;
         }
         u32::try_from(next).map_err(|_| limit())
+    }
+    /// Change future registration allowances without reallocating or changing IDs.
+    /// Existing retained storage and each actual table must fit before the update.
+    pub fn set_limits(&mut self, limits: StyleLimits) -> Result<()> {
+        validate_table_limits(&self.catalog, limits)?;
+        if self.memory_bytes() > limits.max_bytes {
+            return Err(limit());
+        }
+        self.limits = limits;
+        Ok(())
     }
     /// Borrow all canonical tables with stable workbook-local identities.
     pub fn catalog(&self) -> &StyleCatalog {

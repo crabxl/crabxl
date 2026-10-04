@@ -1846,3 +1846,72 @@ fn source_catalog_creation_rejects_unmodeled_sections_and_accepts_large_configur
     .unwrap();
     assert_eq!(writer.style_catalog().unwrap().cell_formats.len(), 5);
 }
+
+#[test]
+fn consuming_bank_export_transfers_style_ids_components_and_theme() {
+    use crabxl_core::{CellStyle, Theme, Workbook, WorkbookLimits};
+    let mut bank = Workbook::new(WorkbookLimits::default()).unwrap();
+    let first = bank.create_sheet("First").unwrap();
+    let other = bank.create_sheet("Other").unwrap();
+    let mut style = CellStyle::default();
+    style.font.name = Some("OwnedBank".into());
+    style.font.size = Some(410.0);
+    style.number_format = "0.000".into();
+    let id = bank.register_style(style).unwrap();
+    let font_pointer = bank.style_catalog().unwrap().fonts[1]
+        .name
+        .as_ref()
+        .unwrap()
+        .as_ptr();
+    bank.sheet_mut(first)
+        .unwrap()
+        .set(crabxl_core::Cell {
+            address: crabxl_core::CellAddress::new(0, 0).unwrap(),
+            value: CellValue::Number(1.25),
+            style: id,
+        })
+        .unwrap();
+    bank.sheet_mut(other)
+        .unwrap()
+        .append(vec![CellValue::Integer(2)])
+        .unwrap();
+    bank.set_theme(Some(Theme::from_bytes(
+        b"opaque-custom-theme".to_vec().into_boxed_slice(),
+    )))
+    .unwrap();
+    bank.move_sheet(other, 0).unwrap();
+    bank.set_active_sheet(first).unwrap();
+    bank.set_epoch(crabxl_core::DateEpoch::Mac1904);
+    let mut legacy = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    assert!(legacy.write_workbook(&bank).is_err());
+    assert_eq!(legacy.temporary_bytes(), 0);
+    let writer = WorkbookWriter::from_workbook(WriteOptions::default(), bank).unwrap();
+    assert_eq!(
+        writer.style_catalog().unwrap().fonts[1]
+            .name
+            .as_ref()
+            .unwrap()
+            .as_ptr(),
+        font_pointer
+    );
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    assert!(reader.date_1904());
+    assert_eq!(reader.active_index(), Some(1));
+    assert_eq!(
+        reader.theme().unwrap().unwrap().bytes(),
+        b"opaque-custom-theme"
+    );
+    let cell = reader.read_sheet("First").unwrap().rows[0].cells[0].clone();
+    assert_eq!(cell.style, id);
+    assert_eq!(cell.value, CellValue::Number(1.25));
+    let style = reader
+        .style_catalog()
+        .unwrap()
+        .unwrap()
+        .cell_style(id)
+        .unwrap();
+    assert_eq!(style.font.name.as_deref(), Some("OwnedBank"));
+    assert_eq!(style.font.size, Some(410.0));
+    assert_eq!(style.number_format, Some("0.000"));
+}
