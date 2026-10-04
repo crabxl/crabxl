@@ -193,33 +193,38 @@ pub(crate) fn boolean(value: Option<&str>) -> Result<bool> {
     }
 }
 pub(crate) fn read_color(e: &BytesStart<'_>, decoder: Decoder) -> Result<Color> {
-    let mut kind = None;
-    for key in [b"rgb".as_slice(), b"theme", b"indexed", b"auto"] {
-        if let Some(value) = attribute(e, key, decoder)? {
-            if kind.is_some() {
-                return Err(invalid("Conflicting color identities"));
-            }
-            kind = Some(match key {
-                b"rgb" => crabxl_core::ArgbLiteral::parse(&value)?.into_kind(),
-                b"theme" => {
-                    ColorKind::Theme(value.parse().map_err(|_| invalid("Invalid theme color"))?)
-                }
-                b"indexed" => ColorKind::Indexed(
-                    value
-                        .parse()
-                        .map_err(|_| invalid("Invalid indexed color"))?,
-                ),
-                _ => ColorKind::Auto(boolean(Some(&value))?),
-            });
-        }
-    }
+    check_attributes(e, &[b"rgb", b"theme", b"indexed", b"auto", b"tint"])?;
+    // Decode all known attributes for XML validity, then select public constructor priority.
+    // Unselected color identities do not impose their own scalar/hex validation.
+    let indexed = attribute(e, b"indexed", decoder)?;
+    let theme = attribute(e, b"theme", decoder)?;
+    let automatic = attribute(e, b"auto", decoder)?;
+    let rgb = attribute(e, b"rgb", decoder)?;
+    let kind = if let Some(value) = indexed {
+        ColorKind::Indexed(
+            value
+                .trim()
+                .parse()
+                .map_err(|_| invalid("Invalid indexed color"))?,
+        )
+    } else if let Some(value) = theme {
+        ColorKind::Theme(
+            value
+                .trim()
+                .parse()
+                .map_err(|_| invalid("Invalid theme color"))?,
+        )
+    } else if let Some(value) = automatic {
+        ColorKind::Auto(boolean(Some(value.trim()))?)
+    } else if let Some(value) = rgb {
+        crabxl_core::ArgbLiteral::parse(&value)?.into_kind()
+    } else {
+        ColorKind::Unspecified
+    };
     let tint = attribute(e, b"tint", decoder)?
         .map(|s| s.parse().map_err(|_| invalid("Invalid color tint")))
         .transpose()?;
-    let color = Color {
-        kind: kind.unwrap_or(ColorKind::Unspecified),
-        tint,
-    };
+    let color = Color { kind, tint };
     validate_color(color)?;
     Ok(color)
 }

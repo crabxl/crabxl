@@ -1,0 +1,16 @@
+{
+  "reference": "3.1.5",
+  "font_sizes": [
+    -1.0,
+    410.0,
+    1000000.0
+  ],
+  "gradient_edges": [
+    -1.0,
+    2.0
+  ],
+  "number_format": "",
+  "color_selection": "indexed before theme, auto and rgb",
+  "public_save_reload": "pass",
+  "canonical_reader": "finite-style-domains-ok"
+}
