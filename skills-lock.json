@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "commit": {
+      "source": "cmostw/coherent-commits",
+      "sourceType": "github",
+      "skillPath": "skills/commit/SKILL.md",
+      "computedHash": "7b0ef62bcd5db65899539dafdb24f47944b37f0e924d269ce7c2ee1a4e7ed315"
+    }
+  }
+}
