@@ -2784,3 +2784,53 @@ fn projected_policy_does_not_retain_shared_groups_after_the_requested_last_row()
     assert!(strict.next_row().unwrap().is_none());
     assert_eq!(strict.shared_formula_stats().templates, 999);
 }
+
+#[test]
+fn cache_only_projection_ignores_formula_semantics_without_ignoring_xml_or_values() {
+    let options = ReadOptions {
+        data_only: true,
+        ..ReadOptions::default()
+    };
+    for formula in [
+        "<f t=\"future\" ref=\"invalid\">1+1</f>".to_owned(),
+        format!("<f>{}</f>", "1&amp;".repeat(40000)),
+    ] {
+        let mut book = open(&format!(
+            "<row r=\"1\"><c r=\"A1\">{formula}<v>2</v></c><c r=\"B1\" t=\"str\"><f t=\"future\"/><v></v></c></row>"
+        ));
+        let rows = book
+            .rows_with_options("A & B", options.clone())
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(rows[0].cells[0].value, CellValue::Integer(2));
+        assert_eq!(rows[0].cells[1].value, CellValue::Empty);
+    }
+    for content in [
+        "<f>&unknown;</f><v>2</v>",
+        "<f><nested/></f><v>2</v>",
+        "<f>1</f><f>2</f><v>2</v>",
+        "<f>1</f><v>invalid</v>",
+    ] {
+        let mut book = open(&format!("<row r=\"1\"><c r=\"A1\">{content}</c></row>"));
+        assert!(
+            book.rows_with_options("A & B", options.clone())
+                .unwrap()
+                .next()
+                .unwrap()
+                .is_err()
+        );
+    }
+    let mut book = open("<row r=\"1\"><c r=\"A1\"><f t=\"future\">1</f><v>2</v></c></row>");
+    let strict = ReadOptions {
+        formula_policy: crabxl_core::FormulaReadPolicy::ValidateGroups,
+        ..options
+    };
+    assert!(
+        book.rows_with_options("A & B", strict)
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_err()
+    );
+}

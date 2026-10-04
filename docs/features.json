@@ -17204,6 +17204,32 @@
         "benchmarks/policy_options_checkpoint.py"
       ],
       "limitations": "ReadOptions composition is verified for sampling, materialization and fallback; compatible projection avoids unrelated shared masters beyond the requested last row. Direct component APIs remain independent. Not a hard RSS cap: dependency/allocator overhead, OS cache and caller-held outputs are additional. Prior prepared Auto table rebalancing temporarily retains prior storage until successful transfer. No milestone completion claimed."
+    },
+    {
+      "id": "formula.cache-only-projection",
+      "description": "Compatible stored-cache projection discards formula semantics and expression allocations while validating XML and values",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "not-applicable",
+        "edit": "not-applicable",
+        "preserve": "not-applicable"
+      },
+      "modes": [
+        "streaming",
+        "materialized",
+        "adaptive-streaming",
+        "adaptive-materialized"
+      ],
+      "modules": [
+        "crates/crabxl-xlsx/src/reader.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/streaming.rs::cache_only_projection_ignores_formula_semantics_without_ignoring_xml_or_values",
+        "benchmarks/formula_cache_checkpoint.py"
+      ],
+      "limitations": "Does not evaluate formulas or interpret typed metadata graphs. ValidateGroups explicitly validates formulas even in data-only mode; XML-event and cache-value limits remain enforced. No milestone completion claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

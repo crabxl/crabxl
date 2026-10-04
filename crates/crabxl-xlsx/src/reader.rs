@@ -525,6 +525,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         let mut value = CellValue::Empty;
         let mut seen_value = false;
         let mut formula = None;
+        let mut seen_formula = false;
         loop {
             let frame = self.xml.next()?;
             match frame.event {
@@ -559,8 +560,15 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         && frame.depth == 5
                         && e.local_name().as_ref() == b"f" =>
                 {
-                    if formula.is_some() || matches!(kind, ScalarKind::InlineText) {
+                    if seen_formula || matches!(kind, ScalarKind::InlineText) {
                         return Err(self.invalid("Invalid or duplicate formula element"));
+                    }
+                    seen_formula = true;
+                    if self.options.data_only
+                        && self.options.formula_policy == crabxl_core::FormulaReadPolicy::Compatible
+                    {
+                        self.skip_formula_text()?;
+                        continue;
                     }
                     let mut metadata = crate::formula_codec::header(
                         &e,
@@ -610,10 +618,10 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                             );
                         }
                     }
+                    if seen_formula && self.options.data_only {
+                        return Ok(value);
+                    }
                     if let Some((expression, metadata)) = formula {
-                        if self.options.data_only {
-                            return Ok(value);
-                        }
                         if seen_value
                             && matches!(kind, ScalarKind::Text)
                             && matches!(value, CellValue::Empty)
@@ -779,6 +787,38 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             parsed.unprotect();
         }
         Ok(parsed.into_value())
+    }
+
+    // Cache-only compatibility ignores expression semantics, but still validates XML.
+    fn skip_formula_text(&mut self) -> Result<()> {
+        loop {
+            let frame = self.xml.next()?;
+            match frame.event {
+                Event::Text(text) => {
+                    text.xml10_content().map_err(|e| {
+                        Error::caused_by(ErrorKind::Xml, "Cannot decode XML text", e)
+                    })?;
+                }
+                Event::CData(text) => {
+                    text.xml10_content().map_err(|e| {
+                        Error::caused_by(ErrorKind::Xml, "Cannot decode XML text", e)
+                    })?;
+                }
+                event @ Event::GeneralRef(_) => {
+                    self.value_buffer.clear();
+                    append_xml_text(&mut self.value_buffer, &event, 4)?;
+                }
+                Event::End(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 4
+                        && e.local_name().as_ref() == b"f" =>
+                {
+                    return Ok(());
+                }
+                Event::Comment(_) | Event::PI(_) => {}
+                _ => return Err(self.invalid("Invalid formula text content")),
+            }
+        }
     }
 
     fn read_formula_text(&mut self) -> Result<Box<str>> {
