@@ -1,0 +1,6 @@
+{
+  "reference": "3.1.5",
+  "generation": "Workbook().save(BytesIO()); ZIP xl/theme/theme1.xml; encode non-ASCII source characters as Rust Unicode escapes",
+  "bytes": 10140,
+  "sha256": "d15e8ebf78ef7b9720839d7ae8fdc81a7df5bc24706d8e137df61a5683c358d9"
+}

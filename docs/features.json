@@ -17103,9 +17103,41 @@
         "crates/crabxl-xlsx/tests/writer.rs::alignment_zero_serialization_has_compatible_and_explicit_policies",
         "benchmarks/style_registry_checkpoint.py",
         "benchmarks/verify_default_styles.py",
-        "benchmarks/verify_style_fixture.py"
+        "benchmarks/verify_style_fixture.py",
+        "benchmarks/probe_style_domains.py",
+        "crates/crabxl-xlsx/tests/writer.rs::public_font_domains_and_case_sensitive_colors_roundtrip"
       ],
-      "limitations": "New registration and sequential output only; loaded bank ownership/imported catalog mutation, complete themes/differential/table styles and aggregate Auto budgets remain staged. Managed capacity/index estimates exclude allocator/runtime and caller-owned input; reader XML event limits are independent. No complete M2/M4 style editing is claimed."
+      "limitations": "New registration and sequential output only; loaded bank ownership/imported catalog mutation, complete themes/differential/table styles and aggregate Auto budgets remain staged. Managed capacity/index estimates exclude allocator/runtime and caller-owned input; reader XML event limits are independent. No complete M2/M4 style editing is claimed. Fractional family, signed i64 charset/theme/indexed identities and compact ARGB casing are verified; arbitrary-precision style integer metadata remains staged."
+    },
+    {
+      "id": "themes.opaque-default-parts",
+      "description": "Canonical opaque theme bytes, lazy bounded relationship-resolved reads and exact default/custom sequential emission",
+      "status": "verified",
+      "milestone": "M2",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "planned",
+        "preserve": "verified"
+      },
+      "modes": [
+        "lazy-theme-read",
+        "sequential-write",
+        "explicit-theme-validation"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/api/openpyxl.workbook.workbook.html",
+      "modules": [
+        "crates/crabxl-core/src/theme.rs",
+        "crates/crabxl-xlsx/src/theme.rs",
+        "crates/crabxl-xlsx/src/default_theme.rs"
+      ],
+      "tests": [
+        "benchmarks/verify_themes.py",
+        "crates/crabxl-xlsx/tests/writer.rs::themes_default_opaque_validated_omitted_and_abort_ownership",
+        "crates/crabxl-xlsx/tests/writer.rs::theme_and_styles_share_metadata_input_allowance_in_either_order",
+        "crates/crabxl-xlsx/tests/streaming.rs::lazy_themes_resolve_custom_parts_keep_opaque_bytes_and_enforce_limits"
+      ],
+      "limitations": "Opaque bytes are the reference public baseline; typed palette/fonts, theme rendering and loaded mutation remain staged. Default validation is not imposed on reference-compatible opaque theme access. No M2/M4 completion is claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

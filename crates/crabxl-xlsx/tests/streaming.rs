@@ -2295,3 +2295,59 @@ fn overflow_numeric_lexemes_and_cached_results_retain_infinities() {
         );
     }
 }
+
+#[test]
+fn lazy_themes_resolve_custom_parts_keep_opaque_bytes_and_enforce_limits() {
+    let theme = "<a:theme xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" name=\"custom\"><a:extLst/></a:theme>";
+    let mut parts = entries(&format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData><row><c><v>42</v></c></row></sheetData></worksheet>"
+    ));
+    parts[3].1 = parts[3].1.replace("</Relationships>", &format!("<Relationship Id=\"theme\" Type=\"{REL}/theme\" Target=\"../custom/colors.xml\"/></Relationships>"));
+    parts.push(("custom/colors.xml".into(), theme.into()));
+    let mut book = from_entries(&parts);
+    assert_eq!(book.theme_memory_bytes(), 0);
+    assert_eq!(
+        book.rows("A & B")
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap()
+            .cells[0]
+            .value,
+        CellValue::Integer(42)
+    );
+    assert_eq!(book.theme_memory_bytes(), 0);
+    assert_eq!(book.theme().unwrap().unwrap().bytes(), theme.as_bytes());
+    let retained = book.theme_memory_bytes();
+    assert_eq!(book.theme().unwrap().unwrap().bytes(), theme.as_bytes());
+    assert_eq!(book.theme_memory_bytes(), retained);
+    book.validate_theme().unwrap();
+    let refs: Vec<_> = parts
+        .iter()
+        .map(|(a, b)| (a.as_str(), b.as_str()))
+        .collect();
+    let mut limited = WorkbookReader::with_limits(
+        Cursor::new(fixture(&refs)),
+        ResourceLimits {
+            max_theme_bytes: theme.len() - 1,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        limited.theme().unwrap_err().kind(),
+        ErrorKind::LimitExceeded
+    );
+    assert_eq!(limited.theme_memory_bytes(), 0);
+    assert!(limited.rows("A & B").unwrap().next_row().unwrap().is_some());
+    parts.last_mut().unwrap().1 = "not XML".into();
+    let mut opaque = from_entries(&parts);
+    assert_eq!(opaque.theme().unwrap().unwrap().bytes(), b"not XML");
+    assert!(opaque.validate_theme().is_err());
+    parts[3].1 = parts[3].1.replace("</Relationships>", &format!("<Relationship Id=\"duplicate\" Type=\"{REL}/theme\" Target=\"../custom/colors.xml\"/></Relationships>"));
+    let refs: Vec<_> = parts
+        .iter()
+        .map(|(a, b)| (a.as_str(), b.as_str()))
+        .collect();
+    assert!(WorkbookReader::new(Cursor::new(fixture(&refs))).is_err());
+}

@@ -70,6 +70,8 @@ pub struct WriteOptions {
     pub non_finite: NonFiniteWritePolicy,
     /// Compatible alignment omission or explicit attribute retention.
     pub style_attributes: StyleWritePolicy,
+    /// Reference default, opaque/validated custom bytes, or explicit omission.
+    pub theme: crate::ThemeWritePolicy,
     /// Zero-based active display sheet, checked against the completed catalog.
     pub active_sheet: usize,
 }
@@ -89,6 +91,7 @@ impl Default for WriteOptions {
             iso_dates: false,
             non_finite: NonFiniteWritePolicy::default(),
             style_attributes: StyleWritePolicy::default(),
+            theme: crate::ThemeWritePolicy::default(),
             active_sheet: 0,
             max_styles: 8192,
         }
@@ -156,12 +159,28 @@ impl WorkbookWriter {
                 "Writer resource limits are invalid",
             ));
         }
+        if options.theme.memory_bytes() > options.max_metadata_bytes {
+            return Err(limit("Writer theme metadata budget exceeded"));
+        }
+        if let crate::ThemeWritePolicy::Validated(theme) = &options.theme {
+            crate::theme::validate(
+                theme.bytes(),
+                "xl/theme/theme1.xml",
+                crabxl_core::ResourceLimits {
+                    max_theme_bytes: options.max_metadata_bytes,
+                    max_part_bytes: options.max_metadata_bytes as u64,
+                    ..Default::default()
+                },
+            )?;
+        }
         let row_buffer = RowBuffer {
             data: Vec::new(),
             maximum: options.max_row_bytes,
         };
         let mut styles = StyleRegistry::new(StyleLimits {
-            max_bytes: options.max_metadata_bytes,
+            max_bytes: options
+                .max_metadata_bytes
+                .saturating_sub(options.theme.memory_bytes()),
             max_records: options.max_styles,
         })
         .map_err(writer_style_error)?;
@@ -218,8 +237,13 @@ impl WorkbookWriter {
     pub fn style_memory_bytes(&self) -> usize {
         self.styles.as_ref().map_or(0, StyleRegistry::memory_bytes)
     }
+    /// Managed custom-theme storage; the default theme uses static storage.
+    pub fn theme_memory_bytes(&self) -> usize {
+        self.options.theme.memory_bytes()
+    }
     fn catalog_bytes(&self) -> usize {
-        self.sheets.capacity() * size_of::<StoredSheet>()
+        self.options.theme.memory_bytes()
+            + self.sheets.capacity() * size_of::<StoredSheet>()
             + self
                 .sheets
                 .iter()
@@ -231,6 +255,7 @@ impl WorkbookWriter {
     }
     fn style_bytes(&self) -> usize {
         self.style_memory_bytes()
+            .saturating_add(self.options.theme.memory_bytes())
     }
     /// Start a sheet, completing the previous one. Failed validation or temporary
     /// file creation leaves the previous active sheet usable.
@@ -504,6 +529,7 @@ impl WorkbookWriter {
         self.cleanup_paths = remaining;
         self.sheets = Vec::new();
         self.styles = None;
+        self.options.theme = crate::ThemeWritePolicy::Omit;
         self.row_buffer.data = Vec::new();
         self.temporary_bytes = 0;
         first_error.map_or(Ok(()), Err)
@@ -554,9 +580,7 @@ impl WorkbookWriter {
                 .as_ref()
                 .ok_or_else(|| state("Writer style catalog is released"))?
                 .catalog(),
-            self.options.date_1904,
-            self.options.active_sheet,
-            self.options.style_attributes,
+            &self.options,
             options,
         )?;
         let mut output = zip
@@ -665,13 +689,18 @@ fn package_metadata<W: Write + Seek>(
     zip: &mut ZipWriter<W>,
     sheets: &[StoredSheet],
     styles: &StyleCatalog,
-    date_1904: bool,
-    active_sheet: usize,
-    style_attributes: StyleWritePolicy,
+    configuration: &WriteOptions,
     options: SimpleFileOptions,
 ) -> Result<()> {
+    let date_1904 = configuration.date_1904;
+    let active_sheet = configuration.active_sheet;
+    let style_attributes = configuration.style_attributes;
+    let theme = configuration.theme.bytes();
     write_part(zip, "[Content_Types].xml", options, |zip| {
         zip.write_all(b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>")?;
+        if theme.is_some() {
+            zip.write_all(b"<Override PartName=\"/xl/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>")?;
+        }
         for index in 1..=sheets.len() {
             write!(
                 zip,
@@ -696,9 +725,17 @@ fn package_metadata<W: Write + Seek>(
         }
         write!(
             zip,
-            "<Relationship Id=\"rId{}\" Type=\"{REL}/styles\" Target=\"styles.xml\"/></Relationships>",
+            "<Relationship Id=\"rId{}\" Type=\"{REL}/styles\" Target=\"styles.xml\"/>",
             sheets.len() + 1
-        )
+        )?;
+        if theme.is_some() {
+            write!(
+                zip,
+                "<Relationship Id=\"rId{}\" Type=\"{REL}/theme\" Target=\"theme/theme1.xml\"/>",
+                sheets.len() + 2
+            )?;
+        }
+        zip.write_all(b"</Relationships>")
     })?;
     write_part(zip, "xl/workbook.xml", options, |zip| {
         write!(
@@ -724,6 +761,11 @@ fn package_metadata<W: Write + Seek>(
         }
         zip.write_all(b"</sheets></workbook>")
     })?;
+    if let Some(bytes) = theme {
+        write_part(zip, "xl/theme/theme1.xml", options, |zip| {
+            zip.write_all(bytes)
+        })?;
+    }
     write_part(zip, "xl/styles.xml", options, |zip| {
         crate::styles::write_styles(zip, styles, style_attributes)
     })

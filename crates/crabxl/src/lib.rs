@@ -82,3 +82,6 @@ pub use crabxl_xlsx::SharedFormulaStats;
 pub use crabxl_core::{BUILTIN_NUMBER_FORMATS, builtin_number_format, builtin_number_format_id};
 
 pub use crabxl_core::{StyleLimits, StyleRegistry};
+
+pub use crabxl_core::Theme;
+pub use crabxl_xlsx::ThemeWritePolicy;
