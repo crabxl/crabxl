@@ -1,4 +1,4 @@
-# openrsxl
+# crabxl
 
 A Rust spreadsheet library focused on fast, memory-efficient XLSX processing and full coverage of the public openpyxl feature baseline. Internal implementation and Rust API naming may be idiomatic Rust; external capabilities and observable behavior must remain complete.
 
@@ -7,15 +7,15 @@ M1 provides bounded sparse XLSX row streaming and explicit owned sheet materiali
 Rust 1.88.0 or later is required. Run the example against an unstyled numeric worksheet:
 
 ```sh
-cargo run --release -p openrsxl --example sum -- numbers.xlsx Sheet
+cargo run --release -p crabxl --example sum -- numbers.xlsx Sheet
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
 ```rust
-use openrsxl::{CellValue, Row, RowIndex, WorkbookReader};
+use crabxl::{CellValue, Row, RowIndex, WorkbookReader};
 
-fn sum(path: &str, sheet: &str) -> openrsxl::Result<f64> {
+fn sum(path: &str, sheet: &str) -> crabxl::Result<f64> {
     let mut workbook = WorkbookReader::open(path)?;
     let mut rows = workbook.rows(sheet)?;
     let mut row = Row::new(RowIndex::new(0)?);
@@ -25,8 +25,8 @@ fn sum(path: &str, sheet: &str) -> openrsxl::Result<f64> {
             let value = match cell.value {
                 CellValue::Number(value) => Some(value),
                 CellValue::Integer(value) if (-9_007_199_254_740_992..=9_007_199_254_740_992).contains(&value) => Some(value as f64),
-                CellValue::Integer(_) | CellValue::BigInteger(_) => return Err(openrsxl::Error::new(
-                    openrsxl::ErrorKind::Unsupported, "This f64 sum rejects integers beyond 2^53"
+                CellValue::Integer(_) | CellValue::BigInteger(_) => return Err(crabxl::Error::new(
+                    crabxl::ErrorKind::Unsupported, "This f64 sum rejects integers beyond 2^53"
                 ).with_cell(cell.address)),
                 _ => None,
             };
@@ -44,9 +44,9 @@ Coordinates are zero-based typed indices with explicit A1 conversions. Missing r
 Use `read_sheet` for a non-streaming public operation: it retains all supported sparse scalar rows in owned `SheetData`, allowing repeated access without reparsing. It uses the same incremental decoder internally; materialization does not itself accelerate the first read. Configure the data budget and input buffer independently:
 
 ```rust
-use openrsxl::{ResourceLimits, WorkbookReader};
+use crabxl::{ResourceLimits, WorkbookReader};
 
-fn load(path: &str, sheet: &str) -> openrsxl::Result<openrsxl::SheetData> {
+fn load(path: &str, sheet: &str) -> crabxl::Result<crabxl::SheetData> {
     let limits = ResourceLimits {
         max_materialized_bytes: 1024 * 1024 * 1024,
         input_buffer_bytes: 256 * 1024,
@@ -62,9 +62,9 @@ The default direct `read_sheet` retained-data budget is 256 MiB. Parser/catalog 
 For automatic numeric mode selection use `read_with_policy`. A scan streams; repeated access samples at most 128 rows and retains data when its estimate fits. If later rows exceed the actual allowance, partial materialization is discarded and the operation returns a fresh stream. Other input errors propagate. Inspect `output.decision` for budget, estimate, source, mode, and reason:
 
 ```rust
-use openrsxl::{AccessPattern, MemoryPolicy, ReadData, WorkbookReader};
+use crabxl::{AccessPattern, MemoryPolicy, ReadData, WorkbookReader};
 
-fn count_rows(path: &str, sheet: &str) -> openrsxl::Result<usize> {
+fn count_rows(path: &str, sheet: &str) -> crabxl::Result<usize> {
     let mut workbook = WorkbookReader::open(path)?;
     let output = workbook.read_with_policy(
         sheet, AccessPattern::RepeatedAccess, MemoryPolicy::default(),
@@ -98,7 +98,7 @@ The sum example is a controlled f64 checksum benchmark: it rejects integer input
 Sequential creation uses the same core values, addresses and styles:
 
 ```rust
-use openrsxl::{Cell, CellAddress, CellValue, Row, RowIndex, StyleId, WorkbookWriter, WriteOptions};
+use crabxl::{Cell, CellAddress, CellValue, Row, RowIndex, StyleId, WorkbookWriter, WriteOptions};
 
 let mut writer = WorkbookWriter::new(WriteOptions::default())?;
 writer.start_sheet("Sheet")?;
@@ -119,9 +119,9 @@ Register a `CellStyle` once with `writer.register_style(style)` and reuse its `S
 `WorkbookEditor::open` retains a seekable original package. `set_value` queues an existing-cell replacement, preserving its style and unrelated original parts; physical existence and metadata are checked on save. `save_path` atomically replaces a target after successful output, using a full adjacent temporary ZIP. Repeated saves reuse the original source without resident copies of images. `clear_edits` restores that original baseline. Old formula caches are removed across worksheets and full recalculation requested.
 
 ```rust
-use openrsxl::{CellAddress, CellValue, SaveOptions, WorkbookEditor};
+use crabxl::{CellAddress, CellValue, SaveOptions, WorkbookEditor};
 
-fn edit(source: &str, target: &str) -> openrsxl::Result<()> {
+fn edit(source: &str, target: &str) -> crabxl::Result<()> {
     let mut workbook = WorkbookEditor::open(source)?;
     workbook.set_value("Sheet", CellAddress::new(0, 0)?, CellValue::Integer(42))?;
     workbook.save_path(target, SaveOptions::default())?;
@@ -140,7 +140,7 @@ For missing cells use `WorkbookEditor::upsert_value`; it inserts sparse cells/ro
 The adapter uses openpyxl call conventions; migrating supported code changes the import:
 
 ```python
-import openrsxl as openpyxl
+import crabxl as openpyxl
 
 wb = openpyxl.Workbook()
 ws = wb.active
@@ -149,7 +149,7 @@ ws.append([True, "text", "=A1+1"])
 wb.save("example.xlsx")
 ```
 
-Build/install/test instructions and the explicit capability limits are in [bindings/python/README.md](bindings/python/README.md). The standalone Rust crate has no Python dependency. Compatibility is partial and verified by selected original openpyxl tests plus shared public-API cases; advanced features remain in the roadmap.
+Build/install/test instructions and the explicit capability limits are in [https://github.com/crabxl/crabxl-python/blob/main/README.md](https://github.com/crabxl/crabxl-python/blob/main/README.md). The standalone Rust crate has no Python dependency. Compatibility is partial and verified by selected original openpyxl tests plus shared public-API cases; advanced features remain in the roadmap.
 
 Core `Workbook` now provides stable sheet IDs, order/active/epoch selection, independent sparse model copies and aggregate managed allowances. `sheet_mut` returns a guarded mutation facade; `WorkbookWriter::write_workbook` exports borrowed models. This does not implement original-package sheet or feature-graph surgery. See [ADR 0007](docs/decisions/0007-owned-workbook.md) and [release evidence](benchmarks/m4-workbook.md).
 

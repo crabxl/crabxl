@@ -22,4 +22,4 @@ Writer RSS stays about 18/86 MiB at 10k/100k rows; observed temporary peaks rema
 
 Coverage includes 46 pinned original worksheet/translator methods, shared public-API cases, core quote/bracket/reference/bounds/output-budget tests and translated-move memory/bounds failure atomicity. Complete tokenizer APIs, dynamic spill syntax, arbitrary-size row labels and malformed-input exception equivalence remain staged. Negative/out-of-range offsets do not silently preserve stale original references. No Excel calculation engine is claimed.
 
-[Raw runs](results/m5-formula.json). Reproduce with the installed release wheel and `python benchmarks/formula_checkpoint.py --before-python-path /path/to/1ad552d-package-snapshot`. The snapshot contains a preserved installed openrsxl package; the benchmark imports it via PYTHONPATH only for before-writer cases.
+[Raw runs](results/m5-formula.json). Reproduce with the installed release wheel and `python benchmarks/formula_checkpoint.py --before-python-path /path/to/1ad552d-package-snapshot`. The snapshot contains a preserved installed crabxl package; the benchmark imports it via PYTHONPATH only for before-writer cases.

@@ -30,12 +30,12 @@ def measure(command, env, directory):
     result = json.loads(stderr.split('MEASURE ')[-1]); result.update(result=stdout.strip(), observed_temp_bytes=peak)
     return result
 for rows in (10000, 100000):
-    with tempfile.TemporaryDirectory(prefix='openrsxl-workbook-') as name:
+    with tempfile.TemporaryDirectory(prefix='crabxl-workbook-') as name:
         directory = Path(name); output = directory/'output.xlsx'
         env = dict(os.environ, TMPDIR=name)
-        commands = {'openrsxl-native': [ROOT/'target/release/examples/workbook_demo', rows, output], 'openpyxl': [sys.executable, ROOT/'benchmarks/workbook_reference_run.py', rows, output]}
+        commands = {'crabxl-native': [ROOT/'target/release/examples/workbook_demo', rows, output], 'openpyxl': [sys.executable, ROOT/'benchmarks/workbook_reference_run.py', rows, output]}
         if args.python_adapter:
-            commands = {engine: [sys.executable, ROOT/'benchmarks/workbook_reference_run.py', rows, output, engine] for engine in ('openrsxl', 'openpyxl')}
+            commands = {engine: [sys.executable, ROOT/'benchmarks/workbook_reference_run.py', rows, output, engine] for engine in ('crabxl', 'openpyxl')}
         for command in commands.values(): measure(command, env, directory)
         runs = []
         for iteration in range(3):
@@ -56,7 +56,7 @@ for rows in (10000, 100000):
                 assert run['cleanup']; runs.append(run)
         report['cases'].append({'workload': 'owned-workbook', 'rows': rows, 'columns': 10, 'sheets': 2, 'runs': runs})
         print(rows, 'owned workbook verified', flush=True)
-        command = [sys.executable, ROOT/'benchmarks/python_adapter_run.py', 'openrsxl', 'create', rows, 'unused', output]
+        command = [sys.executable, ROOT/'benchmarks/python_adapter_run.py', 'crabxl', 'create', rows, 'unused', output]
         envs = {'before': dict(env, PYTHONPATH=str(args.before_python_path)), 'current': env}
         for environment in envs.values(): measure(command, environment, directory)
         runs=[]

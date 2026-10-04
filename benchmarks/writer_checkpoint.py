@@ -55,7 +55,7 @@ report={'platform':platform.platform(),'cpu':next((line.split(':',1)[1].strip() 
 for count in [10000,100000,1000000]:
     path=ROOT/f'benchmarks/data/written-numeric-{count}.xlsx'
     runs=[]
-    with tempfile.TemporaryDirectory(prefix='openrsxl-benchmark-') as temp:
+    with tempfile.TemporaryDirectory(prefix='crabxl-benchmark-') as temp:
         directory=Path(temp)
         command=[ROOT/'target/release/examples/write_demo',path,count,'numeric',directory]
         measure(command,directory)
@@ -76,7 +76,7 @@ for count in [10000,100000,1000000]:
     print('Numeric writer',count,'checksums and cleanup passed',flush=True)
 for count in [10000,100000]:
     path=ROOT/f'benchmarks/data/written-mixed-{count}.xlsx';runs=[]
-    with tempfile.TemporaryDirectory(prefix='openrsxl-benchmark-') as temp:
+    with tempfile.TemporaryDirectory(prefix='crabxl-benchmark-') as temp:
         directory=Path(temp)
         command=[ROOT/'target/release/examples/write_demo',path,count,'mixed',directory]
         measure(command,directory)
@@ -140,7 +140,7 @@ def feature_readback(path,count,epoch1904):
 for mode in ['features','features1904']:
     for count in [10000,100000]:
         path=ROOT/f'benchmarks/data/written-{mode}-{count}.xlsx'; runs=[]
-        with tempfile.TemporaryDirectory(prefix='openrsxl-benchmark-') as temp:
+        with tempfile.TemporaryDirectory(prefix='crabxl-benchmark-') as temp:
             directory=Path(temp)
             command=[ROOT/'target/release/examples/write_demo',path,count,mode,directory]
             measure(command,directory)

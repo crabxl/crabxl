@@ -39,12 +39,12 @@ The public documentation distinguishes a general editable model, lazy read-only 
 ## Workspace
 
 ```text
-openrsxl/
+crabxl/
 ├── Cargo.toml
 ├── crates/
-│   ├── openrsxl/              # Public Rust facade and prelude
-│   ├── openrsxl-core/         # Shared types, editable model, feature models
-│   └── openrsxl-xlsx/         # ZIP/OOXML, readers, writers, preservation
+│   ├── crabxl/              # Public Rust facade and prelude
+│   ├── crabxl-core/         # Shared types, editable model, feature models
+│   └── crabxl-xlsx/         # ZIP/OOXML, readers, writers, preservation
 ├── tests/fixtures/
 ├── benchmarks/
 ├── third_party/               # Port provenance and required notices
@@ -127,7 +127,7 @@ Readers plus writers do not automatically provide safe modification of existing 
 
 ## Benchmark evidence
 
-The earlier feasibility benchmark compared openpyxl and calamine only. Current openrsxl measurements use a reproducible three-scale numeric experiment with checksums, raw runs, wall time, and kernel peak RSS; see [benchmark evidence](../benchmarks/README.md). Results apply to raw numeric streaming, not the future full-feature library or bindings.
+The earlier feasibility benchmark compared openpyxl and calamine only. Current crabxl measurements use a reproducible three-scale numeric experiment with checksums, raw runs, wall time, and kernel peak RSS; see [benchmark evidence](../benchmarks/README.md). Results apply to raw numeric streaming, not the future full-feature library or bindings.
 
 ## Initial editable/preservation implementation
 
@@ -135,7 +135,7 @@ M4 now separates an I/O-free sparse `Worksheet` from a lazy `WorkbookEditor` hol
 
 ## Optional Python adapter
 
-`bindings/python` is a separate, excluded Cargo workspace and Maturin/PyO3 package. Python objects and compatibility naming live there; the three core Rust crates do not depend on Python. The adapter targets openpyxl call compatibility and is staged by capability. [ADR 0006](decisions/0006-python-compatibility-adapter.md) records the test and ownership contract.
+the [standalone Python repository](https://github.com/crabxl/crabxl-python) is a standalone Cargo package in the Python repository and Maturin/PyO3 package. Python objects and compatibility naming live there; the three core Rust crates do not depend on Python. The adapter targets openpyxl call compatibility and is staged by capability. [ADR 0006](decisions/0006-python-compatibility-adapter.md) records the test and ownership contract.
 
 ## Owned workbook bank
 

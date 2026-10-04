@@ -40,13 +40,13 @@ for rows in (10000, 100000):
     source = ROOT / f"benchmarks/data/numbers-{rows}.xlsx"
     for workload in ("create", "edit"):
         runs = []
-        with tempfile.TemporaryDirectory(prefix="openrsxl-python-api-") as name:
+        with tempfile.TemporaryDirectory(prefix="crabxl-python-api-") as name:
             directory = Path(name)
-            for engine in ("openrsxl", "openpyxl"):
+            for engine in ("crabxl", "openpyxl"):
                 output = directory / f"{engine}.xlsx"
                 measure([sys.executable, str(ROOT / "benchmarks/python_adapter_run.py"), engine, workload, str(rows), str(source), str(output)], directory)
             for iteration in range(3):
-                for engine in (("openrsxl", "openpyxl") if iteration % 2 == 0 else ("openpyxl", "openrsxl")):
+                for engine in (("crabxl", "openpyxl") if iteration % 2 == 0 else ("openpyxl", "crabxl")):
                     output = directory / f"{engine}.xlsx"
                     measured = measure([sys.executable, str(ROOT / "benchmarks/python_adapter_run.py"), engine, workload, str(rows), str(source), str(output)], directory)
                     cells = rows * 10
@@ -55,5 +55,5 @@ for rows in (10000, 100000):
                     measured.update(engine=engine, output_bytes=output.stat().st_size, checksum=checksum, cleanup=True)
                     runs.append(measured)
         report["cases"].append({"rows": rows, "columns": 10, "workload": workload, "runs": runs})
-        print(rows, workload, [(engine, statistics.median(run["seconds"] for run in runs if run["engine"] == engine)) for engine in ("openrsxl", "openpyxl")], flush=True)
+        print(rows, workload, [(engine, statistics.median(run["seconds"] for run in runs if run["engine"] == engine)) for engine in ("crabxl", "openpyxl")], flush=True)
 (ROOT / "benchmarks/results/python-adapter.json").write_text(json.dumps(report, indent=2) + "\n")

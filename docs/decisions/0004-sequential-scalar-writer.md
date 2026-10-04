@@ -2,7 +2,7 @@
 
 Status: M3 sequential creation acceptance complete.
 
-The selected rust_xlsxwriter constant-memory packager streams an on-disk cell section between worksheet metadata sections. openrsxl adapts this flow to one owned worksheet temporary file per sheet, one active file buffer, and one bounded reusable encoded row. Completed worksheets retain files, names, and catalog metadata, not resident XML. Finalization rewinds and copies files into ZIP. The existing core CellValue/Row/address/error types are used directly; no upstream workbook/value/style types are exposed.
+The selected rust_xlsxwriter constant-memory packager streams an on-disk cell section between worksheet metadata sections. crabxl adapts this flow to one owned worksheet temporary file per sheet, one active file buffer, and one bounded reusable encoded row. Completed worksheets retain files, names, and catalog metadata, not resident XML. Finalization rewinds and copies files into ZIP. The existing core CellValue/Row/address/error types are used directly; no upstream workbook/value/style types are exposed.
 
 WorkbookWriter starts sheets sequentially and accepts strictly increasing row indices. Its row encoder validates all coordinates and scalar values and bounds the encoded row before writing any of it. Validation/budget failures therefore leave the current sheet usable. A physical spooling I/O failure poisons the writer; subsequent writes and finish fail. Unlike upstream insert_cell, revisiting a flushed row returns InvalidState instead of warning and ignoring lost data. Creating a next-sheet temporary resource precedes closing the current sheet, so creation failure does not discard usable state.
 

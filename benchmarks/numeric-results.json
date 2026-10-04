@@ -19,7 +19,7 @@
       "file_bytes": 325471,
       "file_sha256": "2eba1457a6e31dca3cbcf4c973299a0e15716fbb0ba67754657e24749619c93f",
       "samples": {
-        "openrsxl": [
+        "crabxl": [
           {
             "seconds": 0.07048146,
             "peak_rss_kib": 1552
@@ -87,7 +87,7 @@
         ]
       },
       "medians": {
-        "openrsxl": {
+        "crabxl": {
           "seconds": 0.071859637,
           "peak_rss_kib": 1552
         },
@@ -109,7 +109,7 @@
       "file_bytes": 3140975,
       "file_sha256": "b0661add68fb05951367a64beaf591d4fd972f38fda93bcf86024060750d77b3",
       "samples": {
-        "openrsxl": [
+        "crabxl": [
           {
             "seconds": 0.737334433,
             "peak_rss_kib": 1492
@@ -177,7 +177,7 @@
         ]
       },
       "medians": {
-        "openrsxl": {
+        "crabxl": {
           "seconds": 0.713120328,
           "peak_rss_kib": 1576
         },
@@ -199,7 +199,7 @@
       "file_bytes": 31582576,
       "file_sha256": "adff274ca226b6e3d4695a2d87c837f989b9ed6e64965571449873adbf1d1fa8",
       "samples": {
-        "openrsxl": [
+        "crabxl": [
           {
             "seconds": 6.974485643,
             "peak_rss_kib": 1540
@@ -267,7 +267,7 @@
         ]
       },
       "medians": {
-        "openrsxl": {
+        "crabxl": {
           "seconds": 6.943198368,
           "peak_rss_kib": 1540
         },

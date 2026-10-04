@@ -6,9 +6,9 @@ One warmup and three alternating release runs at each scale; Rust 1.88, Python 3
 
 | Rows | Engine | Wall seconds | CPU seconds | RSS MiB | Extra observed temp MiB |
 |---|---|---:|---:|---:|---:|
-| 10,000 | openrsxl-native | 0.670 | 0.669 | 2.62 | 0.41 |
+| 10,000 | crabxl-native | 0.670 | 0.669 | 2.62 | 0.41 |
 | 10,000 | openpyxl | 1.160 | 1.351 | 82.72 | 3.54 |
-| 100,000 | openrsxl-native | 6.726 | 6.725 | 2.64 | 3.92 |
+| 100,000 | crabxl-native | 6.726 | 6.725 | 2.64 | 3.92 |
 | 100,000 | openpyxl | 12.669 | 12.866 | 532.89 | 37.35 |
 
 Every output retains all formulas, contains no nonempty stale formula cache, passes numeric count/checksum, and omits the derived chain and both package declarations. Full openpyxl read-only output confirms all visible values and formula coordinates. Temporary cleanup passes. Rust meets the faster-than-openpyxl requirement and desired lower RSS on these samples. Default removal intentionally does not parse old chain records: they are invalidated derived data, not retained feature access. Unchanged saves preserve them; unsafe graphs reject edits.
