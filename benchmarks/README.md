@@ -1,0 +1,51 @@
+# Numeric read experiments
+
+These experiments measure the first raw numeric checkpoint, not full spreadsheet compatibility. Inputs are generated with openpyxl 3.1.5 write-only: one sheet, ten columns, consecutive integers starting at zero. Every warmup and measured run verifies count and checksum. The largest checksum is 49,999,995,000,000, within exact f64 integer precision.
+
+Rust 1.88.0 release builds use thin LTO. Baselines are openpyxl 3.1.5 read-only/data-only and crates.io calamine 0.36.1 materializing its worksheet Range. Python is 3.12.14 on Linux x86_64, AMD EPYC 9V74. Foundational dependency versions are locked; calamine is a separate benchmark workspace, never a core runtime dependency. Details and raw samples are in [numeric-results.json](numeric-results.json).
+
+Wall time includes process startup, imports, package discovery, reading, summing, and cleanup. Generation and builds are excluded. Each scale has one warmup and five serial measured runs with rotating implementation order and warm filesystem cache. Peak RSS is the kernel per-process high-water mark from a native Linux fork/exec/wait4 launcher, without baseline subtraction. The native launcher avoids carrying a Python measurement harness's larger startup high-water mark into tiny Rust processes. There is no read-time temporary storage; generation may spool temporary XML and is excluded.
+
+| Rows × columns | openrsxl time / peak RSS | openpyxl time / peak RSS | calamine time / peak RSS |
+|---|---|---|---|
+| 10,000 × 10 | 0.072 s / 1.52 MiB | 0.538 s / 33.80 MiB | 0.032 s / 8.54 MiB |
+| 100,000 × 10 | 0.713 s / 1.54 MiB | 4.382 s / 41.68 MiB | 0.316 s / 70.42 MiB |
+| 1,000,000 × 10 | 6.943 s / 1.50 MiB | 56.569 s / 119.25 MiB | 3.103 s / 688.43 MiB |
+
+Time and RSS are independent medians. Numeric streaming memory remains approximately flat as rows increase. At the largest scale openrsxl is about 8.1 times faster than openpyxl and 2.2 times slower than calamine. Different validation, models, and execution paths mean this is not proof that streaming alone explains the speed difference. Bindings, text, styles, formulas, editing, and preservation are not measured.
+
+## Input buffer tuning
+
+The same ten-million-cell input was measured with one warmup per size and three serial runs in rotating order. [buffer-results.json](buffer-results.json) also records CPU time.
+
+| Input buffer | Median wall time | Median CPU time | Median peak RSS |
+|---|---|---|---|
+| 32 KiB | 7.106 s | 7.106 s | 1.46 MiB |
+| 256 KiB | 7.245 s | 7.238 s | 1.50 MiB |
+| 1 MiB | 7.153 s | 7.147 s | 2.40 MiB |
+| 8 MiB | 6.941 s | 6.940 s | 9.41 MiB |
+
+This path is primarily CPU-bound on this host: CPU and wall time are close. The largest buffer's roughly 2% median difference is small compared with sample variation; do not infer a reliable speedup from three runs. Adding RAM to this buffer is not enough to solve the throughput gap. Larger caches, compact layouts, indexes, parallel work, and parser improvements need separate profiling/measurement. Intelligent Auto remains planned, with its requirements in [ADR 0002](../docs/decisions/0002-adaptive-memory.md).
+
+## Streaming versus owned sheet materialization
+
+The non-streaming public operation `read_sheet()` uses the same incremental parser and retains all rows. [mode-results.json](mode-results.json) measures load plus one sum, with a 32 KiB input buffer, a 1 GiB retained-data budget, one warmup per mode, and three alternating runs.
+
+| Mode | Median wall time | Median peak RSS |
+|---|---|---|
+| Reused streaming row | 6.971 s | 1.51 MiB |
+| Owned materialized sheet | 7.163 s | 413.35 MiB |
+
+Materialization does not accelerate the first scan here. Its benefit is retaining data for later access without rereading ZIP/XML; repeated-query performance is not measured in this experiment. It is a numeric snapshot, not the future editable workbook model. The specified budget covers retained row/vector capacity, not total process RSS; parser/catalog memory and one current row are additional.
+
+## Reproduction
+
+Require Linux, `cc`, Rust 1.88.0 with Cargo available on PATH, and `python` with `openpyxl==3.1.5`. From the repository root:
+
+```sh
+python benchmarks/run.py --output benchmarks/results.local.json
+python benchmarks/tune.py
+python benchmarks/read_modes.py
+```
+
+Generated inputs, native launcher, and Cargo targets are ignored. Input SHA-256 values record the actual measured files; regeneration may change ZIP timestamps while retaining the same cells. There are no fixed timing thresholds in correctness tests.

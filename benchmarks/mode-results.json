@@ -1,0 +1,57 @@
+{
+  "rows": 1000000,
+  "columns": 10,
+  "cells": 10000000,
+  "checksum": 49999995000000,
+  "input_buffer_bytes": 32768,
+  "materialized_data_budget_bytes": 1073741824,
+  "measurement": "Same environment/input as numeric-results.json; native Linux wait4; one warmup per mode, alternating serial order, three measured runs; load plus one sum, no baseline subtraction",
+  "samples": {
+    "stream": [
+      {
+        "seconds": 6.971345248,
+        "cpu_seconds": 6.970009,
+        "peak_rss_kib": 1640
+      },
+      {
+        "seconds": 7.077013045,
+        "cpu_seconds": 7.071327,
+        "peak_rss_kib": 1512
+      },
+      {
+        "seconds": 6.81184969,
+        "cpu_seconds": 6.809377,
+        "peak_rss_kib": 1544
+      }
+    ],
+    "materialized": [
+      {
+        "seconds": 7.276870946,
+        "cpu_seconds": 7.271948,
+        "peak_rss_kib": 423272
+      },
+      {
+        "seconds": 7.115604025,
+        "cpu_seconds": 7.114049,
+        "peak_rss_kib": 423324
+      },
+      {
+        "seconds": 7.162820022,
+        "cpu_seconds": 7.158562,
+        "peak_rss_kib": 423272
+      }
+    ]
+  },
+  "medians": {
+    "stream": {
+      "seconds": 6.971345248,
+      "cpu_seconds": 6.970009,
+      "peak_rss_kib": 1544
+    },
+    "materialized": {
+      "seconds": 7.162820022,
+      "cpu_seconds": 7.158562,
+      "peak_rss_kib": 423272
+    }
+  }
+}
