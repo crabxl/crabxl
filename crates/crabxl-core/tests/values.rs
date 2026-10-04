@@ -435,3 +435,26 @@ fn literal_formula_references_preserve_properties_until_geometry_is_requested() 
         .is_ok()
     );
 }
+
+#[test]
+fn literal_formula_flags_keep_unknown_properties_without_boolean_fabrication() {
+    use crabxl_core::FormulaFlag;
+    for (literal, meaning) in [
+        ("", None),
+        ("opaque", None),
+        ("false", Some(false)),
+        ("0", Some(false)),
+        ("true", Some(true)),
+        (" 1 ", Some(true)),
+    ] {
+        let flag = FormulaFlag::from_literal(literal);
+        assert_eq!(flag.source(), Some(literal));
+        assert_eq!(flag.spelling(), literal);
+        assert_eq!(flag.value(), meaning);
+        assert_eq!(flag.heap_bytes(), literal.len());
+        assert_eq!(flag.clone(), flag);
+    }
+    assert_eq!(FormulaFlag::new(false).value(), Some(false));
+    assert_eq!(FormulaFlag::new(true).spelling(), "1");
+    assert!(FormulaFlag::from_xml("opaque").is_err());
+}

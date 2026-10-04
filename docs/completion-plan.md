@@ -56,7 +56,7 @@ Acceptance: styled numeric/text/date/time/duration fixtures round-trip through r
 
 ## M2.4: Formula/value completion
 
-Checkpoint: Compatible normal/shared reads ignore unused hints and read unknown type text, while XML validation and strict group/editor checks remain intact (ADR 0035). Raw structured flag strings and remaining header/cache cases stay open.
+Checkpoint: Compatible normal/shared reads ignore unused hints and read unknown type text, while XML validation and strict group/editor checks remain intact (ADR 0035). Raw structured flag ownership and compatible array/table unused hints are additionally verified in ADR 0036. Arbitrary shared-index properties and remaining header/cache cases stay open.
 
 Checkpoint: optional/literal array text and literal formula reference/input ownership are verified in ADRs 0031, 0032 and 0034. Geometry is checked by explicit physical operations and strict shared-group reads; public property/save representation differences are tested. Remaining formula/cache/header and graph cases below keep this milestone open.
 

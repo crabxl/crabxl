@@ -20,42 +20,57 @@ pub enum FormulaType {
     /// What-if data table; it may have no expression text.
     DataTable,
 }
-/// Boolean meaning plus optional original XML spelling for public properties
+/// Optional boolean meaning plus original spelling for public properties
 /// which the pinned reference exposes as source strings.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FormulaFlag {
-    value: bool,
+    value: Option<bool>,
     source: Option<Box<str>>,
 }
 impl FormulaFlag {
     /// Construct a literal boolean without source spelling.
     pub const fn new(value: bool) -> Self {
         Self {
-            value,
+            value: Some(value),
             source: None,
         }
     }
     /// Parse XML boolean identity while retaining its source spelling.
     pub fn from_xml(value: impl Into<Box<str>>) -> Result<Self> {
         let source = value.into();
-        let value = match source.trim_matches([' ', '\t', '\n', '\r']) {
-            "1" | "true" => true,
-            "0" | "false" => false,
-            _ => {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Invalid formula boolean attribute",
-                ));
-            }
-        };
+        let value = Self::literal_meaning(&source).ok_or_else(|| {
+            Error::new(ErrorKind::InvalidData, "Invalid formula boolean attribute")
+        })?;
         Ok(Self {
-            value,
+            value: Some(value),
             source: Some(source),
         })
     }
-    /// Typed boolean meaning.
-    pub const fn value(&self) -> bool {
+    /// Own a public literal flag without requiring XML boolean semantics.
+    pub fn from_literal(value: impl Into<Box<str>>) -> Self {
+        let source = value.into();
+        let value = Self::literal_meaning(&source);
+        Self {
+            value,
+            source: Some(source),
+        }
+    }
+    fn literal_meaning(source: &str) -> Option<bool> {
+        match source.trim_matches([' ', '\t', '\n', '\r']) {
+            "1" | "true" => Some(true),
+            "0" | "false" => Some(false),
+            _ => None,
+        }
+    }
+    /// Typed boolean meaning, absent for opaque literal properties.
+    pub const fn value(&self) -> Option<bool> {
         self.value
+    }
+    /// Borrow the retained literal or the schema spelling of a typed boolean.
+    pub fn spelling(&self) -> &str {
+        self.source
+            .as_deref()
+            .unwrap_or(if self.value == Some(true) { "1" } else { "0" })
     }
     /// Original XML property, absent for literal construction.
     pub fn source(&self) -> Option<&str> {

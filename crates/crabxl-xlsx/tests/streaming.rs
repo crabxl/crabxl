@@ -2227,6 +2227,7 @@ fn array_table_source_properties_caches_and_empty_bodies_remain_distinct() {
             .as_ref()
             .unwrap()
             .value()
+            .unwrap()
     );
     let table = get(1);
     assert_eq!(table.formula_type(), FormulaType::DataTable);
@@ -2238,7 +2239,7 @@ fn array_table_source_properties_caches_and_empty_bodies_remain_distinct() {
     );
     let options = metadata.data_table.as_ref().unwrap();
     assert_eq!(options.input1.as_deref(), Some("$A$1"));
-    assert!(options.two_dimensions.as_ref().unwrap().value());
+    assert!(options.two_dimensions.as_ref().unwrap().value().unwrap());
     assert_eq!(options.row_table.as_ref().unwrap().source(), Some("0"));
     assert_eq!(table.cached(), Some(&CellValue::Integer(0)));
     assert_eq!(get(2).expression(), "");
@@ -3072,4 +3073,60 @@ fn compatible_normal_and_shared_headers_ignore_unused_semantics_after_xml_checks
         let mut book = open(&format!("<row><c><f {attributes}>1</f></c></row>"));
         assert!(book.rows("A & B").unwrap().next_row().is_err());
     }
+}
+
+#[test]
+fn compatible_structured_headers_retain_literal_flags_and_ignore_unused_hints() {
+    use crabxl_core::FormulaReadPolicy;
+    let content = r#"<row><c><f t="array" ref="opaque" aca="invalid" r1="unused" unknown="value">1</f></c><c r="B1"><f ca="invalid" dt2D="opaque" dtr="" del1="true" t="dataTable" ref="opaque" si="unused" unknown="value"/></c></row>"#;
+    let mut book = open(content);
+    let loaded = book.read_sheet("A & B").unwrap();
+    let CellValue::Formula(array) = &loaded.rows[0].cells[0].value else {
+        panic!("Expected array")
+    };
+    assert_eq!(array.expression(), "1");
+    assert_eq!(
+        array
+            .metadata()
+            .unwrap()
+            .flags
+            .always_calculate
+            .as_ref()
+            .unwrap()
+            .source(),
+        Some("invalid")
+    );
+    assert!(array.metadata().unwrap().data_table.is_none());
+    let CellValue::Formula(table) = &loaded.rows[0].cells[1].value else {
+        panic!("Expected table")
+    };
+    let metadata = table.metadata().unwrap();
+    let flag = metadata.flags.calculate_cell.as_ref().unwrap();
+    assert_eq!(flag.source(), Some("invalid"));
+    assert_eq!(flag.value(), None);
+    assert_eq!(
+        metadata
+            .data_table
+            .as_ref()
+            .unwrap()
+            .row_table
+            .as_ref()
+            .unwrap()
+            .source(),
+        Some("")
+    );
+    let mut strict = open(content);
+    assert!(
+        strict
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    formula_policy: FormulaReadPolicy::ValidateGroups,
+                    ..Default::default()
+                }
+            )
+            .unwrap()
+            .next_row()
+            .is_err()
+    );
 }

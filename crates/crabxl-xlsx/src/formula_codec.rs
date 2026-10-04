@@ -96,16 +96,30 @@ pub(crate) fn header(
                 "Formula attribute exceeds cell byte limit",
             ));
         }
-        if compatible
-            && (kind == FormulaType::Normal
-                || (matches!(kind, FormulaType::Shared { .. })
-                    && !matches!(attribute.key.as_ref(), b"t" | b"si" | b"ref")))
-        {
-            // These hints are not public normal/shared values. Decode their XML
-            // above, but do not allocate or impose unused schema semantics.
+        let relevant = match kind {
+            FormulaType::Normal => false,
+            FormulaType::Shared { .. } => matches!(attribute.key.as_ref(), b"t" | b"si" | b"ref"),
+            FormulaType::Array => matches!(
+                attribute.key.as_ref(),
+                b"t" | b"ref" | b"aca" | b"ca" | b"bx"
+            ),
+            FormulaType::DataTable => matches!(
+                attribute.key.as_ref(),
+                b"t" | b"ref" | b"ca" | b"dt2D" | b"dtr" | b"del1" | b"del2" | b"r1" | b"r2"
+            ),
+        };
+        if compatible && !relevant {
+            // Decode unused attributes above, but do not impose their semantics.
             continue;
         }
-        let flag = |value: &str| FormulaFlag::from_xml(value);
+        let flag = |value: std::borrow::Cow<'_, str>| {
+            let value = value.into_owned().into_boxed_str();
+            if compatible {
+                Ok(FormulaFlag::from_literal(value))
+            } else {
+                FormulaFlag::from_xml(value)
+            }
+        };
         match attribute.key.as_ref() {
             b"t" => {}
             b"si" => {
@@ -120,23 +134,23 @@ pub(crate) fn header(
                     value.into_owned().into_boxed_str(),
                 ))
             }
-            b"aca" => metadata.flags.always_calculate = Some(flag(&value)?),
-            b"ca" => metadata.flags.calculate_cell = Some(flag(&value)?),
-            b"bx" => metadata.flags.data_box = Some(flag(&value)?),
+            b"aca" => metadata.flags.always_calculate = Some(flag(value)?),
+            b"ca" => metadata.flags.calculate_cell = Some(flag(value)?),
+            b"bx" => metadata.flags.data_box = Some(flag(value)?),
             b"dt2D" => {
-                table.two_dimensions = Some(flag(&value)?);
+                table.two_dimensions = Some(flag(value)?);
                 table_seen = true;
             }
             b"dtr" => {
-                table.row_table = Some(flag(&value)?);
+                table.row_table = Some(flag(value)?);
                 table_seen = true;
             }
             b"del1" => {
-                table.deleted1 = Some(flag(&value)?);
+                table.deleted1 = Some(flag(value)?);
                 table_seen = true;
             }
             b"del2" => {
-                table.deleted2 = Some(flag(&value)?);
+                table.deleted2 = Some(flag(value)?);
                 table_seen = true;
             }
             b"r1" => {
@@ -373,18 +387,12 @@ fn flag(
 ) -> std::io::Result<()> {
     if let Some(value) = value {
         if policy == crate::FormulaWritePolicy::Compatible
-            && value.source().is_none()
-            && !value.value()
+            && (value.source() == Some("")
+                || (value.source().is_none() && value.value() == Some(false)))
         {
             return Ok(());
         }
-        attribute(
-            output,
-            name,
-            value
-                .source()
-                .unwrap_or(if value.value() { "1" } else { "0" }),
-        )?;
+        attribute(output, name, value.spelling())?;
     }
     Ok(())
 }

@@ -1,0 +1,165 @@
+{
+  "reference": "3.1.5",
+  "literals": [
+    "",
+    "false",
+    "invalid",
+    "0",
+    " true "
+  ],
+  "fields": [
+    "ca",
+    "dt2D",
+    "dtr",
+    "del1",
+    "del2"
+  ],
+  "xml_records": [
+    {
+      "t": "dataTable",
+      "ref": "A1:B2"
+    },
+    {
+      "t": "dataTable",
+      "ref": "A1:B2",
+      "ca": "false",
+      "dt2D": "false",
+      "dtr": "false",
+      "del1": "false",
+      "del2": "false"
+    },
+    {
+      "t": "dataTable",
+      "ref": "A1:B2",
+      "ca": "invalid",
+      "dt2D": "invalid",
+      "dtr": "invalid",
+      "del1": "invalid",
+      "del2": "invalid"
+    },
+    {
+      "t": "dataTable",
+      "ref": "A1:B2",
+      "ca": "0",
+      "dt2D": "0",
+      "dtr": "0",
+      "del1": "0",
+      "del2": "0"
+    },
+    {
+      "t": "dataTable",
+      "ref": "A1:B2",
+      "ca": " true ",
+      "dt2D": " true ",
+      "dtr": " true ",
+      "del1": " true ",
+      "del2": " true "
+    }
+  ],
+  "public_readback": [
+    [
+      {
+        "ref": "A1:B2",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": null,
+        "r2": null,
+        "del1": false,
+        "del2": false
+      },
+      {
+        "ref": "A1:B2",
+        "ca": "false",
+        "dt2D": "false",
+        "dtr": "false",
+        "r1": null,
+        "r2": null,
+        "del1": "false",
+        "del2": "false"
+      },
+      {
+        "ref": "A1:B2",
+        "ca": "invalid",
+        "dt2D": "invalid",
+        "dtr": "invalid",
+        "r1": null,
+        "r2": null,
+        "del1": "invalid",
+        "del2": "invalid"
+      },
+      {
+        "ref": "A1:B2",
+        "ca": "0",
+        "dt2D": "0",
+        "dtr": "0",
+        "r1": null,
+        "r2": null,
+        "del1": "0",
+        "del2": "0"
+      },
+      {
+        "ref": "A1:B2",
+        "ca": " true ",
+        "dt2D": " true ",
+        "dtr": " true ",
+        "r1": null,
+        "r2": null,
+        "del1": " true ",
+        "del2": " true "
+      }
+    ],
+    [
+      {
+        "ref": "A1:B2",
+        "ca": false,
+        "dt2D": false,
+        "dtr": false,
+        "r1": null,
+        "r2": null,
+        "del1": false,
+        "del2": false
+      },
+      {
+        "ref": "A1:B2",
+        "ca": "false",
+        "dt2D": "false",
+        "dtr": "false",
+        "r1": null,
+        "r2": null,
+        "del1": "false",
+        "del2": "false"
+      },
+      {
+        "ref": "A1:B2",
+        "ca": "invalid",
+        "dt2D": "invalid",
+        "dtr": "invalid",
+        "r1": null,
+        "r2": null,
+        "del1": "invalid",
+        "del2": "invalid"
+      },
+      {
+        "ref": "A1:B2",
+        "ca": "0",
+        "dt2D": "0",
+        "dtr": "0",
+        "r1": null,
+        "r2": null,
+        "del1": "0",
+        "del2": "0"
+      },
+      {
+        "ref": "A1:B2",
+        "ca": " true ",
+        "dt2D": " true ",
+        "dtr": " true ",
+        "r1": null,
+        "r2": null,
+        "del1": " true ",
+        "del2": " true "
+      }
+    ]
+  ]
+}
