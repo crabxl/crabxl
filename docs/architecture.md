@@ -161,3 +161,8 @@ Bounded preview consumers can opt into `ReadOptions::stop_after_last_row`.
 With explicit row bounds this stops after the selected prefix and deliberately
 does not validate the unread worksheet tail or its ZIP CRC. The default remains
 a full-part scan and validation. Each independent stream owns its parser state.
+
+Exact charset/theme/indexed style identities share StyleInteger and the existing
+ExactInteger representation. Small identities allocate no payload; large owned
+identities are included in font/color/fill/border/differential/registry budgets.
+Serializers borrow non-Copy color records. See ADR 0054.

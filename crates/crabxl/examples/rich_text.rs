@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     || f.italic != Some(false)
                     || f.color
                         != Some(Color {
-                            kind: ColorKind::Theme(3),
+                            kind: ColorKind::Theme(3.into()),
                             tint: Some(0.25),
                         })
                     || g.name.as_deref() != Some("Aptos")

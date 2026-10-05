@@ -283,7 +283,7 @@ fn read_impl<B: BufRead>(
                                         budget.remaining(),
                                         crate::formatting::FontContext::Cell,
                                     )?;
-                                    let heap = font.name.as_ref().map_or(0, |n| n.len());
+                                    let heap = font.heap_bytes();
                                     budget.push(&mut result.fonts, font, heap)?;
                                 }
                                 (2, b"fill") => {
@@ -298,9 +298,14 @@ fn read_impl<B: BufRead>(
                                 }
                                 (3, b"border") => {
                                     let header = crate::style_codec::read_border_header(&e)?;
-                                    let border =
-                                        crate::style_codec::read_border(&mut xml, 3, header)?;
-                                    budget.push(&mut result.borders, border, 0)?;
+                                    let border = crate::style_codec::read_border(
+                                        &mut xml,
+                                        3,
+                                        header,
+                                        budget.remaining(),
+                                    )?;
+                                    let heap = border.heap_bytes();
+                                    budget.push(&mut result.borders, border, heap)?;
                                 }
                                 (4 | 5, b"xf") => {
                                     let header = format_header(&e)?;
@@ -430,7 +435,8 @@ fn read_colors<B: BufRead>(
                                 }
                                 budget.push(&mut result.indexed_colors, rgb, 0)?;
                             } else {
-                                budget.push(&mut result.recent_colors, color, 0)?;
+                                let heap = color.heap_bytes();
+                                budget.push(&mut result.recent_colors, color, heap)?;
                             }
                         }
                         Event::End(e)

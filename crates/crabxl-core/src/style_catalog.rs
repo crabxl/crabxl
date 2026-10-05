@@ -266,14 +266,11 @@ impl StyleCatalog {
                 .map(|n| n.code.len())
                 .sum::<usize>()
             + self.fonts.capacity() * size_of::<Font>()
-            + self
-                .fonts
-                .iter()
-                .map(|f| f.name.as_ref().map_or(0, |s| s.len()))
-                .sum::<usize>()
+            + self.fonts.iter().map(Font::heap_bytes).sum::<usize>()
             + self.fills.capacity() * size_of::<Fill>()
             + self.fills.iter().map(Fill::heap_bytes).sum::<usize>()
             + self.borders.capacity() * size_of::<Border>()
+            + self.borders.iter().map(Border::heap_bytes).sum::<usize>()
             + self.base_formats.capacity() * size_of::<CellFormat>()
             + self
                 .base_formats
@@ -294,6 +291,11 @@ impl StyleCatalog {
                 .sum::<usize>()
             + self.indexed_colors.capacity() * size_of::<crate::ArgbLiteral>()
             + self.recent_colors.capacity() * size_of::<Color>()
+            + self
+                .recent_colors
+                .iter()
+                .map(Color::heap_bytes)
+                .sum::<usize>()
             + self.differential_styles.capacity() * size_of::<crate::DifferentialStyle>()
             + self
                 .differential_styles

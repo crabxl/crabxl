@@ -133,8 +133,12 @@ fn read_differential<B: BufRead>(
                             return Err(limit());
                         }
                         let header = crate::style_codec::read_border_header(&e)?;
-                        value.border =
-                            Some(Box::new(crate::style_codec::read_border(xml, 4, header)?));
+                        value.border = Some(Box::new(crate::style_codec::read_border(
+                            xml,
+                            4,
+                            header,
+                            remaining - size_of::<crabxl_core::Border>(),
+                        )?));
                     }
                     5 => {
                         value.protection = Some(crate::style_codec::read_protection(&e)?);

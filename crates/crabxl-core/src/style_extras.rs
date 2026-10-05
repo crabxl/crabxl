@@ -40,9 +40,10 @@ impl DifferentialStyle {
     }
     /// Retained component wrappers, strings and gradient capacity.
     pub fn heap_bytes(&self) -> usize {
-        self.font.as_ref().map_or(0, |v| {
-            size_of::<Font>() + v.name.as_ref().map_or(0, |n| n.len())
-        }) + self.number_format.as_ref().map_or(0, |v| v.code().len())
+        self.font
+            .as_ref()
+            .map_or(0, |v| size_of::<Font>() + v.heap_bytes())
+            + self.number_format.as_ref().map_or(0, |v| v.code().len())
             + self
                 .fill
                 .as_ref()
@@ -51,7 +52,10 @@ impl DifferentialStyle {
                 .alignment
                 .as_ref()
                 .map_or(0, |_| size_of::<Alignment>())
-            + self.border.as_ref().map_or(0, |_| size_of::<Border>())
+            + self
+                .border
+                .as_ref()
+                .map_or(0, |v| size_of::<Border>() + v.heap_bytes())
     }
 }
 /// One table/pivot region's differential formatting reference.

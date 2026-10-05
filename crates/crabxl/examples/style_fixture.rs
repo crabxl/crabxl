@@ -34,7 +34,7 @@ fn complete_style() -> crabxl::CellStyle {
             extend: Some(true),
             underline: Some(Underline::DoubleAccounting),
             vertical: Some(TextVerticalAlignment::Subscript),
-            charset: Some(128),
+            charset: Some(128.into()),
             family: Some(3.0),
             scheme: Some(FontScheme::Major),
             color: Some(Color {
@@ -57,14 +57,14 @@ fn complete_style() -> crabxl::CellStyle {
                 GradientStop {
                     position: 1.0,
                     color: Color {
-                        kind: ColorKind::Indexed(64),
+                        kind: ColorKind::Indexed(64.into()),
                         tint: Some(0.0),
                     },
                 },
             ],
         }),
         borders: Border {
-            sides: [None; 9],
+            sides: [const { None }; 9],
             diagonal_up: Some(true),
             diagonal_down: Some(false),
             outline: Some(false),

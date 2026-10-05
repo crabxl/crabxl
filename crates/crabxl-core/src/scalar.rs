@@ -30,7 +30,7 @@ impl CellText {
 ///
 /// The canonical decimal representation enables conversion by future adapters
 /// without routing the value through floating point.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ExactInteger {
     decimal: Box<str>,
 }
@@ -85,5 +85,59 @@ impl CellError {
     /// Heap allocation including the boxed wrapper when stored in CellValue.
     pub fn memory_bytes(&self) -> usize {
         size_of::<Self>() + self.code.len()
+    }
+}
+
+/// Exact style integer with an allocation-free signed i64 fast path.
+/// Large decimal identities are owned and never converted through floating point.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct StyleInteger(StyleIntegerRepr);
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum StyleIntegerRepr {
+    Small(i64),
+    Large(Box<ExactInteger>),
+}
+impl StyleInteger {
+    /// Validate a signed ASCII decimal identity and normalize leading zeros.
+    pub fn parse(value: &str) -> Result<Self> {
+        if let Ok(value) = value.parse::<i64>() {
+            return Ok(value.into());
+        }
+        let value = ExactInteger::parse(value)?;
+        Ok(match value.as_str().parse::<i64>() {
+            Ok(value) => value.into(),
+            Err(_) => Self(StyleIntegerRepr::Large(Box::new(value))),
+        })
+    }
+    /// Construct an allocation-free small integer.
+    pub const fn from_i64(value: i64) -> Self {
+        Self(StyleIntegerRepr::Small(value))
+    }
+    /// Return the small integer when it fits, without coercion.
+    pub fn as_i64(&self) -> Option<i64> {
+        match self.0 {
+            StyleIntegerRepr::Small(value) => Some(value),
+            StyleIntegerRepr::Large(_) => None,
+        }
+    }
+    /// Heap payload including the rare boxed exact-integer wrapper.
+    pub fn heap_bytes(&self) -> usize {
+        match &self.0 {
+            StyleIntegerRepr::Small(_) => 0,
+            StyleIntegerRepr::Large(value) => value.memory_bytes(),
+        }
+    }
+}
+impl From<i64> for StyleInteger {
+    fn from(value: i64) -> Self {
+        Self::from_i64(value)
+    }
+}
+impl std::fmt::Display for StyleInteger {
+    fn fmt(&self, output: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            StyleIntegerRepr::Small(value) => write!(output, "{value}"),
+            StyleIntegerRepr::Large(value) => output.write_str(value.as_str()),
+        }
     }
 }

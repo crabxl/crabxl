@@ -347,9 +347,19 @@ impl StyleRegistry {
             + catalog
                 .fonts
                 .iter()
-                .map(|v| v.name.as_ref().map_or(0, |s| s.len()))
+                .map(crate::Font::heap_bytes)
                 .sum::<usize>()
             + catalog.fills.iter().map(Fill::heap_bytes).sum::<usize>()
+            + catalog
+                .borders
+                .iter()
+                .map(crate::Border::heap_bytes)
+                .sum::<usize>()
+            + catalog
+                .recent_colors
+                .iter()
+                .map(crate::Color::heap_bytes)
+                .sum::<usize>()
             + catalog
                 .base_formats
                 .iter()
@@ -902,7 +912,7 @@ impl StyleRegistry {
         let mut exact_slots = vector_growth(&self.catalog.cell_formats, records, false);
         if font.is_none() {
             retained = retained
-                .saturating_add(style.font.name.as_ref().map_or(0, |name| name.len()))
+                .saturating_add(style.font.heap_bytes())
                 .saturating_add(self.fonts.growth(fingerprint(&style.font)));
             geometric_slots =
                 geometric_slots.saturating_add(vector_growth(&self.catalog.fonts, records, true));
@@ -919,7 +929,9 @@ impl StyleRegistry {
                 exact_slots.saturating_add(vector_growth(&self.catalog.fills, records, false));
         }
         if border.is_none() {
-            retained = retained.saturating_add(self.borders.growth(fingerprint(&style.borders)));
+            retained = retained
+                .saturating_add(style.borders.heap_bytes())
+                .saturating_add(self.borders.growth(fingerprint(&style.borders)));
             geometric_slots =
                 geometric_slots.saturating_add(vector_growth(&self.catalog.borders, records, true));
             exact_slots =
@@ -1000,8 +1012,9 @@ impl StyleRegistry {
                 .as_ref()
                 .map_or(0, |v| v.capacity() * size_of::<u32>());
         let payload = size_of::<crate::Alignment>()
-            + usize::from(font.is_none()) * style.font.name.as_ref().map_or(0, |name| name.len())
+            + usize::from(font.is_none()) * style.font.heap_bytes()
             + usize::from(fill.is_none()) * style.fill.heap_bytes()
+            + usize::from(border.is_none()) * style.borders.heap_bytes()
             + usize::from(number.is_none()) * style.number_format.len();
         if self
             .memory_bytes()

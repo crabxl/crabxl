@@ -1874,7 +1874,10 @@ fn imported_style_components_keep_ids_optional_overrides_palettes_and_staged_sec
     assert_eq!(font.bold, Some(false));
     assert_eq!(font.italic, Some(true));
     assert_eq!(font.underline, Some(Underline::Double));
-    assert_eq!(font.color.unwrap().kind, ColorKind::Theme(7));
+    assert_eq!(
+        font.color.as_ref().unwrap().kind,
+        ColorKind::Theme(7.into())
+    );
     let Fill::Gradient(fill) = &catalog.fills[0] else {
         panic!("Expected gradient")
     };
@@ -1888,7 +1891,13 @@ fn imported_style_components_keep_ids_optional_overrides_palettes_and_staged_sec
     assert!(border.sides[0].is_some());
     assert!(border.sides[1].is_none());
     assert_eq!(
-        border.sides[7].unwrap().color.unwrap().kind,
+        border.sides[7]
+            .as_ref()
+            .unwrap()
+            .color
+            .as_ref()
+            .unwrap()
+            .kind,
         ColorKind::Auto(false)
     );
     let format = &catalog.cell_formats[0];
@@ -2876,10 +2885,10 @@ fn consuming_reader_transfers_original_style_records_for_canonical_registration(
 fn color_identities_use_public_priority_and_validate_all_xml_attributes() {
     use crabxl_core::{ColorKind, StyleId};
     for (attributes, expected) in [
-        ("rgb=\"invalid\" theme=\"1\"", ColorKind::Theme(1)),
+        ("rgb=\"invalid\" theme=\"1\"", ColorKind::Theme(1.into())),
         (
             "rgb=\"invalid\" theme=\"invalid\" auto=\"invalid\" indexed=\"3\"",
-            ColorKind::Indexed(3),
+            ColorKind::Indexed(3.into()),
         ),
         ("rgb=\"invalid\" auto=\"0\"", ColorKind::Auto(false)),
     ] {
@@ -2894,6 +2903,7 @@ fn color_identities_use_public_priority_and_validate_all_xml_attributes() {
                 .unwrap()
                 .font
                 .color
+                .as_ref()
                 .unwrap()
                 .kind,
             expected

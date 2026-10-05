@@ -43,7 +43,7 @@ fn signed_zero_hashes_follow_numeric_equality_and_optional_identity() {
     let mut first = CellStyle::default();
     first.font.size = Some(0.0);
     first.font.color = Some(Color {
-        kind: ColorKind::Theme(2),
+        kind: ColorKind::Theme(2.into()),
         tint: Some(0.0),
     });
     first.alignment.indent = Some(0.0);
@@ -143,7 +143,7 @@ fn public_style_domains_and_literal_color_casing_are_retained() {
     let style = CellStyle {
         font: Font {
             family: Some(2.5),
-            charset: Some(-1),
+            charset: Some((-1).into()),
             color: Some(Color {
                 kind: rgb.into_kind(),
                 tint: None,
@@ -156,7 +156,105 @@ fn public_style_domains_and_literal_color_casing_are_retained() {
     assert_eq!(registry.register(style).unwrap(), id);
     let view = registry.catalog().cell_style(id).unwrap();
     assert_eq!(view.font.family, Some(2.5));
-    assert_eq!(view.font.charset, Some(-1));
+    assert_eq!(view.font.charset, Some((-1).into()));
+    use crabxl_core::StyleInteger;
+    for literal in [
+        "9223372036854775808",
+        "-9223372036854775809",
+        "10000000000000000000000000000000000000000",
+    ] {
+        let integer = StyleInteger::parse(literal).unwrap();
+        assert_eq!(integer.to_string(), literal);
+        assert!(integer.as_i64().is_none());
+        assert!(integer.heap_bytes() > literal.len());
+        let color = Color {
+            kind: ColorKind::Theme(integer.clone()),
+            tint: None,
+        };
+        let mut style = CellStyle::default();
+        style.font.charset = Some(integer);
+        style.font.color = Some(color.clone());
+        style.fill = Fill::solid(color.clone());
+        style.borders.sides[0].as_mut().unwrap().color = Some(color);
+        let before = registry.memory_bytes();
+        let id = registry.register(style.clone()).unwrap();
+        assert!(registry.memory_bytes() >= before + 4 * literal.len());
+        let retained = registry.memory_bytes();
+        assert_eq!(registry.register(style).unwrap(), id);
+        assert_eq!(registry.memory_bytes(), retained);
+        let adopted =
+            StyleRegistry::from_catalog(registry.catalog().clone(), StyleLimits::default())
+                .unwrap();
+        assert_eq!(
+            adopted.catalog().cell_style(id).unwrap().font,
+            registry.catalog().cell_style(id).unwrap().font
+        );
+    }
+    let exact = StyleInteger::parse(&"9".repeat(2048)).unwrap();
+    let mut bounded = StyleRegistry::new(StyleLimits::default()).unwrap();
+    let before = bounded.catalog().clone();
+    let mut oversized = CellStyle::default();
+    oversized.font.charset = Some(exact.clone());
+    let allowance = bounded.memory_bytes() + 64;
+    assert_eq!(
+        bounded
+            .register_with_limit(oversized, allowance)
+            .unwrap_err()
+            .kind(),
+        crabxl_core::ErrorKind::MemoryBudgetExceeded
+    );
+    assert_eq!(bounded.catalog().fonts, before.fonts);
+    assert_eq!(bounded.catalog().cell_formats, before.cell_formats);
+    assert_eq!(bounded.register(CellStyle::default()).unwrap().get(), 0);
+    let color = Color {
+        kind: ColorKind::Indexed(exact),
+        tint: None,
+    };
+    let mut catalog = registry.catalog().clone();
+    let initial = catalog.memory_bytes();
+    catalog.recent_colors.push(color.clone());
+    catalog
+        .differential_styles
+        .push(crabxl_core::DifferentialStyle {
+            fill: Some(Box::new(Fill::Gradient(crabxl_core::GradientFill {
+                stops: vec![crabxl_core::GradientStop {
+                    position: 0.0,
+                    color: color.clone(),
+                }],
+                ..Default::default()
+            }))),
+            border: Some(Box::new({
+                let mut border = crabxl_core::Border::default();
+                border.sides[0].as_mut().unwrap().color = Some(color.clone());
+                border
+            })),
+            ..Default::default()
+        });
+    assert!(catalog.memory_bytes() >= initial + 3 * color.heap_bytes());
+    let adopted = StyleRegistry::from_catalog(catalog.clone(), StyleLimits::default()).unwrap();
+    assert!(adopted.memory_bytes() >= catalog.memory_bytes());
+    assert!(
+        StyleRegistry::from_catalog(
+            catalog,
+            StyleLimits {
+                max_bytes: initial + color.heap_bytes(),
+                ..Default::default()
+            }
+        )
+        .is_err()
+    );
+    for (literal, value) in [
+        ("+0001", 1),
+        ("-0000", 0),
+        ("00000000000000000000000000000000000000000000001", 1),
+    ] {
+        let integer = StyleInteger::parse(literal).unwrap();
+        assert_eq!(integer, value.into());
+        assert_eq!(integer.heap_bytes(), 0);
+    }
+    for invalid in ["", "--1", "1e40", "1.0", "１２", "1 2"] {
+        assert!(StyleInteger::parse(invalid).is_err());
+    }
     for value in [-1.0, 14.5, f64::NAN, f64::INFINITY] {
         assert!(
             Font {

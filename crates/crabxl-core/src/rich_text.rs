@@ -3,7 +3,7 @@
 // Provenance and refactoring: third_party/ports.json.
 
 /// Workbook-independent color reference. Theme/indexed colors retain identity.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ColorKind {
     /// A present color element without an explicit identity.
     Unspecified,
@@ -12,9 +12,9 @@ pub enum ColorKind {
     /// ARGB channels with reference-compatible hexadecimal letter casing.
     ArgbLiteral(ArgbLiteral),
     /// Theme slot; resolve through the workbook theme when needed.
-    Theme(i64),
+    Theme(crate::StyleInteger),
     /// Indexed palette slot.
-    Indexed(i64),
+    Indexed(crate::StyleInteger),
     /// Automatic color setting, including explicit false.
     Auto(bool),
 }
@@ -90,7 +90,7 @@ impl std::fmt::Display for ArgbLiteral {
     }
 }
 /// Color identity and optional tint without eager RGB conversion.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Color {
     /// Underlying color reference.
     pub kind: ColorKind,
@@ -158,7 +158,7 @@ pub struct RunFont {
     /// Vertical baseline override.
     pub vertical: Option<TextVerticalAlignment>,
     /// Charset number.
-    pub charset: Option<i64>,
+    pub charset: Option<crate::StyleInteger>,
     /// Font family number.
     pub family: Option<f64>,
     /// Theme font scheme.
@@ -243,9 +243,9 @@ impl RichText {
                 .iter()
                 .map(|r| {
                     r.text.len()
-                        + r.font.as_ref().map_or(0, |f| {
-                            size_of::<RunFont>() + f.name.as_ref().map_or(0, |n| n.len())
-                        })
+                        + r.font
+                            .as_ref()
+                            .map_or(0, |f| size_of::<RunFont>() + f.heap_bytes())
                 })
                 .sum::<usize>()
             + self.phonetic_runs.capacity() * size_of::<PhoneticRun>()
@@ -259,5 +259,26 @@ impl RichText {
                     + p.kind.as_ref().map_or(0, |s| s.len())
                     + p.alignment.as_ref().map_or(0, |s| s.len())
             })
+    }
+}
+
+impl Color {
+    /// Heap payload of an exact theme/indexed identity; small colors allocate nothing.
+    pub fn heap_bytes(&self) -> usize {
+        match &self.kind {
+            ColorKind::Theme(value) | ColorKind::Indexed(value) => value.heap_bytes(),
+            _ => 0,
+        }
+    }
+}
+impl RunFont {
+    /// Owned name, charset and color payload excluding the fixed font record.
+    pub fn heap_bytes(&self) -> usize {
+        self.name.as_ref().map_or(0, |name| name.len())
+            + self
+                .charset
+                .as_ref()
+                .map_or(0, crate::StyleInteger::heap_bytes)
+            + self.color.as_ref().map_or(0, Color::heap_bytes)
     }
 }

@@ -17137,9 +17137,10 @@
         "benchmarks/verify_default_styles.py",
         "benchmarks/verify_style_fixture.py",
         "benchmarks/probe_style_domains.py",
-        "crates/crabxl-xlsx/tests/writer.rs::public_font_domains_and_case_sensitive_colors_roundtrip"
+        "crates/crabxl-xlsx/tests/writer.rs::public_font_domains_and_case_sensitive_colors_roundtrip",
+        "benchmarks/probe_style_integer_domains.py"
       ],
-      "limitations": "New registration and sequential output only; loaded bank ownership/imported catalog mutation, complete themes/differential/table styles and aggregate Auto budgets remain staged. Managed capacity/index estimates exclude allocator/runtime and caller-owned input; reader XML event limits are independent. No complete M2/M4 style editing is claimed. Fractional family, signed i64 charset/theme/indexed identities and compact ARGB casing are verified; arbitrary-precision style integer metadata remains staged."
+      "limitations": "New registration and sequential output only; loaded bank ownership/imported catalog mutation, complete themes/differential/table styles and aggregate Auto budgets remain staged. Managed capacity/index estimates exclude allocator/runtime and caller-owned input; reader XML event limits are independent. No complete M2/M4 style editing is claimed. Fractional family, exact arbitrary decimal charset/theme/indexed identities and compact ARGB casing are verified (ADR 0054). Theme resolution, complete loaded style mutation and Python style proxies remain separate work."
     },
     {
       "id": "themes.opaque-default-parts",

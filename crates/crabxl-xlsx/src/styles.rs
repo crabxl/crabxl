@@ -209,7 +209,7 @@ pub(crate) fn write_styles(
         if !catalog.recent_colors.is_empty() {
             output.write_all(b"<mruColors>")?;
             for value in &catalog.recent_colors {
-                crate::formatting::write_color(output, "color", *value)?;
+                crate::formatting::write_color(output, "color", value)?;
             }
             output.write_all(b"</mruColors>")?;
         }
