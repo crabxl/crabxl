@@ -156,3 +156,8 @@ Shared finite font/gradient domain validation and selected color identity semant
 The owned bank now contains an optional canonical StyleRegistry, with source ID adoption and full/raw/code registration under aggregate sheet/theme/catalog allowances. WorkbookParts owns the original entry iterator and registry indices; consuming writer export moves these without catalog/sheet snapshots. Styled borrowed export fails early until a separately budgeted non-consuming path is implemented. This is new-package creation, not loaded original-graph preservation. See ADR 0030.
 
 Differential formatting reuses canonical style component types/codecs in sparse optional boxes. TableStyleCatalog owns explicit defaults and source-ordered named region definitions, with all 28 region tokens and deferred differential-reference validation. Shared byte/record budgets count nested vector capacities, component boxes and strings, never advertised counts. Unmodeled differential extensions reject new-package export. Worksheet rule/table graphs remain separate M5 integrations. See ADR 0033.
+
+Bounded preview consumers can opt into `ReadOptions::stop_after_last_row`.
+With explicit row bounds this stops after the selected prefix and deliberately
+does not validate the unread worksheet tail or its ZIP CRC. The default remains
+a full-part scan and validation. Each independent stream owns its parser state.

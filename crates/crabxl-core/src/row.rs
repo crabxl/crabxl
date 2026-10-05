@@ -177,6 +177,9 @@ pub enum CellMetadataReadPolicy {
 pub struct ReadOptions {
     /// Optional inclusive zero-based row bounds. XML outside the bounds is scanned.
     pub rows: Option<RangeInclusive<RowIndex>>,
+    /// Stop at the last selected row instead of validating the unread XML tail/ZIP CRC.
+    /// Applies only with explicit row bounds; default reads validate the complete part.
+    pub stop_after_last_row: bool,
     /// Optional inclusive zero-based column bounds.
     pub columns: Option<RangeInclusive<ColumnIndex>>,
     /// Return cached formula results instead of formulas. Missing caches are Empty.
