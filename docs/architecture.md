@@ -19,6 +19,10 @@ ownership strategy of materialization to preserve its aggregate budget plan.
 Namespace resolver updates occur only at declaration-bearing elements while
 checked element nesting remains separate; see
 [ADR 0066](decisions/0066-declaration-only-namespace-stack.md).
+The semantic classification is now an exhaustive compact enum; snapshot/Result
+layout changes and small mixed performance effects are recorded in
+[ADR 0071](decisions/0071-compact-namespace-classification.md) and
+[paired measurements](../benchmarks/alpha7-compact-scope.md).
 
 Failure context is indirectly owned so successful Result paths do not carry its
 full inline size; public error categories, diagnostics and source chains remain
