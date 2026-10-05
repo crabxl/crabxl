@@ -1,226 +1,106 @@
-# crabxl
+<div align="center">
 
-A Rust spreadsheet library focused on fast, memory-efficient XLSX processing and full coverage of the public openpyxl feature baseline. Internal implementation and Rust API naming may be idiomatic Rust; external capabilities and observable behavior must remain complete.
+# CrabXL
 
-M1 provides bounded sparse XLSX row streaming and explicit owned sheet materialization. M2 adds exact integers, plain inline/shared/value text, booleans/errors, bounded shared-string storage, explicit typed rich text, shared style catalogs, numeric dates/time/durations and owned-payload budgets. M3 sequential writer acceptance is complete: scalars, dates/time/duration, normal formulas/caches and basic styles use shared core types and selected rust_xlsxwriter codecs. Complete theme/style editing, advanced formulas, complete editing/preservation, full Python compatibility and other language bindings remain staged.
+**Read, write, and edit XLSX files in Rust.**
 
-Development and the next release support Rust 1.88.0 or later. The already
-published `0.1.0-alpha.1` requires Rust 1.99.0. Formatting, Clippy and the pinned
-development toolchain use Rust 1.99.0; CI also tests the minimum 1.88.0 toolchain.
-Run the example against an unstyled numeric worksheet:
+[![Crates.io](https://img.shields.io/crates/v/crabxl?include_prereleases)](https://crates.io/crates/crabxl)
+[![Rust](https://img.shields.io/badge/Rust-1.88%2B-orange?logo=rust)](https://doc.rust-lang.org/cargo/reference/rust-version.html)
+[![CI](https://github.com/crabxl/crabxl/actions/workflows/rust.yml/badge.svg)](https://github.com/crabxl/crabxl/actions/workflows/rust.yml)
+[![License](https://img.shields.io/github/license/crabxl/crabxl)](LICENSE)
 
-```sh
-cargo run --release -p crabxl --example sum -- numbers.xlsx Sheet
-cargo test --workspace --locked
-cargo clippy --workspace --all-targets --locked -- -D warnings
+[API documentation](https://docs.rs/crabxl) · [Python package](https://github.com/crabxl/crabxl-python) · [Report an issue](https://github.com/crabxl/crabxl/issues)
+
+</div>
+
+## About
+
+CrabXL provides bounded streaming reads, sequential writes, and existing-file
+edits through a shared Rust engine. It targets the public capabilities of
+openpyxl while keeping the Rust API idiomatic.
+
+- Stream sparse worksheet rows or explicitly load an owned sheet.
+- Read exact integers, text, rich text, dates, styles, and formula records.
+- Create workbooks and edit supported cell values while preserving unrelated
+  original package parts.
+- Configure memory allowances, shared-string RAM/disk storage, caches, resource
+  limits, and ZIP compression.
+
+**Currently alpha.** Full editing and openpyxl feature coverage are still in
+progress. Unsupported operations return explicit errors. Formula calculation is
+not provided. See the [capability inventory](docs/features.json) and
+[roadmap](docs/roadmap.md) for current scope.
+
+## Installation
+
+Requires **Rust 1.88 or newer**.
+
+```toml
+[dependencies]
+crabxl = "0.1.0-alpha.5"
 ```
 
-```rust
-use crabxl::{CellValue, Row, RowIndex, WorkbookReader};
+## Usage
 
-fn sum(path: &str, sheet: &str) -> crabxl::Result<f64> {
-    let mut workbook = WorkbookReader::open(path)?;
-    let mut rows = workbook.rows(sheet)?;
-    let mut row = Row::new(RowIndex::new(0)?);
-    let mut total = 0.0;
-    while rows.read_row_into(&mut row)? {
-        for cell in &row.cells {
-            let value = match cell.value {
-                CellValue::Number(value) => Some(value),
-                CellValue::Integer(value) if (-9_007_199_254_740_992..=9_007_199_254_740_992).contains(&value) => Some(value as f64),
-                CellValue::Integer(_) | CellValue::BigInteger(_) => return Err(crabxl::Error::new(
-                    crabxl::ErrorKind::Unsupported, "This f64 sum rejects integers beyond 2^53"
-                ).with_cell(cell.address)),
-                _ => None,
-            };
-            if let Some(value) = value {
-                total += value;
-            }
+### Read rows
+
+```rust
+use crabxl::WorkbookReader;
+
+fn main() -> crabxl::Result<()> {
+    let mut workbook = WorkbookReader::open("input.xlsx")?;
+    let mut rows = workbook.rows("Sheet1")?;
+
+    while let Some(row) = rows.next_row()? {
+        for cell in row.cells {
+            println!("{:?}: {:?}", cell.address, cell.value);
         }
     }
-    Ok(total)
-}
-```
-
-Coordinates are zero-based typed indices with explicit A1 conversions. Missing rows/columns are not expanded; returned cells retain their actual positions. `rows_with_options` projects before scalar decoding. `next_row` and `read_batch` return owned data; `read_row_into` reuses an allocation. The workbook owns a seekable source and each reader borrows it exclusively.
-
-Use `read_sheet` for a non-streaming public operation: it retains all supported sparse scalar rows in owned `SheetData`, allowing repeated access without reparsing. It uses the same incremental decoder internally; materialization does not itself accelerate the first read. Configure the data budget and input buffer independently:
-
-```rust
-use crabxl::{ResourceLimits, WorkbookReader};
-
-fn load(path: &str, sheet: &str) -> crabxl::Result<crabxl::SheetData> {
-    let limits = ResourceLimits {
-        max_materialized_bytes: 1024 * 1024 * 1024,
-        input_buffer_bytes: 256 * 1024,
-        ..ResourceLimits::default()
-    };
-    let mut workbook = WorkbookReader::open_with_limits(path, limits)?;
-    workbook.read_sheet(sheet)
-}
-```
-
-The default direct `read_sheet` retained-data budget is 256 MiB. Parser/catalog memory and one current row are additional. A budget failure returns `MemoryBudgetExceeded`, discards partial output, and releases the reader. `SheetData` is a numeric snapshot, not a saveable editable workbook. Current component budgets are not a hard process RSS limit.
-
-For automatic mode selection use `read_with_policy`; `read_with_policy_options` composes the same projection, rich-text, cache, date and formula options as direct reads. A scan streams; repeated access samples at most 128 rows and retains data when its estimate fits. If later rows exceed the actual allowance, partial materialization is discarded and the operation returns a fresh stream. Other input errors propagate. Inspect `output.decision` for budget, estimate, source, mode, and reason:
-
-```rust
-use crabxl::{AccessPattern, MemoryPolicy, ReadData, WorkbookReader};
-
-fn count_rows(path: &str, sheet: &str) -> crabxl::Result<usize> {
-    let mut workbook = WorkbookReader::open(path)?;
-    let output = workbook.read_with_policy(
-        sheet, AccessPattern::RepeatedAccess, MemoryPolicy::default(),
-    )?;
-    match output.data {
-        ReadData::Materialized(data) => Ok(data.rows.len()),
-        ReadData::Streaming(mut rows) => rows.try_fold(0, |count, row| row.map(|_| count + 1)),
-    }
-}
-```
-
-`MemoryPolicy::Budget(bytes)` specifies an operation ceiling. `MemoryPolicy::Auto(AutoMemory { .. })` tunes availability fraction, headroom, maximum budget, a caller-supplied availability override and anticipated concurrent operation count. Concurrent counts divide the automatic allowance without spawning workers or reserving global memory. Default Auto uses 25% of effective availability after headroom. Linux probing includes host `MemAvailable`, cgroup v2 ancestors, and finite address/data limits. Mounted cgroup v1/v2 visible hierarchies are supported. Windows/macOS use native host RAM probes with NativeHost diagnostics; private process/job constraints are not discovered there. Unsupported platforms and incomplete probes use a conservative fallback; constrained callers can supply effective availability. The policy operation reserves parser/current-row working space, then jointly charges managed package names, prepared styles/themes, shared strings, decoded caches, formula templates and library-retained rows/batches. Auto string tables can lend memory by spilling to disk; forced Memory storage remains strict. Optional caches shrink or release before other components grow. Decisions expose non-evictable catalog and current cache bytes; streams expose managed retained accounting. ZIP dependency/allocator overhead, OS page cache and caller-retained outputs remain additional: this is not a hard process RSS cap or a reservation against other processes. Direct rows/read_sheet APIs keep their independent explicit component/data limits. See [ADR 0021](docs/decisions/0021-joint-managed-read-allowance.md) and [mixed-policy measurements](benchmarks/m2-aggregate-read.md).
-
-Auto overrides the retained-data allowance only for its operation; direct `rows` and `read_sheet` retain their explicit semantics. It keeps the configured input buffer instead of assuming larger buffers improve CPU-bound parsing. Adaptive string/style caches, concurrency and the full editable mode remain future work; see [ADR 0002](docs/decisions/0002-adaptive-memory.md).
-
-This checkpoint preserves signed i64 integers and larger exact decimal integers, floating-point literals including scientific overflow infinities, booleans, plain inline/shared/value text, spreadsheet error tokens, and physically present empty cells. Owned string/error/big-integer payloads are included in row, batch, materialization, and Auto allocation estimates. ReadOptions.rich_text selects owned rich runs, optional font overrides, color references and phonetic annotations; false explicitly projects displayed text without formatting allocations. Compatible `data_only` reads discard formula expressions and header semantics while validating XML and cache values; explicit `ValidateGroups` retains full validation. `FormulaWritePolicy::Compatible` omits newly assigned false flags and empty data-table inputs while retaining source flag strings; `RetainExplicit` preserves those assigned attributes. Normal/shared expressions and array/data-table records use typed core formula models; shared expansion is bounded and sparse, including projected template dependencies. Read-side style catalogs interpret numeric dates, clocks and durations, including style zero. Default reads project visible dynamic array/scalar values from cm/vm-annotated cells; `CellMetadataReadPolicy::Reject` is an explicit stricter option and `Rows::projected_metadata_cells()` reports projections. Typed cm/vm metadata graphs and complete theme/catalog editing remain staged; adaptive managed reads now use a joint component allowance. See ADR 0011 and ADR 0014 for verified scope. Inline OOXML-looking literals retain their spelling; shared strings remove the pinned reference protection marker `x005F_` without decoding arbitrary `_xHHHH_` sequences. Typed inline/shared reads remove protection per run or lone text element, while plain SST projection removes it after flattening and default inline projection retains it. See [ADR 0010](docs/decisions/0010-rich-text-projections.md) for mode upgrades, disk-backed rich payloads and imported phonetic-font assignment limits. This is not a general openpyxl replacement yet.
-
-Shared strings resolve through workbook relationships and are prepared once on first row access, without materializing a worksheet. `set_shared_string_options` selects `SharedStringStorage::Memory`, `Disk`, or default `Auto`, a shared `MemoryPolicy`, byte-bounded decoded cache, temporary-byte/entry limits and temporary directory. Auto starts in RAM and spills both payloads and the fixed-width index when actual usage exceeds its allowance. Disk mode retains neither the whole table nor its index in RAM. `shared_string_stats()` reports placement, policy/retained budgets, allocations, temporary bytes and cache hits/reads. Rows own their text independently of table/cache lifetime.
-
-Direct string component budgets reserve parser working space independently. Policy reads additionally clamp storage to a joint managed allowance shared with catalogs, templates and retained rows. Dependency allocations, allocator overhead, caller-held output and OS file cache remain additional; this is not a global RSS cap. Preparing the entire SST verifies its XML/CRC even for projected reads. Rich/phonetic entries retain their IDs but explicitly reject selected access until typed support lands; selecting unrelated plain entries is supported. Tables are released on workbook Drop or option reconfiguration. See [shared-string measurements](benchmarks/m2-shared-strings.md).
-
-Configurable `ResourceLimits` bound archive size, metadata, XML input/events/depth, values, rows, and batches. Memory includes the ZIP catalog and metadata; user-retained batches add memory. Full consumption checks XML and entry CRC; dropping a reader early releases it without validating unread bytes. See [ownership and memory details](docs/decisions/0001-numeric-streaming.md) and [measured benchmarks](benchmarks/README.md).
-
-- [Architecture](docs/architecture.md)
-- [Roadmap and feature inventory](docs/roadmap.md)
-- [Upstream sources](docs/upstream-sources.md)
-- [Verified capability inventory](docs/features.json)
-- [Pending openpyxl fixes and regression risks](docs/openpyxl-mr-review.md)
-- [AI agent instructions](AGENTS.md)
-
-Boolean values remain distinct from numeric zero/one in rows, batches, materialization, and Auto mode. Decimal integer boolean literals follow the baseline zero/nonzero behavior without integer overflow; invalid boolean text returns a contextual error. `scalar_counts` counts these types without retaining a sheet.
-
-The sum example is a controlled f64 checksum benchmark: it rejects integer inputs beyond 2^53 instead of rounding or skipping them. Core values retain exact integers independently of that example. Mixed scalar measurements are in [benchmarks/m2-scalars.md](benchmarks/m2-scalars.md).
-
-Sequential creation uses the same core values, addresses and styles:
-
-```rust
-use crabxl::{Cell, CellAddress, CellValue, Row, RowIndex, StyleId, WorkbookWriter, WriteOptions};
-
-let mut writer = WorkbookWriter::new(WriteOptions::default())?;
-writer.start_sheet("Sheet")?;
-let mut row = Row::new(RowIndex::new(0)?);
-row.cells.push(Cell { address: CellAddress::new(0, 0)?, value: CellValue::Integer(42), style: StyleId::new(0) });
-writer.write_row(&row)?;
-writer.finish(std::fs::File::create("output.xlsx")?)?;
-```
-
-Earlier rows/sheets cannot be revisited in this mode. `abort()` and Drop clean owned temporary files without publishing; `finish()` explicitly packages the workbook and may leave partial output on I/O failure. Use `WriteOptions` for byte limits and temporary-directory selection. The M3 writer supports scalar data, date/time/duration values in both epochs, normal formulas with optional typed caches, and registered complete appearance components (optional fonts, pattern/gradient fills, nine border positions, alignment, number format and cell protection). Inline escape-looking literals now retain their public reference spelling. See [writer ownership decisions](docs/decisions/0004-sequential-scalar-writer.md) and [writer measurements](benchmarks/m3-writer.md).
-
-New files include the pinned reference default theme from static storage. `WriteOptions.theme` selects exact opaque custom bytes, stricter validated DrawingML, or explicit omission. `WorkbookReader::theme()` lazily borrows bounded original bytes; `validate_theme()` is an optional strict check. Empty custom bytes select the default theme. `read_theme_catalog()` explicitly returns a caller-owned typed palette and major/minor font scheme, with source identity and bounded script mappings; `ThemeColor::rgb()` uses only literal RGB or a document-provided system fallback. Unsupported color choices/transforms return Unsupported. Full theme mutation remains staged; see [ADR 0051](docs/decisions/0051-explicit-typed-theme-catalogs.md).
-
-Register a `CellStyle` once with `writer.register_style(style)` and reuse its `StyleId` in cells. A canonical `StyleRegistry` shares fonts, fills, borders and number formats across formats; equal formats reuse IDs. Retained capacities and payloads have count/metadata limits, with incremental accounting. Borrow `writer.style_catalog()` or `Rows::style_catalog()` to inspect components without cloning them. Default font/alignment components match the reference defaults. `StyleWritePolicy::Compatible` follows reference serialization of zero/false alignment attributes; `RetainExplicit` preserves explicit optional values as an extension. ID zero is General for writer-created scalar cells. Date values with ID zero automatically receive a date/time/duration format; explicitly styled dates require an appropriate number format. `ExcelDateTime::from_ymd_hms_milli` validates calendar fields; `from_serial` retains an exact serial and source epoch. Serial 60 is retained in the Windows epoch and rejected on conversion to the Mac epoch rather than silently changing its meaning. Imported calendar serial conversion follows the baseline's millisecond rounding and maps Windows serial 60 to February 28. Literal constructors preserve original Gregorian identity and microseconds, while imported early-date serials remain ambiguous.
-
-`Formula::new("=SUM(A1:A2)", None)` writes a formula without a fabricated cache. Supply a typed `CellValue` to retain zero, false, text, error or date results; this crate does not calculate formulas. The streaming reader also returns normal `CellValue::Formula` values and their caches; `ReadOptions { data_only: true, ..Default::default() }` requests cached values, returning Empty when absent. A supplied Empty cache is serialized as absent. Formula strings and cache payloads count toward retained-data budgets. Numeric styled values and caches now use the imported catalog. Shared/array/data-table formulas, theme resolution, full named/differential styles and existing-file style editing remain in M2/M4/M5.
-
-## Existing-file edits and sparse models (M4 checkpoint)
-
-`WorkbookEditor::open` retains a seekable original package. `set_value` queues an existing-cell replacement, preserving its style and unrelated original parts; physical existence and metadata are checked on save. `save_path` atomically replaces a target after successful output, using a full adjacent temporary ZIP. Repeated saves reuse the original source without resident copies of images. `clear_edits` restores that original baseline. Old formula caches are removed across worksheets and full recalculation requested.
-
-```rust
-use crabxl::{CellAddress, CellValue, SaveOptions, WorkbookEditor};
-
-fn edit(source: &str, target: &str) -> crabxl::Result<()> {
-    let mut workbook = WorkbookEditor::open(source)?;
-    workbook.set_value("Sheet", CellAddress::new(0, 0)?, CellValue::Integer(42))?;
-    workbook.save_path(target, SaveOptions::default())?;
     Ok(())
 }
 ```
 
-`EditorOptions` offers Auto/explicit memory policy and patch byte/cell caps; resolved allowances are inspectable. `SaveOptions::verify_unchanged` enables full CRC checking of unchanged parts, at decompression cost. The default compressed copy does not validate their payload CRC. Core `Worksheet` separately provides sparse random access, append and bounded insert/delete/move/copy operations; `WorkbookWriter::write_worksheet` exports borrowed cells into a new package.
+Coordinates are zero-based. Streaming returns physically present cells with their
+original positions. Use `read_sheet` when you need an owned worksheet snapshot.
 
-M4 remains in progress. Existing-file structural edits, sheet mutations and loaded catalog mutation and graph integration remain staged. Unsafe cell metadata and signed-package edits are rejected. Conventional derived calculation chains are discarded on edits with synchronized package references; an explicit policy can reject chain edits. See [ownership and limitations](docs/decisions/0005-sparse-preserving-editor.md) and [Rust/openpyxl edit measurements](benchmarks/m4-editor.md).
+### Edit an existing file
 
-For missing cells use `WorkbookEditor::upsert_value`; it inserts sparse cells/rows with default style, keeps inferred original positions and expands an existing dimension. Non-anchor merged targets are rejected. [Insertion measurements](benchmarks/m4-insertion.md) include public readback and temporary-output costs.
+```rust
+use crabxl::{CellAddress, CellValue, SaveOptions, WorkbookEditor};
 
-## Optional Python compatibility adapter
-
-The adapter uses openpyxl call conventions; migrating supported code changes the import:
-
-```python
-import crabxl as openpyxl
-
-wb = openpyxl.Workbook()
-ws = wb.active
-ws["A1"] = 123
-ws.append([True, "text", "=A1+1"])
-wb.save("example.xlsx")
+fn main() -> crabxl::Result<()> {
+    let mut workbook = WorkbookEditor::open("input.xlsx")?;
+    workbook.set_value("Sheet1", CellAddress::new(0, 0)?, CellValue::Integer(42))?;
+    workbook.save_path("output.xlsx", SaveOptions::default())?;
+    Ok(())
+}
 ```
 
-Build/install/test instructions and the explicit capability limits are in [https://github.com/crabxl/crabxl-python/blob/main/README.md](https://github.com/crabxl/crabxl-python/blob/main/README.md). The standalone Rust crate has no Python dependency. Compatibility is partial and verified by selected original openpyxl tests plus shared public-API cases; advanced features remain in the roadmap.
+Use `WorkbookWriter` for sequential creation. Runnable examples are available in
+[crates/crabxl/examples](crates/crabxl/examples).
 
-Core `Workbook` now provides stable sheet IDs, order/active/epoch selection, independent sparse model copies and aggregate managed allowances. `sheet_mut` returns a guarded mutation facade; `WorkbookWriter::write_workbook` exports borrowed models. This does not implement original-package sheet or feature-graph surgery. See [ADR 0007](docs/decisions/0007-owned-workbook.md) and [release evidence](benchmarks/m4-workbook.md).
+## Resource and compression options
 
-The Python owned Workbook now shares the Rust aggregate model allowance and supports compatible `copy_worksheet`, `move_sheet`, `index` and deletion calls. Removed retained worksheets remain usable. Loaded models still have per-model/overlay allowances. [Same-call copy/export evidence](benchmarks/m4-python-bank.md) reports performance, memory and temporary-storage tradeoffs.
+`ResourceLimits` bounds input, metadata, cells, rows, and batches.
+`MemoryPolicy` offers explicit budgets or configurable Auto selection;
+`SharedStringOptions` controls RAM/disk placement and decoded caches. Managed
+allowances are not a whole-process RSS cap.
 
-[Calculation-chain policy](docs/decisions/0008-derived-calculation-chain.md) preserves unchanged chains and removes obsolete chain parts, content types and workbook relationships on edited saves. Unknown consumers and unsafe graphs reject edits.
+Write and save options accept compression levels **0–9**: 0 stores without
+compression; 1–9 use Deflate; the default is 6. The default backend is pure-Rust
+zlib-rs. Native zlib is available through the `deflate-zlib` feature with default
+features disabled. Existing-file saves retain compressed bytes for untouched
+parts.
 
-## Imported styles and numeric dates
+## Documentation
 
-`WorkbookReader::style_catalog()` lazily exposes shared component tables, original cell/base-format IDs, named-style metadata and indexed/recent colors. Fonts use the same optional fields as rich-run fonts. Pattern/gradient fills, nine border positions, alignment and protection preserve absent versus explicit values. `max_style_bytes` bounds retained catalog/classification capacities; `max_style_records` bounds actual entries per table. These are additional component allowances, not a hard process RSS ceiling.
+- [API reference](https://docs.rs/crabxl)
+- [Roadmap](docs/roadmap.md) and [capability inventory](docs/features.json)
+- [Architecture](docs/architecture.md)
+- [Benchmarks](benchmarks/README.md)
+- [Releases](docs/releases.md)
 
-Numeric cells and numeric formula caches with date formats produce `ExcelDateTime` in the source epoch. Clock fractions and elapsed durations retain distinct kinds. Default `DateReadPolicy::Compatible` follows the pinned baseline's millisecond rounding and returns `#VALUE!` for unrepresentable dates/durations. `RetainSerial` preserves finite source serials as an extension. Use `rows_with_options` or `read_sheet_with_options` for the same policies in streaming or materialized mode. Booleans/text/errors retain their types regardless of date formatting.
+## License
 
-Theme resolution, full imported style editing and aggregate catalog accounting remain required. Unmodeled catalog sections are listed explicitly and survive through original-package preservation, not typed catalog export. See [catalog decisions](docs/decisions/0011-style-catalog-and-date-reading.md) and [numeric-date/style evidence](benchmarks/m2-styles-dates.md).
-
-`ExcelDateTime::from_ymd_hms_micro`, `from_hms_micro` and `from_duration_parts` preserve literal microsecond values. Their conversion methods return exact literal components; `from_serial` retains numeric source serials with loaded baseline millisecond conversion. `serial_in` converts original literal Gregorian days directly, including early Windows ambiguities. See [literal precision decisions](docs/decisions/0012-literal-date-precision.md) and [creation/read evidence](benchmarks/m2-date-literals.md).
-
-`ExcelDateTime::from_ymd` retains date-only Gregorian values. Shared `parse_iso8601`/`to_iso8601` support the pinned public ISO date/clock/elapsed-duration behavior, including documented prefix acceptance and millisecond truncation. `WriteOptions { iso_dates: true, ..Default::default() }` writes date/calendar/clock cells as ISO values in either workbook epoch; elapsed durations remain numeric. Default writer styles include a date-only format. See [ISO compatibility decisions](docs/decisions/0013-iso-date-compatibility.md) and [ISO creation/read measurements](benchmarks/m2-iso-dates.md).
-
-Nonfinite numeric literals/caches use `NonFiniteWritePolicy::Blank` by default, matching public blank serialization; select `Reject` for atomic strict validation. This policy is shared by sequential output and original-package overlays. Native nonfinite compatibility does not imply nonfinite date/style support or exact nonfinite round-trip storage. See ADR 0015.
-
-`NumberFormat::new` and `set_code` retain a consistent canonical date/duration classification; `id`, `code` and `date_kind` inspect it. Readers no longer allocate a second declared-format classification catalog. See [ADR 0025](docs/decisions/0025-canonical-number-format-classification.md).
-
-Owned `Workbook::theme` / `set_theme` use canonical immutable shared bytes and the same aggregate allowance as sheets. Borrowed writer export shares the payload and checks metadata/explicit validation before writing. See [ADR 0026](docs/decisions/0026-owned-bank-theme-ownership.md) and [measurements](benchmarks/m4-bank-themes.md); complete loaded-bank catalog editing remains staged.
-
-`WorkbookReader::into_style_catalog` transfers validated source tables without cloning. `StyleRegistry::from_catalog` preserves component/format identities and `register_format` edits existing-reference records without inferred appearance defaults. Sparse source number-format IDs and built-in overrides retain their meaning. See [ADR 0027](docs/decisions/0027-canonical-style-catalog-adoption.md); complete loaded-bank/export integration remains staged.
-
-`WorkbookWriter::from_style_catalog` transfers source tables into a new package, retaining IDs and deriving automatic date presets from shared source-zero components. Raw `register_format` and `register_number_format` honor the remaining metadata allowance. Unknown sections require original-package preservation; this constructor rejects them. See [ADR 0028](docs/decisions/0028-source-style-export.md) and [verified output/work differences](benchmarks/m2-style-export.md).
-
-Finite style size/gradient-edge domains, empty format strings and imported color identity priority follow public save/reload evidence. Gradient preparation includes duplicate-position scratch in its allowance. See [ADR 0029](docs/decisions/0029-finite-style-domains.md) and [interop/regression evidence](benchmarks/m2-finite-style-domains.md); full style editing remains staged.
-
-`Workbook` supports canonical `import_style_catalog`, `register_style`, `register_format` and `register_number_format` under aggregate sheet/theme/catalog budgets. `WorkbookWriter::from_workbook` consumes the bank and transfers style indices/components and owned sheets without a full payload snapshot. Borrowed `write_workbook` rejects a bank with its own catalog; non-consuming styled save and lazy original-package loading remain staged. See [ADR 0030](docs/decisions/0030-owned-bank-style-ownership.md) and [full-model measurements](benchmarks/m4-bank-styles.md).
-
-`Formula::with_optional_expression` and `optional_expression` retain absent array/data-table expression properties before serialization; `expression()` remains the borrowed XML-body view. Empty source bodies are present after reload and no cache is fabricated. See [ADR 0031](docs/decisions/0031-optional-structured-expression.md).
-
-`Formula::from_array_text` retains an optional literal array property in one payload; `array_text()` borrows that original spelling, while the XML-body view removes the first Unicode character to match public array save behavior. Source constructors clear the literal origin marker. See [ADR 0032](docs/decisions/0032-literal-array-text.md).
-
-`StyleCatalog` includes typed sparse differential overrides and table/pivot defaults/definitions with all 28 region tokens, optional count/size properties and validated differential references. Source-owned boxes/vectors transfer without full catalog snapshots. Extension payloads and worksheet rule/table graphs remain staged. See [ADR 0033](docs/decisions/0033-differential-table-style-catalogs.md) and [public metadata readback/measurements](benchmarks/m2-style-extras.md).
-
-Dependency policy: prefer current stable toolchains and dependencies after validation.
-
-ZIP compression is configurable through `WriteOptions::compression_level`,
-`WorkbookWriter::set_compression_level` and `SaveOptions::compression_level`.
-`None` retains default level 6; levels 1 through 9 use Deflate; 0 stores without
-compression. Editors retain original compressed bytes for untouched parts.
-The default backend is pure-Rust zlib-rs. Native zlib is available with
-`--no-default-features --features deflate-zlib`; see
-[compression decisions](docs/decisions/0049-configurable-zip-compression.md).
-The XML codec uses quick-xml 0.42 with validated UTF-8 string events,
-XML 1.0 text/attribute normalization and resolved namespace checks. Python 3.15 release-candidate validation is the explicit prerelease
-exception while waiting for the final release.
-
-Manual alpha numbering and the crates.io/GitHub release workflow are documented
-in [releases](docs/releases.md).
-
-
-Explicit `ReadOptions.cell_metadata_policy = CellMetadataReadPolicy::RetainFormulaReferences`
-retains formula cm/vm source literals in `FormulaMetadata.annotations` without
-interpreting their dependent graphs. Data-only projection and annotated scalar
-cells are incompatible with this policy. New-file/assigned-value output returns
-Unsupported for such annotated formulas; ordinary visible projection remains
-available. See [annotation ownership](docs/decisions/0052-owned-formula-annotation-references.md).
-
-M2 core read acceptance is complete; [alpha.5 audit](docs/validation/alpha5-m2-acceptance.md)
-records behavior, resource limits, tests and remaining M4–M7/adapter scope.
+Distributed under the [MIT License](LICENSE). Third-party notices and source
+provenance are listed in [third_party](third_party).
