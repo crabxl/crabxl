@@ -43,15 +43,32 @@ pub(crate) struct Frame<'a> {
 }
 
 #[derive(Clone, Copy)]
-struct DefaultScope {
-    scope: Scope,
-    spreadsheet_uri: Option<&'static str>,
+enum DefaultScope {
+    Spreadsheet,
+    StrictSpreadsheet,
+    Relationships,
+    ContentTypes,
+    Drawing,
+    Other,
 }
 impl DefaultScope {
-    const OTHER: Self = Self {
-        scope: Scope::Other,
-        spreadsheet_uri: None,
-    };
+    const OTHER: Self = Self::Other;
+    fn scope(self) -> Scope {
+        match self {
+            Self::Spreadsheet | Self::StrictSpreadsheet => Scope::Spreadsheet,
+            Self::Relationships => Scope::Relationships,
+            Self::ContentTypes => Scope::ContentTypes,
+            Self::Drawing => Scope::Drawing,
+            Self::Other => Scope::Other,
+        }
+    }
+    fn spreadsheet_uri(self) -> Option<&'static str> {
+        match self {
+            Self::Spreadsheet => Some(MAIN_URI),
+            Self::StrictSpreadsheet => Some(STRICT_MAIN_URI),
+            _ => None,
+        }
+    }
 }
 struct NamespaceSnapshot {
     level: u16,
@@ -150,24 +167,22 @@ impl StreamNamespaces {
 }
 
 fn namespace_scope(namespace: ResolveResult<'_>) -> Result<DefaultScope> {
-    let (scope, spreadsheet_uri) = match namespace {
-        ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == MAIN => {
-            (Scope::Spreadsheet, Some(MAIN_URI))
-        }
+    let scope = match namespace {
+        ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == MAIN => DefaultScope::Spreadsheet,
         ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == STRICT_MAIN => {
-            (Scope::Spreadsheet, Some(STRICT_MAIN_URI))
+            DefaultScope::StrictSpreadsheet
         }
         ResolveResult::Bound(ns)
             if ns.as_ref().as_bytes()
                 == b"http://schemas.openxmlformats.org/package/2006/relationships" =>
         {
-            (Scope::Relationships, None)
+            DefaultScope::Relationships
         }
         ResolveResult::Bound(ns)
             if ns.as_ref().as_bytes()
                 == b"http://schemas.openxmlformats.org/package/2006/content-types" =>
         {
-            (Scope::ContentTypes, None)
+            DefaultScope::ContentTypes
         }
         ResolveResult::Bound(ns)
             if matches!(
@@ -176,7 +191,7 @@ fn namespace_scope(namespace: ResolveResult<'_>) -> Result<DefaultScope> {
                     | b"http://purl.oclc.org/ooxml/drawingml/main"
             ) =>
         {
-            (Scope::Drawing, None)
+            DefaultScope::Drawing
         }
         ResolveResult::Unknown(_) => {
             return Err(Error::new(
@@ -184,12 +199,9 @@ fn namespace_scope(namespace: ResolveResult<'_>) -> Result<DefaultScope> {
                 "Undeclared XML namespace prefix",
             ));
         }
-        _ => (Scope::Other, None),
+        _ => DefaultScope::Other,
     };
-    Ok(DefaultScope {
-        scope,
-        spreadsheet_uri,
-    })
+    Ok(scope)
 }
 
 #[derive(Debug)]
@@ -289,13 +301,12 @@ impl<B: BufRead> XmlStream<B> {
             let limited = matches!(&cause, quick_xml::Error::Io(e) if e.get_ref().is_some_and(|source| source.is::<BudgetExceeded>()));
             Error::caused_by(if limited { ErrorKind::LimitExceeded } else { ErrorKind::Xml }, "Cannot parse XML", cause).with_part(self.part.clone())
         })?;
-        let DefaultScope {
-            scope,
-            spreadsheet_uri,
-        } = self
+        let default = self
             .namespaces
             .event(&event)
             .map_err(|error| error.with_part(self.part.clone()))?;
+        let scope = default.scope();
+        let spreadsheet_uri = default.spreadsheet_uri();
         match &event {
             Event::Start(_) => {
                 if self.depth == 0 && self.root_seen {
