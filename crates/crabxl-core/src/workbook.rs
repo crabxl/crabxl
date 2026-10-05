@@ -227,6 +227,72 @@ impl Workbook {
         sheet.set_edit_limits(self.limits.sheet);
         self.insert(sheet, capacity)
     }
+    /// Transfer an already decoded worksheet into this bank without cloning cells.
+    /// Validates aggregate/per-sheet limits, naming and any initialized style
+    /// catalog before allocating a stable identity. On error this bank is unchanged;
+    /// the caller-owned incoming model is dropped.
+    pub fn adopt_sheet(&mut self, mut sheet: Worksheet) -> Result<SheetId> {
+        self.validate_name(sheet.name(), None)?;
+        self.validate_incoming(&sheet)?;
+        let capacity = self.next_capacity()?;
+        self.check(
+            capacity
+                .saturating_mul(SLOT_BYTES)
+                .saturating_add(self.model_bytes())
+                .saturating_add(sheet.charged_bytes()),
+            self.cell_count().saturating_add(sheet.len()),
+        )?;
+        sheet.set_edit_limits(self.limits.sheet);
+        self.insert(sheet, capacity)
+    }
+    /// Replace a registered model by ownership transfer while retaining its ID.
+    /// Useful for atomic lazy loading: decode into a separately bounded model,
+    /// then commit only after all source and aggregate checks have passed.
+    /// The incoming model must have the same name. The former model is returned
+    /// to the caller and no longer participates in this bank's retained allowance.
+    pub fn replace_sheet(&mut self, id: SheetId, mut sheet: Worksheet) -> Result<Worksheet> {
+        let index = self.index(id)?;
+        let old = &self.entries[index].sheet;
+        if old.name() != sheet.name() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Replacement worksheet must retain its registered name",
+            ));
+        }
+        self.validate_incoming(&sheet)?;
+        self.check(
+            self.charged_bytes()
+                .saturating_sub(old.charged_bytes())
+                .saturating_add(sheet.charged_bytes()),
+            self.cell_count()
+                .saturating_sub(old.len())
+                .saturating_add(sheet.len()),
+        )?;
+        sheet.set_edit_limits(self.limits.sheet);
+        Ok(std::mem::replace(&mut self.entries[index].sheet, sheet))
+    }
+    /// Remaining managed space for a separately decoded incoming worksheet.
+    /// Includes the existing models until replacement commits, so lazy decoding
+    /// cannot silently use the same allowance twice. Source catalogs and I/O
+    /// working storage must be reserved separately by the format coordinator.
+    pub fn remaining_bytes(&self) -> usize {
+        self.limits.max_bytes.saturating_sub(self.charged_bytes())
+    }
+    fn validate_incoming(&self, sheet: &Worksheet) -> Result<()> {
+        if sheet.charged_bytes() > self.limits.sheet.max_bytes
+            || sheet.len() > self.limits.sheet.max_cells
+        {
+            return Err(budget());
+        }
+        if let Some(styles) = &self.styles {
+            for row in sheet.row_indices() {
+                for cell in sheet.row_cells(row) {
+                    styles.catalog().cell_style(cell.style)?;
+                }
+            }
+        }
+        Ok(())
+    }
     /// Rename a sheet after uniqueness and aggregate budget validation.
     pub fn rename_sheet(&mut self, id: SheetId, name: impl Into<Box<str>>) -> Result<()> {
         let name = name.into();
