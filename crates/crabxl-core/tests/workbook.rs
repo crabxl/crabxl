@@ -180,6 +180,12 @@ fn decoded_models_transfer_without_clones_and_replace_stable_handles_atomically(
     assert_eq!(book.sheet_id("Loaded"), Some(placeholder));
     let bytes = book.charged_bytes();
     assert_eq!(book.remaining_bytes(), 1400 - bytes);
+    assert!(book.set_memory_allowance(bytes - 1).is_err());
+    assert_eq!(book.remaining_bytes(), 1400 - bytes);
+    book.set_memory_allowance(bytes).unwrap();
+    assert_eq!(book.remaining_bytes(), 0);
+    assert!(book.set_memory_allowance(0).is_err());
+    book.set_memory_allowance(1400).unwrap();
     let mut too_many = crabxl_core::Worksheet::new("Loaded", EditLimits::default()).unwrap();
     for row in 0..3 {
         too_many.set(cell(row, row.into())).unwrap();

@@ -32,7 +32,7 @@ pub struct Rows<'a, R: Read + Seek> {
     projected_metadata_cells: u64,
     row_payload_bytes: usize,
     shared_strings: Option<&'a mut crate::strings::SharedStrings>,
-    styles: Option<&'a crate::style_reader::ImportedStyles>,
+    styles: Option<crate::style_reader::StyleRead<'a>>,
     epoch: crabxl_core::DateEpoch,
     shared_formulas: crate::formula_codec::SharedFormulas,
     aggregate: Option<crate::aggregate::ReadPool>,
@@ -45,7 +45,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         limits: ResourceLimits,
         options: ReadOptions,
         shared_strings: Option<&'a mut crate::strings::SharedStrings>,
-        styles: Option<&'a crate::style_reader::ImportedStyles>,
+        styles: Option<crate::style_reader::StyleRead<'a>>,
         epoch: crabxl_core::DateEpoch,
     ) -> Result<Self> {
         if options.data_only
@@ -235,7 +235,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     /// Borrow the immutable prepared catalog while holding this row stream.
     /// Missing style parts retain the implicit General behavior of style zero.
     pub fn style_catalog(&self) -> Option<&crabxl_core::StyleCatalog> {
-        self.styles.map(|styles| &styles.catalog)
+        self.styles.map(|styles| styles.catalog)
     }
     /// Worksheet-local template storage and expansion work, separate from projected cells.
     pub fn shared_formula_stats(&self) -> crate::SharedFormulaStats {

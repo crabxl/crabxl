@@ -1,0 +1,158 @@
+{
+  "checkpoint": "A6 lazy canonical bank ownership; not M4 completion",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "method": "one warmup, three rotating serial release runs; native wait4 wall/CPU/peak RSS; build and generation excluded",
+  "comparison": "same current decoder and owned sparse cell type; bank transfers source styles and enforces joint resource accounting; standalone reproduces prior per-sheet native materialization; not Python or streaming performance",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 200000,
+      "checksum": 9999900000,
+      "file_bytes": 606757,
+      "sha256": "3e7c6e539fa5a6b1f83d1117429f780ff02975d7d938e30e123b5575a6b4d55f",
+      "samples": {
+        "bank": [
+          {
+            "seconds": 0.207838232,
+            "cpu_seconds": 0.207563,
+            "peak_rss_kib": 17564,
+            "managed_bytes": 51210508,
+            "sst_temp_bytes": 0
+          },
+          {
+            "seconds": 0.186321166,
+            "cpu_seconds": 0.186082,
+            "peak_rss_kib": 17624,
+            "managed_bytes": 51210508,
+            "sst_temp_bytes": 0
+          },
+          {
+            "seconds": 0.170181387,
+            "cpu_seconds": 0.169983,
+            "peak_rss_kib": 17600,
+            "managed_bytes": 51210508,
+            "sst_temp_bytes": 0
+          }
+        ],
+        "standalone": [
+          {
+            "seconds": 0.176768972,
+            "cpu_seconds": 0.176474,
+            "peak_rss_kib": 17628,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0
+          },
+          {
+            "seconds": 0.172123558,
+            "cpu_seconds": 0.17188,
+            "peak_rss_kib": 17564,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0
+          },
+          {
+            "seconds": 0.176914587,
+            "cpu_seconds": 0.176791,
+            "peak_rss_kib": 17564,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "bank": {
+          "seconds": 0.186321166,
+          "cpu_seconds": 0.186082,
+          "peak_rss_kib": 17600,
+          "managed_bytes": 51210508,
+          "sst_temp_bytes": 0
+        },
+        "standalone": {
+          "seconds": 0.176768972,
+          "cpu_seconds": 0.176474,
+          "peak_rss_kib": 17564,
+          "managed_bytes": 51205605,
+          "sst_temp_bytes": 0
+        }
+      }
+    },
+    {
+      "rows_per_sheet": 100000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 2000000,
+      "checksum": 999999000000,
+      "file_bytes": 5882341,
+      "sha256": "7c9a4471c3d743011320d3eefeb2540eb6b67cdc3081ad72d889735a87d1c0e1",
+      "samples": {
+        "bank": [
+          {
+            "seconds": 1.795002442,
+            "cpu_seconds": 1.794131,
+            "peak_rss_kib": 157628,
+            "managed_bytes": 512010508,
+            "sst_temp_bytes": 0
+          },
+          {
+            "seconds": 1.895885697,
+            "cpu_seconds": 1.894293,
+            "peak_rss_kib": 157716,
+            "managed_bytes": 512010508,
+            "sst_temp_bytes": 0
+          },
+          {
+            "seconds": 2.085735963,
+            "cpu_seconds": 2.085146,
+            "peak_rss_kib": 157644,
+            "managed_bytes": 512010508,
+            "sst_temp_bytes": 0
+          }
+        ],
+        "standalone": [
+          {
+            "seconds": 1.732207527,
+            "cpu_seconds": 1.731264,
+            "peak_rss_kib": 157596,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0
+          },
+          {
+            "seconds": 1.798335926,
+            "cpu_seconds": 1.796578,
+            "peak_rss_kib": 157596,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0
+          },
+          {
+            "seconds": 1.801537248,
+            "cpu_seconds": 1.7999,
+            "peak_rss_kib": 157596,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "bank": {
+          "seconds": 1.895885697,
+          "cpu_seconds": 1.894293,
+          "peak_rss_kib": 157644,
+          "managed_bytes": 512010508,
+          "sst_temp_bytes": 0
+        },
+        "standalone": {
+          "seconds": 1.798335926,
+          "cpu_seconds": 1.796578,
+          "peak_rss_kib": 157596,
+          "managed_bytes": 512005605,
+          "sst_temp_bytes": 0
+        }
+      }
+    }
+  ],
+  "binary_sha256": "7075777cae78b07e1435fa8bb27a8e0a3474b04f6608b8c5ad2d199920df1282",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592"
+}
