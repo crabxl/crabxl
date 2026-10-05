@@ -91,6 +91,54 @@ impl WorkbookReader<File> {
     }
 }
 impl<R: Read + Seek> WorkbookReader<R> {
+    /// Read bounded worksheet viewport metadata without materializing cells.
+    /// Stops at the views container or sheetData: the unconsumed payload and CRC
+    /// are not validated. Original-package save can validate every affected part.
+    pub fn sheet_views(&mut self, name: &str) -> Result<crabxl_core::SheetViews> {
+        self.sheet_views_with_allowance(name, usize::MAX)
+    }
+    pub(crate) fn sheet_views_with_allowance(
+        &mut self,
+        name: &str,
+        allowance: usize,
+    ) -> Result<crabxl_core::SheetViews> {
+        let info = self
+            .sheets
+            .iter()
+            .find(|sheet| sheet.name() == name)
+            .ok_or_else(|| {
+                Error::new(ErrorKind::SheetNotFound, "Worksheet view source not found")
+            })?;
+        if info.kind() != SheetKind::Worksheet {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Worksheet views require a cell worksheet",
+            ));
+        }
+        let part = info.part().to_owned();
+        let file = self.archive.by_name(&part).map_err(|error| {
+            Error::caused_by(
+                ErrorKind::Archive,
+                "Cannot open worksheet view source",
+                error,
+            )
+            .with_part(part.clone())
+        })?;
+        let maximum = usize::try_from(self.limits.max_metadata_bytes)
+            .unwrap_or(usize::MAX)
+            .min(allowance);
+        let bytes = file
+            .size()
+            .min(self.limits.max_metadata_bytes)
+            .min(self.limits.max_part_bytes);
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(self.limits.input_buffer_bytes, file),
+            part,
+            bytes,
+            self.limits,
+        );
+        crate::worksheet_view::read_header(&mut xml, maximum)
+    }
     /// Read package metadata from a seekable owned source with default limits.
     pub fn new(source: R) -> Result<Self> {
         Self::with_limits(source, ResourceLimits::default())

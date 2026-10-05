@@ -73,6 +73,7 @@ pub struct Worksheet {
     charged: usize,
     append_cursor: u32,
     dirty: bool,
+    views: Option<Box<crate::SheetViews>>,
 }
 impl Worksheet {
     /// Create an empty sheet with explicit managed-data/work allowances.
@@ -91,6 +92,7 @@ impl Worksheet {
             limits,
             append_cursor: 0,
             dirty: false,
+            views: None,
         })
     }
     /// Sheet display name. XLSX naming rules are checked by format writers.
@@ -134,9 +136,32 @@ impl Worksheet {
         for cell in self.cells.values() {
             copy.set(cell.clone())?;
         }
+        copy.set_sheet_views(self.views.as_deref().cloned())?;
         copy.append_cursor = self.append_cursor;
         copy.dirty = true;
         Ok(copy)
+    }
+    /// Optional explicit display settings; absent settings allocate nothing.
+    pub fn sheet_views(&self) -> Option<&crate::SheetViews> {
+        self.views.as_deref()
+    }
+    /// Replace display settings atomically within the sheet's retained allowance.
+    pub fn set_sheet_views(&mut self, views: Option<crate::SheetViews>) -> Result<()> {
+        if let Some(views) = &views {
+            views.validate()?;
+        }
+        let charged = self
+            .charged
+            .saturating_sub(self.view_bytes())
+            .saturating_add(views.as_ref().map_or(0, crate::SheetViews::memory_bytes));
+        self.check(charged, self.len())?;
+        self.views = views.map(Box::new);
+        self.charged = charged;
+        self.dirty = true;
+        Ok(())
+    }
+    fn view_bytes(&self) -> usize {
+        self.views.as_ref().map_or(0, |views| views.memory_bytes())
     }
     /// Number of physically present cells, including explicit Empty values.
     pub fn len(&self) -> usize {
@@ -520,7 +545,8 @@ impl Worksheet {
         Ok(())
     }
     fn recount(&mut self) {
-        self.charged = self.name.len() + self.cells.values().map(charge).sum::<usize>();
+        self.charged =
+            self.name.len() + self.view_bytes() + self.cells.values().map(charge).sum::<usize>();
     }
     fn work_allowance(&self, extra: usize) -> Result<()> {
         self.check(

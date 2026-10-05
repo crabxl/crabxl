@@ -361,8 +361,50 @@ impl WorkbookWriter {
     /// Start a sheet, completing the previous one. Failed validation or temporary
     /// file creation leaves the previous active sheet usable.
     pub fn start_sheet(&mut self, name: impl Into<String>) -> Result<()> {
+        self.start_sheet_with_header(name.into(), HEADER, 0)
+    }
+    /// Start a sheet with borrowed canonical viewport metadata. Validation and
+    /// bounded encoding precede any active-sheet closure or spool creation.
+    pub fn start_sheet_with_views(
+        &mut self,
+        name: impl Into<String>,
+        views: &crabxl_core::SheetViews,
+    ) -> Result<()> {
         self.ensure_open()?;
-        let name = name.into();
+        crate::worksheet_view::validate(views)?;
+        let maximum = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.style_memory_bytes())
+            .saturating_sub(self.catalog_bytes());
+        let mut header = RowBuffer {
+            data: Vec::new(),
+            maximum,
+        };
+        header
+            .write_all(&HEADER[..HEADER.len() - b"<sheetData>".len()])
+            .and_then(|()| crate::worksheet_view::write_views(&mut header, views, None))
+            .and_then(|()| header.write_all(b"<sheetData>"))
+            .map_err(|error| {
+                Error::caused_by(
+                    if error.kind() == io::ErrorKind::FileTooLarge {
+                        ErrorKind::LimitExceeded
+                    } else {
+                        ErrorKind::Io
+                    },
+                    "Cannot encode worksheet views within metadata allowance",
+                    error,
+                )
+            })?;
+        self.start_sheet_with_header(name.into(), &header.data, header.data.capacity())
+    }
+    fn start_sheet_with_header(
+        &mut self,
+        name: String,
+        header: &[u8],
+        scratch_bytes: usize,
+    ) -> Result<()> {
+        self.ensure_open()?;
         validate_sheet_name(&name)?;
         let count = self.sheets.len() + usize::from(self.active.is_some());
         if count >= self.options.max_sheets {
@@ -403,6 +445,7 @@ impl WorkbookWriter {
         if self
             .style_bytes()
             .saturating_add(existing)
+            .saturating_add(scratch_bytes)
             .saturating_add(name.capacity())
             .saturating_add(self.sheets.capacity() * size_of::<StoredSheet>())
             > self.options.max_metadata_bytes
@@ -419,6 +462,7 @@ impl WorkbookWriter {
         if self
             .style_bytes()
             .saturating_add(existing)
+            .saturating_add(scratch_bytes)
             .saturating_add(name.capacity())
             .saturating_add(file.path().as_os_str().len())
             .saturating_add(self.sheets.capacity() * size_of::<StoredSheet>())
@@ -432,8 +476,8 @@ impl WorkbookWriter {
         } else {
             0
         };
-        self.check_temp(HEADER.len() as u64 + old_footer + FOOTER.len() as u64)?;
-        if HEADER.len() as u64 + FOOTER.len() as u64 > self.options.max_sheet_bytes {
+        self.check_temp(header.len() as u64 + old_footer + FOOTER.len() as u64)?;
+        if header.len() as u64 + FOOTER.len() as u64 > self.options.max_sheet_bytes {
             return Err(limit("Writer sheet byte limit exceeded"));
         }
         self.close_sheet()?;
@@ -443,7 +487,7 @@ impl WorkbookWriter {
             bytes: 0,
             last_row: None,
         });
-        self.write_active(HEADER)?;
+        self.write_active(header)?;
         Ok(())
     }
     /// Write a complete sparse row. Validate/encode before spooling so invalid
@@ -455,7 +499,11 @@ impl WorkbookWriter {
     /// Style IDs must refer to this writer's registered formats. This creates a
     /// new sheet; it does not preserve parts of a loaded source package.
     pub fn write_worksheet(&mut self, sheet: &crabxl_core::Worksheet) -> Result<()> {
-        self.start_sheet(sheet.name())?;
+        if let Some(views) = sheet.sheet_views() {
+            self.start_sheet_with_views(sheet.name(), views)?;
+        } else {
+            self.start_sheet(sheet.name())?;
+        }
         let mut last = None;
         for index in sheet.row_indices() {
             self.write_cells(index, sheet.row_cells(index))?;

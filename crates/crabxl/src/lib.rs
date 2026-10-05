@@ -97,3 +97,5 @@ pub use crabxl_core::CellMetadataReadPolicy;
 pub use crabxl_core::{
     DifferentialStyle, TableStyle, TableStyleCatalog, TableStyleElement, TableStyleRegion,
 };
+
+pub use crabxl_core::{Pane, PanePosition, PaneState, Selection, SheetView, SheetViews, ViewMode};

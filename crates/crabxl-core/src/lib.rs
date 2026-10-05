@@ -79,3 +79,8 @@ pub use style_components::TableStyleRegion;
 pub use style_extras::{DifferentialStyle, TableStyle, TableStyleCatalog, TableStyleElement};
 
 pub use shared_formula_index::SharedFormulaIndex;
+
+mod worksheet_view;
+pub use worksheet_view::{
+    Pane, PanePosition, PaneState, Selection, SheetView, SheetViews, ViewMode,
+};
