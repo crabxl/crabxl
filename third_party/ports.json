@@ -227,7 +227,7 @@
       "changes": [
         "Retain delayed namespace popping and the authoritative NamespaceResolver while using Reader directly",
         "Cache semantic default namespace classification only at declaration-bearing ancestors; resolve prefixed elements and relationship attributes through the original resolver",
-        "Skip namespace attribute decoding on ordinary start elements without declarations; preserve resolver nesting, reserved-prefix checks, XML validation and byte/depth limits",
+        "Skip namespace attribute decoding on ordinary start elements without declarations; maintain checked element nesting separately and update resolver scopes only at declarations; retain reserved-prefix checks, XML validation and byte/depth limits",
         "Use fallible snapshot allocation and contextual typed errors; no worksheet materialization or new public model"
       ],
       "tests": "Existing streaming.rs prefixes_and_strict_spreadsheet_namespaces_work extended with default-scope restoration, prefix shadowing, undeclared prefixes and illegal namespace bindings; full workspace tests",
