@@ -51,7 +51,10 @@ Extra upstream features may be retained as extensions but do not replace baselin
 
 1. Pin upstream clones and license information. Fix the openpyxl release baseline and finish the detailed public-feature inventory.
 2. Inspect Rust source, APIs, and tests. Use openpyxl documentation and public behavior for architecture; narrowly review important MR diffs only within the user's exception.
-3. Evaluate additional sources such as umya-spreadsheet only for concrete parser/round-trip gaps; check licensing and memory behavior before selecting code.
+3. Use umya-spreadsheet as the primary source for editable/package and M5/M6
+   feature ports. Check actual behavior, licensing and memory ownership before
+   selecting coherent modules. Keep calamine and rust_xlsxwriter as secondary
+   algorithm sources and explicit read/write performance competitors.
 4. Establish the workspace, MSRV/edition, shared values/styles/errors/addresses/limits, and documented API conventions.
 5. Record ZIP ownership, reusable calamine cells_reader logic, and constant-memory writer restrictions in short architecture decisions.
 

@@ -98,6 +98,22 @@ verify typed reading, creation, or editing.
   temporary bytes/cleanup, and actual output checks. A8 is not a reason to defer
   resource accounting or introduce unmeasured regressions in A7.
 
+## Current source and performance priority
+
+The user selected umya-spreadsheet as the primary port source for remaining
+editable/package and M5/M6 work. Use its existing feature implementations before
+reimplementing them, with pinned provenance, shared core identities and verified
+read/create/edit/preserve semantics. Calamine and rust_xlsxwriter remain secondary
+sources and required performance references. Do not introduce a second core or
+copy full-sheet XML buffering into bounded streaming routes.
+
+Read/write speed and RAM optimization are an immediate priority during A7, not
+work to defer automatically until A8. Establish mode-specific comparisons with
+all four Rust engines, profile measured costs and verify each optimization's
+outputs, failure behavior, RSS and temporary storage. Feature breadth is not
+evidence of acceptable speed. A8 remains the dedicated backlog release; release
+numbers and staged feature gates stay unchanged.
+
 ## A8: Performance backlog
 
 Start from the published A7 revision. Record specific measured problems and their
@@ -107,7 +123,7 @@ processing and Python calls; it is not limited to compression or one fixture.
 Investigate the calamine read-speed gap, XML/value parsing and allocation, SST
 lookup/cache/spill behavior, style/formula preparation, sparse mutation, repeated
 saving, compressor throughput, and Python/native conversion and call frequency.
-Add the missing direct rust_xlsxwriter comparison. Compare ordinary, streaming,
+Include direct rust_xlsxwriter and umya-spreadsheet comparisons. Compare ordinary, streaming,
 and editable modes separately using equivalent supported behavior.
 
 Use pinned reference versions, warmups, alternating repeated release runs, and

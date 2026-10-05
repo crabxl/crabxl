@@ -23,8 +23,16 @@ Initial inspection covered README, package metadata, licenses, and module names.
 
 For each port record project URL, commit, source file/symbols, destination modules, chosen license, original notices, semantic changes, source tests, and feature inventory entries. Preserve copyright/license notices in distributed source or accompanying notices; this URL list alone is insufficient.
 
-## Additional candidates
+## Current primary source and additional candidates
 
-- umya-spreadsheet: cloned and pinned for selected rich run/font/color layouts. Rich metadata codecs use shared core models, bounded parsing and disk placement; additional existing-file feature modules remain candidates.
+- umya-spreadsheet is the user-selected primary source for remaining editable,
+  package and M5/M6 ports. Existing rich/style ports retain their original
+  `1bcf4d0` provenance. New source assessment pins stable 3.1.0 tag commit
+  `aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b`; benchmarks use exact crates.io
+  `=3.1.0`, whose MSRV is 1.88. The current development checkout inspected at
+  `baca6c37361975315d4424fab8160b4e04453770` declares 3.1.1 and MSRV 1.89;
+  it is not an assumed stable release. Record each new port's actual revision.
+  Rich metadata uses shared core models, bounded parsing and disk placement;
+  importing its complete engine is not implied by the source priority.
 - zip, quick-xml, date utilities, tempfile: normal foundational dependency candidates.
 - openpyxl: feature and interoperability reference, with architecture based on docs/module names. Important pending MR diffs were reviewed within the user's limited exception; see [review](openpyxl-mr-review.md) and pinned snapshots.

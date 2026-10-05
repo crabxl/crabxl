@@ -1,0 +1,17 @@
+[package]
+name = "editable-core-comparison"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[workspace]
+
+[dependencies]
+calamine = "=0.36.1"
+crabxl = { path = "../../crates/crabxl" }
+rust_xlsxwriter = { version = "=0.99.1", features = ["constant_memory"] }
+umya-spreadsheet = "=3.1.0"
+
+[profile.release]
+lto = "thin"
