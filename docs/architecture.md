@@ -38,6 +38,11 @@ IDs without decoding cells; see [ADR 0069](decisions/0069-lazy-source-sheet-rena
 Renamed lazy models hydrate with their current display title while retaining
 original part identity, value overlays and unrelated package content.
 
+Loaded display order uses a bounded source-index permutation and original sheet
+declaration cache, with atomic bank/package updates and deferred active-index
+semantics; see [ADR 0070](decisions/0070-source-sheet-display-order.md).
+Affected local defined-name owner graphs remain an explicit M5 dependency.
+
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).

@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--visibility", action="store_true", help="Also verify lazy visibility/active normalization/save/reload")
     parser.add_argument("--deferred", action="store_true", help="Also verify a signed relative view/save/reload")
     parser.add_argument("--rename-only", action="store_true", help="Verify lazy rename/active selection/save/reload")
+    parser.add_argument("--reorder-only", action="store_true", help="Verify lazy reorder/rename/active/save/reload")
     args = parser.parse_args()
     report = {
         "checkpoint": args.checkpoint,
@@ -60,6 +61,8 @@ def main():
             modes.append("bank-deferred")
         if args.rename_only:
             modes = ["bank-rename"]
+        if args.reorder_only:
+            modes = ["bank-reorder"]
         samples = {mode: [] for mode in modes}
         for repeat in range(4):
             order = modes[repeat % len(modes):] + modes[:repeat % len(modes)]
@@ -67,13 +70,13 @@ def main():
                 temporary = tempfile.TemporaryDirectory(prefix="crabxl-loaded-workflow-")
                 target = Path(temporary.name) / "output.xlsx"
                 command = [EXAMPLES / "loaded_rows", path, mode]
-                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred", "bank-rename"]:
+                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred", "bank-rename", "bank-reorder"]:
                     command.append(target)
                 output, measured = measure(command, target.parent)
                 assert all(output[key] == value for key, value in expected.items()), output
                 assert output["sst_temp_bytes"] == 0
-                assert output["materialized_cells"] == (0 if mode in ["bank-active", "bank-visibility", "bank-deferred", "bank-rename"] else expected["cells"] + (10 if mode == "bank-append" else 0))
-                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred", "bank-rename"]:
+                assert output["materialized_cells"] == (0 if mode in ["bank-active", "bank-visibility", "bank-deferred", "bank-rename", "bank-reorder"] else expected["cells"] + (10 if mode == "bank-append" else 0))
+                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred", "bank-rename", "bank-reorder"]:
                     assert output["verified_edit"] and output["output_bytes"] == target.stat().st_size
                     target.unlink()
                 assert not list(target.parent.iterdir())

@@ -193,14 +193,48 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.editor.commit_name(index, patch_name, planned);
         self.rebalance()
     }
+    /// Reorder a source sheet to a zero-based display position without decoding
+    /// cells. Retain the active display index, matching public reference behavior.
+    /// Affected local defined-name/catalog graphs reject before mutation.
+    pub fn move_sheet(&mut self, id: SheetId, position: usize) -> Result<()> {
+        let index = self
+            .sheets
+            .iter()
+            .position(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        let current = self
+            .bank
+            .sheets()
+            .position(|(sheet, _)| sheet == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        if current == position {
+            return Ok(());
+        }
+        self.rebalance()?;
+        let maximum = self
+            .allowance
+            .retained_data_bytes
+            .min(self.options.workbook.max_bytes);
+        let plan = self.editor.prepare_order(
+            index,
+            position,
+            maximum.saturating_sub(self.managed_retained_bytes()),
+        )?;
+        self.reserve_workbook_patch(plan.bytes.saturating_add(plan.scratch_bytes))?;
+        let view = plan.view_index;
+        self.bank.move_sheet(id, position)?;
+        self.bank.set_active_view_index(view);
+        self.editor.commit_order(plan);
+        self.rebalance()
+    }
     /// Select a visible original sheet by stable identity without materializing
     /// its cells. Signed/unsupported metadata and resource failures reject before
     /// changing the bank or its pending original-package view.
     pub fn set_active_sheet(&mut self, id: SheetId) -> Result<()> {
         let index = self
-            .sheets
-            .iter()
-            .position(|sheet| sheet.id == id)
+            .bank
+            .sheets()
+            .position(|(sheet, _)| sheet == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
         let planned = self.editor.prepare_active(index)?;
         self.reserve_workbook_patch(planned)?;
