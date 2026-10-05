@@ -453,7 +453,7 @@ fn strict_printing_retains_namespace_context_and_other_source_properties() {
 }
 
 #[test]
-fn shrinking_replacements_budget_source_validation_against_live_overlays() {
+fn validated_shrinking_replacements_do_not_reparse_source_under_live_overlays() {
     let mut original = PrintSettings::default();
     original.setup.paper_height =
         Some(PaperDimension::parse(&format!("1in{}", "x".repeat(400))).unwrap());
@@ -491,28 +491,199 @@ fn shrinking_replacements_budget_source_validation_against_live_overlays() {
         .set_sheet_views("Sheet", SheetViews::default())
         .unwrap();
     let before = editor.patch_bytes();
+    editor
+        .set_print_settings("Sheet", PrintSettings::default())
+        .unwrap();
+    assert_eq!(editor.patch_bytes(), before - 1003);
     assert_eq!(
-        editor
-            .set_print_settings("Sheet", PrintSettings::default())
-            .unwrap_err()
-            .kind(),
-        ErrorKind::MemoryBudgetExceeded
-    );
-    assert_eq!(editor.patch_bytes(), before);
-    assert_eq!(
-        editor
-            .pending_print_settings("Sheet")
-            .unwrap()
-            .setup
-            .paper_height
-            .as_ref()
-            .unwrap()
-            .as_str()
-            .len(),
-        1003
+        editor.pending_print_settings("Sheet"),
+        Some(&PrintSettings::default())
     );
     editor.clear_edits();
     editor
         .set_print_settings("Sheet", PrintSettings::default())
         .unwrap();
+}
+
+#[test]
+fn printing_component_updates_reuse_source_validation_and_preserve_vector_ownership() {
+    use crabxl_core::{PageSetup, PrintOptions, PrintSettingsChange};
+    use std::{
+        cell::Cell as Counter,
+        io::{self, Seek, SeekFrom},
+        rc::Rc,
+    };
+    struct Counted {
+        inner: Cursor<Vec<u8>>,
+        reads: Rc<Counter<usize>>,
+    }
+    impl Read for Counted {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            let count = self.inner.read(buffer)?;
+            self.reads.set(self.reads.get() + count);
+            Ok(count)
+        }
+    }
+    impl Seek for Counted {
+        fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
+            self.inner.seek(position)
+        }
+    }
+    let reads = Rc::new(Counter::new(0));
+    let source = settings();
+    let mut editor = WorkbookEditor::new(Counted {
+        inner: Cursor::new(fixture(Some(&source))),
+        reads: reads.clone(),
+    })
+    .unwrap();
+    editor
+        .update_print_settings(
+            "Sheet",
+            PrintSettingsChange::Options(PrintOptions {
+                headings: Some(false),
+                ..source.options
+            }),
+        )
+        .unwrap();
+    let pointer = editor
+        .pending_print_settings("Sheet")
+        .unwrap()
+        .row_breaks
+        .as_ptr();
+    let charge = editor.patch_bytes();
+    reads.set(0);
+    editor
+        .update_print_settings(
+            "Sheet",
+            PrintSettingsChange::Margins(Some(PageMargins {
+                left: 0.1,
+                ..source.margins.unwrap()
+            })),
+        )
+        .unwrap();
+    editor
+        .update_print_settings(
+            "Sheet",
+            PrintSettingsChange::Properties {
+                auto_page_breaks: Some(true),
+                fit_to_page: Some(false),
+            },
+        )
+        .unwrap();
+    assert_eq!(reads.get(), 0);
+    assert_eq!(editor.patch_bytes(), charge);
+    assert_eq!(
+        editor
+            .pending_print_settings("Sheet")
+            .unwrap()
+            .row_breaks
+            .as_ptr(),
+        pointer
+    );
+    let before = editor.pending_print_settings("Sheet").unwrap().clone();
+    let error = editor
+        .update_print_settings(
+            "Sheet",
+            PrintSettingsChange::Setup(PageSetup {
+                printer_relationship: Some("new-printer".into()),
+                ..PageSetup::default()
+            }),
+        )
+        .unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert!(
+        editor
+            .update_print_settings(
+                "Sheet",
+                PrintSettingsChange::Margins(Some(PageMargins {
+                    left: f64::NAN,
+                    ..PageMargins::default()
+                }))
+            )
+            .is_err()
+    );
+    assert_eq!(editor.pending_print_settings("Sheet"), Some(&before));
+    assert_eq!(editor.patch_bytes(), charge);
+    assert_eq!(reads.get(), 0);
+    editor.set_print_settings("Sheet", before.clone()).unwrap();
+    assert_eq!(reads.get(), 0);
+    for _ in 0..2 {
+        let out = editor
+            .save(Cursor::new(Vec::new()), SaveOptions::default())
+            .unwrap()
+            .0
+            .into_inner();
+        let loaded = WorkbookReader::new(Cursor::new(out))
+            .unwrap()
+            .print_settings("Sheet")
+            .unwrap();
+        assert_eq!(loaded, before);
+    }
+    editor.clear_edits();
+    reads.set(0);
+    editor
+        .update_print_settings("Sheet", PrintSettingsChange::ColumnBreaks(Vec::new()))
+        .unwrap();
+    assert!(reads.get() > 0);
+    assert!(
+        editor
+            .pending_print_settings("Sheet")
+            .unwrap()
+            .column_breaks
+            .is_empty()
+    );
+}
+
+#[test]
+fn component_update_failures_preserve_patch_budget_and_validate_xml_before_source_reads() {
+    use crabxl_core::{PageSetup, PrintOptions, PrintSettingsChange};
+    let source = fixture(Some(&settings()));
+    let mut editor = WorkbookEditor::with_options(
+        Cursor::new(source),
+        EditorOptions {
+            max_patch_bytes: 2500,
+            ..EditorOptions::default()
+        },
+    )
+    .unwrap();
+    editor
+        .update_print_settings(
+            "Sheet",
+            PrintSettingsChange::Options(PrintOptions::default()),
+        )
+        .unwrap();
+    let before = editor.pending_print_settings("Sheet").unwrap().clone();
+    let charge = editor.patch_bytes();
+    assert_eq!(
+        editor
+            .update_print_settings(
+                "Sheet",
+                PrintSettingsChange::RowBreaks(vec![PageBreak::default(); 100])
+            )
+            .unwrap_err()
+            .kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    assert_eq!(
+        editor
+            .update_print_settings(
+                "Sheet",
+                PrintSettingsChange::Setup(PageSetup {
+                    paper_width: Some(PaperDimension::parse("1in\0").unwrap()),
+                    ..PageSetup::default()
+                })
+            )
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+    assert_eq!(editor.pending_print_settings("Sheet"), Some(&before));
+    assert_eq!(editor.patch_bytes(), charge);
+    editor.clear_edits();
+    assert!(
+        editor
+            .update_print_settings("Missing", PrintSettingsChange::RowBreaks(Vec::new()))
+            .is_err()
+    );
+    assert!(!editor.is_dirty());
 }

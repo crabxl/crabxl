@@ -722,3 +722,71 @@ fn printing_metadata_copy_recounts_and_failed_replacement_preserve_aggregate_cha
     );
     assert_eq!(limited.charged_bytes(), before);
 }
+
+#[test]
+fn printing_component_updates_share_aggregate_budget_and_preserve_unrelated_vectors() {
+    use crabxl_core::{PageBreak, PageMargins, PrintOptions, PrintSettingsChange};
+    let mut book = Workbook::new(WorkbookLimits {
+        max_bytes: 4096,
+        ..WorkbookLimits::default()
+    })
+    .unwrap();
+    let id = book.create_sheet("Sheet").unwrap();
+    let other = book.create_sheet("Other").unwrap();
+    book.sheet_mut(other)
+        .unwrap()
+        .update_print_settings(PrintSettingsChange::Options(PrintOptions::default()))
+        .unwrap();
+    let before = book.charged_bytes();
+    assert!(
+        book.sheet_mut(id)
+            .unwrap()
+            .update_print_settings(PrintSettingsChange::RowBreaks(vec![
+                PageBreak::default();
+                100
+            ]))
+            .is_err()
+    );
+    assert_eq!(book.charged_bytes(), before);
+    assert!(book.sheet(id).unwrap().print_settings().is_none());
+    book.sheet_mut(id)
+        .unwrap()
+        .update_print_settings(PrintSettingsChange::RowBreaks(vec![
+            PageBreak::default();
+            2
+        ]))
+        .unwrap();
+    let pointer = book
+        .sheet(id)
+        .unwrap()
+        .print_settings()
+        .unwrap()
+        .row_breaks
+        .as_ptr();
+    let before = book.charged_bytes();
+    book.sheet_mut(id)
+        .unwrap()
+        .update_print_settings(PrintSettingsChange::Margins(Some(PageMargins {
+            left: 0.25,
+            ..PageMargins::default()
+        })))
+        .unwrap();
+    assert_eq!(book.charged_bytes(), before);
+    assert_eq!(
+        book.sheet(id)
+            .unwrap()
+            .print_settings()
+            .unwrap()
+            .row_breaks
+            .as_ptr(),
+        pointer
+    );
+    assert!(
+        book.sheet(other)
+            .unwrap()
+            .print_settings()
+            .unwrap()
+            .row_breaks
+            .is_empty()
+    );
+}

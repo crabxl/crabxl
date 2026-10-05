@@ -24,15 +24,20 @@ fn unsupported() -> Error {
 
 pub(crate) fn validate(settings: &PrintSettings) -> Result<()> {
     settings.validate()?;
-    for value in settings
-        .setup
-        .paper_height
-        .iter()
-        .chain(settings.setup.paper_width.iter())
-    {
+    validate_setup(&settings.setup)
+}
+pub(crate) fn validate_change(change: &crabxl_core::PrintSettingsChange) -> Result<()> {
+    change.validate()?;
+    if let crabxl_core::PrintSettingsChange::Setup(setup) = change {
+        validate_setup(setup)?;
+    }
+    Ok(())
+}
+fn validate_setup(setup: &crabxl_core::PageSetup) -> Result<()> {
+    for value in setup.paper_height.iter().chain(setup.paper_width.iter()) {
         validate_xml_text(value.as_str())?;
     }
-    if let Some(id) = &settings.setup.printer_relationship {
+    if let Some(id) = &setup.printer_relationship {
         validate_xml_text(id)?;
     }
     Ok(())

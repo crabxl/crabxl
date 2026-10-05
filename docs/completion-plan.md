@@ -110,6 +110,8 @@ M4 acceptance: unchanged and edited XLSX/XLSM/XLTX/XLTM workflows, repeated save
 
 ## M5: Common feature families
 
+Checkpoint: printing component replacements move owned payloads under joint limits and reuse validated original metadata, avoiding unrelated break clones and repeated source scans (ADR 0045). Read/create/edit scope remains that of ADR 0043; printer graphs, print names, header/footer edits and Python proxies stay open.
+
 Checkpoint: selected rust_xlsxwriter printing/page-break layout is integrated into canonical PrintSettings/PageMargins/PageSetup/PageBreak models (ADR 0043), covering typed print flags, paper/scaling fields, pageSetUpPr and sparse breaks. Readers scan through worksheet EOF/CRC without cell materialization; bounded footer codecs reserve actual footer bytes, and repeatable overlays retain unrelated properties/header-footer/printer data. New/changed printer graphs, print areas/titles, header/footer creation/editing and protection remain open. This does not complete M5.7 or M5.
 
 

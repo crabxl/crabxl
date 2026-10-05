@@ -236,12 +236,87 @@ impl Default for PrintSettings {
         }
     }
 }
+/// An owned replacement of one printing component, leaving unrelated vectors in place.
+/// Incoming payloads are moved on success and dropped on failure; existing data is retained.
+#[derive(Debug)]
+pub enum PrintSettingsChange {
+    /// Replace or omit all six margins.
+    Margins(Option<PageMargins>),
+    /// Replace the print flags.
+    Options(PrintOptions),
+    /// Replace the paper/scaling component, including literal printer identity.
+    Setup(PageSetup),
+    /// Replace both pageSetUpPr flags.
+    Properties {
+        /// Automatic page breaks.
+        auto_page_breaks: Option<bool>,
+        /// Fit to page.
+        fit_to_page: Option<bool>,
+    },
+    /// Transfer a replacement horizontal-break vector without cloning it.
+    RowBreaks(Vec<PageBreak>),
+    /// Transfer a replacement vertical-break vector without cloning it.
+    ColumnBreaks(Vec<PageBreak>),
+}
+impl PrintSettingsChange {
+    /// Check canonical invariants without cloning or visiting unrelated components.
+    pub fn validate(&self) -> Result<()> {
+        if let Self::Margins(Some(margins)) = self {
+            margins.validate()?;
+        }
+        Ok(())
+    }
+}
 impl PrintSettings {
     /// Fixed model, actual break vector capacities and string payloads.
     pub fn memory_bytes(&self) -> usize {
         size_of::<Self>()
             + self.setup.heap_bytes()
             + (self.row_breaks.capacity() + self.column_breaks.capacity()) * size_of::<PageBreak>()
+    }
+    /// Prospective fixed model and payload bytes after one component replacement.
+    /// Actual vector capacities are charged; unrelated vectors are not traversed.
+    pub fn memory_bytes_after(&self, change: &PrintSettingsChange) -> usize {
+        let (old, new) = match change {
+            PrintSettingsChange::Setup(setup) => (self.setup.heap_bytes(), setup.heap_bytes()),
+            PrintSettingsChange::RowBreaks(breaks) => (
+                self.row_breaks.capacity() * size_of::<PageBreak>(),
+                breaks.capacity() * size_of::<PageBreak>(),
+            ),
+            PrintSettingsChange::ColumnBreaks(breaks) => (
+                self.column_breaks.capacity() * size_of::<PageBreak>(),
+                breaks.capacity() * size_of::<PageBreak>(),
+            ),
+            _ => (0, 0),
+        };
+        self.memory_bytes().saturating_sub(old).saturating_add(new)
+    }
+    /// Atomically validate/admit one component, then move it into the model.
+    /// Failure leaves every existing component and capacity unchanged.
+    /// Codec-specific XML and package-relationship rules belong to XLSX.
+    pub fn update(&mut self, change: PrintSettingsChange, maximum_bytes: usize) -> Result<()> {
+        change.validate()?;
+        if self.memory_bytes_after(&change) > maximum_bytes {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Printing model allowance exceeded",
+            ));
+        }
+        match change {
+            PrintSettingsChange::Margins(margins) => self.margins = margins,
+            PrintSettingsChange::Options(options) => self.options = options,
+            PrintSettingsChange::Setup(setup) => self.setup = setup,
+            PrintSettingsChange::Properties {
+                auto_page_breaks,
+                fit_to_page,
+            } => {
+                self.auto_page_breaks = auto_page_breaks;
+                self.fit_to_page = fit_to_page;
+            }
+            PrintSettingsChange::RowBreaks(breaks) => self.row_breaks = breaks,
+            PrintSettingsChange::ColumnBreaks(breaks) => self.column_breaks = breaks,
+        }
+        Ok(())
     }
     /// Validate canonical numeric invariants; XLSX validates XML/relationships.
     pub fn validate(&self) -> Result<()> {
@@ -296,5 +371,76 @@ mod tests {
                 .is_err()
             );
         }
+    }
+    #[test]
+    fn component_updates_move_vectors_and_fail_without_mutating_existing_state() {
+        let mut settings = PrintSettings {
+            row_breaks: vec![PageBreak::default(); 1000],
+            ..PrintSettings::default()
+        };
+        let pointer = settings.row_breaks.as_ptr();
+        let bytes = settings.memory_bytes();
+        settings
+            .update(
+                PrintSettingsChange::Options(PrintOptions {
+                    headings: Some(true),
+                    ..PrintOptions::default()
+                }),
+                bytes,
+            )
+            .unwrap();
+        assert_eq!(settings.row_breaks.as_ptr(), pointer);
+        assert_eq!(settings.memory_bytes(), bytes);
+        let before = settings.clone();
+        assert!(
+            settings
+                .update(
+                    PrintSettingsChange::Margins(Some(PageMargins {
+                        left: f64::NAN,
+                        ..PageMargins::default()
+                    })),
+                    bytes
+                )
+                .is_err()
+        );
+        assert_eq!(settings, before);
+        assert!(
+            settings
+                .update(
+                    PrintSettingsChange::ColumnBreaks(vec![PageBreak::default(); 20]),
+                    bytes
+                )
+                .is_err()
+        );
+        assert_eq!(settings, before);
+        let replacement = vec![PageBreak::default(); 10];
+        let replacement_pointer = replacement.as_ptr();
+        let change = PrintSettingsChange::RowBreaks(replacement);
+        let next = settings.memory_bytes_after(&change);
+        settings.update(change, next).unwrap();
+        assert_eq!(settings.row_breaks.as_ptr(), replacement_pointer);
+        assert_eq!(settings.memory_bytes(), next);
+        settings
+            .update(
+                PrintSettingsChange::Properties {
+                    auto_page_breaks: Some(false),
+                    fit_to_page: None,
+                },
+                next,
+            )
+            .unwrap();
+        settings
+            .update(PrintSettingsChange::Margins(None), next)
+            .unwrap();
+        let setup = PageSetup {
+            paper_width: Some(PaperDimension::parse("2in tail").unwrap()),
+            ..PageSetup::default()
+        };
+        let change = PrintSettingsChange::Setup(setup);
+        let next = settings.memory_bytes_after(&change);
+        settings.update(change, next).unwrap();
+        assert_eq!(settings.memory_bytes(), next);
+        assert_eq!(settings.auto_page_breaks, Some(false));
+        assert!(settings.margins.is_none());
     }
 }

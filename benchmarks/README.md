@@ -87,3 +87,5 @@ Worksheet viewport metadata: [M5 worksheet views](m5-worksheet-views.md) records
 Printing metadata: [M5 printing](m5-printing.md) records the selected rust_xlsxwriter port, public margins/options/setup/page-property/break verification, full-source bounded reading, retained printer identity, footer/overlay memory, temporary storage and unconfigured numeric regression. Views/printing share the serial worksheet-feature harness; earlier evidence retains its recorded revision and samples.
 
 Mounted Linux controller discovery: [M2 cgroup checkpoint](m2-cgroup-discovery.md) verifies v1/v2/hybrid mount resolution and records numeric Auto current/prior modes, counts, checksums, RSS, temporary bytes and public reference overlap. Non-Linux native probes and complete M2 acceptance remain open.
+
+Printing component updates: [M5 update checkpoint](m5-printing-updates.md) measures reusable source validation and component moves against identical prior/current snapshot workers and public openpyxl property/save calls, including large unrelated break lists, ownership counters, RSS and temporary bytes.

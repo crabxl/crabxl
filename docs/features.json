@@ -17462,7 +17462,7 @@
     },
     {
       "id": "worksheet.printing-settings",
-      "description": "Canonical printing options/margins/page setup/properties and sparse row/column page breaks",
+      "description": "Canonical printing options/margins/page setup/properties and sparse row/column page breaks; budgeted component moves and reusable source validation",
       "status": "verified",
       "milestone": "M5",
       "capabilities": {
@@ -17484,9 +17484,12 @@
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/printing.rs",
-        "benchmarks/printing_checkpoint.py"
+        "benchmarks/printing_checkpoint.py",
+        "printing_component_updates_reuse_source_validation_and_preserve_vector_ownership",
+        "component_update_failures_preserve_patch_budget_and_validate_xml_before_source_reads",
+        "printing_component_updates_share_aggregate_budget_and_preserve_unrelated_vectors"
       ],
-      "limitations": "Typed margins/options/page setup/pageSetUpPr and sparse row/column breaks; i64 integer fields, finite margins, baseline paper prefix spelling. Source read scans full worksheet through EOF/CRC without loading cells. Original printer IDs/binaries/relationships are retained; new/changed printer relationships require the later graph. Existing dangling printer relationships are not repaired. Header/footer creation/editing, names-based print areas/titles and protection remain open. Invalid-schema descriptor coercions and integers outside i64 are not complete."
+      "limitations": "Typed margins/options/page setup/pageSetUpPr and sparse row/column breaks; i64 integer fields, finite margins, baseline paper prefix spelling. Source read scans full worksheet through EOF/CRC without loading cells. Original printer IDs/binaries/relationships are retained; new/changed printer relationships require the later graph. Existing dangling printer relationships are not repaired. Header/footer creation/editing, names-based print areas/titles and protection remain open. Invalid-schema descriptor coercions and integers outside i64 are not complete. ADR 0045 adds component updates and source-validation reuse; incoming caller payloads are additional, and source getters remain distinct from pending overlays."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."
