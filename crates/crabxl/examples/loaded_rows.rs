@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let (managed, temp) = if matches!(
         mode.as_str(),
-        "bank-active" | "bank-visibility" | "bank-deferred"
+        "bank-active" | "bank-visibility" | "bank-deferred" | "bank-rename"
     ) {
         let mut workbook = LoadedWorkbook::with_options(File::open(path)?, LoadOptions::default())?;
         let id = workbook
@@ -48,6 +48,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             workbook.set_active_sheet(id)?;
         }
+        let renamed = "Renamed<&\" \u{65b0}";
+        if mode == "bank-rename" {
+            workbook.rename_sheet(id, renamed)?;
+        }
         let target = output.as_ref().ok_or("Active mode requires output path")?;
         workbook.save_path(target, crabxl::SaveOptions::default())?;
         output_bytes = std::fs::metadata(target)?.len();
@@ -58,6 +62,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut saved = WorkbookReader::open(target)?;
         if saved.active_index() != Some(1) {
             return Err("Saved active selection mismatch".into());
+        }
+        if mode == "bank-rename" && saved.sheets()[1].name() != renamed {
+            return Err("Saved sheet name mismatch".into());
         }
         if mode == "bank-visibility"
             && saved.sheets()[0].visibility() != crabxl::SheetVisibility::Hidden

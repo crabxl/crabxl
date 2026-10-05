@@ -170,6 +170,29 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .find(|sheet| sheet.id == id)
             .map(|sheet| sheet.kind)
     }
+    /// Rename a stable source-backed identity without decoding cells or changing
+    /// its original part. Catalog/model changes share one preflight allowance.
+    /// Existing formula and defined-name expressions are not rewritten.
+    pub fn rename_sheet(&mut self, id: SheetId, name: impl Into<Box<str>>) -> Result<()> {
+        let index = self
+            .sheets
+            .iter()
+            .position(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        let name = name.into();
+        if self.bank.sheet(id)?.name() == name.as_ref() {
+            return Ok(());
+        }
+        let planned = self.editor.prepare_name(index, &name)?;
+        self.reserve_workbook_patch(planned)?;
+        let patch_name = name.clone();
+        if let Err(error) = self.bank.rename_sheet(id, name) {
+            self.rebalance()?;
+            return Err(error);
+        }
+        self.editor.commit_name(index, patch_name, planned);
+        self.rebalance()
+    }
     /// Select a visible original sheet by stable identity without materializing
     /// its cells. Signed/unsupported metadata and resource failures reject before
     /// changing the bank or its pending original-package view.
@@ -543,7 +566,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 .min(self.options.workbook.sheet.max_bytes);
             let name = self.sheets[index].name.as_ref();
             let mut incoming = Worksheet::new(
-                name,
+                self.bank.sheet(id)?.name(),
                 EditLimits {
                     max_bytes: temporary_limit,
                     max_cells: self.options.workbook.sheet.max_cells.min(

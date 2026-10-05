@@ -33,6 +33,11 @@ without scanning preceding cells; see
 [ADR 0068](decisions/0068-binary-sparse-row-boundaries.md) and
 [public-core row measurements](../benchmarks/alpha7-row-cursor.md).
 
+Source-backed title changes preserve immutable source selectors and stable bank
+IDs without decoding cells; see [ADR 0069](decisions/0069-lazy-source-sheet-renaming.md).
+Renamed lazy models hydrate with their current display title while retaining
+original part identity, value overlays and unrelated package content.
+
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).
