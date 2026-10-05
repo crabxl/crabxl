@@ -314,6 +314,7 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         "multiple",
         "extension",
         "strict",
+        "prefixed",
         "custom-part",
     ] {
         let mut input = original.clone();
@@ -325,6 +326,15 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
             "empty" => book.replace(views, "<bookViews/>"),
             "multiple" => book.replace(views, "<bookViews><workbookView activeTab=\"0\" showHorizontalScroll=\"0\"/><workbookView activeTab=\"0\" windowWidth=\"123\"/></bookViews>"),
             "extension" => book.replace("</workbook>", "<extLst><sheet name=\"OpaqueSheet\"/></extLst></workbook>"),
+            "prefixed" => {
+                let mut xml = book.replace("xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"",
+                    "xmlns:w=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"");
+                for tag in ["workbook", "bookViews", "workbookView", "sheets", "sheet"] {
+                    xml = xml.replace(&format!("<{tag}"), &format!("<w:{tag}"))
+                        .replace(&format!("</{tag}"), &format!("</w:{tag}"));
+                }
+                xml
+            },
             _ => book,
         };
         input.insert("xl/workbook.xml".into(), book.into_bytes());
@@ -503,6 +513,38 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
             assert_eq!(reader.sheets()[1].name(), renamed);
             assert_eq!(reader.sheets()[1].visibility(), VeryHidden);
         }
+        // Reordering keeps source identities and deferred display indexes
+        // distinct. Rename/visibility overlays remain keyed to original parts.
+        workbook.set_sheet_visibility(second, Visible).unwrap();
+        workbook.set_active_view_index(0).unwrap();
+        workbook.move_sheet(second, 0).unwrap();
+        assert_eq!(workbook.model().active_sheet(), Some(second));
+        assert_eq!(workbook.model().sheets().next().unwrap().0, second);
+        workbook.set_sheet_visibility(first, Hidden).unwrap();
+        workbook.set_active_sheet(second).unwrap();
+        let cells = workbook.model().cell_count();
+        for _ in 0..2 {
+            let (output, stats) = workbook
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap();
+            assert_eq!(stats.rewritten_parts, 1);
+            let saved = parts(output.into_inner());
+            for (name, bytes) in &input {
+                if name != workbook_part {
+                    assert_eq!(&saved[name], bytes, "reordered {mode}: {name}");
+                }
+            }
+            let reader = crabxl_xlsx::WorkbookReader::new(Cursor::new(package(saved))).unwrap();
+            assert_eq!(reader.sheets()[0].name(), renamed);
+            assert_eq!(reader.sheets()[1].name(), "RenamedFirst");
+            assert_eq!(reader.sheets()[1].visibility(), Hidden);
+            assert_eq!(reader.active_index(), Some(0));
+        }
+        assert_eq!(workbook.model().cell_count(), cells);
+        workbook.move_sheet(first, 0).unwrap();
+        assert_eq!(workbook.model().active_sheet(), Some(first));
+        assert_eq!(workbook.active_view_index(), 0);
+        assert!(workbook.move_sheet(first, 2).is_err());
     }
     for mode in ["hidden", "signed", "alternative", "patch-cap"] {
         let mut input = original.clone();
@@ -550,6 +592,8 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         if mode != "hidden" {
             assert!(workbook.rename_sheet(second, "Renamed").is_err());
             assert_eq!(workbook.sheet_id("Second"), Some(second));
+            assert!(workbook.move_sheet(second, 0).is_err());
+            assert_eq!(workbook.model().sheets().next().unwrap().0, first);
             assert!(
                 workbook
                     .set_sheet_visibility(second, crabxl_core::SheetVisibility::Hidden)
@@ -578,6 +622,7 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
     }
     let mut editor =
         crabxl_xlsx::WorkbookEditor::new(Cursor::new(package(original.clone()))).unwrap();
+    editor.move_sheet("Second", 0).unwrap();
     editor.set_active_sheet("Second").unwrap();
     assert!(editor.is_dirty());
     editor.clear_edits();
@@ -588,6 +633,48 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         .unwrap();
     assert_eq!(stats.rewritten_parts, 0);
     assert_eq!(parts(output.into_inner()), original);
+    for local in [false, true] {
+        let mut input = original.clone();
+        let xml = String::from_utf8(input.remove("xl/workbook.xml").unwrap()).unwrap();
+        let names = if local {
+            "<definedNames><definedName name=\"Scope\" localSheetId=\"0\">First!$A$1</definedName></definedNames>"
+        } else {
+            "<definedNames><definedName name=\"Scope\">First!$A$1</definedName></definedNames>"
+        };
+        input.insert(
+            "xl/workbook.xml".into(),
+            xml.replace("</workbook>", &format!("{names}</workbook>"))
+                .into_bytes(),
+        );
+        let mut book =
+            LoadedWorkbook::with_options(Cursor::new(package(input)), LoadOptions::default())
+                .unwrap();
+        let first = book.sheet_id("First").unwrap();
+        let second = book.sheet_id("Second").unwrap();
+        let before = book.managed_retained_bytes();
+        if local {
+            assert_eq!(
+                book.move_sheet(second, 0).unwrap_err().kind(),
+                ErrorKind::Unsupported
+            );
+            assert_eq!(book.model().sheets().next().unwrap().0, first);
+            assert_eq!(book.patch_bytes(), 0);
+            assert_eq!(book.managed_retained_bytes(), before);
+        } else {
+            book.move_sheet(second, 0).unwrap();
+            assert_eq!(book.model().cell_count(), 0);
+            assert_eq!(book.model().sheets().next().unwrap().0, second);
+            let (output, _) = book
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap();
+            let saved = parts(output.into_inner());
+            assert!(
+                String::from_utf8(saved["xl/workbook.xml"].clone())
+                    .unwrap()
+                    .contains(names)
+            );
+        }
+    }
     // Deferred view indexes match public reference behavior without eager cells.
     for (count, requested, after, read_index) in [
         (2, -3, 0, 0),

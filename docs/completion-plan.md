@@ -122,6 +122,11 @@ Acceptance: mixed loaded/new sheet workflows, retained aliases, failed budget mu
 
 ## M4.2: Package graph and workbook mutations
 
+Checkpoint: loaded reorder uses bounded source declarations and stable part IDs,
+retains deferred active display indexes and shares canonical bank reservations
+(ADR 0070). Affected local defined-name owner indexes reject atomically pending
+M5; full graph-aware M4 acceptance remains open.
+
 Checkpoint: lazy source-backed rename shares joint bank/catalog reservations,
 retains stable source/part identities and preserves unrelated package bytes
 across repeat saves (ADR 0069). Remaining sheet and row/column structure gates

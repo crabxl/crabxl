@@ -17770,6 +17770,64 @@
         "benchmarks/alpha7-sheet-visibility.md",
         "benchmarks/alpha7-active-views.md"
       ]
+    },
+    {
+      "id": "editor.sheet-title",
+      "description": "Lazy source-backed worksheet title changes with stable identities and preserving output",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "original-package-editor",
+        "lazy-source-backed-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
+      "modules": [
+        "crates/crabxl-xlsx/src/editor.rs",
+        "crates/crabxl-xlsx/src/loaded.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/loaded.rs::active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_mutation"
+      ],
+      "limitations": "No cell decoding, original source selectors/parts remain stable, and formula/name expressions remain unchanged. Signed/alternative/budget failures reject atomically. Other sheet/structure and typed name/metadata operations remain staged.",
+      "acceptance_ref": "docs/decisions/0069-lazy-source-sheet-renaming.md",
+      "benchmarks": [
+        "benchmarks/alpha7-lazy-renaming.md"
+      ]
+    },
+    {
+      "id": "editor.sheet-order",
+      "description": "Bounded source-backed display ordering with canonical bank coordination and preserving declarations",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "original-package-editor",
+        "lazy-source-backed-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
+      "modules": [
+        "crates/crabxl-xlsx/src/editor.rs",
+        "crates/crabxl-xlsx/src/loaded.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/loaded.rs::active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_mutation"
+      ],
+      "limitations": "Caches bounded original sheet declarations and a source-index permutation, retains signed active display index and original name/visibility patch ownership. Local defined-name graphs and nested/foreign catalog content reject before mutation. Other sheet/structure operations and full deferred M4/M5/M6 graph interactions remain required.",
+      "acceptance_ref": "docs/decisions/0070-source-sheet-display-order.md",
+      "benchmarks": [
+        "benchmarks/alpha7-lazy-reordering.md"
+      ]
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

@@ -40,6 +40,33 @@ pub(crate) struct RowPatchPlan {
     pub(crate) bytes: usize,
     pub(crate) scratch_bytes: usize,
 }
+struct CatalogOrder {
+    positions: Vec<usize>,
+    entries: Vec<BytesStart<'static>>,
+    charged: usize,
+}
+fn catalog_order_bytes(positions: &Vec<usize>, entries: &Vec<BytesStart<'static>>) -> usize {
+    PATCH_BYTES
+        .saturating_add(positions.capacity().saturating_mul(size_of::<usize>()))
+        .saturating_add(
+            entries
+                .capacity()
+                .saturating_mul(size_of::<BytesStart<'static>>()),
+        )
+        .saturating_add(
+            entries
+                .iter()
+                .map(|entry| entry.as_ref().len())
+                .sum::<usize>(),
+        )
+}
+pub(crate) struct OrderPlan {
+    positions: Vec<usize>,
+    entries: Option<Vec<BytesStart<'static>>>,
+    pub(crate) bytes: usize,
+    pub(crate) scratch_bytes: usize,
+    pub(crate) view_index: i64,
+}
 
 /// Owned original-part inventory; content is not loaded into RAM.
 #[derive(Clone, Debug)]
@@ -142,6 +169,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     active_patch: Option<ActivePatch>,
     visibility_patches: BTreeMap<usize, crabxl_core::SheetVisibility>,
     name_patches: BTreeMap<usize, Box<str>>,
+    catalog_order: Option<Box<CatalogOrder>>,
     options: EditorOptions,
     patch_bytes: usize,
     patch_cells: usize,
@@ -287,6 +315,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             active_patch: None,
             visibility_patches: BTreeMap::new(),
             name_patches: BTreeMap::new(),
+            catalog_order: None,
             options,
             patch_bytes: 0,
             patch_cells: 0,
@@ -315,6 +344,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             || self.active_patch.is_some()
             || !self.visibility_patches.is_empty()
             || !self.name_patches.is_empty()
+            || self.catalog_order.is_some()
     }
     /// Shared automatic/explicit operation allowance computed at construction.
     /// Original ZIP/catalog/inventory allocations are additional.
@@ -381,6 +411,257 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.name_patches.insert(index, name);
         self.patch_bytes = bytes;
     }
+    /// Reorder an original sheet to a zero-based display position, retaining its
+    /// source part and the signed active-view index. Local defined-name graphs
+    /// remain an explicit staged dependency and reject before catalog mutation.
+    pub fn move_sheet(&mut self, source_name: &str, position: usize) -> Result<()> {
+        let index = self
+            .book
+            .sheets()
+            .iter()
+            .position(|sheet| sheet.name() == source_name)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet does not exist"))?;
+        let available = self
+            .options
+            .max_patch_bytes
+            .saturating_sub(self.patch_bytes);
+        let plan = self.prepare_order(index, position, available)?;
+        self.commit_order(plan);
+        Ok(())
+    }
+    pub(crate) fn prepare_order(
+        &mut self,
+        index: usize,
+        position: usize,
+        scratch_allowance: usize,
+    ) -> Result<OrderPlan> {
+        let count = self.book.sheets().len();
+        if index >= count || position >= count {
+            return Err(invalid("Sheet position is out of range"));
+        }
+        self.validate_workbook_patch(index, self.patch_bytes, false)?;
+        let scratch_bytes = count.saturating_mul(size_of::<usize>());
+        if scratch_bytes > scratch_allowance {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Sheet order planning allowance exceeded",
+            ));
+        }
+        let mut positions = Vec::new();
+        positions.try_reserve_exact(count).map_err(|cause| {
+            Error::caused_by(
+                ErrorKind::MemoryBudgetExceeded,
+                "Cannot allocate sheet order",
+                cause,
+            )
+        })?;
+        positions.extend((0..count).map(|display| self.source_index(display)));
+        let old = positions
+            .iter()
+            .position(|source| *source == index)
+            .ok_or_else(|| invalid("Original sheet order is inconsistent"))?;
+        positions.remove(old);
+        positions.insert(position, index);
+        let entries = if self.catalog_order.is_none() {
+            Some(self.read_catalog_entries(scratch_allowance.saturating_sub(scratch_bytes))?)
+        } else {
+            None
+        };
+        let charged = entries.as_ref().map_or_else(
+            || self.catalog_order.as_ref().map_or(0, |order| order.charged),
+            |entries| catalog_order_bytes(&positions, entries),
+        );
+        let previous = self.catalog_order.as_ref().map_or(0, |order| order.charged);
+        let bytes = self
+            .patch_bytes
+            .saturating_sub(previous)
+            .saturating_add(charged)
+            .saturating_add(if self.active_patch.is_none() {
+                PATCH_BYTES
+            } else {
+                0
+            });
+        if bytes > self.options.max_patch_bytes {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Sheet order patch allowance exceeded",
+            ));
+        }
+        Ok(OrderPlan {
+            positions,
+            entries,
+            bytes,
+            scratch_bytes,
+            view_index: self.active_view_index(),
+        })
+    }
+    fn read_catalog_entries(&mut self, allowance: usize) -> Result<Vec<BytesStart<'static>>> {
+        let part = self.book.workbook_part.clone();
+        let count = self.book.sheets().len();
+        let mut entries = Vec::new();
+        let fixed = PATCH_BYTES
+            .saturating_add(count.saturating_mul(size_of::<BytesStart<'static>>()))
+            .saturating_add(count.saturating_mul(size_of::<usize>()));
+        if fixed > allowance {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Sheet catalog planning allowance exceeded",
+            ));
+        }
+        entries.try_reserve_exact(count).map_err(|cause| {
+            Error::caused_by(
+                ErrorKind::MemoryBudgetExceeded,
+                "Cannot allocate original sheet catalog",
+                cause,
+            )
+        })?;
+        let input = self
+            .book
+            .archive
+            .by_name(&part)
+            .map_err(|cause| zip_error("Cannot inspect original sheet order", cause))?;
+        let limits = self.options.resources;
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(limits.input_buffer_bytes, input),
+            part.clone(),
+            limits.max_metadata_bytes.min(limits.max_part_bytes),
+            limits,
+        );
+        let mut charged = fixed;
+        let mut sheets_open = false;
+        let mut sheet_open = false;
+        let mut names_open = false;
+        loop {
+            let frame = xml.next()?;
+            check_declaration(&frame.event)?;
+            match &frame.event {
+                Event::Start(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 2
+                        && e.local_name().as_ref().as_bytes() == b"definedNames" =>
+                {
+                    names_open = true
+                }
+                Event::End(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 1
+                        && e.local_name().as_ref().as_bytes() == b"definedNames" =>
+                {
+                    names_open = false
+                }
+                Event::Start(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 2
+                        && e.local_name().as_ref().as_bytes() == b"sheets" =>
+                {
+                    sheets_open = true
+                }
+                Event::End(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 1
+                        && e.local_name().as_ref().as_bytes() == b"sheets" =>
+                {
+                    sheets_open = false
+                }
+                Event::Start(e) if sheets_open && frame.depth == 3 => {
+                    if frame.scope != Scope::Spreadsheet
+                        || e.local_name().as_ref().as_bytes() != b"sheet"
+                    {
+                        return Err(Error::new(
+                            ErrorKind::Unsupported,
+                            "Sheet catalog extensions require typed reorder handling",
+                        )
+                        .with_part(&part));
+                    }
+                    charged = charged.saturating_add(e.as_ref().len());
+                    if charged > allowance || entries.len() == count {
+                        return Err(Error::new(
+                            ErrorKind::MemoryBudgetExceeded,
+                            "Sheet catalog planning allowance exceeded",
+                        )
+                        .with_part(&part));
+                    }
+                    for attribute in e.attributes() {
+                        attribute.map_err(|cause| {
+                            Error::caused_by(
+                                ErrorKind::Xml,
+                                "Invalid sheet catalog attribute",
+                                cause,
+                            )
+                            .with_part(&part)
+                        })?;
+                    }
+                    entries.push(e.to_owned());
+                    sheet_open = true;
+                }
+                Event::Start(_) if sheet_open => {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Nested sheet catalog content requires typed reorder handling",
+                    )
+                    .with_part(&part));
+                }
+                Event::End(_) if sheet_open && frame.depth == 2 => sheet_open = false,
+                Event::Text(text)
+                    if sheet_open
+                        && !text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) =>
+                {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Nested sheet catalog content requires typed reorder handling",
+                    )
+                    .with_part(&part));
+                }
+                Event::CData(_) | Event::GeneralRef(_) | Event::Comment(_) | Event::PI(_)
+                    if sheet_open =>
+                {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Nested sheet catalog content requires typed reorder handling",
+                    )
+                    .with_part(&part));
+                }
+                Event::Start(e)
+                    if names_open
+                        && frame.scope == Scope::Spreadsheet
+                        && frame.depth == 3
+                        && e.local_name().as_ref().as_bytes() == b"definedName"
+                        && attribute(e, b"localSheetId")?.is_some() =>
+                {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Local defined-name graph reordering remains unimplemented",
+                    )
+                    .with_part(&part));
+                }
+                Event::Eof => break,
+                _ => {}
+            }
+        }
+        if entries.len() != count {
+            return Err(invalid("Original sheet catalog changed").with_part(&part));
+        }
+        Ok(entries)
+    }
+    pub(crate) fn commit_order(&mut self, plan: OrderPlan) {
+        if let Some(entries) = plan.entries {
+            let charged = catalog_order_bytes(&plan.positions, &entries);
+            self.catalog_order = Some(Box::new(CatalogOrder {
+                positions: plan.positions,
+                entries,
+                charged,
+            }));
+        } else if let Some(order) = &mut self.catalog_order {
+            order.positions = plan.positions;
+        }
+        self.active_patch = Some(ActivePatch::Deferred(plan.view_index));
+        self.patch_bytes = plan.bytes;
+    }
+    fn source_index(&self, display: usize) -> usize {
+        self.catalog_order
+            .as_ref()
+            .map_or(display, |order| order.positions[display])
+    }
     /// Select a visible original worksheet/chartsheet without decoding its cells.
     /// Only workbook view metadata changes; formula caches/chains stay intact.
     pub fn set_active_sheet(&mut self, name: &str) -> Result<()> {
@@ -390,6 +671,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .iter()
             .position(|sheet| sheet.name() == name)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Active sheet does not exist"))?;
+        let index = (0..self.book.sheets().len())
+            .find(|display| self.source_index(*display) == index)
+            .ok_or_else(|| invalid("Original sheet order is inconsistent"))?;
         let bytes = self.prepare_active(index)?;
         self.commit_active(index, bytes);
         Ok(())
@@ -445,7 +729,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .iter()
             .position(|sheet| sheet.name() == name)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet does not exist"))?;
-        Ok(self.visibility_at(index))
+        Ok(self.visibility_at_source(index))
     }
     /// Change an original sheet's catalog state without changing its contents.
     /// An all-hidden intermediate model is permitted; saving rejects it before
@@ -496,6 +780,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.patch_bytes = bytes;
     }
     fn visibility_at(&self, index: usize) -> crabxl_core::SheetVisibility {
+        self.visibility_at_source(self.source_index(index))
+    }
+    fn visibility_at_source(&self, index: usize) -> crabxl_core::SheetVisibility {
         self.visibility_patches
             .get(&index)
             .copied()
@@ -1126,6 +1413,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.active_patch = None;
         self.visibility_patches = BTreeMap::new();
         self.name_patches = BTreeMap::new();
+        self.catalog_order = None;
         self.patch_bytes = 0;
         self.patch_cells = 0;
     }
@@ -1171,7 +1459,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             let workbook = (dirty
                 || active.is_some()
                 || !self.visibility_patches.is_empty()
-                || !self.name_patches.is_empty())
+                || !self.name_patches.is_empty()
+                || self.catalog_order.is_some())
                 && part.name.as_ref() == self.book.workbook_part;
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
             if worksheet || workbook || shared_strings || chain_metadata {
@@ -1219,6 +1508,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             active,
                             visibility: &self.visibility_patches,
                             names: &self.name_patches,
+                            order: self.catalog_order.as_deref(),
                         },
                     )
                 } else if shared_strings {
@@ -2121,6 +2411,32 @@ struct WorkbookRewrite<'a> {
     active: Option<crabxl_core::ActiveViewSelection>,
     visibility: &'a BTreeMap<usize, crabxl_core::SheetVisibility>,
     names: &'a BTreeMap<usize, Box<str>>,
+    order: Option<&'a CatalogOrder>,
+}
+fn rewritten_catalog_entry(
+    original: &BytesStart<'_>,
+    name: Option<&str>,
+    state: Option<crabxl_core::SheetVisibility>,
+) -> Result<BytesStart<'static>> {
+    let mut start = original.to_owned();
+    start.clear_attributes();
+    for attribute in original.attributes() {
+        let attribute = attribute.map_err(|cause| {
+            Error::caused_by(ErrorKind::Xml, "Invalid sheet catalog attribute", cause)
+        })?;
+        if !(state.is_some() && attribute.key.as_ref().as_bytes() == b"state"
+            || name.is_some() && attribute.key.as_ref().as_bytes() == b"name")
+        {
+            start.push_attribute(attribute);
+        }
+    }
+    if let Some(state) = state {
+        start.push_attribute(("state", state.as_str()));
+    }
+    if let Some(name) = name {
+        start.push_attribute(("name", name));
+    }
+    Ok(start)
 }
 fn patch_workbook<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
@@ -2134,6 +2450,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
         active,
         visibility,
         names,
+        order,
     } = rewrite;
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -2149,9 +2466,24 @@ fn patch_workbook<R: Read + Seek, W: Write>(
     let mut active_written = false;
     let mut sheet_index = 0usize;
     let mut sheets_open = false;
+    let mut skipped_sheet = false;
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
+        if skipped_sheet {
+            match &frame.event {
+                Event::End(_) if frame.depth == 2 => skipped_sheet = false,
+                Event::Text(text)
+                    if text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
+                _ => {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Nested sheet catalog content requires typed reorder handling",
+                    ));
+                }
+            }
+            continue;
+        }
         if frame.scope == Scope::Spreadsheet {
             match &frame.event {
                 Event::Start(e)
@@ -2190,36 +2522,48 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                     && frame.depth == 3
                     && e.local_name().as_ref().as_bytes() == b"sheet" =>
             {
+                if order.is_some() {
+                    sheet_index += 1;
+                    skipped_sheet = true;
+                    continue;
+                }
                 let state = visibility.get(&sheet_index);
                 let name = names.get(&sheet_index);
                 sheet_index += 1;
                 if state.is_some() || name.is_some() {
-                    let mut start = e.to_owned();
-                    start.clear_attributes();
-                    for attribute in e.attributes() {
-                        let attribute = attribute.map_err(|error| {
-                            Error::caused_by(
-                                ErrorKind::Xml,
-                                "Invalid sheet catalog attribute",
-                                error,
-                            )
-                        })?;
-                        if !(state.is_some() && attribute.key.as_ref().as_bytes() == b"state"
-                            || name.is_some() && attribute.key.as_ref().as_bytes() == b"name")
-                        {
-                            start.push_attribute(attribute);
-                        }
-                    }
-                    if let Some(state) = state {
-                        start.push_attribute(("state", state.as_str()));
-                    }
-                    if let Some(name) = name {
-                        start.push_attribute(("name", name.as_ref()));
-                    }
+                    let start =
+                        rewritten_catalog_entry(&e, name.map(AsRef::as_ref), state.copied())?;
                     emit(&mut writer, Event::Start(start))?;
                 } else {
                     emit(&mut writer, Event::Start(e))?;
                 }
+            }
+            Event::End(e)
+                if frame.scope == Scope::Spreadsheet
+                    && frame.depth == 1
+                    && e.local_name().as_ref().as_bytes() == b"sheets"
+                    && order.is_some() =>
+            {
+                if let Some(order) = order {
+                    if sheet_index != order.entries.len() {
+                        return Err(invalid("Original sheet catalog changed"));
+                    }
+                    for &source in &order.positions {
+                        let original = order
+                            .entries
+                            .get(source)
+                            .ok_or_else(|| invalid("Original sheet order is inconsistent"))?;
+                        let state = visibility.get(&source).copied();
+                        let name = names.get(&source).map(AsRef::as_ref);
+                        if state.is_some() || name.is_some() {
+                            let start = rewritten_catalog_entry(original, name, state)?;
+                            emit(&mut writer, Event::Empty(start))?;
+                        } else {
+                            emit(&mut writer, Event::Empty(original.borrow()))?;
+                        }
+                    }
+                }
+                emit(&mut writer, Event::End(e))?;
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
