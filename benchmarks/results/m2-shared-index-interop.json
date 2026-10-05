@@ -1,0 +1,201 @@
+{
+  "reference": "3.1.5",
+  "cases": [
+    {
+      "master": null,
+      "follower": null,
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "",
+      "follower": "",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "0",
+      "follower": "0",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "01",
+      "follower": "01",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "1",
+      "follower": "1",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "+1",
+      "follower": "+1",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "-1",
+      "follower": "-1",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "4294967296",
+      "follower": "4294967296",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "text",
+      "follower": "text",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "1 ",
+      "follower": "1 ",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "group & value",
+      "follower": "group & value",
+      "visible_formulas": [
+        "=A1+1",
+        "=A2+1"
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "01",
+      "follower": "1",
+      "visible_formulas": [
+        "=A1+1",
+        "="
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "1",
+      "follower": "01",
+      "visible_formulas": [
+        "=A1+1",
+        "="
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": null,
+      "follower": "",
+      "visible_formulas": [
+        "=A1+1",
+        "="
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    },
+    {
+      "master": "",
+      "follower": null,
+      "visible_formulas": [
+        "=A1+1",
+        "="
+      ],
+      "caches": [
+        2,
+        3
+      ],
+      "native_matches": true
+    }
+  ],
+  "scope": "Compatible reading and identifier spelling; strict numeric schema validation and group editing remain separate"
+}

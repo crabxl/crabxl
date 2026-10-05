@@ -9,12 +9,13 @@ import statistics
 import sys
 import tempfile
 import zipfile
+from xml.sax.saxutils import quoteattr
 import openpyxl
 from shared_strings_checkpoint import ROOT, HERE, run
 from iso_checkpoint import measure
 
 
-def generate(path, rows):
+def generate(path, rows, shared_index="4294967295"):
     book = openpyxl.Workbook()
     book.save(path)
     book.close()
@@ -26,8 +27,9 @@ def generate(path, rows):
                 archive.writestr(name, value)
         with archive.open("xl/worksheets/sheet1.xml", "w") as sheet:
             sheet.write(b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>')
+            key = "" if shared_index is None else " si=" + quoteattr(shared_index)
             for index in range(1, rows + 1):
-                shared = f'<f t="shared" si="4294967295" ref="A1:A{rows}">A1+$Z$1</f>' if index == 1 else '<f t="shared" si="4294967295"/>'
+                shared = f'<f t="shared"{key} ref="A1:A{rows}">A1+$Z$1</f>' if index == 1 else f'<f t="shared"{key}/>'
                 sheet.write(f'<row r="{index}"><c r="A{index}">{shared}<v>{index}</v></c><c r="B{index}"><f>B{index}+1</f><v>{index}</v></c></row>'.encode())
             sheet.write(b'</sheetData></worksheet>')
 
@@ -51,7 +53,11 @@ def main():
     parser.add_argument("--baseline-core", help="Pinned prior core revision when a preserved baseline is supplied")
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--output", type=Path, default=HERE / "results/m2-shared-formulas.json")
+    keys = parser.add_mutually_exclusive_group()
+    keys.add_argument("--shared-index", default="4294967295", help="Literal group property")
+    keys.add_argument("--missing-shared-index", action="store_true")
     args = parser.parse_args()
+    shared_index = None if args.missing_shared_index else args.shared_index
     assert openpyxl.__version__ == "3.1.5"
     if args.runs < 1 or any(not 0 < size <= 1048576 for size in args.rows):
         parser.error("Require positive samples and physical worksheet row bounds")
@@ -59,13 +65,14 @@ def main():
     run(["cargo", "build", "--release", "--locked", "-p", "crabxl", "--example", "shared_formula_read"])
     target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
     report = {"reference": openpyxl.__version__, "platform": platform.platform(), "measurement": f"One warmup and {args.runs} rotating serial wall/CPU/RSS samples including process baseline", "semantics": "Both readers stream and verify every expanded formula. Native also verifies every cached integer in the same pass; public openpyxl cache verification uses a separate untimed data_only pass. Shared template accounting is a conservative managed-storage estimate, not exact RSS. No temporary storage is used for this read workload. calamine comparison is deferred until equivalent streaming formula/cache APIs are validated.", "cases": []}
+    report["shared_index"] = shared_index
     if args.baseline:
         report["baseline_core"] = args.baseline_core
         report["baseline_sha256"] = hashlib.sha256(args.baseline.read_bytes()).hexdigest()
     (HERE / "data").mkdir(exist_ok=True)
     for size in args.rows:
         path = HERE / "data" / f"shared-formulas-{size}.xlsx"
-        generate(path, size)
+        generate(path, size, shared_index)
         book = openpyxl.load_workbook(path, read_only=True, data_only=True)
         checked = 0
         for index, row in enumerate(book.active, 1):

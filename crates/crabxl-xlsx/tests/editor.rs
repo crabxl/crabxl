@@ -866,7 +866,7 @@ fn structured_formula_targets_replace_without_rewriting_unrelated_cells() {
             "",
             None,
             FormulaMetadata {
-                kind,
+                kind: kind.clone(),
                 reference: Some(FormulaRange::from_xml("A1:B3").unwrap()),
                 ..Default::default()
             },

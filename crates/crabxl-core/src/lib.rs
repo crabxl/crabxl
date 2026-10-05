@@ -10,6 +10,7 @@ mod limits;
 mod memory;
 mod row;
 mod scalar;
+mod shared_formula_index;
 mod style;
 
 pub use address::{CellAddress, ColumnIndex, MAX_COLUMNS, MAX_ROWS, RowIndex};
@@ -76,3 +77,5 @@ pub use theme::Theme;
 mod style_extras;
 pub use style_components::TableStyleRegion;
 pub use style_extras::{DifferentialStyle, TableStyle, TableStyleCatalog, TableStyleElement};
+
+pub use shared_formula_index::SharedFormulaIndex;
