@@ -52,4 +52,5 @@ mod metadata;
 mod printing;
 
 mod loaded;
+mod loaded_codec;
 pub use loaded::{LoadOptions, LoadedWorkbook};

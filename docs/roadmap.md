@@ -14,9 +14,10 @@ See the [detailed Rust completion plan](completion-plan.md) for dependency order
 
 The [Alpha.3 through Alpha.5 plan](alpha-3-4-plan.md) is completed history.
 Current delivery follows the [Alpha.6 and later release plan](alpha-6-and-later-plan.md):
-A6 staged M4 acceptance, A7 performance backlog, A8 complete M5, multiple usable
-M6 alphas, then full M7 acceptance. Deferred M4 graph interactions stay tracked
-through M5/M6; A6 does not claim their completion.
+A6 urgent archive-limit/descriptor fixes (published), A7 staged M4 acceptance,
+A8 performance backlog, A9 complete M5, multiple usable M6 alphas, then full M7
+acceptance. Deferred M4 graph interactions stay tracked through M5/M6; the urgent
+A6 release does not claim staged M4 completion.
 
 ## Scope and completion
 
@@ -98,6 +99,11 @@ Acceptance: cross-tool readback and OOXML relationships, mode restrictions, timi
 ## M4: Editable model and existing-file preservation (in progress)
 
 First checkpoint: budgeted sparse core cell/range operations and borrowed writer export; lazy original-part inventory, unchanged compressed passthrough, existing-cell overlays, global cache invalidation and repeatable atomic path saves. [ADR 0005](decisions/0005-sparse-preserving-editor.md) and [release evidence](../benchmarks/m4-editor.md) document verified boundaries. The next checkpoint adds an owned workbook/sheet aggregate with stable IDs, guarded total allowances, explicit copies, order/active selection and borrowed export; see [ADR 0007](decisions/0007-owned-workbook.md). Remaining M4 work includes loaded-model aggregate integration, existing-file structural edits with feature/reference handling, and broader part/reference handling. The derived calculation-chain discard/reject policy and signed-package edit rejection are explicit; advanced graph cases remain staged. Complete M2 read-side style/date/string catalog acceptance is verified; full loaded mutation remains M4/M5.
+
+Supported source-backed cell shifts and range moves/copies now coordinate the
+canonical bank with preserving repeat saves (ADR 0072). Loaded sheet
+create/copy/remove, macro/template policy and affected M5/M6 feature graphs remain
+open; a narrow supported structural checkpoint does not close M4.
 
 - Implement sparse random access, append, copy/insert/delete/move, lazy parts, dirty tracking, and original part inventory.
 - Rewrite affected parts with synchronized IDs and preserve unchanged or unknown content and namespace context.

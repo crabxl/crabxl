@@ -1,9 +1,9 @@
 //! Lazy materialization into the canonical owned bank, with joint source accounting.
 use crate::{EditorOptions, SaveOptions, SaveStats, SharedStringOptions, WorkbookEditor};
 use crabxl_core::{
-    Cell, CellAddress, CellValue, DateEpoch, EditLimits, Error, ErrorKind, MemoryAllowance,
-    MemoryPolicy, ReadOptions, ResourceLimits, Result, Row, RowIndex, SheetId, StyleLimits,
-    Workbook, WorkbookLimits, Worksheet,
+    Cell, CellAddress, CellRange, CellValue, ColumnIndex, DateEpoch, EditLimits, Error, ErrorKind,
+    MemoryAllowance, MemoryPolicy, ReadOptions, ResourceLimits, Result, Row, RowIndex, SheetId,
+    StyleLimits, Workbook, WorkbookLimits, Worksheet, WorksheetEditor,
 };
 use std::{
     fs::File,
@@ -417,6 +417,83 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     ) -> Result<()> {
         self.edit_value(id, address, value, true)
     }
+    /// Insert rows in a supported source-backed cell model. Unmodeled affected
+    /// worksheet graphs are rejected before mutation; formulas are not translated.
+    pub fn insert_rows(&mut self, id: SheetId, at: RowIndex, count: u32) -> Result<()> {
+        self.edit_structure(id, |sheet| sheet.insert_rows(at, count))
+    }
+    /// Delete rows while retaining unrelated original package parts.
+    pub fn delete_rows(&mut self, id: SheetId, at: RowIndex, count: u32) -> Result<()> {
+        self.edit_structure(id, |sheet| sheet.delete_rows(at, count))
+    }
+    /// Insert columns without cloning the whole canonical worksheet.
+    pub fn insert_columns(&mut self, id: SheetId, at: ColumnIndex, count: u32) -> Result<()> {
+        self.edit_structure(id, |sheet| sheet.insert_columns(at, count))
+    }
+    /// Delete columns using the same guarded source/model coordinator.
+    pub fn delete_columns(&mut self, id: SheetId, at: ColumnIndex, count: u32) -> Result<()> {
+        self.edit_structure(id, |sheet| sheet.delete_columns(at, count))
+    }
+    /// Move a source-backed rectangle; reference expressions remain unchanged.
+    pub fn move_range(
+        &mut self,
+        id: SheetId,
+        range: CellRange,
+        rows: i32,
+        columns: i32,
+    ) -> Result<()> {
+        self.edit_structure(id, |sheet| sheet.move_range(range, rows, columns))
+    }
+    /// Move and translate relative references inside moved normal formulas.
+    pub fn move_range_translated(
+        &mut self,
+        id: SheetId,
+        range: CellRange,
+        rows: i32,
+        columns: i32,
+    ) -> Result<()> {
+        self.edit_structure(id, |sheet| {
+            sheet.move_range_translated(range, rows, columns)
+        })
+    }
+    /// Copy an actual rectangle under aggregate cell/payload allowances.
+    pub fn copy_range(
+        &mut self,
+        id: SheetId,
+        range: CellRange,
+        rows: i32,
+        columns: i32,
+    ) -> Result<()> {
+        self.edit_structure(id, |sheet| sheet.copy_range(range, rows, columns))
+    }
+    fn edit_structure(
+        &mut self,
+        id: SheetId,
+        edit: impl FnOnce(&mut WorksheetEditor<'_>) -> Result<()>,
+    ) -> Result<()> {
+        if self.options.read.data_only {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Data-only structural editing remains unimplemented",
+            ));
+        }
+        let index = self
+            .sheets
+            .iter()
+            .position(|source| source.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        let plan = self.editor.prepare_model(&self.sheets[index].name)?;
+        self.sheet(id)?;
+        crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
+        self.reserve_workbook_patch(plan.bytes.max(self.editor.patch_bytes()))?;
+        let result = edit(&mut self.bank.sheet_mut(id)?);
+        if let Err(error) = result {
+            self.rebalance()?;
+            return Err(error);
+        }
+        self.editor.commit_model(plan, id);
+        self.rebalance()
+    }
     /// Append a complete scalar/formula row after actual source/pending extent.
     /// The selected sheet materializes once; advertised dimensions do not choose
     /// the append position. Validate all values and joint model/overlay/scratch
@@ -424,6 +501,24 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// phonetic-font assignments retain their explicit unsupported errors.
     pub fn append(&mut self, id: SheetId, values: Vec<CellValue>) -> Result<RowIndex> {
         self.sheet(id)?;
+        let source = self
+            .sheets
+            .iter()
+            .find(|source| source.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        if self.editor.model_is_dirty(&source.name) {
+            let row = RowIndex::new(self.bank.sheet(id)?.row_extent())?;
+            for (column, value) in values.iter().enumerate() {
+                self.editor.prepare_value(
+                    &source.name,
+                    CellAddress::new(row.get(), column as u32)?,
+                    value,
+                )?;
+            }
+            let result = self.bank.sheet_mut(id)?.append(values);
+            self.rebalance()?;
+            return result;
+        }
         let sheet = self.bank.sheet(id)?;
         let row = RowIndex::new(sheet.row_extent())?;
         let increase = sheet
@@ -507,6 +602,14 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
         let plan = self.editor.prepare_value(&source.name, address, &value)?;
         let loaded = source.loaded;
+        let model_dirty = self.editor.model_is_dirty(&source.name);
+        if model_dirty && !insert_missing && self.bank.sheet(id)?.get(address).is_none() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Replacement targets a missing model cell",
+            )
+            .with_cell(address));
+        }
         let maximum = self
             .allowance
             .retained_data_bytes
@@ -551,7 +654,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 return Err(error);
             }
         }
-        self.editor.commit_value(plan, value, insert_missing);
+        if !model_dirty {
+            self.editor.commit_value(plan, value, insert_missing);
+        }
         self.rebalance()
     }
     /// Lazily decode a full supported worksheet. Failed parsing or allowance
@@ -682,7 +787,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 "Edited data-only model output remains unimplemented",
             ));
         }
-        let result = self.editor.save(output, options)?;
+        let result = self
+            .editor
+            .save_with_models(output, options, Some(&self.bank))?;
         self.bank
             .set_active_view_index(self.editor.active_view_index());
         Ok(result)

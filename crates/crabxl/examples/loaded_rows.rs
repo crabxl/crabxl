@@ -107,13 +107,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .shared_string_stats()
                 .map_or(0, |stats| stats.temp_bytes),
         )
-    } else if matches!(mode.as_str(), "bank" | "bank-edit" | "bank-append") {
+    } else if matches!(
+        mode.as_str(),
+        "bank" | "bank-edit" | "bank-append" | "bank-structure"
+    ) {
         let mut workbook = LoadedWorkbook::with_options(
             File::open(path)?,
             LoadOptions {
                 memory_policy: MemoryPolicy::Budget(1024 * 1024 * 1024),
+                resources: crabxl::ResourceLimits {
+                    max_materialized_bytes: 1024 * 1024 * 1024,
+                    ..Default::default()
+                },
                 workbook: WorkbookLimits {
                     max_bytes: 1024 * 1024 * 1024,
+                    sheet: EditLimits {
+                        max_bytes: 768 * 1024 * 1024,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
                 ..Default::default()
@@ -127,7 +138,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for id in ids.iter().copied() {
             sum(workbook.sheet(id)?)?;
         }
-        if mode == "bank-edit" || mode == "bank-append" {
+        if matches!(
+            mode.as_str(),
+            "bank-edit" | "bank-append" | "bank-structure"
+        ) {
             let target = output.as_ref().ok_or("Edit mode requires output path")?;
             let id = *ids.first().ok_or("No source sheets")?;
             let address = CellAddress::new(0, 0)?;
@@ -135,7 +149,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 CellValue::Integer(value) => value,
                 _ => return Err("Expected integer A1".into()),
             };
-            let appended_row = if mode == "bank-append" {
+            let appended_row = if mode == "bank-structure" {
+                workbook.insert_rows(id, RowIndex::new(0)?, 2)?;
+                workbook.insert_columns(id, crabxl::ColumnIndex::new(0)?, 1)?;
+                None
+            } else if mode == "bank-append" {
                 let expected = workbook.sheet(id)?.row_extent();
                 let row = workbook.append(id, vec![CellValue::Integer(42); 10])?;
                 if row.get() != expected {
@@ -171,6 +189,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         {
                             return Err("Appended cell mismatch".into());
                         }
+                        if mode == "bank-structure"
+                            && name == first_name
+                            && (i64::from(cell.address.row.get()) != value / 10 + 2
+                                || i64::from(cell.address.column.get()) != value % 10 + 1)
+                        {
+                            return Err("Shifted source coordinate mismatch".into());
+                        }
                         saved_sum = saved_sum
                             .checked_add(value)
                             .ok_or("Saved checksum overflow")?;
@@ -180,6 +205,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             let (expected_count, expected_sum) = if appended_row.is_some() {
                 (count + 10, checksum + 420)
+            } else if mode == "bank-structure" {
+                (count, checksum)
             } else {
                 (count, checksum - old + 42)
             };

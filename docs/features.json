@@ -17828,6 +17828,35 @@
       "benchmarks": [
         "benchmarks/alpha7-lazy-reordering.md"
       ]
+    },
+    {
+      "id": "editor.cell-structure",
+      "description": "Guarded source-backed row/column insertion/deletion and sparse range move/copy through the canonical model",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "lazy-source-backed-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
+      "modules": [
+        "crates/crabxl-xlsx/src/loaded.rs",
+        "crates/crabxl-xlsx/src/editor.rs",
+        "crates/crabxl-xlsx/src/loaded_codec.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/loaded.rs::preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_usable"
+      ],
+      "limitations": "Selected supported models hydrate once. Source row/column formatting, rich SST/inline runs, structured formulas, cm/vm, merges/tables/rules/hyperlinks/drawings/extensions reject before mutation pending M5/M6. Data-only editing and elapsed-duration style registration are unsupported. Formula/name/view references are not implicitly updated; translated range moves are explicit. Loaded sheet create/copy/remove and full deferred M4 acceptance remain required.",
+      "acceptance_ref": "docs/decisions/0072-source-backed-cell-structure.md",
+      "benchmarks": [
+        "benchmarks/alpha7-loaded-structure.md"
+      ]
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",
