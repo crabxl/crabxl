@@ -189,6 +189,22 @@ impl Worksheet {
         self.dirty = true;
         Ok(())
     }
+    /// Update one printing component without copying unrelated break vectors.
+    /// An unconfigured sheet installs canonical defaults only after admission.
+    pub fn update_print_settings(&mut self, change: crate::PrintSettingsChange) -> Result<()> {
+        let other = self.charged.saturating_sub(self.print_bytes());
+        let maximum = self.limits.max_bytes.saturating_sub(other);
+        if let Some(settings) = &mut self.printing {
+            settings.update(change, maximum)?;
+        } else {
+            let mut settings = crate::PrintSettings::default();
+            settings.update(change, maximum)?;
+            self.printing = Some(Box::new(settings));
+        }
+        self.charged = other.saturating_add(self.print_bytes());
+        self.dirty = true;
+        Ok(())
+    }
     fn print_bytes(&self) -> usize {
         self.printing
             .as_ref()

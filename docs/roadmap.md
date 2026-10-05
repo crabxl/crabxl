@@ -6,7 +6,7 @@ Consult [pending MR risks](openpyxl-mr-review.md) and [work-item, board, and mil
 
 See [binding priorities, interface principles and performance targets](binding-contract.md). Python is tier 1, followed by JS/TS on Node and WASM sharing one ExcelJS-compatible API, then .NET and Java/Kotlin, PHP and Go, and finally Ruby, Swift and Dart. Rust core remains canonical; compatibility interfaces and language-specific extensions evolve separately. Faster-than-openpyxl performance is required; faster native overlap and lower RAM targets are desired, with equivalent-workload evidence.
 
-Worksheet printing metadata (margins/options/setup/page properties and sparse breaks) now has typed read/create/edit support through a selected rust_xlsxwriter port (ADR 0043); printer graph mutations, header/footer creation, areas/titles and protection remain open.
+Worksheet printing metadata (margins/options/setup/page properties and sparse breaks) now has typed read/create/edit support through a selected rust_xlsxwriter port (ADR 0043), with budgeted component updates and reusable source validation (ADR 0045); printer graph mutations, header/footer creation, areas/titles and protection remain open.
 
 Worksheet viewport metadata now has typed read/create/edit support through a selected rust_xlsxwriter port (ADR 0042); workbook/chartsheet/custom views and the remaining common/advanced feature families stay open.
 

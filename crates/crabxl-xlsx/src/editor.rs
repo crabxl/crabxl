@@ -423,17 +423,73 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .allowance
             .retained_data_bytes
             .saturating_sub(bytes.max(self.patch_bytes));
-        let original = self
-            .book
-            .print_settings_with_allowance(sheet, source_allowance)?;
-        if original.setup.printer_relationship != settings.setup.printer_relationship {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Changing printer identities requires a package feature graph",
-            ));
+        if let Some(pending) = self.print_patches.get(&part) {
+            check_printer_identity(&pending.setup, &settings.setup)?;
+        } else {
+            let original = self
+                .book
+                .print_settings_with_allowance(sheet, source_allowance)?;
+            check_printer_identity(&original.setup, &settings.setup)?;
         }
         self.print_patches.insert(part, Box::new(settings));
         self.patch_bytes = bytes;
+        Ok(())
+    }
+    /// Update one canonical printing component without cloning unrelated vectors.
+    /// The first update validates the original through EOF/CRC; later updates use
+    /// the validated overlay without reopening the source. Graph identity remains fixed.
+    /// Incoming payloads and parser working buffers are additional to retained overlays.
+    pub fn update_print_settings(
+        &mut self,
+        sheet: &str,
+        change: crabxl_core::PrintSettingsChange,
+    ) -> Result<()> {
+        if self.signed {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Editing signed printing settings requires an explicit signature policy",
+            ));
+        }
+        crate::printing::validate_change(&change)?;
+        let info = self
+            .book
+            .sheets()
+            .iter()
+            .find(|info| info.name() == sheet)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::SheetNotFound,
+                    "Printing worksheet source not found",
+                )
+            })?;
+        let part = info.part();
+        if let Some(settings) = self.print_patches.get_mut(part) {
+            if let crabxl_core::PrintSettingsChange::Setup(setup) = &change {
+                check_printer_identity(&settings.setup, setup)?;
+            }
+            let other = self.patch_bytes.saturating_sub(settings.memory_bytes());
+            let maximum = self.options.max_patch_bytes.saturating_sub(other);
+            settings.update(change, maximum)?;
+            self.patch_bytes = other.saturating_add(settings.memory_bytes());
+            return Ok(());
+        }
+        let part = part.to_owned();
+        let other = self
+            .patch_bytes
+            .saturating_add(METADATA_ENTRY_BYTES)
+            .saturating_add(part.len());
+        let maximum = self
+            .options
+            .max_patch_bytes
+            .saturating_sub(other)
+            .min(self.allowance.retained_data_bytes.saturating_sub(other));
+        let mut settings = self.book.print_settings_with_allowance(sheet, maximum)?;
+        if let crabxl_core::PrintSettingsChange::Setup(setup) = &change {
+            check_printer_identity(&settings.setup, setup)?;
+        }
+        settings.update(change, maximum)?;
+        self.patch_bytes = other.saturating_add(settings.memory_bytes());
+        self.print_patches.insert(part, Box::new(settings));
         Ok(())
     }
     /// Replace an existing cell's value, preserving its style and unrelated cell
@@ -746,6 +802,18 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     pub fn into_source(self) -> R {
         self.book.into_inner()
     }
+}
+fn check_printer_identity(
+    original: &crabxl_core::PageSetup,
+    replacement: &crabxl_core::PageSetup,
+) -> Result<()> {
+    if original.printer_relationship != replacement.printer_relationship {
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            "Changing printer identities requires a package feature graph",
+        ));
+    }
+    Ok(())
 }
 fn contains_date(value: &CellValue) -> bool {
     match value {

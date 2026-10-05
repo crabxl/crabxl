@@ -102,5 +102,5 @@ pub use crabxl_core::{Pane, PanePosition, PaneState, Selection, SheetView, Sheet
 
 pub use crabxl_core::{
     PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup, PaperDimension, PrintOptions,
-    PrintSettings, PrintedComments, PrintedErrors,
+    PrintSettings, PrintSettingsChange, PrintedComments, PrintedErrors,
 };

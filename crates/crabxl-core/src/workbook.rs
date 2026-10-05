@@ -558,6 +558,11 @@ impl WorksheetEditor<'_> {
         self.sheet.set_print_settings(settings)
     }
 
+    /// Update one printing component under the joint workbook allowance.
+    pub fn update_print_settings(&mut self, change: crate::PrintSettingsChange) -> Result<()> {
+        self.sheet.update_print_settings(change)
+    }
+
     /// Replace canonical display metadata within the aggregate/per-sheet allowance.
     pub fn set_sheet_views(&mut self, views: Option<crate::SheetViews>) -> Result<()> {
         self.sheet.set_sheet_views(views)

@@ -88,5 +88,5 @@ pub use worksheet_view::{
 mod printing;
 pub use printing::{
     PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup, PaperDimension, PrintOptions,
-    PrintSettings, PrintedComments, PrintedErrors,
+    PrintSettings, PrintSettingsChange, PrintedComments, PrintedErrors,
 };
