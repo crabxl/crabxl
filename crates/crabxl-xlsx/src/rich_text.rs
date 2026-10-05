@@ -80,9 +80,9 @@ pub(crate) fn read_container<B: BufRead>(
                         formatted = true;
                         let run = read_run(xml, depth + 1, maximum)?;
                         payload = payload.saturating_add(run.text.len()).saturating_add(
-                            run.font.as_ref().map_or(0, |f| {
-                                size_of::<RunFont>() + f.name.as_ref().map_or(0, |n| n.len())
-                            }),
+                            run.font
+                                .as_ref()
+                                .map_or(0, |f| size_of::<RunFont>() + f.heap_bytes()),
                         );
                         reserve(
                             &mut value.runs,

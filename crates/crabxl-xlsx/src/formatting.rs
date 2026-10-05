@@ -3,7 +3,8 @@
 // Shared fallible codecs for workbook fonts and rich-run overrides.
 use crate::xml::{Scope, XmlStream, attribute};
 use crabxl_core::{
-    Color, ColorKind, Error, ErrorKind, Font, FontScheme, Result, TextVerticalAlignment, Underline,
+    Color, ColorKind, Error, ErrorKind, Font, FontScheme, Result, StyleInteger,
+    TextVerticalAlignment, Underline,
 };
 use quick_xml::events::{BytesStart, Event};
 use std::io::{self, BufRead, Write};
@@ -116,11 +117,9 @@ pub(crate) fn read_font<B: BufRead>(
                         })
                     }
                     b"charset" => {
-                        font.charset = Some(
-                            val.ok_or_else(|| invalid("Charset is missing"))?
-                                .parse()
-                                .map_err(|_| invalid("Invalid charset"))?,
-                        )
+                        font.charset = Some(StyleInteger::parse(
+                            val.ok_or_else(|| invalid("Charset is missing"))?.trim(),
+                        )?)
                     }
                     b"family" => {
                         font.family = Some(
@@ -140,7 +139,7 @@ pub(crate) fn read_font<B: BufRead>(
                     b"color" => font.color = Some(read_color(&e)?),
                     _ => {}
                 }
-                if size_of::<Font>() + font.name.as_ref().map_or(0, |s| s.len()) > maximum {
+                if size_of::<Font>() + font.heap_bytes() > maximum {
                     return Err(limit());
                 }
                 consume_property(xml, depth + 1)?;
@@ -198,19 +197,9 @@ pub(crate) fn read_color(e: &BytesStart<'_>) -> Result<Color> {
     let automatic = attribute(e, b"auto")?;
     let rgb = attribute(e, b"rgb")?;
     let kind = if let Some(value) = indexed {
-        ColorKind::Indexed(
-            value
-                .trim()
-                .parse()
-                .map_err(|_| invalid("Invalid indexed color"))?,
-        )
+        ColorKind::Indexed(StyleInteger::parse(value.trim())?)
     } else if let Some(value) = theme {
-        ColorKind::Theme(
-            value
-                .trim()
-                .parse()
-                .map_err(|_| invalid("Invalid theme color"))?,
-        )
+        ColorKind::Theme(StyleInteger::parse(value.trim())?)
     } else if let Some(value) = automatic {
         ColorKind::Auto(boolean(Some(value.trim()))?)
     } else if let Some(value) = rgb {
@@ -222,10 +211,10 @@ pub(crate) fn read_color(e: &BytesStart<'_>) -> Result<Color> {
         .map(|s| s.parse().map_err(|_| invalid("Invalid color tint")))
         .transpose()?;
     let color = Color { kind, tint };
-    validate_color(color)?;
+    validate_color(&color)?;
     Ok(color)
 }
-pub(crate) fn validate_color(value: Color) -> Result<()> {
+pub(crate) fn validate_color(value: &Color) -> Result<()> {
     value.validate()
 }
 pub(crate) fn validate_font(value: &Font) -> Result<()> {
@@ -283,7 +272,7 @@ pub(crate) fn write_font(
         };
         write!(output, "<vertAlign val=\"{token}\"/>")?;
     }
-    if let Some(charset) = font.charset {
+    if let Some(charset) = &font.charset {
         write!(output, "<charset val=\"{charset}\"/>")?;
     }
     if let Some(family) = font.family {
@@ -297,7 +286,7 @@ pub(crate) fn write_font(
         };
         write!(output, "<scheme val=\"{token}\"/>")?;
     }
-    if let Some(color) = font.color {
+    if let Some(color) = &font.color {
         write_color(output, "color", color)?;
     }
     write!(output, "</{}>", context.container())
@@ -330,14 +319,14 @@ fn limit() -> Error {
     )
 }
 
-pub(crate) fn write_color(output: &mut impl Write, element: &str, color: Color) -> io::Result<()> {
-    match color.kind {
+pub(crate) fn write_color(output: &mut impl Write, element: &str, color: &Color) -> io::Result<()> {
+    match &color.kind {
         ColorKind::Unspecified => write!(output, "<{element}"),
         ColorKind::Argb(v) => write!(output, "<{element} rgb=\"{v:08X}\""),
         ColorKind::ArgbLiteral(v) => write!(output, "<{element} rgb=\"{v}\""),
         ColorKind::Theme(v) => write!(output, "<{element} theme=\"{v}\""),
         ColorKind::Indexed(v) => write!(output, "<{element} indexed=\"{v}\""),
-        ColorKind::Auto(v) => write!(output, "<{element} auto=\"{}\"", u8::from(v)),
+        ColorKind::Auto(v) => write!(output, "<{element} auto=\"{}\"", u8::from(*v)),
     }?;
     if let Some(tint) = color.tint {
         write!(output, " tint=\"{tint}\"")?;

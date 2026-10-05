@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     tint: None,
                 }),
                 background: Some(crabxl::Color {
-                    kind: crabxl::ColorKind::Indexed(64),
+                    kind: crabxl::ColorKind::Indexed(64.into()),
                     tint: None,
                 }),
             }),

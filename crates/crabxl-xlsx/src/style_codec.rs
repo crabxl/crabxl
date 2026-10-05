@@ -24,10 +24,10 @@ pub(crate) fn write_fill(out: &mut impl Write, fill: &Fill) -> io::Result<()> {
                 write!(out, " patternType=\"{}\"", pattern.as_str())?;
             }
             out.write_all(b">")?;
-            if let Some(c) = v.foreground {
+            if let Some(c) = &v.foreground {
                 crate::formatting::write_color(out, "fgColor", c)?;
             }
-            if let Some(c) = v.background {
+            if let Some(c) = &v.background {
                 crate::formatting::write_color(out, "bgColor", c)?;
             }
             out.write_all(b"</patternFill>")?;
@@ -48,7 +48,7 @@ pub(crate) fn write_fill(out: &mut impl Write, fill: &Fill) -> io::Result<()> {
             out.write_all(b">")?;
             for stop in &v.stops {
                 write!(out, "<stop position=\"{}\">", stop.position)?;
-                crate::formatting::write_color(out, "color", stop.color)?;
+                crate::formatting::write_color(out, "color", &stop.color)?;
                 out.write_all(b"</stop>")?;
             }
             out.write_all(b"</gradientFill>")?;
@@ -80,7 +80,7 @@ pub(crate) fn write_border(out: &mut impl Write, border: &Border) -> io::Result<
         "end",
     ]
     .into_iter()
-    .zip(border.sides)
+    .zip(&border.sides)
     {
         if let Some(val) = val {
             write!(out, "<{key}")?;
@@ -88,7 +88,7 @@ pub(crate) fn write_border(out: &mut impl Write, border: &Border) -> io::Result<
                 write!(out, " style=\"{}\"", line.as_str())?;
             }
             out.write_all(b">")?;
-            if let Some(c) = val.color {
+            if let Some(c) = &val.color {
                 crate::formatting::write_color(out, "color", c)?;
             }
             write!(out, "</{key}>")?;
@@ -303,6 +303,7 @@ pub(crate) fn read_fill<B: BufRead>(
                             ],
                             stops: Vec::new(),
                         };
+                        let mut color_payload = 0usize;
                         loop {
                             let child = xml.next()?;
                             match child.event {
@@ -352,9 +353,15 @@ pub(crate) fn read_fill<B: BufRead>(
                                             }
                                         }
                                     }
-                                    let allowed = maximum.saturating_sub(size_of::<GradientFill>())
+                                    let color = color
+                                        .ok_or_else(|| invalid("Gradient stop has no color"))?;
+                                    color_payload =
+                                        color_payload.saturating_add(color.heap_bytes());
+                                    let allowed = maximum
+                                        .saturating_sub(size_of::<GradientFill>())
+                                        .saturating_sub(color_payload)
                                         / (size_of::<GradientStop>() + size_of::<u64>());
-                                    if v.stops.len() >= allowed {
+                                    if v.stops.len() >= allowed || v.stops.capacity() > allowed {
                                         return Err(Error::new(
                                             ErrorKind::LimitExceeded,
                                             "Gradient stop payload exceeds catalog allowance",
@@ -383,11 +390,7 @@ pub(crate) fn read_fill<B: BufRead>(
                                             ));
                                         }
                                     }
-                                    v.stops.push(GradientStop {
-                                        position,
-                                        color: color
-                                            .ok_or_else(|| invalid("Gradient stop has no color"))?,
-                                    });
+                                    v.stops.push(GradientStop { position, color });
                                 }
                                 Event::End(e)
                                     if child.scope == Scope::Spreadsheet
@@ -413,6 +416,12 @@ pub(crate) fn read_fill<B: BufRead>(
             {
                 let value = fill.unwrap_or(Fill::Pattern(PatternFill::default()));
                 validate_fill(&value)?;
+                if value.heap_bytes() > maximum {
+                    return Err(Error::new(
+                        ErrorKind::LimitExceeded,
+                        "Fill color payload exceeds catalog allowance",
+                    ));
+                }
                 return Ok(value);
             }
             ref event if blank(event) => {}
@@ -423,7 +432,7 @@ pub(crate) fn read_fill<B: BufRead>(
 pub(crate) fn read_border_header(e: &BytesStart<'_>) -> Result<Border> {
     crate::formatting::check_attributes(e, &[b"diagonalUp", b"diagonalDown", b"outline"])?;
     Ok(Border {
-        sides: [None; 9],
+        sides: [const { None }; 9],
         diagonal_up: parse_bool(e, b"diagonalUp")?,
         diagonal_down: parse_bool(e, b"diagonalDown")?,
         outline: parse_bool(e, b"outline")?,
@@ -433,6 +442,7 @@ pub(crate) fn read_border<B: BufRead>(
     xml: &mut XmlStream<B>,
     depth: usize,
     mut border: Border,
+    maximum: usize,
 ) -> Result<Border> {
     let keys: [&[u8]; 9] = [
         b"left",
@@ -489,6 +499,12 @@ pub(crate) fn read_border<B: BufRead>(
                     }
                 }
                 border.sides[i] = Some(side);
+                if border.heap_bytes() > maximum {
+                    return Err(Error::new(
+                        ErrorKind::LimitExceeded,
+                        "Border color payload exceeds catalog allowance",
+                    ));
+                }
             }
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet

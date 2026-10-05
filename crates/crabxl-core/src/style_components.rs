@@ -34,7 +34,7 @@ token_enum! {/// Cell border line style.
     }
 }
 /// One optional border edge; absence and an empty edge remain distinct.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Hash)]
 pub struct BorderSide {
     /// Optional line override.
     pub line: Option<BorderLine>,
@@ -168,7 +168,7 @@ token_enum! {/// Pattern fill style.
     }
 }
 /// Optional fill pattern and colors.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Hash)]
 pub struct PatternFill {
     /// Pattern token, distinct from missing.
     pub pattern: Option<FillPattern>,
@@ -185,7 +185,7 @@ token_enum! {/// Gradient geometry.
     }
 }
 /// Color at a gradient position.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GradientStop {
     /// Fraction in 0..=1.
     pub position: f64,
@@ -233,8 +233,18 @@ impl Fill {
     /// Retained heap payload including gradient vector capacity.
     pub fn heap_bytes(&self) -> usize {
         match self {
-            Self::Pattern(_) => 0,
-            Self::Gradient(v) => v.stops.capacity() * size_of::<GradientStop>(),
+            Self::Pattern(value) => [value.foreground.as_ref(), value.background.as_ref()]
+                .into_iter()
+                .flatten()
+                .map(Color::heap_bytes)
+                .sum(),
+            Self::Gradient(v) => {
+                v.stops.capacity() * size_of::<GradientStop>()
+                    + v.stops
+                        .iter()
+                        .map(|stop| stop.color.heap_bytes())
+                        .sum::<usize>()
+            }
         }
     }
 }
@@ -297,5 +307,17 @@ token_enum! {/// Table/pivot formatting region from the pinned public schema.
         TotalRow=>"totalRow",
         /// wholeTable region.
         WholeTable=>"wholeTable",
+    }
+}
+
+impl Border {
+    /// Exact color payloads in every present edge, excluding fixed records.
+    pub fn heap_bytes(&self) -> usize {
+        self.sides
+            .iter()
+            .flatten()
+            .filter_map(|side| side.color.as_ref())
+            .map(Color::heap_bytes)
+            .sum()
     }
 }

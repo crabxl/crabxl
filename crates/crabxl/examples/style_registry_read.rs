@@ -24,11 +24,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if style.number_format != Some("0.000")
             || style.font.name.as_deref() != Some("Calibri")
             || style.font.size != Some(11.0)
-            || style.font.color.map(|color| color.kind)
-                != Some(ColorKind::Argb(0xFF000000 | (count % 16)))
+            || style.font.color.as_ref().map(|color| &color.kind)
+                != Some(&ColorKind::Argb(0xFF000000 | (count % 16)))
             || fill.pattern != Some(FillPattern::Solid)
-            || fill.foreground.map(|color| color.kind)
-                != Some(ColorKind::Argb(0xFF100000 | ((count / 16) % 16)))
+            || fill.foreground.as_ref().map(|color| &color.kind)
+                != Some(&ColorKind::Argb(0xFF100000 | ((count / 16) % 16)))
             || style
                 .alignment
                 .map(|alignment| alignment.rotation.unwrap_or(0))

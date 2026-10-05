@@ -7,14 +7,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut writer = WorkbookWriter::new(WriteOptions::default())?;
     let mut ids = Vec::new();
     for (charset, kind) in [
-        (-1, ColorKind::Theme(-1)),
-        (256, ColorKind::Indexed(-1)),
+        (-1, ColorKind::Theme((-1).into())),
+        (256, ColorKind::Indexed((-1).into())),
         (4096, ArgbLiteral::parse("aaBbCcDd")?.into_kind()),
         (0, ArgbLiteral::parse("aAbBcC")?.into_kind()),
     ] {
         let mut style = CellStyle::default();
         style.font.family = Some(2.5);
-        style.font.charset = Some(charset);
+        style.font.charset = Some(charset.into());
         style.font.color = Some(Color { kind, tint: None });
         ids.push(writer.register_style(style)?);
     }

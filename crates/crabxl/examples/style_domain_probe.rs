@@ -21,7 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if !catalog.fonts.iter().any(|font| {
         font.color
-            .is_some_and(|color| color.kind == ColorKind::Indexed(3))
+            .as_ref()
+            .is_some_and(|color| color.kind == ColorKind::Indexed(3.into()))
     }) {
         return Err("Missing selected indexed color".into());
     }

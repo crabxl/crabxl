@@ -1,0 +1,86 @@
+{
+  "reference": "3.1.5",
+  "construction_and_native_output_readback": [
+    {
+      "cell": "A1",
+      "charset": "9223372036854775808",
+      "kind": "theme",
+      "identity": "9223372036854775808"
+    },
+    {
+      "cell": "A2",
+      "charset": "9223372036854775808",
+      "kind": "indexed",
+      "identity": "9223372036854775808"
+    },
+    {
+      "cell": "A3",
+      "charset": "-9223372036854775809",
+      "kind": "theme",
+      "identity": "-9223372036854775809"
+    },
+    {
+      "cell": "A4",
+      "charset": "-9223372036854775809",
+      "kind": "indexed",
+      "identity": "-9223372036854775809"
+    },
+    {
+      "cell": "A5",
+      "charset": "10000000000000000000000000000000000000000",
+      "kind": "theme",
+      "identity": "10000000000000000000000000000000000000000"
+    },
+    {
+      "cell": "A6",
+      "charset": "10000000000000000000000000000000000000000",
+      "kind": "indexed",
+      "identity": "10000000000000000000000000000000000000000"
+    }
+  ],
+  "reference_self_save": [
+    {
+      "integer": "9223372036854775808",
+      "kind": "theme",
+      "reload_error": "expected <class 'int'>",
+      "scientific_notation": true
+    },
+    {
+      "integer": "9223372036854775808",
+      "kind": "indexed",
+      "reload_error": "expected <class 'int'>",
+      "scientific_notation": true
+    },
+    {
+      "integer": "-9223372036854775809",
+      "kind": "theme",
+      "reload_error": "expected <class 'int'>",
+      "scientific_notation": true
+    },
+    {
+      "integer": "-9223372036854775809",
+      "kind": "indexed",
+      "reload_error": "expected <class 'int'>",
+      "scientific_notation": true
+    },
+    {
+      "integer": "10000000000000000000000000000000000000000",
+      "kind": "theme",
+      "reload_error": "expected <class 'int'>",
+      "scientific_notation": true
+    },
+    {
+      "integer": "10000000000000000000000000000000000000000",
+      "kind": "indexed",
+      "reload_error": "expected <class 'int'>",
+      "scientific_notation": true
+    }
+  ],
+  "native_sizes": {
+    "StyleInteger": 16,
+    "Color": 40,
+    "Font": 120,
+    "catalog_bytes": 8597
+  },
+  "scope": "Exact native output and imported style identities; no theme/palette resolution or arbitrary-precision Python style proxy is claimed."
+}

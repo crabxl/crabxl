@@ -47,7 +47,7 @@ impl Default for CellStyle {
                 family: Some(2.0),
                 scheme: Some(crate::FontScheme::Minor),
                 color: Some(crate::Color {
-                    kind: crate::ColorKind::Theme(1),
+                    kind: crate::ColorKind::Theme(1.into()),
                     tint: None,
                 }),
                 ..Default::default()
@@ -66,7 +66,8 @@ impl CellStyle {
     /// Payload bytes owned by the shared format, excluding allocator overhead.
     pub fn heap_bytes(&self) -> usize {
         self.number_format.len()
-            + self.font.name.as_ref().map_or(0, |name| name.len())
+            + self.font.heap_bytes()
             + self.fill.heap_bytes()
+            + self.borders.heap_bytes()
     }
 }

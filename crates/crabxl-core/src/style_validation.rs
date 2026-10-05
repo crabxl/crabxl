@@ -31,7 +31,7 @@ impl Font {
         {
             return Err(invalid("Font family exceeds the public baseline range"));
         }
-        if let Some(color) = font.color {
+        if let Some(color) = &font.color {
             color.validate()?;
         }
         Ok(())
@@ -44,7 +44,10 @@ impl Fill {
 
         match fill {
             Fill::Pattern(v) => {
-                for c in [v.foreground, v.background].into_iter().flatten() {
+                for c in [v.foreground.as_ref(), v.background.as_ref()]
+                    .into_iter()
+                    .flatten()
+                {
                     c.validate()?;
                 }
             }
@@ -91,7 +94,7 @@ impl Border {
     pub fn validate(&self) -> Result<()> {
         let v = self;
 
-        for color in v.sides.iter().flatten().filter_map(|s| s.color) {
+        for color in v.sides.iter().flatten().filter_map(|s| s.color.as_ref()) {
             color.validate()?;
         }
         Ok(())

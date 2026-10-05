@@ -726,7 +726,7 @@ fn rich_value() -> CellValue {
                     extend: Some(true),
                     underline: Some(Underline::DoubleAccounting),
                     vertical: Some(TextVerticalAlignment::Superscript),
-                    charset: Some(128),
+                    charset: Some(128.into()),
                     family: Some(3.0),
                     scheme: Some(FontScheme::Minor),
                     color: Some(Color {
@@ -900,8 +900,8 @@ fn rich_color_references_and_absent_or_zero_tints_round_trip() {
     let values: Vec<_> = [
         ColorKind::Unspecified,
         ColorKind::Argb(0x00112233),
-        ColorKind::Theme(7),
-        ColorKind::Indexed(64),
+        ColorKind::Theme(7.into()),
+        ColorKind::Indexed(64.into()),
         ColorKind::Auto(false),
         ColorKind::Auto(true),
     ]
@@ -909,7 +909,7 @@ fn rich_color_references_and_absent_or_zero_tints_round_trip() {
     .flat_map(|kind| {
         [None, Some(0.0), Some(1.0)]
             .into_iter()
-            .map(move |tint| (kind, tint))
+            .map(move |tint| (kind.clone(), tint))
     })
     .map(|(kind, tint)| {
         CellValue::RichText(Box::new(RichText {
@@ -960,7 +960,7 @@ fn complete_style() -> crabxl_core::CellStyle {
             extend: Some(true),
             underline: Some(Underline::DoubleAccounting),
             vertical: Some(TextVerticalAlignment::Subscript),
-            charset: Some(128),
+            charset: Some(128.into()),
             family: Some(3.0),
             scheme: Some(FontScheme::Major),
             color: Some(Color {
@@ -983,14 +983,14 @@ fn complete_style() -> crabxl_core::CellStyle {
                 GradientStop {
                     position: 1.0,
                     color: Color {
-                        kind: ColorKind::Indexed(64),
+                        kind: ColorKind::Indexed(64.into()),
                         tint: Some(0.0),
                     },
                 },
             ],
         }),
         borders: Border {
-            sides: [None; 9],
+            sides: [const { None }; 9],
             diagonal_up: Some(true),
             diagonal_down: Some(false),
             outline: Some(false),
@@ -1535,15 +1535,34 @@ fn public_font_domains_and_case_sensitive_colors_roundtrip() {
     use crabxl_core::{ArgbLiteral, CellStyle, Color, ColorKind};
     let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
     let mut ids = Vec::new();
-    for (charset, kind) in [
-        (-1, ColorKind::Theme(-1)),
-        (256, ColorKind::Indexed(-1)),
+    let mut cases: Vec<_> = [
+        (-1, ColorKind::Theme((-1).into())),
+        (256, ColorKind::Indexed((-1).into())),
         (4096, ArgbLiteral::parse("aaBbCcDd").unwrap().into_kind()),
+    ]
+    .into_iter()
+    .map(|(charset, kind)| (crabxl_core::StyleInteger::from(charset), kind))
+    .collect();
+    for literal in [
+        "9223372036854775808",
+        "-9223372036854775809",
+        "10000000000000000000000000000000000000000",
     ] {
+        let value = crabxl_core::StyleInteger::parse(literal).unwrap();
+        cases.push((value.clone(), ColorKind::Theme(value.clone())));
+        cases.push((value.clone(), ColorKind::Indexed(value)));
+    }
+    for (charset, kind) in cases {
         let mut style = CellStyle::default();
         style.font.family = Some(2.5);
-        style.font.charset = Some(charset);
-        style.font.color = Some(Color { kind, tint: None });
+        style.font.charset = Some(charset.clone());
+        let color = Color {
+            kind: kind.clone(),
+            tint: None,
+        };
+        style.font.color = Some(color.clone());
+        style.fill = crabxl_core::Fill::solid(color.clone());
+        style.borders.sides[0].as_mut().unwrap().color = Some(color);
         ids.push((writer.register_style(style).unwrap(), charset, kind));
     }
     writer.start_sheet("Sheet").unwrap();
@@ -1558,8 +1577,23 @@ fn public_font_domains_and_case_sensitive_colors_roundtrip() {
     for (id, charset, kind) in ids {
         let font = catalog.cell_style(id).unwrap().font;
         assert_eq!(font.family, Some(2.5));
-        assert_eq!(font.charset, Some(charset));
-        assert_eq!(font.color.unwrap().kind, kind);
+        assert_eq!(font.charset, Some(charset.clone()));
+        assert_eq!(font.color.as_ref().unwrap().kind, kind);
+        let view = catalog.cell_style(id).unwrap();
+        let crabxl_core::Fill::Pattern(fill) = view.fill else {
+            panic!("Expected pattern fill")
+        };
+        assert_eq!(fill.foreground.as_ref().unwrap().kind, kind);
+        assert_eq!(
+            view.border.sides[0]
+                .as_ref()
+                .unwrap()
+                .color
+                .as_ref()
+                .unwrap()
+                .kind,
+            kind
+        );
     }
 }
 

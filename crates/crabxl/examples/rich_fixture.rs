@@ -38,7 +38,7 @@ fn rich_value() -> CellValue {
                     extend: Some(true),
                     underline: Some(Underline::DoubleAccounting),
                     vertical: Some(TextVerticalAlignment::Superscript),
-                    charset: Some(128),
+                    charset: Some(128.into()),
                     family: Some(3.0),
                     scheme: Some(FontScheme::Minor),
                     color: Some(Color {
