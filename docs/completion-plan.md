@@ -10,6 +10,19 @@ The current inventory mixes large public-module/document entries with narrow ver
 
 For every feature track read, create, edit and preserve separately, with streaming-read, materialized/editable and sequential-write restrictions. Mark incompatible cases explicitly; a file opening successfully or an opaque part surviving does not verify typed access or editing. Completion evidence must link tests, relevant performance measurements, limitations and source provenance.
 
+## Agreed release stages
+
+See the [Alpha.6 and later plan](alpha-6-and-later-plan.md) for release gates.
+A6 accepts M4 loaded-model/package/structural operations for implemented content;
+A7 addresses measured performance debt; A8 completes M5; M6 ships through multiple
+usable alphas; M7 completes the full baseline matrix. All are currently planned.
+
+The user selected staged M4 acceptance: reject operations affecting unimplemented
+M5/M6 graphs atomically, preserve unrelated opaque content, and retain the missing
+interaction cases until the owning feature family is implemented. A6 may report
+its M4 stage accepted; full M4 acceptance remains open until those dependencies
+pass. Do not silently narrow the original acceptance definition.
+
 ## Dependency order
 
 1. Specify and implement M2 shared/inline text and bounded shared-string storage.
