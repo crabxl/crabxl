@@ -16979,19 +16979,26 @@
         "preserve": "planned"
       },
       "modes": [
-        "owned-sparse-model"
+        "owned-sparse-model",
+        "lazy-source-backed-model"
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
         "crates/crabxl-core/src/workbook.rs",
-        "crates/crabxl-xlsx/src/writer.rs"
+        "crates/crabxl-xlsx/src/writer.rs",
+        "crates/crabxl-xlsx/src/loaded.rs"
       ],
       "tests": [
         "crates/crabxl-core/tests/workbook.rs",
         "crates/crabxl-xlsx/tests/writer.rs::owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values",
-        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py"
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py",
+        "crates/crabxl-xlsx/tests/loaded.rs"
       ],
-      "limitations": "Independent scalar/formula model copies only; no original feature-graph copying or existing-file sheet surgery. Loaded-model aggregate integration and complete style/feature catalogs remain planned. Aggregate managed accounting is not hard RSS."
+      "limitations": "Owned scalar/formula models and lazy source-backed read-only models share canonical bank/style ownership. Source catalogs, SST/cache and models have joint managed accounting in LoadedWorkbook; preserving mutation overlays and Python loaded handles remain staged. No original feature-graph copying or existing-file sheet surgery is claimed. Aggregate managed accounting is not hard RSS.",
+      "acceptance_ref": "docs/decisions/0056-lazy-source-backed-workbook-bank.md",
+      "benchmarks": [
+        "benchmarks/alpha6-loaded-bank.md"
+      ]
     },
     {
       "id": "binding.python.owned-bank",

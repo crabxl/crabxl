@@ -93,6 +93,11 @@ M2 acceptance: all assigned value/string/date/formula read cases pass in streami
 
 ## M4.1: Loaded workbook ownership
 
+Checkpoint: source-backed lazy bank loading transfers source style payloads and
+coordinates committed/incoming models with source SST/cache storage under one
+managed cap (ADR 0056). The public checkpoint exposes read-only models; preserving
+mutations and Python loaded handles remain the next A6 work.
+
 Checkpoint: decoded worksheet ownership transfer and atomic stable-ID replacement
 use the canonical bank's per-sheet and aggregate validation (ADR 0055). Format
 coordination, source catalog adoption, aggregate loaded resources and Python

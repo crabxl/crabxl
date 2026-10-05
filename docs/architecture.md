@@ -166,3 +166,8 @@ Exact charset/theme/indexed style identities share StyleInteger and the existing
 ExactInteger representation. Small identities allocate no payload; large owned
 identities are included in font/color/fill/border/differential/registry budgets.
 Serializers borrow non-Copy color records. See ADR 0054.
+
+Lazy source-backed `LoadedWorkbook` now moves source styles into the canonical
+bank and commits full-sheet models behind stable identities, with joint source/
+model/SST accounting (ADR 0056). This initial API exposes read-only loaded models;
+original-package mutation integration and Python handles remain in progress.

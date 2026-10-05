@@ -278,6 +278,17 @@ impl Workbook {
     pub fn remaining_bytes(&self) -> usize {
         self.limits.max_bytes.saturating_sub(self.charged_bytes())
     }
+    /// Adjust the bank's managed byte ceiling after an I/O coordinator reserves
+    /// source catalogs, caches or other separately owned resources. Existing
+    /// retained models must fit before the update; failure preserves the ceiling.
+    /// Per-sheet and cell-count limits remain unchanged.
+    pub fn set_memory_allowance(&mut self, max_bytes: usize) -> Result<()> {
+        if max_bytes == 0 || self.charged_bytes() > max_bytes {
+            return Err(budget());
+        }
+        self.limits.max_bytes = max_bytes;
+        Ok(())
+    }
     fn validate_incoming(&self, sheet: &Worksheet) -> Result<()> {
         if sheet.charged_bytes() > self.limits.sheet.max_bytes
             || sheet.len() > self.limits.sheet.max_cells

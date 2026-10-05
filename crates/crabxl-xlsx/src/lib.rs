@@ -50,3 +50,6 @@ mod worksheet_view;
 
 mod metadata;
 mod printing;
+
+mod loaded;
+pub use loaded::{LoadOptions, LoadedWorkbook};

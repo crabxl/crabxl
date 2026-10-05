@@ -473,6 +473,16 @@ pub(crate) struct ImportedStyles {
     pub(crate) catalog: StyleCatalog,
     pub(crate) date_kinds: Vec<Option<crabxl_core::DateKind>>,
 }
+#[derive(Clone, Copy)]
+pub(crate) struct StyleRead<'a> {
+    pub(crate) catalog: &'a StyleCatalog,
+    pub(crate) imported: &'a ImportedStyles,
+}
+impl StyleRead<'_> {
+    pub(crate) fn kind(&self, id: crabxl_core::StyleId) -> Result<Option<crabxl_core::DateKind>> {
+        self.imported.kind(id)
+    }
+}
 impl ImportedStyles {
     pub(crate) fn new(catalog: StyleCatalog, maximum: usize) -> Result<Self> {
         let count = catalog.cell_formats.len();

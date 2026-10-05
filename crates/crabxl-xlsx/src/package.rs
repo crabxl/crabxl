@@ -76,6 +76,7 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     theme_part: Option<String>,
     theme: Option<crabxl_core::Theme>,
     imported_styles: Option<crate::style_reader::ImportedStyles>,
+    styles_transferred: bool,
     style_metadata_remaining: u64,
 }
 impl WorkbookReader<File> {
@@ -379,6 +380,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
             theme_part,
             theme: None,
             imported_styles: None,
+            styles_transferred: false,
             style_metadata_remaining: metadata_remaining,
         })
     }
@@ -527,10 +529,20 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 .saturating_sub(strings.minimum_managed_bytes())
         })
     }
+    pub(crate) fn retained_source_bytes(&self) -> usize {
+        self.catalog_memory_bytes().saturating_add(
+            self.shared_strings
+                .as_ref()
+                .map_or(0, |strings| strings.stats().managed_bytes),
+        )
+    }
     /// Load and borrow the shared style catalog without materializing a worksheet.
     /// Unknown/staged root sections remain explicitly listed; original-package
     /// preservation does not imply typed support for those sections.
     pub fn style_catalog(&mut self) -> Result<Option<&crabxl_core::StyleCatalog>> {
+        if self.styles_transferred {
+            return Err(invalid("Source styles belong to the loaded workbook bank"));
+        }
         self.prepare_styles()?;
         Ok(self.imported_styles.as_ref().map(|s| &s.catalog))
     }
@@ -538,8 +550,25 @@ impl<R: Read + Seek> WorkbookReader<R> {
     /// Remaining archive/string-cache resources close when the reader is consumed.
     /// Derived date lookups are discarded; canonical format records retain their kinds.
     pub fn into_style_catalog(mut self) -> Result<Option<crabxl_core::StyleCatalog>> {
+        if self.styles_transferred {
+            return Err(invalid("Source styles belong to the loaded workbook bank"));
+        }
         self.prepare_styles()?;
         Ok(self.imported_styles.take().map(|styles| styles.catalog))
+    }
+    pub(crate) fn transfer_style_catalog(
+        &mut self,
+        maximum: usize,
+    ) -> Result<Option<crabxl_core::StyleCatalog>> {
+        if self.styles_transferred {
+            return Err(invalid("Source styles already transferred"));
+        }
+        self.prepare_styles_with_allowance(Some(maximum))?;
+        self.styles_transferred = true;
+        Ok(self
+            .imported_styles
+            .as_mut()
+            .map(|styles| std::mem::take(&mut styles.catalog)))
     }
     /// Retained style catalog plus derived number-format classifications.
     pub fn style_memory_bytes(&self) -> usize {
@@ -729,6 +758,21 @@ impl<R: Read + Seek> WorkbookReader<R> {
         options: ReadOptions,
         allowance: Option<usize>,
     ) -> Result<Rows<'_, R>> {
+        self.rows_with_catalog_allowance(name, options, allowance, None, 0)
+    }
+    pub(crate) fn rows_with_catalog_allowance<'a>(
+        &'a mut self,
+        name: &str,
+        options: ReadOptions,
+        allowance: Option<usize>,
+        catalog: Option<&'a crabxl_core::StyleCatalog>,
+        retained: usize,
+    ) -> Result<Rows<'a, R>> {
+        if self.styles_transferred && self.imported_styles.is_some() && catalog.is_none() {
+            return Err(invalid(
+                "Loaded row decoding requires its canonical bank styles",
+            ));
+        }
         if options.rows.as_ref().is_some_and(|r| r.start() > r.end())
             || options
                 .columns
@@ -774,7 +818,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     .map(|pool_bytes| crate::aggregate::ReadPool {
                         fixed_bytes,
                         pool_bytes,
-                        retained_bytes: 0,
+                        retained_bytes: retained,
                     })
                     .ok_or_else(|| {
                         Error::new(
@@ -806,7 +850,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
             let mut string_options = self.shared_string_options.clone();
             if let Some(pool) = &pool {
                 let details = crate::memory_allowance(string_options.memory_policy, self.limits)?;
-                let retained = details.retained_data_bytes.min(pool.pool_bytes);
+                let retained = details.retained_data_bytes.min(pool.available(0)?);
                 string_options.memory_policy = crabxl_core::MemoryPolicy::Budget(
                     details
                         .working_reserve_bytes
@@ -824,7 +868,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
             self.shared_strings = Some(strings);
         }
         if let (Some(pool), Some(strings)) = (&pool, &mut self.shared_strings) {
-            strings.limit_or_spill(&self.shared_string_options, pool.pool_bytes)?;
+            strings.limit_or_spill(&self.shared_string_options, pool.available(0)?)?;
         }
         let file = self.archive.by_name(&part).map_err(|e| {
             Error::caused_by(ErrorKind::Archive, "Cannot open worksheet part", e)
@@ -839,7 +883,12 @@ impl<R: Read + Seek> WorkbookReader<R> {
             self.limits,
             options,
             self.shared_strings.as_mut(),
-            self.imported_styles.as_ref(),
+            self.imported_styles
+                .as_ref()
+                .map(|styles| crate::style_reader::StyleRead {
+                    catalog: catalog.unwrap_or(&styles.catalog),
+                    imported: styles,
+                }),
             if self.date_1904 {
                 crabxl_core::DateEpoch::Mac1904
             } else {

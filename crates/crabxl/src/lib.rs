@@ -31,6 +31,7 @@ pub use crabxl_core::{
 };
 pub use crabxl_core::{CellError, CellText, ExactInteger, StyleId, StyleInteger, parse_iso8601};
 pub use crabxl_xlsx::{AdaptiveRead, ReadData};
+pub use crabxl_xlsx::{LoadOptions, LoadedWorkbook};
 pub use crabxl_xlsx::{Rows, SheetInfo, SheetKind, WorkbookReader};
 
 pub use crabxl_xlsx::{

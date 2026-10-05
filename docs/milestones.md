@@ -50,6 +50,13 @@ The next M2 scalar checkpoint preserves i64 and arbitrary decimal integers, inte
 
 ## M4: In progress, sparse/preservation checkpoint
 
+A6 ownership checkpoint: lazy source-backed canonical models now transfer source
+styles and jointly budget retained models, SST/cache and source catalogs. Read-only
+loaded model access, atomic loading failures and RAM/Auto/disk policies are verified
+in ADR 0056 and [ownership measurements](../benchmarks/alpha6-loaded-bank.md).
+Preserving mutation integration and Python handles remain open; M4 and the A6
+stage are not complete. The earlier results below are historical checkpoints.
+
 - Sparse core worksheets support budgeted random access, append, finite row/column insertion/deletion and overlapping range copy/move with atomic validation. Borrowed output reuses the sequential writer. Formula/reference translation and existing-file structural surgery are not claimed.
 - Lazy editor inventories original parts and keeps only pending cell values. Unchanged payloads, images, VBA, templates, relationships and unknown parts survive repeat saves. Existing-cell edits retain styles/attributes and unrelated worksheet content; old formula caches are invalidated globally and recalculation requested.
 - 78 deterministic tests pass with formatting, Clippy and warning-free API documentation. Failure coverage includes input/patch/work limits, unsupported targets, CRC validation, output failure/retry, target protection and temporary cleanup. Public openpyxl fixtures verify dates/styles/comments/hyperlinks/merges/dimensions/validation/images/properties remain intact.
