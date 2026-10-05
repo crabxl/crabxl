@@ -32,3 +32,5 @@ Optional structured expression ownership is an original canonical model change. 
 Single-payload literal array text ownership and source/body views are original canonical model changes verified through public constructor/save/reload fixtures, including Unicode prefix slicing. No additional reference implementation was inspected; existing formula codec attribution is unchanged. See ADR 0032.
 
 Differential/table catalog models, region enum and budgeted integration codecs are original composition of the existing attributed shared style components/codecs and reader Budget. Public openpyxl classes/serializers and runtime schema tokens generate/check fixtures without additional implementation inspection. No whole upstream engine is wrapped or copied. See ADR 0033 and benchmarks/style_extras_checkpoint.py.
+
+Selected quick-xml 0.42.0 namespace event ownership is adapted into the shared XML stream. The resolver remains authoritative; the semantic default scope cache avoids repeated namespace work on ordinary elements. Exact symbols, revision, changes and tests are recorded in ports.json; the MIT notice is distributed in licenses/quick-xml-MIT.txt.

@@ -212,6 +212,28 @@
       "inventory_items": [
         "themes.opaque-default-parts"
       ]
+    },
+    {
+      "project": "quick-xml",
+      "repository": "https://github.com/tafia/quick-xml",
+      "commit": "36a2c52a4f6c90878c3f60c3c3b5c62efaef28a9",
+      "license": "MIT",
+      "original": [
+        "src/reader/ns_reader.rs: NsReader::pop and NsReader::process_event"
+      ],
+      "destinations": [
+        "crates/crabxl-xlsx/src/xml.rs: StreamNamespaces"
+      ],
+      "changes": [
+        "Retain delayed namespace popping and the authoritative NamespaceResolver while using Reader directly",
+        "Cache semantic default namespace classification only at declaration-bearing ancestors; resolve prefixed elements and relationship attributes through the original resolver",
+        "Skip namespace attribute decoding on ordinary start elements without declarations; preserve resolver nesting, reserved-prefix checks, XML validation and byte/depth limits",
+        "Use fallible snapshot allocation and contextual typed errors; no worksheet materialization or new public model"
+      ],
+      "tests": "Existing streaming.rs prefixes_and_strict_spreadsheet_namespaces_work extended with default-scope restoration, prefix shadowing, undeclared prefixes and illegal namespace bindings; full workspace tests",
+      "inventory_items": [
+        "read.numeric"
+      ]
     }
   ]
 }
