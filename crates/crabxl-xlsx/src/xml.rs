@@ -5,7 +5,6 @@
 use crabxl_core::{Error, ErrorKind, ResourceLimits, Result};
 use quick_xml::{
     NsReader,
-    encoding::Decoder,
     events::{BytesStart, Event},
     name::ResolveResult,
 };
@@ -38,7 +37,6 @@ pub(crate) struct Frame<'a> {
     pub scope: Scope,
     pub spreadsheet_uri: Option<&'static str>,
     pub event: Event<'a>,
-    pub decoder: Decoder,
     pub office_relationship: Option<String>,
     pub depth: usize,
 }
@@ -132,7 +130,6 @@ impl<B: BufRead> XmlStream<B> {
     pub fn next(&mut self) -> Result<Frame<'_>> {
         self.buffer.clear();
         self.reader.get_mut().event_remaining = self.limits.max_xml_event_bytes;
-        let decoder = self.reader.decoder();
         let (namespace, event) = self.reader.read_resolved_event_into(&mut self.buffer).map_err(|cause| {
             let limited = matches!(&cause, quick_xml::Error::Io(e) if e.get_ref().is_some_and(|source| source.is::<BudgetExceeded>()));
             Error::caused_by(if limited { ErrorKind::LimitExceeded } else { ErrorKind::Xml }, "Cannot parse XML", cause).with_part(self.part.clone())
@@ -140,25 +137,27 @@ impl<B: BufRead> XmlStream<B> {
         // Classify each resolved namespace once; preservation needs the exact
         // spreadsheet URI while streaming only needs its semantic scope.
         let (scope, spreadsheet_uri) = match namespace {
-            ResolveResult::Bound(ns) if ns.as_ref() == MAIN => (Scope::Spreadsheet, Some(MAIN_URI)),
-            ResolveResult::Bound(ns) if ns.as_ref() == STRICT_MAIN => {
+            ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == MAIN => {
+                (Scope::Spreadsheet, Some(MAIN_URI))
+            }
+            ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == STRICT_MAIN => {
                 (Scope::Spreadsheet, Some(STRICT_MAIN_URI))
             }
             ResolveResult::Bound(ns)
-                if ns.as_ref()
+                if ns.as_ref().as_bytes()
                     == b"http://schemas.openxmlformats.org/package/2006/relationships" =>
             {
                 (Scope::Relationships, None)
             }
             ResolveResult::Bound(ns)
-                if ns.as_ref()
+                if ns.as_ref().as_bytes()
                     == b"http://schemas.openxmlformats.org/package/2006/content-types" =>
             {
                 (Scope::ContentTypes, None)
             }
             ResolveResult::Bound(ns)
                 if matches!(
-                    ns.as_ref(),
+                    ns.as_ref().as_bytes(),
                     b"http://schemas.openxmlformats.org/drawingml/2006/main"
                         | b"http://purl.oclc.org/ooxml/drawingml/main"
                 ) =>
@@ -207,7 +206,10 @@ impl<B: BufRead> XmlStream<B> {
                         .with_part(self.part.clone()),
                 );
             }
-            Event::Text(t) if self.depth == 0 && !t.iter().all(u8::is_ascii_whitespace) => {
+            Event::Text(t)
+                if self.depth == 0
+                    && !t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) =>
+            {
                 return Err(Error::new(ErrorKind::Xml, "Text outside XML root")
                     .with_part(self.part.clone()));
             }
@@ -224,7 +226,7 @@ impl<B: BufRead> XmlStream<B> {
         let mut office_relationship = None;
         if scope == Scope::Spreadsheet
             && let Event::Start(e) = &event
-            && matches!(e.local_name().as_ref(), b"sheet" | b"pageSetup")
+            && matches!(e.local_name().as_ref().as_bytes(), b"sheet" | b"pageSetup")
         {
             for attribute in e.attributes() {
                 let attribute = attribute.map_err(|e| {
@@ -232,15 +234,12 @@ impl<B: BufRead> XmlStream<B> {
                         .with_part(self.part.clone())
                 })?;
                 let (namespace, name) = self.reader.resolver().resolve_attribute(attribute.key);
-                if name.as_ref() == b"id"
-                    && matches!(namespace, ResolveResult::Bound(ns) if ns.as_ref() == OFFICE_REL || ns.as_ref() == STRICT_OFFICE_REL)
+                if name.as_ref() == "id"
+                    && matches!(namespace, ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == OFFICE_REL || ns.as_ref().as_bytes() == STRICT_OFFICE_REL)
                 {
                     office_relationship = Some(
                         attribute
-                            .decoded_and_normalized_value(
-                                quick_xml::XmlVersion::Implicit1_0,
-                                decoder,
-                            )
+                            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                             .map_err(|e| {
                                 Error::caused_by(ErrorKind::Xml, "Invalid relationship ID", e)
                                     .with_part(self.part.clone())
@@ -254,24 +253,23 @@ impl<B: BufRead> XmlStream<B> {
             scope,
             spreadsheet_uri,
             event,
-            decoder,
             office_relationship,
             depth: self.depth,
         })
     }
 }
 
-pub(crate) fn attribute(
-    e: &BytesStart<'_>,
-    name: &[u8],
-    decoder: Decoder,
-) -> Result<Option<String>> {
+pub(crate) fn attribute(e: &BytesStart<'_>, name: &[u8]) -> Result<Option<String>> {
     let value = e
-        .try_get_attribute(name)
+        .try_get_attribute(
+            std::str::from_utf8(name).map_err(|cause| {
+                Error::caused_by(ErrorKind::Xml, "Invalid attribute name", cause)
+            })?,
+        )
         .map_err(|cause| Error::caused_by(ErrorKind::Xml, "Invalid XML attribute", cause))?;
     value
         .map(|a| {
-            a.decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
+            a.normalized_value(quick_xml::XmlVersion::Implicit1_0)
                 .map(|v| v.into_owned())
                 .map_err(|cause| {
                     Error::caused_by(ErrorKind::Xml, "Invalid XML attribute value", cause)
@@ -280,12 +278,8 @@ pub(crate) fn attribute(
         .transpose()
 }
 
-pub(crate) fn required_attribute(
-    e: &BytesStart<'_>,
-    name: &[u8],
-    decoder: Decoder,
-) -> Result<String> {
-    attribute(e, name, decoder)?.ok_or_else(|| {
+pub(crate) fn required_attribute(e: &BytesStart<'_>, name: &[u8]) -> Result<String> {
+    attribute(e, name)?.ok_or_else(|| {
         Error::new(
             ErrorKind::InvalidData,
             format!("Missing XML attribute {}", String::from_utf8_lossy(name)),
@@ -317,21 +311,11 @@ pub(crate) fn append_xml_text(
         Ok(())
     };
     match event {
-        Event::Text(t) => append(
-            output,
-            &t.xml10_content()
-                .map_err(|e| Error::caused_by(ErrorKind::Xml, "Cannot decode XML text", e))?,
-        ),
-        Event::CData(t) => append(
-            output,
-            &t.xml10_content()
-                .map_err(|e| Error::caused_by(ErrorKind::Xml, "Cannot decode XML text", e))?,
-        ),
+        Event::Text(t) => append(output, &t.xml10_content()),
+        Event::CData(t) => append(output, &t.xml10_content()),
         Event::GeneralRef(e) => {
-            let entity = e
-                .decode()
-                .map_err(|e| Error::caused_by(ErrorKind::Xml, "Cannot decode XML entity", e))?;
-            if let Some(text) = quick_xml::escape::resolve_xml_entity(&entity) {
+            let entity = e.as_ref();
+            if let Some(text) = quick_xml::escape::resolve_xml_entity(entity) {
                 append(output, text)
             } else if let Some(character) = e
                 .resolve_char_ref()

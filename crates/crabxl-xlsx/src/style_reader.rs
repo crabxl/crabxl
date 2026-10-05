@@ -7,10 +7,7 @@ use crabxl_core::{
     CellFormat, ColorKind, Error, ErrorKind, NamedStyle, NumberFormat, ResourceLimits, Result,
     StyleCatalog,
 };
-use quick_xml::{
-    encoding::Decoder,
-    events::{BytesStart, Event},
-};
+use quick_xml::events::{BytesStart, Event};
 use std::io::BufRead;
 pub(super) struct Budget {
     pub(super) used: usize,
@@ -64,11 +61,11 @@ fn invalid(s: &str) -> Error {
     Error::new(ErrorKind::InvalidData, s)
 }
 pub(super) fn blank(e: &Event<'_>) -> bool {
-    matches!(e,Event::Text(t) if t.iter().all(u8::is_ascii_whitespace))
+    matches!(e,Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace))
         || matches!(e, Event::Comment(_) | Event::PI(_))
 }
-pub(super) fn integer(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<Option<u32>> {
-    attribute(e, key, decoder)?
+pub(super) fn integer(e: &BytesStart<'_>, key: &[u8]) -> Result<Option<u32>> {
+    attribute(e, key)?
         .map(|n| {
             n.trim()
                 .parse()
@@ -76,12 +73,12 @@ pub(super) fn integer(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Resul
         })
         .transpose()
 }
-pub(super) fn boolean(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<Option<bool>> {
-    attribute(e, key, decoder)?
+pub(super) fn boolean(e: &BytesStart<'_>, key: &[u8]) -> Result<Option<bool>> {
+    attribute(e, key)?
         .map(|n| crate::formatting::boolean(Some(&n)))
         .transpose()
 }
-fn format_header(e: &BytesStart<'_>, decoder: Decoder) -> Result<CellFormat> {
+fn format_header(e: &BytesStart<'_>) -> Result<CellFormat> {
     crate::formatting::check_attributes(
         e,
         &[
@@ -101,19 +98,19 @@ fn format_header(e: &BytesStart<'_>, decoder: Decoder) -> Result<CellFormat> {
         ],
     )?;
     Ok(CellFormat {
-        number_format_id: integer(e, b"numFmtId", decoder)?.unwrap_or(0),
-        font_id: integer(e, b"fontId", decoder)?.unwrap_or(0),
-        fill_id: integer(e, b"fillId", decoder)?.unwrap_or(0),
-        border_id: integer(e, b"borderId", decoder)?.unwrap_or(0),
-        base_format_id: integer(e, b"xfId", decoder)?,
-        apply_number_format: boolean(e, b"applyNumberFormat", decoder)?,
-        apply_font: boolean(e, b"applyFont", decoder)?,
-        apply_fill: boolean(e, b"applyFill", decoder)?,
-        apply_border: boolean(e, b"applyBorder", decoder)?,
-        apply_alignment: boolean(e, b"applyAlignment", decoder)?,
-        apply_protection: boolean(e, b"applyProtection", decoder)?,
-        quote_prefix: boolean(e, b"quotePrefix", decoder)?,
-        pivot_button: boolean(e, b"pivotButton", decoder)?,
+        number_format_id: integer(e, b"numFmtId")?.unwrap_or(0),
+        font_id: integer(e, b"fontId")?.unwrap_or(0),
+        fill_id: integer(e, b"fillId")?.unwrap_or(0),
+        border_id: integer(e, b"borderId")?.unwrap_or(0),
+        base_format_id: integer(e, b"xfId")?,
+        apply_number_format: boolean(e, b"applyNumberFormat")?,
+        apply_font: boolean(e, b"applyFont")?,
+        apply_fill: boolean(e, b"applyFill")?,
+        apply_border: boolean(e, b"applyBorder")?,
+        apply_alignment: boolean(e, b"applyAlignment")?,
+        apply_protection: boolean(e, b"applyProtection")?,
+        quote_prefix: boolean(e, b"quotePrefix")?,
+        pivot_button: boolean(e, b"pivotButton")?,
         ..Default::default()
     })
 }
@@ -126,12 +123,12 @@ fn read_format<B: BufRead>(
         let f = xml.next()?;
         match f.event {
             Event::Start(e) if f.scope == Scope::Spreadsheet && f.depth == depth + 1 => {
-                match e.local_name().as_ref() {
+                match e.local_name().as_ref().as_bytes() {
                     b"alignment" => {
                         if value.alignment.is_some() {
                             return Err(invalid("Duplicate format alignment"));
                         }
-                        let alignment = crate::style_codec::read_alignment(&e, f.decoder)?;
+                        let alignment = crate::style_codec::read_alignment(&e)?;
                         crate::formatting::consume_property(xml, depth + 1)?;
                         value.alignment = Some(Box::new(alignment));
                     }
@@ -139,7 +136,7 @@ fn read_format<B: BufRead>(
                         if value.protection.is_some() {
                             return Err(invalid("Duplicate format protection"));
                         }
-                        let protection = crate::style_codec::read_protection(&e, f.decoder)?;
+                        let protection = crate::style_codec::read_protection(&e)?;
                         crate::formatting::consume_property(xml, depth + 1)?;
                         value.protection = Some(protection);
                     }
@@ -152,7 +149,7 @@ fn read_format<B: BufRead>(
             Event::End(e)
                 if f.scope == Scope::Spreadsheet
                     && f.depth + 1 == depth
-                    && e.local_name().as_ref() == b"xf" =>
+                    && e.local_name().as_ref().as_bytes() == b"xf" =>
             {
                 return Ok(value);
             }
@@ -196,13 +193,13 @@ fn read_impl<B: BufRead>(
             Event::Start(e)
                 if f.scope == Scope::Spreadsheet
                     && f.depth == 1
-                    && e.local_name().as_ref() == b"styleSheet"
+                    && e.local_name().as_ref().as_bytes() == b"styleSheet"
                     && !root =>
             {
                 root = true;
             }
             Event::Start(e) if f.scope == Scope::Spreadsheet && f.depth == 2 && root => {
-                let section = e.local_name().as_ref().to_vec();
+                let section = e.local_name().as_ref().as_bytes().to_vec();
                 let number = match section.as_slice() {
                     b"numFmts" => 0,
                     b"fonts" => 1,
@@ -233,7 +230,7 @@ fn read_impl<B: BufRead>(
                 }
                 if number == 8 {
                     crate::formatting::check_attributes(&e, &[b"count"])?;
-                    attribute(&e, b"count", f.decoder)?;
+                    attribute(&e, b"count")?;
                     crate::style_extras_codec::read_differentials(
                         &mut xml,
                         &mut result,
@@ -242,7 +239,7 @@ fn read_impl<B: BufRead>(
                     continue;
                 }
                 if number == 9 {
-                    let header = crate::style_extras_codec::table_header(&e, f.decoder)?;
+                    let header = crate::style_extras_codec::table_header(&e)?;
                     crate::style_extras_codec::read_tables(
                         &mut xml,
                         &mut result,
@@ -259,16 +256,16 @@ fn read_impl<B: BufRead>(
                     let item = xml.next()?;
                     match item.event {
                         Event::Start(e) if item.scope == Scope::Spreadsheet && item.depth == 3 => {
-                            match (number, e.local_name().as_ref()) {
+                            match (number, e.local_name().as_ref().as_bytes()) {
                                 (0, b"numFmt") => {
                                     crate::formatting::check_attributes(
                                         &e,
                                         &[b"numFmtId", b"formatCode"],
                                     )?;
-                                    let id = integer(&e, b"numFmtId", item.decoder)?
+                                    let id = integer(&e, b"numFmtId")?
                                         .ok_or_else(|| invalid("Number format ID missing"))?;
-                                    let code = required_attribute(&e, b"formatCode", item.decoder)?
-                                        .into_boxed_str();
+                                    let code =
+                                        required_attribute(&e, b"formatCode")?.into_boxed_str();
                                     crate::encode::validate_xml_text(&code)?;
                                     crate::formatting::consume_property(&mut xml, 3)?;
                                     let heap = code.len();
@@ -300,14 +297,13 @@ fn read_impl<B: BufRead>(
                                     budget.push(&mut result.fills, fill, heap)?;
                                 }
                                 (3, b"border") => {
-                                    let header =
-                                        crate::style_codec::read_border_header(&e, item.decoder)?;
+                                    let header = crate::style_codec::read_border_header(&e)?;
                                     let border =
                                         crate::style_codec::read_border(&mut xml, 3, header)?;
                                     budget.push(&mut result.borders, border, 0)?;
                                 }
                                 (4 | 5, b"xf") => {
-                                    let header = format_header(&e, item.decoder)?;
+                                    let header = format_header(&e)?;
                                     let format = read_format(&mut xml, 3, header)?;
                                     let heap = format.heap_bytes();
                                     if number == 4 {
@@ -329,18 +325,13 @@ fn read_impl<B: BufRead>(
                                         ],
                                     )?;
                                     let style = NamedStyle {
-                                        name: required_attribute(&e, b"name", item.decoder)?
-                                            .into_boxed_str(),
-                                        base_format_id: integer(&e, b"xfId", item.decoder)?
+                                        name: required_attribute(&e, b"name")?.into_boxed_str(),
+                                        base_format_id: integer(&e, b"xfId")?
                                             .ok_or_else(|| invalid("Named style base missing"))?,
-                                        builtin_id: integer(&e, b"builtinId", item.decoder)?,
-                                        custom_builtin: boolean(
-                                            &e,
-                                            b"customBuiltin",
-                                            item.decoder,
-                                        )?,
-                                        hidden: boolean(&e, b"hidden", item.decoder)?,
-                                        outline_level: integer(&e, b"iLevel", item.decoder)?,
+                                        builtin_id: integer(&e, b"builtinId")?,
+                                        custom_builtin: boolean(&e, b"customBuiltin")?,
+                                        hidden: boolean(&e, b"hidden")?,
+                                        outline_level: integer(&e, b"iLevel")?,
                                     };
                                     crate::encode::validate_xml_text(&style.name)?;
                                     crate::formatting::consume_property(&mut xml, 3)?;
@@ -358,7 +349,7 @@ fn read_impl<B: BufRead>(
                         Event::End(e)
                             if item.scope == Scope::Spreadsheet
                                 && item.depth == 1
-                                && e.local_name().as_ref() == section =>
+                                && e.local_name().as_ref().as_bytes() == section =>
                         {
                             break;
                         }
@@ -370,7 +361,7 @@ fn read_impl<B: BufRead>(
             Event::End(e)
                 if f.scope == Scope::Spreadsheet
                     && f.depth == 0
-                    && e.local_name().as_ref() == b"styleSheet" => {}
+                    && e.local_name().as_ref().as_bytes() == b"styleSheet" => {}
             Event::Eof if root => break,
             ref event if blank(event) => {}
             _ => return Err(invalid("Invalid style catalog document")),
@@ -400,7 +391,7 @@ fn read_colors<B: BufRead>(
         let f = xml.next()?;
         match f.event {
             Event::Start(e) if f.scope == Scope::Spreadsheet && f.depth == 3 => {
-                let indexed = match e.local_name().as_ref() {
+                let indexed = match e.local_name().as_ref().as_bytes() {
                     b"indexedColors" => true,
                     b"mruColors" => false,
                     _ => {
@@ -419,12 +410,12 @@ fn read_colors<B: BufRead>(
                     let item = xml.next()?;
                     match item.event {
                         Event::Start(e) if item.scope == Scope::Spreadsheet && item.depth == 4 => {
-                            if (indexed && e.local_name().as_ref() != b"rgbColor")
-                                || (!indexed && e.local_name().as_ref() != b"color")
+                            if (indexed && e.local_name().as_ref().as_bytes() != b"rgbColor")
+                                || (!indexed && e.local_name().as_ref().as_bytes() != b"color")
                             {
                                 return Err(invalid("Invalid palette entry"));
                             }
-                            let color = crate::style_codec::read_color(&e, item.decoder)?;
+                            let color = crate::style_codec::read_color(&e)?;
                             crate::formatting::consume_property(xml, 4)?;
                             if indexed {
                                 let rgb = match color.kind {
@@ -445,7 +436,7 @@ fn read_colors<B: BufRead>(
                         Event::End(e)
                             if item.scope == Scope::Spreadsheet
                                 && item.depth == 2
-                                && e.local_name().as_ref()
+                                && e.local_name().as_ref().as_bytes()
                                     == if indexed {
                                         b"indexedColors".as_slice()
                                     } else {
@@ -462,7 +453,7 @@ fn read_colors<B: BufRead>(
             Event::End(e)
                 if f.scope == Scope::Spreadsheet
                     && f.depth == 1
-                    && e.local_name().as_ref() == b"colors" =>
+                    && e.local_name().as_ref().as_bytes() == b"colors" =>
             {
                 return Ok(());
             }

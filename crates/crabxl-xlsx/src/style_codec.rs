@@ -148,10 +148,7 @@ use crabxl_core::{
     BorderLine, BorderSide, Color, FillPattern, GradientFill, GradientKind, GradientStop,
     HorizontalAlignment, PatternFill, VerticalAlignment,
 };
-use quick_xml::{
-    encoding::Decoder,
-    events::{BytesStart, Event},
-};
+use quick_xml::events::{BytesStart, Event};
 use std::io::BufRead;
 pub(crate) fn skip<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Result<()> {
     loop {
@@ -164,11 +161,11 @@ pub(crate) fn skip<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Result<(
     }
 }
 fn blank(event: &Event<'_>) -> bool {
-    matches!(event,Event::Text(t) if t.iter().all(u8::is_ascii_whitespace))
+    matches!(event,Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace))
         || matches!(event, Event::Comment(_) | Event::PI(_))
 }
-fn parse_float(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<Option<f64>> {
-    attribute(e, key, decoder)?
+fn parse_float(e: &BytesStart<'_>, key: &[u8]) -> Result<Option<f64>> {
+    attribute(e, key)?
         .map(|value| {
             value
                 .parse()
@@ -176,12 +173,12 @@ fn parse_float(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<Optio
         })
         .transpose()
 }
-fn parse_bool(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<Option<bool>> {
-    attribute(e, key, decoder)?
+fn parse_bool(e: &BytesStart<'_>, key: &[u8]) -> Result<Option<bool>> {
+    attribute(e, key)?
         .map(|value| crate::formatting::boolean(Some(&value)))
         .transpose()
 }
-pub(crate) fn read_alignment(e: &BytesStart<'_>, decoder: Decoder) -> Result<Alignment> {
+pub(crate) fn read_alignment(e: &BytesStart<'_>) -> Result<Alignment> {
     crate::formatting::check_attributes(
         e,
         &[
@@ -198,36 +195,36 @@ pub(crate) fn read_alignment(e: &BytesStart<'_>, decoder: Decoder) -> Result<Ali
         ],
     )?;
     let v = Alignment {
-        horizontal: attribute(e, b"horizontal", decoder)?
+        horizontal: attribute(e, b"horizontal")?
             .map(|s| HorizontalAlignment::parse(&s))
             .transpose()?,
-        vertical: attribute(e, b"vertical", decoder)?
+        vertical: attribute(e, b"vertical")?
             .map(|s| VerticalAlignment::parse(&s))
             .transpose()?,
-        rotation: attribute(e, b"textRotation", decoder)?
+        rotation: attribute(e, b"textRotation")?
             .map(|s| s.parse().map_err(|_| invalid("Invalid text rotation")))
             .transpose()?,
-        wrap_text: parse_bool(e, b"wrapText", decoder)?,
-        shrink_to_fit: parse_bool(e, b"shrinkToFit", decoder)?,
-        indent: parse_float(e, b"indent", decoder)?,
-        relative_indent: parse_float(e, b"relativeIndent", decoder)?,
-        justify_last_line: parse_bool(e, b"justifyLastLine", decoder)?,
-        reading_order: parse_float(e, b"readingOrder", decoder)?,
-        merge_cell: parse_bool(e, b"mergeCell", decoder)?,
+        wrap_text: parse_bool(e, b"wrapText")?,
+        shrink_to_fit: parse_bool(e, b"shrinkToFit")?,
+        indent: parse_float(e, b"indent")?,
+        relative_indent: parse_float(e, b"relativeIndent")?,
+        justify_last_line: parse_bool(e, b"justifyLastLine")?,
+        reading_order: parse_float(e, b"readingOrder")?,
+        merge_cell: parse_bool(e, b"mergeCell")?,
     };
     validate_alignment(&v)?;
     Ok(v)
 }
-pub(crate) fn read_protection(e: &BytesStart<'_>, decoder: Decoder) -> Result<Protection> {
+pub(crate) fn read_protection(e: &BytesStart<'_>) -> Result<Protection> {
     crate::formatting::check_attributes(e, &[b"locked", b"hidden"])?;
     Ok(Protection {
-        locked: parse_bool(e, b"locked", decoder)?,
-        hidden: parse_bool(e, b"hidden", decoder)?,
+        locked: parse_bool(e, b"locked")?,
+        hidden: parse_bool(e, b"hidden")?,
     })
 }
-pub(crate) fn read_color(e: &BytesStart<'_>, decoder: Decoder) -> Result<Color> {
+pub(crate) fn read_color(e: &BytesStart<'_>) -> Result<Color> {
     crate::formatting::check_attributes(e, &[b"rgb", b"theme", b"indexed", b"auto", b"tint"])?;
-    crate::formatting::read_color(e, decoder)
+    crate::formatting::read_color(e)
 }
 pub(crate) fn read_fill<B: BufRead>(
     xml: &mut XmlStream<B>,
@@ -242,11 +239,11 @@ pub(crate) fn read_fill<B: BufRead>(
                 if fill.is_some() {
                     return Err(invalid("Duplicate or mixed fill content"));
                 }
-                fill = Some(match e.local_name().as_ref() {
+                fill = Some(match e.local_name().as_ref().as_bytes() {
                     b"patternFill" => {
                         crate::formatting::check_attributes(&e, &[b"patternType"])?;
                         let mut v = PatternFill {
-                            pattern: attribute(&e, b"patternType", frame.decoder)?
+                            pattern: attribute(&e, b"patternType")?
                                 .map(|s| FillPattern::parse(&s))
                                 .transpose()?,
                             ..Default::default()
@@ -258,25 +255,27 @@ pub(crate) fn read_fill<B: BufRead>(
                                     if child.scope == Scope::Spreadsheet
                                         && child.depth == depth + 2
                                         && matches!(
-                                            color.local_name().as_ref(),
+                                            color.local_name().as_ref().as_bytes(),
                                             b"fgColor" | b"bgColor"
                                         ) =>
                                 {
-                                    let target = if color.local_name().as_ref() == b"fgColor" {
-                                        &mut v.foreground
-                                    } else {
-                                        &mut v.background
-                                    };
+                                    let target =
+                                        if color.local_name().as_ref().as_bytes() == b"fgColor" {
+                                            &mut v.foreground
+                                        } else {
+                                            &mut v.background
+                                        };
                                     if target.is_some() {
                                         return Err(invalid("Duplicate pattern color"));
                                     }
-                                    *target = Some(read_color(&color, child.decoder)?);
+                                    *target = Some(read_color(&color)?);
                                     crate::formatting::consume_property(xml, depth + 2)?;
                                 }
                                 Event::End(end)
                                     if child.scope == Scope::Spreadsheet
                                         && child.depth == depth
-                                        && end.local_name().as_ref() == b"patternFill" =>
+                                        && end.local_name().as_ref().as_bytes()
+                                            == b"patternFill" =>
                                 {
                                     break;
                                 }
@@ -292,15 +291,15 @@ pub(crate) fn read_fill<B: BufRead>(
                             &[b"type", b"degree", b"left", b"right", b"top", b"bottom"],
                         )?;
                         let mut v = GradientFill {
-                            kind: attribute(&e, b"type", frame.decoder)?
+                            kind: attribute(&e, b"type")?
                                 .map(|s| GradientKind::parse(&s))
                                 .transpose()?,
-                            degree: parse_float(&e, b"degree", frame.decoder)?,
+                            degree: parse_float(&e, b"degree")?,
                             edges: [
-                                parse_float(&e, b"left", frame.decoder)?,
-                                parse_float(&e, b"right", frame.decoder)?,
-                                parse_float(&e, b"top", frame.decoder)?,
-                                parse_float(&e, b"bottom", frame.decoder)?,
+                                parse_float(&e, b"left")?,
+                                parse_float(&e, b"right")?,
+                                parse_float(&e, b"top")?,
+                                parse_float(&e, b"bottom")?,
                             ],
                             stops: Vec::new(),
                         };
@@ -310,13 +309,12 @@ pub(crate) fn read_fill<B: BufRead>(
                                 Event::Start(stop)
                                     if child.scope == Scope::Spreadsheet
                                         && child.depth == depth + 2
-                                        && stop.local_name().as_ref() == b"stop" =>
+                                        && stop.local_name().as_ref().as_bytes() == b"stop" =>
                                 {
                                     crate::formatting::check_attributes(&stop, &[b"position"])?;
-                                    let position =
-                                        required_attribute(&stop, b"position", child.decoder)?
-                                            .parse()
-                                            .map_err(|_| invalid("Invalid gradient stop"))?;
+                                    let position = required_attribute(&stop, b"position")?
+                                        .parse()
+                                        .map_err(|_| invalid("Invalid gradient stop"))?;
                                     let mut color = None;
                                     loop {
                                         let detail = xml.next()?;
@@ -324,14 +322,15 @@ pub(crate) fn read_fill<B: BufRead>(
                                             Event::Start(e)
                                                 if detail.scope == Scope::Spreadsheet
                                                     && detail.depth == depth + 3
-                                                    && e.local_name().as_ref() == b"color" =>
+                                                    && e.local_name().as_ref().as_bytes()
+                                                        == b"color" =>
                                             {
                                                 if color.is_some() {
                                                     return Err(invalid(
                                                         "Duplicate gradient color",
                                                     ));
                                                 }
-                                                color = Some(read_color(&e, detail.decoder)?);
+                                                color = Some(read_color(&e)?);
                                                 crate::formatting::consume_property(
                                                     xml,
                                                     depth + 3,
@@ -340,7 +339,8 @@ pub(crate) fn read_fill<B: BufRead>(
                                             Event::End(e)
                                                 if detail.scope == Scope::Spreadsheet
                                                     && detail.depth == depth + 1
-                                                    && e.local_name().as_ref() == b"stop" =>
+                                                    && e.local_name().as_ref().as_bytes()
+                                                        == b"stop" =>
                                             {
                                                 break;
                                             }
@@ -392,7 +392,8 @@ pub(crate) fn read_fill<B: BufRead>(
                                 Event::End(e)
                                     if child.scope == Scope::Spreadsheet
                                         && child.depth == depth
-                                        && e.local_name().as_ref() == b"gradientFill" =>
+                                        && e.local_name().as_ref().as_bytes()
+                                            == b"gradientFill" =>
                                 {
                                     break;
                                 }
@@ -408,7 +409,7 @@ pub(crate) fn read_fill<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth + 1 == depth
-                    && e.local_name().as_ref() == b"fill" =>
+                    && e.local_name().as_ref().as_bytes() == b"fill" =>
             {
                 let value = fill.unwrap_or(Fill::Pattern(PatternFill::default()));
                 validate_fill(&value)?;
@@ -419,13 +420,13 @@ pub(crate) fn read_fill<B: BufRead>(
         }
     }
 }
-pub(crate) fn read_border_header(e: &BytesStart<'_>, decoder: Decoder) -> Result<Border> {
+pub(crate) fn read_border_header(e: &BytesStart<'_>) -> Result<Border> {
     crate::formatting::check_attributes(e, &[b"diagonalUp", b"diagonalDown", b"outline"])?;
     Ok(Border {
         sides: [None; 9],
-        diagonal_up: parse_bool(e, b"diagonalUp", decoder)?,
-        diagonal_down: parse_bool(e, b"diagonalDown", decoder)?,
-        outline: parse_bool(e, b"outline", decoder)?,
+        diagonal_up: parse_bool(e, b"diagonalUp")?,
+        diagonal_down: parse_bool(e, b"diagonalDown")?,
+        outline: parse_bool(e, b"outline")?,
     })
 }
 pub(crate) fn read_border<B: BufRead>(
@@ -450,14 +451,14 @@ pub(crate) fn read_border<B: BufRead>(
             Event::Start(e) if frame.scope == Scope::Spreadsheet && frame.depth == depth + 1 => {
                 let i = keys
                     .iter()
-                    .position(|key| *key == e.local_name().as_ref())
+                    .position(|key| *key == e.local_name().as_ref().as_bytes())
                     .ok_or_else(|| Error::new(ErrorKind::Unsupported, "Unknown border edge"))?;
                 if border.sides[i].is_some() {
                     return Err(invalid("Duplicate border edge"));
                 }
                 crate::formatting::check_attributes(&e, &[b"style"])?;
                 let mut side = BorderSide {
-                    line: attribute(&e, b"style", frame.decoder)?
+                    line: attribute(&e, b"style")?
                         .map(|s| BorderLine::parse(&s))
                         .transpose()?,
                     color: None,
@@ -468,18 +469,18 @@ pub(crate) fn read_border<B: BufRead>(
                         Event::Start(e)
                             if child.scope == Scope::Spreadsheet
                                 && child.depth == depth + 2
-                                && e.local_name().as_ref() == b"color" =>
+                                && e.local_name().as_ref().as_bytes() == b"color" =>
                         {
                             if side.color.is_some() {
                                 return Err(invalid("Duplicate border color"));
                             }
-                            side.color = Some(read_color(&e, child.decoder)?);
+                            side.color = Some(read_color(&e)?);
                             crate::formatting::consume_property(xml, depth + 2)?;
                         }
                         Event::End(e)
                             if child.scope == Scope::Spreadsheet
                                 && child.depth == depth
-                                && e.local_name().as_ref() == keys[i] =>
+                                && e.local_name().as_ref().as_bytes() == keys[i] =>
                         {
                             break;
                         }
@@ -492,7 +493,7 @@ pub(crate) fn read_border<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth + 1 == depth
-                    && e.local_name().as_ref() == b"border" =>
+                    && e.local_name().as_ref().as_bytes() == b"border" =>
             {
                 validate_border(&border)?;
                 return Ok(border);

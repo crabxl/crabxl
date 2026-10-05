@@ -7,7 +7,7 @@ use crabxl_core::{
     CellAddress, CellRange, DataTableOptions, Error, ErrorKind, Formula, FormulaFlag,
     FormulaMetadata, FormulaRange, FormulaReadPolicy, FormulaType, Result, SharedFormulaIndex,
 };
-use quick_xml::{encoding::Decoder, events::BytesStart};
+use quick_xml::events::BytesStart;
 use std::{collections::HashMap, io::Write};
 
 fn invalid(message: &str) -> Error {
@@ -20,13 +20,13 @@ fn limit() -> Error {
     )
 }
 
-pub(crate) fn is_shared(e: &BytesStart<'_>, decoder: Decoder) -> Result<bool> {
+pub(crate) fn is_shared(e: &BytesStart<'_>) -> Result<bool> {
     for attribute in e.attributes() {
         let attribute = attribute
             .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid formula attribute", e))?;
-        if attribute.key.as_ref() == b"t" {
+        if attribute.key.as_ref().as_bytes() == b"t" {
             return attribute
-                .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
+                .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                 .map(|value| value == "shared")
                 .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid shared formula type", e));
         }
@@ -50,7 +50,6 @@ impl From<FormulaReadPolicy> for HeaderPolicy {
 }
 pub(crate) fn header(
     e: &BytesStart<'_>,
-    decoder: Decoder,
     maximum: usize,
     policy: HeaderPolicy,
 ) -> Result<FormulaMetadata> {
@@ -60,11 +59,11 @@ pub(crate) fn header(
     for attribute in e.attributes() {
         let attribute = attribute
             .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid formula attribute", e))?;
-        if attribute.key.as_ref() != b"t" {
+        if attribute.key.as_ref().as_bytes() != b"t" {
             continue;
         }
         let value = attribute
-            .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
             .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid formula type", e))?;
         if value.len() > maximum {
             return Err(Error::new(
@@ -99,11 +98,13 @@ pub(crate) fn header(
     for attribute in e.attributes() {
         let attribute = attribute
             .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid formula attribute", e))?;
-        if attribute.key.as_ref() == b"xmlns" || attribute.key.as_ref().starts_with(b"xmlns:") {
+        if attribute.key.as_ref().as_bytes() == b"xmlns"
+            || attribute.key.as_ref().as_bytes().starts_with(b"xmlns:")
+        {
             continue;
         }
         let value = attribute
-            .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
             .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid formula attribute value", e))?;
         if value.len() > maximum {
             return Err(Error::new(
@@ -113,13 +114,15 @@ pub(crate) fn header(
         }
         let relevant = match kind {
             FormulaType::Normal => false,
-            FormulaType::Shared { .. } => matches!(attribute.key.as_ref(), b"t" | b"si" | b"ref"),
+            FormulaType::Shared { .. } => {
+                matches!(attribute.key.as_ref().as_bytes(), b"t" | b"si" | b"ref")
+            }
             FormulaType::Array => matches!(
-                attribute.key.as_ref(),
+                attribute.key.as_ref().as_bytes(),
                 b"t" | b"ref" | b"aca" | b"ca" | b"bx"
             ),
             FormulaType::DataTable => matches!(
-                attribute.key.as_ref(),
+                attribute.key.as_ref().as_bytes(),
                 b"t" | b"ref" | b"ca" | b"dt2D" | b"dtr" | b"del1" | b"del2" | b"r1" | b"r2"
             ),
         };
@@ -135,7 +138,7 @@ pub(crate) fn header(
                 FormulaFlag::from_xml(value)
             }
         };
-        match attribute.key.as_ref() {
+        match attribute.key.as_ref().as_bytes() {
             b"t" => {}
             b"si" => {
                 index = Some(if policy == HeaderPolicy::Strict {

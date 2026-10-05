@@ -156,7 +156,9 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
         let frame = xml.next()?;
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {
-                if frame.scope != Scope::Spreadsheet || e.local_name().as_ref() != b"worksheet" {
+                if frame.scope != Scope::Spreadsheet
+                    || e.local_name().as_ref().as_bytes() != b"worksheet"
+                {
                     return Err(invalid("View source is not a worksheet"));
                 }
                 root_seen = true;
@@ -164,26 +166,26 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"sheetData" =>
+                    && e.local_name().as_ref().as_bytes() == b"sheetData" =>
             {
                 break;
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"sheetViews" =>
+                    && e.local_name().as_ref().as_bytes() == b"sheetViews" =>
             {
                 if in_views {
                     return Err(invalid("Duplicate worksheet views container"));
                 }
-                attributes(&e, frame.decoder, |_, _| Err(unsupported()))?;
+                attributes(&e, |_, _| Err(unsupported()))?;
                 in_views = true;
             }
             Event::Start(e) if in_views => {
                 if frame.scope != Scope::Spreadsheet {
                     return Err(unsupported());
                 }
-                match (frame.depth, e.local_name().as_ref()) {
+                match (frame.depth, e.local_name().as_ref().as_bytes()) {
                     (3, b"sheetView") => {
                         if current.is_some() {
                             return Err(invalid("Nested worksheet views"));
@@ -197,7 +199,7 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
                             ));
                         }
                         let mut view = SheetView::default();
-                        attributes(&e, frame.decoder, |name, value| {
+                        attributes(&e, |name, value| {
                             match name {
                                 b"windowProtection" => {
                                     view.window_protection = Some(boolean(value)?)
@@ -256,7 +258,7 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
                             return Err(invalid("Duplicate worksheet pane"));
                         }
                         let mut pane = Pane::default();
-                        attributes(&e, frame.decoder, |name, value| {
+                        attributes(&e, |name, value| {
                             match name {
                                 b"xSplit" => {
                                     pane.x_split =
@@ -298,7 +300,7 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
                             selections_seen = true;
                         }
                         let mut selection = Selection::default();
-                        attributes(&e, frame.decoder, |name, value| {
+                        attributes(&e, |name, value| {
                             match name {
                                 b"pane" => selection.pane = Some(position(value)?),
                                 b"activeCell" => selection.active_cell = Some(value.into()),
@@ -336,7 +338,9 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
                 }
             }
             Event::End(e)
-                if in_views && frame.depth == 2 && e.local_name().as_ref() == b"sheetView" =>
+                if in_views
+                    && frame.depth == 2
+                    && e.local_name().as_ref().as_bytes() == b"sheetView" =>
             {
                 let view = current
                     .take()
@@ -361,12 +365,14 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
                 views.views.push(view);
             }
             Event::End(e)
-                if in_views && frame.depth == 1 && e.local_name().as_ref() == b"sheetViews" =>
+                if in_views
+                    && frame.depth == 1
+                    && e.local_name().as_ref().as_bytes() == b"sheetViews" =>
             {
                 break;
             }
             Event::Text(e) if in_views => {
-                if !e.iter().all(u8::is_ascii_whitespace) {
+                if !e.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) {
                     return Err(invalid("Unexpected text in worksheet views"));
                 }
             }

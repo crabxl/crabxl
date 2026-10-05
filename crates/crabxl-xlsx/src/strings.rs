@@ -273,7 +273,9 @@ impl SharedStrings {
             let frame = xml.next()?;
             match frame.event {
                 Event::Start(e) if frame.depth == 1 => {
-                    if frame.scope != Scope::Spreadsheet || e.local_name().as_ref() != b"sst" {
+                    if frame.scope != Scope::Spreadsheet
+                        || e.local_name().as_ref().as_bytes() != b"sst"
+                    {
                         return Err(invalid("Invalid shared-string root"));
                     }
                     root = true;
@@ -281,7 +283,7 @@ impl SharedStrings {
                 Event::Start(e)
                     if frame.depth == 2
                         && frame.scope == Scope::Spreadsheet
-                        && e.local_name().as_ref() == b"si" =>
+                        && e.local_name().as_ref().as_bytes() == b"si" =>
                 {
                     if table.stats.entries >= options.max_entries {
                         return Err(limit("Shared-string entry limit exceeded"));
@@ -290,7 +292,7 @@ impl SharedStrings {
                     table.push(entry, options, allowance)?;
                 }
                 Event::Start(_) => return Err(invalid("Unexpected shared-string table element")),
-                Event::Text(t) if !t.iter().all(u8::is_ascii_whitespace) => {
+                Event::Text(t) if !t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {
                     return Err(invalid("Unexpected text in shared-string table"));
                 }
                 Event::CData(_) | Event::GeneralRef(_) => {
@@ -674,7 +676,7 @@ fn parse_entry<B: BufRead>(
                     Event::End(e)
                         if f.scope == Scope::Spreadsheet
                             && f.depth == 1
-                            && e.local_name().as_ref() == b"si" =>
+                            && e.local_name().as_ref().as_bytes() == b"si" =>
                     {
                         break;
                     }

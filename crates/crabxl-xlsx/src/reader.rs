@@ -55,7 +55,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Start(e)
                     if frame.depth == 1
                         && (frame.scope != Scope::Spreadsheet
-                            || e.local_name().as_ref() != b"worksheet") =>
+                            || e.local_name().as_ref().as_bytes() != b"worksheet") =>
                 {
                     return Err(
                         Error::new(ErrorKind::InvalidData, "Part is not a worksheet")
@@ -65,7 +65,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Start(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 2
-                        && e.local_name().as_ref() == b"sheetData" =>
+                        && e.local_name().as_ref().as_bytes() == b"sheetData" =>
                 {
                     break;
                 }
@@ -335,22 +335,19 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Start(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 3
-                        && e.local_name().as_ref() == b"row" =>
+                        && e.local_name().as_ref().as_bytes() == b"row" =>
                 {
                     let mut index = self.next_row_index;
                     for attr in e.attributes() {
                         let attr = attr.map_err(|e| {
                             Error::caused_by(ErrorKind::Xml, "Invalid row attribute", e)
                         })?;
-                        if attr.key.as_ref() == b"r" {
+                        if attr.key.as_ref().as_bytes() == b"r" {
                             let value = attr
-                                .decoded_and_normalized_value(
-                                    quick_xml::XmlVersion::Implicit1_0,
-                                    frame.decoder,
-                                )
+                                .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                                 .map_err(|e| {
-                                    Error::caused_by(ErrorKind::Xml, "Invalid row index", e)
-                                })?;
+                                Error::caused_by(ErrorKind::Xml, "Invalid row index", e)
+                            })?;
                             index = value
                                 .parse::<u32>()
                                 .ok()
@@ -376,14 +373,14 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 1
-                        && e.local_name().as_ref() == b"sheetData" =>
+                        && e.local_name().as_ref().as_bytes() == b"sheetData" =>
                 {
                     self.finish_xml()?;
                     self.exhausted = true;
                     return Ok(false);
                 }
                 Event::Start(_) => return Err(self.invalid("Unexpected element in sheetData")),
-                Event::Text(t) if !t.iter().all(u8::is_ascii_whitespace) => {
+                Event::Text(t) if !t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {
                     return Err(self.invalid("Unexpected text in sheetData"));
                 }
                 Event::Eof => return Err(self.invalid("Unexpected end of worksheet")),
@@ -400,9 +397,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Start(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 4
-                        && e.local_name().as_ref() == b"c" =>
+                        && e.local_name().as_ref().as_bytes() == b"c" =>
                 {
-                    let header = CellHeader::read(&e, frame.decoder, row.index, next_column)
+                    let header = CellHeader::read(&e, row.index, next_column)
                         .map_err(|e| e.with_part(self.xml.part()))?;
                     if header.address.row != row.index || header.address.column.get() < next_column
                     {
@@ -458,12 +455,12 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 2
-                        && e.local_name().as_ref() == b"row" =>
+                        && e.local_name().as_ref().as_bytes() == b"row" =>
                 {
                     return Ok(());
                 }
                 Event::Start(_) => return Err(self.invalid("Unexpected element in row")),
-                Event::Text(t) if !t.iter().all(u8::is_ascii_whitespace) => {
+                Event::Text(t) if !t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {
                     return Err(self.invalid("Unexpected text in row"));
                 }
                 Event::Eof => return Err(self.invalid("Unexpected end of row")),
@@ -532,7 +529,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Start(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 5
-                        && e.local_name().as_ref() == b"v" =>
+                        && e.local_name().as_ref().as_bytes() == b"v" =>
                 {
                     if seen_value {
                         return Err(self.invalid("Cell has multiple value elements"));
@@ -546,7 +543,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Start(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 5
-                        && e.local_name().as_ref() == b"is"
+                        && e.local_name().as_ref().as_bytes() == b"is"
                         && matches!(kind, ScalarKind::InlineText) =>
                 {
                     if seen_value {
@@ -558,7 +555,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Start(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 5
-                        && e.local_name().as_ref() == b"f" =>
+                        && e.local_name().as_ref().as_bytes() == b"f" =>
                 {
                     if seen_formula || matches!(kind, ScalarKind::InlineText) {
                         return Err(self.invalid("Invalid or duplicate formula element"));
@@ -572,7 +569,6 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     }
                     let mut metadata = crate::formula_codec::header(
                         &e,
-                        frame.decoder,
                         self.limits.max_cell_bytes,
                         self.options.formula_policy.into(),
                     )?;
@@ -602,7 +598,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 3
-                        && e.local_name().as_ref() == b"c" =>
+                        && e.local_name().as_ref().as_bytes() == b"c" =>
                 {
                     value = self.interpret_date(value, date_kind)?;
                     if let CellValue::RichText(rich) = &value
@@ -643,7 +639,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     }
                     return Ok(value);
                 }
-                Event::Text(t) if !t.iter().all(u8::is_ascii_whitespace) => {
+                Event::Text(t) if !t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {
                     return Err(self.invalid("Unexpected text in cell"));
                 }
                 Event::Eof => return Err(self.invalid("Unexpected end of cell")),
@@ -664,9 +660,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     if frame.scope == Scope::Spreadsheet
                         && (frame.depth == 4
                             || (matches!(kind, ScalarKind::InlineText) && frame.depth == 5))
-                        && (e.local_name().as_ref() == b"v"
-                            || e.local_name().as_ref() == b"t"
-                            || e.local_name().as_ref() == b"f") =>
+                        && (e.local_name().as_ref().as_bytes() == b"v"
+                            || e.local_name().as_ref().as_bytes() == b"t"
+                            || e.local_name().as_ref().as_bytes() == b"f") =>
                 {
                     break;
                 }
@@ -795,14 +791,10 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             let frame = self.xml.next()?;
             match frame.event {
                 Event::Text(text) => {
-                    text.xml10_content().map_err(|e| {
-                        Error::caused_by(ErrorKind::Xml, "Cannot decode XML text", e)
-                    })?;
+                    text.xml10_content();
                 }
                 Event::CData(text) => {
-                    text.xml10_content().map_err(|e| {
-                        Error::caused_by(ErrorKind::Xml, "Cannot decode XML text", e)
-                    })?;
+                    text.xml10_content();
                 }
                 event @ Event::GeneralRef(_) => {
                     self.value_buffer.clear();
@@ -811,7 +803,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 4
-                        && e.local_name().as_ref() == b"f" =>
+                        && e.local_name().as_ref().as_bytes() == b"f" =>
                 {
                     return Ok(());
                 }
@@ -842,13 +834,12 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Start(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 5
-                        && e.local_name().as_ref() == b"f"
+                        && e.local_name().as_ref().as_bytes() == b"f"
                         && retain_shared =>
                 {
-                    if crate::formula_codec::is_shared(&e, frame.decoder)? {
+                    if crate::formula_codec::is_shared(&e)? {
                         let mut metadata = crate::formula_codec::header(
                             &e,
-                            frame.decoder,
                             self.limits.max_cell_bytes,
                             self.options.formula_policy.into(),
                         )?;
@@ -875,7 +866,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 3
-                        && e.local_name().as_ref() == b"c" =>
+                        && e.local_name().as_ref().as_bytes() == b"c" =>
                 {
                     return Ok(());
                 }
@@ -891,7 +882,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Start(e)
                     if frame.scope == Scope::Spreadsheet
                         && frame.depth == 2
-                        && e.local_name().as_ref() == b"sheetData" =>
+                        && e.local_name().as_ref().as_bytes() == b"sheetData" =>
                 {
                     return Err(self.invalid("Duplicate sheetData element"));
                 }
@@ -935,12 +926,7 @@ struct CellHeader {
     metadata: bool,
 }
 impl CellHeader {
-    fn read(
-        e: &BytesStart<'_>,
-        decoder: quick_xml::encoding::Decoder,
-        row: RowIndex,
-        column: u32,
-    ) -> Result<Self> {
+    fn read(e: &BytesStart<'_>, row: RowIndex, column: u32) -> Result<Self> {
         let mut address = None;
         let mut kind = ScalarKind::Numeric;
         let mut style = crabxl_core::StyleId::new(0);
@@ -948,14 +934,11 @@ impl CellHeader {
         for attribute in e.attributes() {
             let attribute = attribute
                 .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid cell attribute", e))?;
-            match attribute.key.as_ref() {
+            match attribute.key.as_ref().as_bytes() {
                 b"r" => {
                     address = Some(
                         attribute
-                            .decoded_and_normalized_value(
-                                quick_xml::XmlVersion::Implicit1_0,
-                                decoder,
-                            )
+                            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                             .map_err(|e| {
                                 Error::caused_by(ErrorKind::Xml, "Invalid cell coordinate", e)
                             })?
@@ -964,7 +947,7 @@ impl CellHeader {
                 }
                 b"t" => {
                     let cell_type = attribute
-                        .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
+                        .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                         .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid cell type", e))?;
                     kind = match cell_type.as_ref() {
                         "n" => ScalarKind::Numeric,
@@ -980,10 +963,7 @@ impl CellHeader {
                 b"s" => {
                     style = crabxl_core::StyleId::new(
                         attribute
-                            .decoded_and_normalized_value(
-                                quick_xml::XmlVersion::Implicit1_0,
-                                decoder,
-                            )
+                            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                             .map_err(|e| {
                                 Error::caused_by(ErrorKind::Xml, "Invalid style index", e)
                             })?

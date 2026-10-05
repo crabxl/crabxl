@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 buffer.clear();
                 match xml.read_resolved_event_into(&mut buffer)?.1 {
-                    Event::Start(e) if e.local_name().as_ref() == b"c" => cells += 1,
+                    Event::Start(e) if e.local_name().as_ref().as_bytes() == b"c" => cells += 1,
                     Event::Eof => break,
                     _ => {}
                 }
