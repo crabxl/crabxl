@@ -175,3 +175,10 @@ saves (ADR 0057). Python loaded handles now share this same owner in
 [adapter ADR 0017](https://github.com/crabxl/crabxl-python/blob/f3251f63c33626338c9c071b5df515ca199bd688/docs/decisions/0017-canonical-loaded-workbook-owner.md).
 Lazy active selection rewrites workbook views independently of value-cache
 invalidation (ADR 0058). Other source graph mutations remain in progress.
+
+[ADR 0060](decisions/0060-shared-sheet-visibility.md) shares visible/hidden/very-hidden
+state across owned models, source catalogs and preserving loaded metadata edits.
+These edits do not decode worksheet cells and retain original caches and assets.
+All-hidden output fails before writing; loaded active normalization commits only
+after successful serialization. Python exposure and broader M4 sheet surgery
+remain staged for Alpha 7.

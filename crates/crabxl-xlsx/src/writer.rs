@@ -132,6 +132,7 @@ struct StoredSheet {
     id: usize,
     name: String,
     file: NamedTempFile,
+    visibility: crabxl_core::SheetVisibility,
 }
 struct ActiveSheet {
     id: usize,
@@ -140,6 +141,7 @@ struct ActiveSheet {
     bytes: u64,
     last_row: Option<RowIndex>,
     footer: Option<Vec<u8>>,
+    visibility: crabxl_core::SheetVisibility,
 }
 
 /// One-shot XLSX writer using bounded rows and owned temporary worksheets.
@@ -507,6 +509,36 @@ impl WorkbookWriter {
     pub fn start_sheet(&mut self, name: impl Into<String>) -> Result<()> {
         self.start_sheet_with_header(name.into(), HEADER, None, 0)
     }
+    /// Set catalog visibility for an open, paused or completed worksheet spool.
+    /// The stable writer identity survives rename and scheduling changes. At
+    /// least one completed sheet must be visible when packaging output.
+    pub fn set_sheet_visibility(
+        &mut self,
+        id: usize,
+        visibility: crabxl_core::SheetVisibility,
+    ) -> Result<()> {
+        self.ensure_open()?;
+        let target = self
+            .sheets
+            .iter_mut()
+            .find(|sheet| sheet.id == id)
+            .map(|sheet| &mut sheet.visibility)
+            .or_else(|| {
+                self.paused
+                    .iter_mut()
+                    .find(|sheet| sheet.id == id)
+                    .map(|sheet| &mut sheet.visibility)
+            })
+            .or_else(|| {
+                self.active
+                    .as_mut()
+                    .filter(|sheet| sheet.id == id)
+                    .map(|sheet| &mut sheet.visibility)
+            })
+            .ok_or_else(|| state("Unknown worksheet ID"))?;
+        *target = visibility;
+        Ok(())
+    }
     /// Start a sheet with borrowed canonical viewport metadata. Validation and
     /// bounded encoding precede any active-sheet closure or spool creation.
     pub fn start_sheet_with_views(
@@ -702,6 +734,7 @@ impl WorkbookWriter {
             bytes: 0,
             last_row: None,
             footer,
+            visibility: crabxl_core::SheetVisibility::Visible,
         });
         self.write_active(header)?;
         self.next_sheet += 1;
@@ -717,6 +750,12 @@ impl WorkbookWriter {
     /// new sheet; it does not preserve parts of a loaded source package.
     pub fn write_worksheet(&mut self, sheet: &crabxl_core::Worksheet) -> Result<()> {
         self.start_sheet_with_settings(sheet.name(), sheet.sheet_views(), sheet.print_settings())?;
+        let id = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?
+            .id;
+        self.set_sheet_visibility(id, sheet.visibility())?;
         let mut last = None;
         for index in sheet.row_indices() {
             self.write_cells(index, sheet.row_cells(index))?;
@@ -882,6 +921,7 @@ impl WorkbookWriter {
             id: active.id,
             name: active.name,
             file,
+            visibility: active.visibility,
         });
         Ok(())
     }
@@ -988,6 +1028,22 @@ impl WorkbookWriter {
         }
         if self.options.active_sheet >= self.sheets.len() {
             return Err(state("Active sheet index is outside the completed catalog"));
+        }
+        let first_visible = self
+            .sheets
+            .iter()
+            .position(|sheet| sheet.visibility == crabxl_core::SheetVisibility::Visible)
+            .ok_or_else(|| state("A workbook requires at least one visible sheet"))?;
+        if self.sheets[self.options.active_sheet].visibility
+            != crabxl_core::SheetVisibility::Visible
+        {
+            self.options.active_sheet = self
+                .sheets
+                .iter()
+                .enumerate()
+                .skip(self.options.active_sheet)
+                .find(|(_, sheet)| sheet.visibility == crabxl_core::SheetVisibility::Visible)
+                .map_or(first_visible, |(index, _)| index);
         }
         let mut zip = ZipWriter::new(output);
         let options = compression_options(self.options.compression_level);
@@ -1222,10 +1278,14 @@ fn package_metadata<W: Write + Seek>(
             let name = quick_xml::escape::escape(&sheet.name);
             write!(
                 zip,
-                "<sheet name=\"{name}\" sheetId=\"{}\" r:id=\"rId{}\"/>",
+                "<sheet name=\"{name}\" sheetId=\"{}\" r:id=\"rId{}\"",
                 index + 1,
                 index + 1
             )?;
+            if sheet.visibility != crabxl_core::SheetVisibility::Visible {
+                write!(zip, " state=\"{}\"", sheet.visibility.as_str())?;
+            }
+            zip.write_all(b"/>")?;
         }
         zip.write_all(b"</sheets></workbook>")
     })?;

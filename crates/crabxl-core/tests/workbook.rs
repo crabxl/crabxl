@@ -22,7 +22,13 @@ fn sheet_ids_survive_copy_reorder_rename_and_reject_removed_foreign_handles() {
         .unwrap()
         .append(vec![CellValue::Integer(3)])
         .unwrap();
+    use crabxl_core::SheetVisibility::{Hidden, VeryHidden, Visible};
+    book.set_sheet_visibility(first, Hidden).unwrap();
+    assert!(book.set_active_sheet(first).is_err());
+    assert_eq!(book.active_sheet(), Some(first));
     let copied = book.copy_sheet(first, "Copy").unwrap();
+    assert_eq!(book.sheet(first).unwrap().visibility(), Hidden);
+    assert_eq!(book.sheet(copied).unwrap().visibility(), Visible);
     assert_eq!(book.sheet(copied).unwrap().row_extent(), 3);
     book.sheet_mut(copied).unwrap().set(cell(0, 7)).unwrap();
     assert_eq!(
@@ -38,13 +44,16 @@ fn sheet_ids_survive_copy_reorder_rename_and_reject_removed_foreign_handles() {
     book.move_sheet(copied, 0).unwrap();
     assert_eq!(book.active_index(), Some(0));
     assert_eq!(book.sheet_id("Renamed"), Some(first));
+    book.set_sheet_visibility(second, VeryHidden).unwrap();
     let transferred = book.remove_sheet(second).unwrap();
     assert_eq!(transferred.name(), "Second");
+    assert_eq!(transferred.visibility(), VeryHidden);
     assert_eq!(
         book.sheet(second).err().unwrap().kind(),
         ErrorKind::SheetNotFound
     );
     let new = book.create_sheet("Second").unwrap();
+    assert_eq!(book.sheet(new).unwrap().visibility(), Visible);
     assert_ne!(new, second);
     let other = Workbook::new(WorkbookLimits::default()).unwrap();
     assert_eq!(

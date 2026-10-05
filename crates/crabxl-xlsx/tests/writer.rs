@@ -674,6 +674,30 @@ fn owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values(
         CellValue::Integer(1)
     );
     assert_eq!(book.cell_count(), 2);
+    use crabxl_core::SheetVisibility::{Hidden, VeryHidden, Visible};
+    book.set_sheet_visibility(first, Hidden).unwrap();
+    assert!(book.set_active_sheet(first).is_err());
+    assert_eq!(book.active_sheet(), Some(first));
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.write_workbook(&book).unwrap();
+    let reader = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    assert_eq!(reader.active_index(), Some(0));
+    assert_eq!(reader.sheets()[0].visibility(), Visible);
+    assert_eq!(reader.sheets()[1].visibility(), Hidden);
+    // Export normalizes its view without mutating the borrowed owned bank.
+    assert_eq!(book.active_sheet(), Some(first));
+    book.set_sheet_visibility(other, VeryHidden).unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.write_workbook(&book).unwrap();
+    let mut target = Cursor::new(b"unchanged".to_vec());
+    assert!(writer.finish(&mut target).is_err());
+    assert_eq!(target.into_inner(), b"unchanged");
+    book.set_sheet_visibility(first, Visible).unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.write_workbook(&book).unwrap();
+    let reader = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    assert_eq!(reader.sheets()[0].visibility(), VeryHidden);
+    assert_eq!(reader.active_index(), Some(1));
     let mut invalid = WorkbookWriter::new(WriteOptions {
         active_sheet: 3,
         ..WriteOptions::default()

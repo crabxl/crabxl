@@ -339,8 +339,24 @@ impl Workbook {
     }
     /// Select an existing sheet as active; unknown/foreign handles are rejected.
     pub fn set_active_sheet(&mut self, id: SheetId) -> Result<()> {
-        self.index(id)?;
+        if self.sheet(id)?.visibility() != crate::SheetVisibility::Visible {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Active sheet must be visible",
+            ));
+        }
         self.active = Some(id);
+        Ok(())
+    }
+    /// Change one sheet's catalog visibility without copying its cells or changing
+    /// its stable identity. All-hidden models may be assembled but cannot be saved.
+    pub fn set_sheet_visibility(
+        &mut self,
+        id: SheetId,
+        visibility: crate::SheetVisibility,
+    ) -> Result<()> {
+        let index = self.index(id)?;
+        self.entries[index].sheet.set_visibility(visibility);
         Ok(())
     }
     /// Active sheet's zero-based display position, if present.

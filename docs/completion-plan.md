@@ -13,13 +13,14 @@ For every feature track read, create, edit and preserve separately, with streami
 ## Agreed release stages
 
 See the [Alpha.6 and later plan](alpha-6-and-later-plan.md) for release gates.
-A6 accepts M4 loaded-model/package/structural operations for implemented content;
-A7 addresses measured performance debt; A8 completes M5; M6 ships through multiple
-usable alphas; M7 completes the full baseline matrix. All are currently planned.
+Alpha 6 is the published urgent archive compatibility fix.
+A7 accepts M4 loaded-model/package/structural operations for implemented content;
+A8 addresses measured performance debt; A9 completes M5; M6 ships through multiple
+usable alphas; M7 completes the full baseline matrix. These stages remain open.
 
 The user selected staged M4 acceptance: reject operations affecting unimplemented
 M5/M6 graphs atomically, preserve unrelated opaque content, and retain the missing
-interaction cases until the owning feature family is implemented. A6 may report
+interaction cases until the owning feature family is implemented. A7 may report
 its M4 stage accepted; full M4 acceptance remains open until those dependencies
 pass. Do not silently narrow the original acceptance definition.
 
@@ -124,7 +125,9 @@ Acceptance: mixed loaded/new sheet workflows, retained aliases, failed budget mu
 Checkpoint: lazy active selection synchronizes the original view and stable bank
 ID, preserves formula caches/chains for metadata-only saves, and rejects hidden,
 signed, unsupported or over-budget selections before mutation (ADR 0058). Other
-workbook/sheet mutations and full graph cases remain open.
+workbook/sheet mutations and full graph cases remain open. Shared source/model
+visibility with lazy catalog edits, visible selection normalization and all-hidden
+output preflight is verified in ADR 0060; Python exposure remains open.
 
 - Centralize relationships, content types, part allocation and imported IDs; use normalized relative targets and strict/transitional namespaces.
 - Support existing-file sheet create/copy/remove/rename/reorder/visibility/active selection, plus macro/template and external-link policies.

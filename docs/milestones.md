@@ -50,7 +50,7 @@ The next M2 scalar checkpoint preserves i64 and arbitrary decimal integers, inte
 
 ## M4: In progress, sparse/preservation checkpoint
 
-A6 ownership checkpoint: lazy source-backed canonical models now transfer source
+A7 ownership checkpoint: lazy source-backed canonical models now transfer source
 styles and jointly budget retained models, SST/cache and source catalogs. Read-only
 loaded model access, atomic loading failures and RAM/Auto/disk policies are verified
 in ADR 0056 and [ownership measurements](../benchmarks/alpha6-loaded-bank.md).
@@ -60,7 +60,7 @@ Python loaded handles now share the canonical source-backed bank (adapter ADR
 0017), with 545 locally passing compatibility cases and measured ordinary-mode
 ownership costs. Lazy active selection preserves formula caches/chains and
 rejects affected unsupported metadata before mutation (ADR 0058). Other source
-graph mutations remain open; M4 and the A6 stage are not complete. The earlier
+graph mutations remain open; M4 and the A7 stage are not complete. The earlier
 results below are historical checkpoints.
 
 - Sparse core worksheets support budgeted random access, append, finite row/column insertion/deletion and overlapping range copy/move with atomic validation. Borrowed output reuses the sequential writer. Formula/reference translation and existing-file structural surgery are not claimed.
@@ -118,3 +118,8 @@ Literal calendar datetimes, clock times and elapsed durations now preserve micro
 ## M2 ISO and date-only checkpoint
 
 Date-only literals and shared ISO parsing/formatting now join the canonical date model. Type `d` cells and caches work in streaming/materialized reads; opt-in ISO creation retains early Gregorian dates in both workbook epochs, while elapsed durations stay numeric. All 42 public ISO utility observations match native output. Tests verify prefix semantics, fraction truncation, contextual malformed errors, limits, retry and cleanup. [Creation/read measurements](../benchmarks/m2-iso-dates.md) include exact native logical temporary XML and sampled disk peaks. Theme/catalog integration, advanced formulas and aggregate accounting remain required; M2 is still in progress.
+
+Shared source/model sheet visibility, lazy preserving catalog edits and all-hidden
+serialization preflight are verified in ADR 0060. This is a core checkpoint;
+Python exposure and M4 stage acceptance remain open for Alpha 7. The urgent
+Alpha 6 archive release shifts performance/M5 releases to Alpha 8/9.

@@ -1,0 +1,310 @@
+{
+  "checkpoint": "Alpha 7 core visibility checkpoint; M4 stage remains open",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "binary_sha256": "1c05775f431ce76c15dfb97a81bfc72ccf2563a254690012a3525bd1054b626f",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592",
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "method": "one warmup, three rotating serial release runs; native wait4 wall/CPU/peak RSS; build and generation excluded",
+  "comparison": "same current decoder and owned sparse cell type; bank transfers source styles and enforces joint resource accounting; standalone reproduces prior per-sheet native materialization; not Python or streaming performance",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 200000,
+      "checksum": 9999900000,
+      "file_bytes": 606757,
+      "sha256": "3e7c6e539fa5a6b1f83d1117429f780ff02975d7d938e30e123b5575a6b4d55f",
+      "samples": {
+        "bank": [
+          {
+            "seconds": 0.196623092,
+            "cpu_seconds": 0.196497,
+            "peak_rss_kib": 17976,
+            "managed_bytes": 51213595,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.18280273,
+            "cpu_seconds": 0.182541,
+            "peak_rss_kib": 17976,
+            "managed_bytes": 51213595,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.21402868,
+            "cpu_seconds": 0.213763,
+            "peak_rss_kib": 17912,
+            "managed_bytes": 51213595,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "standalone": [
+          {
+            "seconds": 0.198320456,
+            "cpu_seconds": 0.197967,
+            "peak_rss_kib": 17976,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.18436714,
+            "cpu_seconds": 0.184084,
+            "peak_rss_kib": 17912,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.202702959,
+            "cpu_seconds": 0.202417,
+            "peak_rss_kib": 17976,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "bank-active": [
+          {
+            "seconds": 0.143588231,
+            "cpu_seconds": 0.143239,
+            "peak_rss_kib": 2876,
+            "managed_bytes": 13851,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606812
+          },
+          {
+            "seconds": 0.150423418,
+            "cpu_seconds": 0.149858,
+            "peak_rss_kib": 2940,
+            "managed_bytes": 13851,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606812
+          },
+          {
+            "seconds": 0.134448885,
+            "cpu_seconds": 0.134249,
+            "peak_rss_kib": 2876,
+            "managed_bytes": 13851,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606812
+          }
+        ],
+        "bank-visibility": [
+          {
+            "seconds": 0.15433984,
+            "cpu_seconds": 0.154062,
+            "peak_rss_kib": 2812,
+            "managed_bytes": 14107,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606822
+          },
+          {
+            "seconds": 0.137085235,
+            "cpu_seconds": 0.136863,
+            "peak_rss_kib": 2940,
+            "managed_bytes": 14107,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606822
+          },
+          {
+            "seconds": 0.134201744,
+            "cpu_seconds": 0.134067,
+            "peak_rss_kib": 2940,
+            "managed_bytes": 14107,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606822
+          }
+        ]
+      },
+      "medians": {
+        "bank": {
+          "seconds": 0.196623092,
+          "cpu_seconds": 0.196497,
+          "peak_rss_kib": 17976,
+          "managed_bytes": 51213595,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "standalone": {
+          "seconds": 0.198320456,
+          "cpu_seconds": 0.197967,
+          "peak_rss_kib": 17976,
+          "managed_bytes": 51205605,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "bank-active": {
+          "seconds": 0.143588231,
+          "cpu_seconds": 0.143239,
+          "peak_rss_kib": 2876,
+          "managed_bytes": 13851,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 606812
+        },
+        "bank-visibility": {
+          "seconds": 0.137085235,
+          "cpu_seconds": 0.136863,
+          "peak_rss_kib": 2940,
+          "managed_bytes": 14107,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 606822
+        }
+      }
+    },
+    {
+      "rows_per_sheet": 100000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 2000000,
+      "checksum": 999999000000,
+      "file_bytes": 5882341,
+      "sha256": "7c9a4471c3d743011320d3eefeb2540eb6b67cdc3081ad72d889735a87d1c0e1",
+      "samples": {
+        "bank": [
+          {
+            "seconds": 1.78898324,
+            "cpu_seconds": 1.787454,
+            "peak_rss_kib": 158008,
+            "managed_bytes": 512013595,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.941258488,
+            "cpu_seconds": 1.940192,
+            "peak_rss_kib": 158072,
+            "managed_bytes": 512013595,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.810570936,
+            "cpu_seconds": 1.809824,
+            "peak_rss_kib": 158008,
+            "managed_bytes": 512013595,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "standalone": [
+          {
+            "seconds": 1.734904829,
+            "cpu_seconds": 1.733877,
+            "peak_rss_kib": 158008,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.735068772,
+            "cpu_seconds": 1.734581,
+            "peak_rss_kib": 158008,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.724460699,
+            "cpu_seconds": 1.723986,
+            "peak_rss_kib": 158064,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "bank-active": [
+          {
+            "seconds": 1.316027668,
+            "cpu_seconds": 1.314332,
+            "peak_rss_kib": 2940,
+            "managed_bytes": 13851,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5882396
+          },
+          {
+            "seconds": 1.293160554,
+            "cpu_seconds": 1.291847,
+            "peak_rss_kib": 2800,
+            "managed_bytes": 13851,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5882396
+          },
+          {
+            "seconds": 1.326409983,
+            "cpu_seconds": 1.324043,
+            "peak_rss_kib": 2876,
+            "managed_bytes": 13851,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5882396
+          }
+        ],
+        "bank-visibility": [
+          {
+            "seconds": 1.31917789,
+            "cpu_seconds": 1.317961,
+            "peak_rss_kib": 2812,
+            "managed_bytes": 14107,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5882406
+          },
+          {
+            "seconds": 1.361328856,
+            "cpu_seconds": 1.360757,
+            "peak_rss_kib": 2960,
+            "managed_bytes": 14107,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5882406
+          },
+          {
+            "seconds": 1.398673657,
+            "cpu_seconds": 1.396918,
+            "peak_rss_kib": 3004,
+            "managed_bytes": 14107,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5882406
+          }
+        ]
+      },
+      "medians": {
+        "bank": {
+          "seconds": 1.810570936,
+          "cpu_seconds": 1.809824,
+          "peak_rss_kib": 158008,
+          "managed_bytes": 512013595,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "standalone": {
+          "seconds": 1.734904829,
+          "cpu_seconds": 1.733877,
+          "peak_rss_kib": 158008,
+          "managed_bytes": 512005605,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "bank-active": {
+          "seconds": 1.316027668,
+          "cpu_seconds": 1.314332,
+          "peak_rss_kib": 2876,
+          "managed_bytes": 13851,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 5882396
+        },
+        "bank-visibility": {
+          "seconds": 1.361328856,
+          "cpu_seconds": 1.360757,
+          "peak_rss_kib": 2960,
+          "managed_bytes": 14107,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 5882406
+        }
+      }
+    }
+  ]
+}

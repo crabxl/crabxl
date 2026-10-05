@@ -139,6 +139,11 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         if let Some(index) = reader.active_index() {
             bank.set_active_sheet(sheets[index].id)?;
         }
+        // Original declarations can select a hidden sheet; preserve their read
+        // state while explicit future selection still requires a visible target.
+        for (source, info) in sheets.iter().zip(reader.sheets()) {
+            bank.set_sheet_visibility(source.id, info.visibility())?;
+        }
         let mut value = Self {
             editor,
             bank,
@@ -177,6 +182,31 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .position(|sheet| sheet.id == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
         let planned = self.editor.prepare_active(index)?;
+        self.reserve_workbook_patch(planned)?;
+        self.bank.set_active_sheet(id)?;
+        self.editor.commit_active(index, planned);
+        self.rebalance()
+    }
+    /// Change original catalog visibility without materializing worksheet cells.
+    /// All-hidden intermediate states are allowed; saving requires a visible sheet.
+    /// Validation and joint allowance checks precede model and overlay changes.
+    pub fn set_sheet_visibility(
+        &mut self,
+        id: SheetId,
+        visibility: crabxl_core::SheetVisibility,
+    ) -> Result<()> {
+        let index = self
+            .sheets
+            .iter()
+            .position(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        let planned = self.editor.prepare_visibility(index)?;
+        self.reserve_workbook_patch(planned)?;
+        self.bank.set_sheet_visibility(id, visibility)?;
+        self.editor.commit_visibility(index, visibility, planned);
+        self.rebalance()
+    }
+    fn reserve_workbook_patch(&mut self, planned: usize) -> Result<()> {
         let package = self
             .package_extra_bytes()
             .saturating_sub(self.editor.patch_bytes())
@@ -199,10 +229,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                     .saturating_add(self.editor.book.retained_source_bytes()),
             )
             .ok_or_else(budget)?;
-        self.bank.set_memory_allowance(available)?;
-        self.bank.set_active_sheet(id)?;
-        self.editor.commit_active(index, planned);
-        self.rebalance()
+        self.bank.set_memory_allowance(available)
     }
     /// Whether a source worksheet has committed its decoded model.
     pub fn is_materialized(&self, id: SheetId) -> bool {
@@ -465,6 +492,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 self.rebalance()?;
                 return Err(error);
             }
+            incoming.set_visibility(self.bank.sheet(id)?.visibility());
             incoming.mark_clean();
             self.rebalance()?;
             self.bank.replace_sheet(id, incoming)?;
@@ -488,7 +516,14 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 "Edited data-only model output remains unimplemented",
             ));
         }
-        self.editor.save(output, options)
+        let result = self.editor.save(output, options)?;
+        if let Some(index) = self.editor.active_index() {
+            let id = self.sheets[index].id;
+            if self.bank.active_sheet() != Some(id) {
+                self.bank.set_active_sheet(id)?;
+            }
+        }
+        Ok(result)
     }
     /// Atomically replace a path after a successful original-package save.
     pub fn save_path(&mut self, path: impl AsRef<Path>, options: SaveOptions) -> Result<SaveStats> {

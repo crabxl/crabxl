@@ -7,7 +7,7 @@ use std::{fs::File, time::Instant};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let path = args.next().ok_or(
-        "Usage: loaded_rows <input.xlsx> [bank|standalone|bank-edit|bank-active] [output.xlsx]",
+        "Usage: loaded_rows <input.xlsx> [bank|standalone|bank-edit|bank-active|bank-visibility] [output.xlsx]",
     )?;
     let mode = args.next().unwrap_or_else(|| "bank".into());
     let output = args.next();
@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Ok(())
     };
-    let (managed, temp) = if mode == "bank-active" {
+    let (managed, temp) = if mode == "bank-active" || mode == "bank-visibility" {
         let mut workbook = LoadedWorkbook::with_options(File::open(path)?, LoadOptions::default())?;
         let id = workbook
             .model()
@@ -37,7 +37,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .nth(1)
             .ok_or("Active mode requires two sheets")?
             .0;
-        workbook.set_active_sheet(id)?;
+        if mode == "bank-visibility" {
+            let first = workbook.model().sheets().next().ok_or("No source sheet")?.0;
+            workbook.set_sheet_visibility(first, crabxl::SheetVisibility::Hidden)?;
+        } else {
+            workbook.set_active_sheet(id)?;
+        }
         let target = output.as_ref().ok_or("Active mode requires output path")?;
         workbook.save_path(target, crabxl::SaveOptions::default())?;
         output_bytes = std::fs::metadata(target)?.len();
@@ -48,6 +53,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut saved = WorkbookReader::open(target)?;
         if saved.active_index() != Some(1) {
             return Err("Saved active selection mismatch".into());
+        }
+        if mode == "bank-visibility"
+            && saved.sheets()[0].visibility() != crabxl::SheetVisibility::Hidden
+        {
+            return Err("Saved visibility mismatch".into());
+        }
+        if workbook.model().active_sheet() != Some(id) {
+            return Err("Loaded active selection is not synchronized".into());
         }
         let names = saved
             .sheets()
@@ -171,7 +184,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_or(0, |stats| stats.temp_bytes);
         (managed, temp)
     } else {
-        return Err("Mode must be bank, standalone, bank-edit or bank-active".into());
+        return Err(
+            "Mode must be bank, standalone, bank-edit, bank-active or bank-visibility".into(),
+        );
     };
     println!(
         "{{\"mode\":\"{mode}\",\"cells\":{count},\"checksum\":{checksum},\"materialized_cells\":{materialized_cells},\"managed_bytes\":{managed},\"sst_temp_bytes\":{temp},\"output_bytes\":{output_bytes},\"verified_edit\":{verified_edit},\"seconds\":{}}}",

@@ -35,7 +35,7 @@ pub use scalar::{CellError, CellText, ExactInteger, StyleInteger};
 pub use style::{CellStyle, Font, StyleId};
 
 mod worksheet;
-pub use worksheet::{CellRange, EditLimits, Worksheet};
+pub use worksheet::{CellRange, EditLimits, SheetVisibility, Worksheet};
 
 mod translate;
 pub use translate::{formula_position, translate_axis, translate_expression};

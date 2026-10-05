@@ -63,6 +63,27 @@ impl std::fmt::Display for CellRange {
         }
     }
 }
+/// Workbook catalog visibility of a worksheet or opaque sheet placeholder.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SheetVisibility {
+    /// Shown in the workbook tab bar.
+    #[default]
+    Visible,
+    /// Hidden but can be shown through the spreadsheet user interface.
+    Hidden,
+    /// Hidden from ordinary user-interface unhide controls.
+    VeryHidden,
+}
+impl SheetVisibility {
+    /// Canonical OOXML/openpyxl spelling of this state.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Visible => "visible",
+            Self::Hidden => "hidden",
+            Self::VeryHidden => "veryHidden",
+        }
+    }
+}
 /// Sparse owned cell model. Structural edits move coordinates and preserve
 /// formulas verbatim; reference translation and feature graphs are separate.
 /// This is distinct from a lazy original-file editor and opaque preservation.
@@ -75,6 +96,7 @@ pub struct Worksheet {
     dirty: bool,
     views: Option<Box<crate::SheetViews>>,
     printing: Option<Box<crate::PrintSettings>>,
+    visibility: SheetVisibility,
 }
 impl Worksheet {
     /// Create an empty sheet with explicit managed-data/work allowances.
@@ -95,11 +117,24 @@ impl Worksheet {
             dirty: false,
             views: None,
             printing: None,
+            visibility: SheetVisibility::Visible,
         })
     }
     /// Sheet display name. XLSX naming rules are checked by format writers.
     pub fn name(&self) -> &str {
         &self.name
+    }
+    /// Current workbook catalog visibility; this flag allocates no payload.
+    pub const fn visibility(&self) -> SheetVisibility {
+        self.visibility
+    }
+    /// Set catalog visibility. Hiding all sheets is permitted in memory but
+    /// saveable workbook output requires at least one visible sheet.
+    pub fn set_visibility(&mut self, visibility: SheetVisibility) {
+        if self.visibility != visibility {
+            self.visibility = visibility;
+            self.dirty = true;
+        }
     }
     /// Rename a model within its retained-data allowance. Format-specific
     /// name rules remain the responsibility of codecs and adapters.

@@ -264,6 +264,7 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         "missing",
         "empty",
         "multiple",
+        "extension",
         "strict",
         "custom-part",
     ] {
@@ -275,6 +276,7 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
             "missing" => book.replace(views, ""),
             "empty" => book.replace(views, "<bookViews/>"),
             "multiple" => book.replace(views, "<bookViews><workbookView activeTab=\"0\" showHorizontalScroll=\"0\"/><workbookView activeTab=\"0\" windowWidth=\"123\"/></bookViews>"),
+            "extension" => book.replace("</workbook>", "<extLst><sheet name=\"OpaqueSheet\"/></extLst></workbook>"),
             _ => book,
         };
         input.insert("xl/workbook.xml".into(), book.into_bytes());
@@ -359,6 +361,46 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
                 .active_index(),
             Some(0)
         );
+        use crabxl_core::SheetVisibility::{Hidden, VeryHidden, Visible};
+        workbook.set_sheet_visibility(first, Hidden).unwrap();
+        assert!(!workbook.is_materialized(first));
+        assert_eq!(workbook.sheet(first).unwrap().visibility(), Hidden);
+        assert!(workbook.set_active_sheet(first).is_err());
+        for _ in 0..2 {
+            let (output, stats) = workbook
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap();
+            assert_eq!(stats.rewritten_parts, 1);
+            assert_eq!(workbook.model().active_sheet(), Some(second));
+            let saved = parts(output.into_inner());
+            if mode == "extension" {
+                let xml = String::from_utf8(saved[workbook_part].clone()).unwrap();
+                assert!(xml.contains("<sheet name=\"OpaqueSheet\">"));
+                assert!(!xml.contains("name=\"OpaqueSheet\" state="));
+            }
+            for (name, bytes) in &input {
+                if name != workbook_part {
+                    assert_eq!(&saved[name], bytes);
+                }
+            }
+            let reader = crabxl_xlsx::WorkbookReader::new(Cursor::new(package(saved))).unwrap();
+            assert_eq!(reader.sheets()[0].visibility(), Hidden);
+            assert_eq!(reader.active_index(), Some(1));
+        }
+        workbook.set_sheet_visibility(second, VeryHidden).unwrap();
+        let mut target = Cursor::new(b"unchanged output".to_vec());
+        assert!(workbook.save(&mut target, Default::default()).is_err());
+        assert_eq!(target.into_inner(), b"unchanged output");
+        assert_eq!(workbook.model().active_sheet(), Some(second));
+        workbook.set_sheet_visibility(first, Visible).unwrap();
+        workbook.set_active_sheet(first).unwrap();
+        let (output, _) = workbook
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        let reader = crabxl_xlsx::WorkbookReader::new(output).unwrap();
+        assert_eq!(reader.sheets()[0].visibility(), Visible);
+        assert_eq!(reader.sheets()[1].visibility(), VeryHidden);
+        assert_eq!(reader.active_index(), Some(0));
     }
     for mode in ["hidden", "signed", "alternative", "patch-cap"] {
         let mut input = original.clone();
@@ -403,6 +445,19 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         assert_eq!(workbook.model().active_sheet(), Some(first));
         assert_eq!(workbook.patch_bytes(), 0);
         assert_eq!(workbook.managed_retained_bytes(), before);
+        if mode != "hidden" {
+            assert!(
+                workbook
+                    .set_sheet_visibility(second, crabxl_core::SheetVisibility::Hidden)
+                    .is_err()
+            );
+            assert_eq!(
+                workbook.model().sheet(second).unwrap().visibility(),
+                crabxl_core::SheetVisibility::Visible
+            );
+            assert_eq!(workbook.patch_bytes(), 0);
+            assert_eq!(workbook.managed_retained_bytes(), before);
+        }
     }
     let mut editor =
         crabxl_xlsx::WorkbookEditor::new(Cursor::new(package(original.clone()))).unwrap();
