@@ -148,6 +148,68 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
     );
     assert!(workbook.managed_retained_bytes() <= workbook.memory_allowance().retained_data_bytes);
     assert_eq!(workbook.into_source().into_inner(), bytes);
+    // An unimplemented chartsheet stays opaque without blocking an unrelated
+    // worksheet's typed read/edit or removing its original package part.
+    let mut input = ZipArchive::new(Cursor::new(source(3, false))).unwrap();
+    let mut output = ZipWriter::new(Cursor::new(Vec::new()));
+    let chart = b"<chartsheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetViews><sheetView workbookViewId=\"0\"/></sheetViews></chartsheet>";
+    for index in 0..input.len() {
+        let mut file = input.by_index(index).unwrap();
+        let name = file.name().to_owned();
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).unwrap();
+        if name == "xl/_rels/workbook.xml.rels" {
+            data = String::from_utf8(data)
+                .unwrap()
+                .replace(
+                    "/worksheet\" Target=\"worksheets/sheet2.xml\"",
+                    "/chartsheet\" Target=\"worksheets/sheet2.xml\"",
+                )
+                .into_bytes();
+        } else if name == "xl/worksheets/sheet2.xml" {
+            data = chart.to_vec();
+        } else if name == "[Content_Types].xml" {
+            data = String::from_utf8(data).unwrap().replace("PartName=\"/xl/worksheets/sheet2.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"", "PartName=\"/xl/worksheets/sheet2.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml\"").into_bytes();
+        }
+        output
+            .start_file(name, SimpleFileOptions::default())
+            .unwrap();
+        output.write_all(&data).unwrap();
+    }
+    let mut workbook = LoadedWorkbook::with_options(
+        Cursor::new(output.finish().unwrap().into_inner()),
+        LoadOptions::default(),
+    )
+    .unwrap();
+    let first = workbook.sheet_id("First").unwrap();
+    let chart_id = workbook.sheet_id("Second").unwrap();
+    assert_eq!(
+        workbook.sheet_kind(chart_id),
+        Some(crabxl_xlsx::SheetKind::ChartSheet)
+    );
+    assert_eq!(
+        workbook.sheet(chart_id).err().unwrap().kind(),
+        ErrorKind::Unsupported
+    );
+    workbook.sheet(first).unwrap();
+    workbook
+        .set_value(
+            first,
+            CellAddress::new(0, 0).unwrap(),
+            CellValue::Integer(44),
+        )
+        .unwrap();
+    let (bytes, _) = workbook
+        .save(Cursor::new(Vec::new()), crabxl_xlsx::SaveOptions::default())
+        .unwrap();
+    let mut saved = ZipArchive::new(bytes).unwrap();
+    let mut data = Vec::new();
+    saved
+        .by_name("xl/worksheets/sheet2.xml")
+        .unwrap()
+        .read_to_end(&mut data)
+        .unwrap();
+    assert_eq!(data, chart);
 }
 
 #[test]
@@ -247,4 +309,144 @@ fn aggregate_loading_rejects_without_committing_and_sst_temp_resources_are_owned
         drop(workbook);
         assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
     }
+}
+
+#[test]
+fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_usable() {
+    let bytes = source(3, false);
+    let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+    let mut original = ZipArchive::new(Cursor::new(bytes)).unwrap();
+    for index in 0..original.len() {
+        zip.raw_copy_file(original.by_index(index).unwrap())
+            .unwrap();
+    }
+    zip.start_file("opaque/unaffected.bin", SimpleFileOptions::default())
+        .unwrap();
+    zip.write_all(b"retained original asset").unwrap();
+    let bytes = zip.finish().unwrap().into_inner();
+    let mut workbook = LoadedWorkbook::with_options(
+        Cursor::new(bytes.clone()),
+        LoadOptions {
+            editor: crabxl_xlsx::EditorOptions {
+                max_patch_cells: 3,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let first = workbook.sheet_id("First").unwrap();
+    let second = workbook.sheet_id("Second").unwrap();
+    workbook
+        .upsert_value(
+            second,
+            CellAddress::new(0, 0).unwrap(),
+            CellValue::text("lazy overlay"),
+        )
+        .unwrap();
+    assert!(!workbook.is_materialized(second));
+    assert!(
+        matches!(workbook.pending_value(second, CellAddress::new(0, 0).unwrap()), Some(CellValue::Text(text)) if text.as_str() == "lazy overlay")
+    );
+    workbook.sheet(first).unwrap();
+    workbook
+        .set_value(
+            first,
+            CellAddress::new(0, 0).unwrap(),
+            CellValue::Integer(7),
+        )
+        .unwrap();
+    workbook
+        .upsert_value(
+            first,
+            CellAddress::new(5, 2).unwrap(),
+            CellValue::Integer(33),
+        )
+        .unwrap();
+    assert_eq!(
+        workbook
+            .sheet(first)
+            .unwrap()
+            .get(CellAddress::new(0, 0).unwrap())
+            .unwrap()
+            .value,
+        CellValue::Integer(7)
+    );
+    let before = workbook.managed_retained_bytes();
+    assert_eq!(
+        workbook
+            .upsert_value(
+                first,
+                CellAddress::new(1, 0).unwrap(),
+                CellValue::Integer(99)
+            )
+            .unwrap_err()
+            .kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    assert_eq!(workbook.managed_retained_bytes(), before);
+    assert!(
+        workbook
+            .pending_value(first, CellAddress::new(1, 0).unwrap())
+            .is_none()
+    );
+    assert_eq!(
+        workbook
+            .sheet(first)
+            .unwrap()
+            .get(CellAddress::new(1, 0).unwrap())
+            .unwrap()
+            .value,
+        CellValue::Integer(1)
+    );
+    assert!(
+        matches!(&workbook.sheet(second).unwrap().get(CellAddress::new(0, 0).unwrap()).unwrap().value, CellValue::Text(text) if text.as_str() == "lazy overlay")
+    );
+    let directory = tempfile::tempdir().unwrap();
+    let target = directory.path().join("output.xlsx");
+    std::fs::write(&target, b"keep target").unwrap();
+    assert!(
+        workbook
+            .save_path(
+                &target,
+                crabxl_xlsx::SaveOptions {
+                    compression_level: Some(10),
+                    ..Default::default()
+                }
+            )
+            .is_err()
+    );
+    assert_eq!(std::fs::read(&target).unwrap(), b"keep target");
+    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    for _ in 0..2 {
+        workbook
+            .save_path(&target, crabxl_xlsx::SaveOptions::default())
+            .unwrap();
+        let mut saved = crabxl_xlsx::WorkbookReader::open(&target).unwrap();
+        assert_eq!(
+            saved
+                .read_sheet("First")
+                .unwrap()
+                .rows
+                .last()
+                .unwrap()
+                .cells[0]
+                .value,
+            CellValue::Integer(33)
+        );
+        assert!(
+            matches!(&saved.read_sheet("Second").unwrap().rows[0].cells[0].value, CellValue::Text(text) if text.as_str() == "lazy overlay")
+        );
+        let mut archive = ZipArchive::new(std::fs::File::open(&target).unwrap()).unwrap();
+        let mut asset = Vec::new();
+        archive
+            .by_name("opaque/unaffected.bin")
+            .unwrap()
+            .read_to_end(&mut asset)
+            .unwrap();
+        assert_eq!(asset, b"retained original asset");
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+    assert!(workbook.managed_retained_bytes() <= workbook.memory_allowance().retained_data_bytes);
+    assert_eq!(workbook.into_source().into_inner(), bytes);
 }

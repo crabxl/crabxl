@@ -1,0 +1,242 @@
+{
+  "checkpoint": "A6 single-source loaded bank and preserving value overlays; not M4 completion",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "binary_sha256": "e387ba3099045332e064a031a625e2d843f73b0f6a9c03d076bac25403ce083f",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592",
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "method": "one warmup, three rotating serial release runs; native wait4 wall/CPU/peak RSS; build and generation excluded",
+  "comparison": "same current decoder and owned sparse cell type; bank transfers source styles and enforces joint resource accounting; standalone reproduces prior per-sheet native materialization; not Python or streaming performance",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 200000,
+      "checksum": 9999900000,
+      "file_bytes": 606757,
+      "sha256": "3e7c6e539fa5a6b1f83d1117429f780ff02975d7d938e30e123b5575a6b4d55f",
+      "samples": {
+        "bank": [
+          {
+            "seconds": 0.173664888,
+            "cpu_seconds": 0.173566,
+            "peak_rss_kib": 17884,
+            "managed_bytes": 51213515,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.170038438,
+            "cpu_seconds": 0.169781,
+            "peak_rss_kib": 17932,
+            "managed_bytes": 51213515,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.176987792,
+            "cpu_seconds": 0.176572,
+            "peak_rss_kib": 17996,
+            "managed_bytes": 51213515,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "standalone": [
+          {
+            "seconds": 0.173034566,
+            "cpu_seconds": 0.172033,
+            "peak_rss_kib": 17996,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.168522281,
+            "cpu_seconds": 0.168243,
+            "peak_rss_kib": 17868,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.16599768,
+            "cpu_seconds": 0.165914,
+            "peak_rss_kib": 17996,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "bank-edit": [
+          {
+            "seconds": 0.61542731,
+            "cpu_seconds": 0.614857,
+            "peak_rss_kib": 18548,
+            "managed_bytes": 51214051,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606976
+          },
+          {
+            "seconds": 0.575780853,
+            "cpu_seconds": 0.575317,
+            "peak_rss_kib": 18448,
+            "managed_bytes": 51214051,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606976
+          },
+          {
+            "seconds": 0.583599233,
+            "cpu_seconds": 0.583185,
+            "peak_rss_kib": 18500,
+            "managed_bytes": 51214051,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606976
+          }
+        ]
+      },
+      "medians": {
+        "bank": {
+          "seconds": 0.173664888,
+          "cpu_seconds": 0.173566,
+          "peak_rss_kib": 17932,
+          "managed_bytes": 51213515,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "standalone": {
+          "seconds": 0.168522281,
+          "cpu_seconds": 0.168243,
+          "peak_rss_kib": 17996,
+          "managed_bytes": 51205605,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "bank-edit": {
+          "seconds": 0.583599233,
+          "cpu_seconds": 0.583185,
+          "peak_rss_kib": 18500,
+          "managed_bytes": 51214051,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 606976
+        }
+      }
+    },
+    {
+      "rows_per_sheet": 100000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 2000000,
+      "checksum": 999999000000,
+      "file_bytes": 5882341,
+      "sha256": "7c9a4471c3d743011320d3eefeb2540eb6b67cdc3081ad72d889735a87d1c0e1",
+      "samples": {
+        "bank": [
+          {
+            "seconds": 1.773921847,
+            "cpu_seconds": 1.773399,
+            "peak_rss_kib": 157964,
+            "managed_bytes": 512013515,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.774224371,
+            "cpu_seconds": 1.773292,
+            "peak_rss_kib": 158016,
+            "managed_bytes": 512013515,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 2.055160021,
+            "cpu_seconds": 2.052932,
+            "peak_rss_kib": 158064,
+            "managed_bytes": 512013515,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "standalone": [
+          {
+            "seconds": 1.76742183,
+            "cpu_seconds": 1.765692,
+            "peak_rss_kib": 157964,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.761947917,
+            "cpu_seconds": 1.760899,
+            "peak_rss_kib": 157836,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.831271994,
+            "cpu_seconds": 1.830296,
+            "peak_rss_kib": 158028,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "bank-edit": [
+          {
+            "seconds": 5.98729967,
+            "cpu_seconds": 5.985005,
+            "peak_rss_kib": 158532,
+            "managed_bytes": 512014051,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5887308
+          },
+          {
+            "seconds": 6.293688742,
+            "cpu_seconds": 6.291169,
+            "peak_rss_kib": 158476,
+            "managed_bytes": 512014051,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5887308
+          },
+          {
+            "seconds": 6.335278049,
+            "cpu_seconds": 6.333377,
+            "peak_rss_kib": 158540,
+            "managed_bytes": 512014051,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5887308
+          }
+        ]
+      },
+      "medians": {
+        "bank": {
+          "seconds": 1.774224371,
+          "cpu_seconds": 1.773399,
+          "peak_rss_kib": 158016,
+          "managed_bytes": 512013515,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "standalone": {
+          "seconds": 1.76742183,
+          "cpu_seconds": 1.765692,
+          "peak_rss_kib": 157964,
+          "managed_bytes": 512005605,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "bank-edit": {
+          "seconds": 6.293688742,
+          "cpu_seconds": 6.291169,
+          "peak_rss_kib": 158532,
+          "managed_bytes": 512014051,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 5887308
+        }
+      }
+    }
+  ]
+}
