@@ -127,7 +127,8 @@ ID, preserves formula caches/chains for metadata-only saves, and rejects hidden,
 signed, unsupported or over-budget selections before mutation (ADR 0058). Other
 workbook/sheet mutations and full graph cases remain open. Shared source/model
 visibility with lazy catalog edits, visible selection normalization and all-hidden
-output preflight is verified in ADR 0060; Python exposure remains open.
+output preflight is verified in ADR 0060. ADR 0061 adds deferred signed views and
+original unselected/relative view loading; Python exposure remains open.
 
 - Centralize relationships, content types, part allocation and imported IDs; use normalized relative targets and strict/transitional namespaces.
 - Support existing-file sheet create/copy/remove/rename/reorder/visibility/active selection, plus macro/template and external-link policies.

@@ -348,6 +348,12 @@ impl Workbook {
         self.active = Some(id);
         Ok(())
     }
+    /// Select a deferred display view, including relative, hidden or unselected
+    /// indexes. Serialization decides its active-tab attribute independently.
+    pub fn set_active_view_index(&mut self, index: i64) {
+        self.active = crate::resolve_sheet_index(index, self.entries.len())
+            .map(|position| self.entries[position].id);
+    }
     /// Change one sheet's catalog visibility without copying its cells or changing
     /// its stable identity. All-hidden models may be assembled but cannot be saved.
     pub fn set_sheet_visibility(

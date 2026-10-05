@@ -392,6 +392,18 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         assert!(workbook.save(&mut target, Default::default()).is_err());
         assert_eq!(target.into_inner(), b"unchanged output");
         assert_eq!(workbook.model().active_sheet(), Some(second));
+        workbook
+            .set_sheet_visibility_and_active_view(second, VeryHidden, 1)
+            .unwrap();
+        let mut target = Cursor::new(b"unchanged deferred output".to_vec());
+        assert_eq!(
+            workbook
+                .save(&mut target, Default::default())
+                .unwrap_err()
+                .kind(),
+            ErrorKind::NoVisibleSheet
+        );
+        assert_eq!(target.into_inner(), b"unchanged deferred output");
         workbook.set_sheet_visibility(first, Visible).unwrap();
         workbook.set_active_sheet(first).unwrap();
         let (output, _) = workbook
@@ -457,6 +469,19 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
             );
             assert_eq!(workbook.patch_bytes(), 0);
             assert_eq!(workbook.managed_retained_bytes(), before);
+            assert!(workbook.set_active_view_index(-1).is_err());
+            assert!(
+                workbook
+                    .set_sheet_visibility_and_active_view(
+                        second,
+                        crabxl_core::SheetVisibility::Hidden,
+                        -1
+                    )
+                    .is_err()
+            );
+            assert_eq!(workbook.model().active_sheet(), Some(first));
+            assert_eq!(workbook.patch_bytes(), 0);
+            assert_eq!(workbook.managed_retained_bytes(), before);
         }
     }
     let mut editor =
@@ -471,6 +496,72 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         .unwrap();
     assert_eq!(stats.rewritten_parts, 0);
     assert_eq!(parts(output.into_inner()), original);
+    // Deferred view indexes match public reference behavior without eager cells.
+    for (count, requested, after, read_index) in [
+        (2, -3, 0, 0),
+        (2, -1, 0, 0),
+        (2, 1, 1, 0),
+        (2, 10, 10, 0),
+        (3, -3, -3, 0),
+        (3, -1, -1, 2),
+        (3, 1, 2, 2),
+        (3, 10, 10, 0),
+    ] {
+        let mut input = original.clone();
+        let mut xml = String::from_utf8(input.remove("xl/workbook.xml").unwrap())
+            .unwrap()
+            .replace("name=\"Second\"", "name=\"Second\" state=\"hidden\"");
+        if count == 3 {
+            xml = xml.replace(
+                "</sheets>",
+                "<sheet name=\"Third\" sheetId=\"3\" r:id=\"viewThird\"/></sheets>",
+            );
+            input.insert(
+                "xl/worksheets/sheet3.xml".into(),
+                input["xl/worksheets/sheet2.xml"].clone(),
+            );
+            let rels =
+                String::from_utf8(input.remove("xl/_rels/workbook.xml.rels").unwrap()).unwrap();
+            input.insert("xl/_rels/workbook.xml.rels".into(), rels.replace("</Relationships>", "<Relationship Id=\"viewThird\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet3.xml\"/></Relationships>").into_bytes());
+            let types = String::from_utf8(input.remove("[Content_Types].xml").unwrap()).unwrap();
+            input.insert("[Content_Types].xml".into(), types.replace("</Types>", "<Override PartName=\"/xl/worksheets/sheet3.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/></Types>").into_bytes());
+        }
+        xml = xml.replacen("activeTab=\"0\"", &format!("activeTab=\"{requested}\""), 1);
+        input.insert("xl/workbook.xml".into(), xml.into_bytes());
+        let mut workbook = LoadedWorkbook::with_options(
+            Cursor::new(package(input.clone())),
+            LoadOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            workbook.model().active_index(),
+            crabxl_core::resolve_sheet_index(requested, count)
+        );
+        workbook.set_active_view_index(requested).unwrap();
+        assert_eq!(
+            workbook.model().active_index(),
+            crabxl_core::resolve_sheet_index(requested, count)
+        );
+        for _ in 0..2 {
+            let (output, _) = workbook
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap();
+            assert_eq!(workbook.active_view_index(), after);
+            assert_eq!(
+                workbook.model().active_index(),
+                crabxl_core::resolve_sheet_index(after, count)
+            );
+            assert_eq!(workbook.model().cell_count(), 0);
+            let saved = parts(output.into_inner());
+            for (name, bytes) in &input {
+                if name != "xl/workbook.xml" {
+                    assert_eq!(&saved[name], bytes);
+                }
+            }
+            let reader = crabxl_xlsx::WorkbookReader::new(Cursor::new(package(saved))).unwrap();
+            assert_eq!(reader.active_index(), Some(read_index));
+        }
+    }
 }
 
 #[test]

@@ -182,3 +182,8 @@ These edits do not decode worksheet cells and retain original caches and assets.
 All-hidden output fails before writing; loaded active normalization commits only
 after successful serialization. Python exposure and broader M4 sheet surgery
 remain staged for Alpha 7.
+
+[ADR 0061](decisions/0061-deferred-active-view-selection.md) centralizes relative
+and deferred workbook-view indexes and compatible visibility normalization.
+Bindings consume the canonical policy; source active declarations, pending
+views and loaded stable handles remain coordinated without cell materialization.
