@@ -44,7 +44,7 @@ pub use crabxl_core::{
     HorizontalAlignment, VerticalAlignment,
 };
 
-pub use crabxl_core::{CellRange, EditLimits, Worksheet};
+pub use crabxl_core::{CellRange, EditLimits, SheetVisibility, Worksheet};
 
 pub use crabxl_xlsx::{
     CalculationChainPolicy, EditorOptions, PartInfo, SaveOptions, SaveStats, WorkbookEditor,

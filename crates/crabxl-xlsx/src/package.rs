@@ -35,6 +35,7 @@ pub struct SheetInfo {
     name: String,
     part: String,
     kind: SheetKind,
+    visibility: crabxl_core::SheetVisibility,
 }
 impl SheetInfo {
     /// Return the unescaped display name.
@@ -48,6 +49,10 @@ impl SheetInfo {
     /// Return the sheet kind.
     pub fn kind(&self) -> SheetKind {
         self.kind
+    }
+    /// Workbook catalog visibility, including non-cell sheet kinds.
+    pub const fn visibility(&self) -> crabxl_core::SheetVisibility {
+        self.visibility
     }
 }
 
@@ -1205,6 +1210,12 @@ fn read_workbook<R: Read + Seek>(
                     name,
                     part: resolve_part(part, &relationship.target)?,
                     kind,
+                    visibility: match attribute(&e, b"state")?.as_deref() {
+                        None | Some("visible") => crabxl_core::SheetVisibility::Visible,
+                        Some("hidden") => crabxl_core::SheetVisibility::Hidden,
+                        Some("veryHidden") => crabxl_core::SheetVisibility::VeryHidden,
+                        _ => return Err(invalid("Invalid sheet visibility").with_part(part)),
+                    },
                 });
             }
             Event::Eof => return Ok((sheets, date_1904, active_sheet)),

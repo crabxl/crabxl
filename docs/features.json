@@ -16999,7 +16999,8 @@
       "benchmarks": [
         "benchmarks/alpha6-loaded-bank.md",
         "benchmarks/alpha6-loaded-coordinator.md",
-        "benchmarks/alpha6-active-selection.md"
+        "benchmarks/alpha6-active-selection.md",
+        "benchmarks/alpha7-sheet-visibility.md"
       ]
     },
     {
@@ -17761,10 +17762,11 @@
       "tests": [
         "crates/crabxl-xlsx/tests/loaded.rs::active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_mutation"
       ],
-      "limitations": "Changes the first workbook view, creates it if missing/empty and preserves additional view attributes. No eager sheet models; active-only saves keep caches/chains. Hidden, signed, alternative and resource failures reject before mutation. Typed full workbook views, visibility mutation, other sheet surgery and Python exposure remain staged.",
+      "limitations": "Changes the first workbook view, creates it if missing/empty and preserves additional view attributes. No eager sheet models; active-only saves keep caches/chains. Hidden, signed, alternative and resource failures reject before mutation. ADR 0060 adds canonical visible/hidden/very-hidden state, lazy source visibility edits, active normalization and all-hidden output preflight. Typed full workbook views, other sheet surgery and Python exposure remain staged.",
       "acceptance_ref": "docs/decisions/0058-lazy-active-workbook-selection.md",
       "benchmarks": [
-        "benchmarks/alpha6-active-selection.md"
+        "benchmarks/alpha6-active-selection.md",
+        "benchmarks/alpha7-sheet-visibility.md"
       ]
     }
   ],

@@ -130,6 +130,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     view_patches: BTreeMap<String, Box<crabxl_core::SheetViews>>,
     print_patches: BTreeMap<String, Box<crabxl_core::PrintSettings>>,
     active_patch: Option<usize>,
+    visibility_patches: BTreeMap<usize, crabxl_core::SheetVisibility>,
     options: EditorOptions,
     patch_bytes: usize,
     patch_cells: usize,
@@ -273,6 +274,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             view_patches: BTreeMap::new(),
             print_patches: BTreeMap::new(),
             active_patch: None,
+            visibility_patches: BTreeMap::new(),
             options,
             patch_bytes: 0,
             patch_cells: 0,
@@ -299,6 +301,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             || !self.view_patches.is_empty()
             || !self.print_patches.is_empty()
             || self.active_patch.is_some()
+            || !self.visibility_patches.is_empty()
     }
     /// Shared automatic/explicit operation allowance computed at construction.
     /// Original ZIP/catalog/inventory allocations are additional.
@@ -327,6 +330,104 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         Ok(())
     }
     pub(crate) fn prepare_active(&mut self, index: usize) -> Result<usize> {
+        let bytes = self
+            .patch_bytes
+            .saturating_add(if self.active_patch.is_none() {
+                PATCH_BYTES
+            } else {
+                0
+            });
+        self.validate_workbook_patch(index, bytes, true)?;
+        Ok(bytes)
+    }
+    /// Effective catalog visibility without decoding any worksheet cells.
+    pub fn sheet_visibility(&self, name: &str) -> Result<crabxl_core::SheetVisibility> {
+        let index = self
+            .book
+            .sheets()
+            .iter()
+            .position(|sheet| sheet.name() == name)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet does not exist"))?;
+        Ok(self.visibility_at(index))
+    }
+    /// Change an original sheet's catalog state without changing its contents.
+    /// An all-hidden intermediate model is permitted; saving rejects it before
+    /// writing output, so callers can restore a visible sheet and retry.
+    pub fn set_sheet_visibility(
+        &mut self,
+        name: &str,
+        visibility: crabxl_core::SheetVisibility,
+    ) -> Result<()> {
+        let index = self
+            .book
+            .sheets()
+            .iter()
+            .position(|sheet| sheet.name() == name)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet does not exist"))?;
+        let bytes = self.prepare_visibility(index)?;
+        self.commit_visibility(index, visibility, bytes);
+        Ok(())
+    }
+    pub(crate) fn prepare_visibility(&mut self, index: usize) -> Result<usize> {
+        let bytes = self
+            .patch_bytes
+            .saturating_add(if self.visibility_patches.contains_key(&index) {
+                0
+            } else {
+                PATCH_BYTES
+            })
+            // Reserve the fixed active overlay now, so successful save can
+            // normalize a newly hidden selection without growing the ledger.
+            .saturating_add(if self.active_patch.is_none() {
+                PATCH_BYTES
+            } else {
+                0
+            });
+        self.validate_workbook_patch(index, bytes, false)?;
+        Ok(bytes)
+    }
+    pub(crate) fn commit_visibility(
+        &mut self,
+        index: usize,
+        visibility: crabxl_core::SheetVisibility,
+        bytes: usize,
+    ) {
+        self.visibility_patches.insert(index, visibility);
+        if self.active_patch.is_none() {
+            self.active_patch = Some(self.book.active_index().unwrap_or(0));
+        }
+        self.patch_bytes = bytes;
+    }
+    fn visibility_at(&self, index: usize) -> crabxl_core::SheetVisibility {
+        self.visibility_patches
+            .get(&index)
+            .copied()
+            .unwrap_or_else(|| self.book.sheets()[index].visibility())
+    }
+    pub(crate) fn active_index(&self) -> Option<usize> {
+        self.active_patch.or_else(|| self.book.active_index())
+    }
+    fn active_for_save(&self) -> Result<Option<usize>> {
+        if self.visibility_patches.is_empty() {
+            return Ok(self.active_patch);
+        }
+        let mut visible = (0..self.book.sheets().len())
+            .filter(|index| self.visibility_at(*index) == crabxl_core::SheetVisibility::Visible);
+        let first = visible
+            .clone()
+            .next()
+            .ok_or_else(|| invalid("A workbook requires at least one visible sheet"))?;
+        let active = self.active_index().unwrap_or(first);
+        Ok(Some(
+            visible.find(|index| *index >= active).unwrap_or(first),
+        ))
+    }
+    fn validate_workbook_patch(
+        &mut self,
+        index: usize,
+        bytes: usize,
+        require_visible: bool,
+    ) -> Result<()> {
         let count = self.book.sheets().len();
         if index >= count {
             return Err(Error::new(
@@ -340,17 +441,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 "Editing signed packages is unsupported",
             ));
         }
-        let bytes = self
-            .patch_bytes
-            .saturating_add(if self.active_patch.is_none() {
-                PATCH_BYTES
-            } else {
-                0
-            });
+        if require_visible && self.visibility_at(index) != crabxl_core::SheetVisibility::Visible {
+            return Err(invalid("Active sheet must be visible"));
+        }
         if bytes > self.options.max_patch_bytes {
             return Err(Error::new(
                 ErrorKind::MemoryBudgetExceeded,
-                "Active sheet patch allowance exceeded",
+                "Workbook metadata patch allowance exceeded",
             ));
         }
         let part = self.book.workbook_part.clone();
@@ -367,9 +464,25 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             limits,
         );
         let mut sheet_index = 0usize;
+        let mut sheets_open = false;
         loop {
             let frame = xml.next()?;
             check_declaration(&frame.event)?;
+            if frame.scope == Scope::Spreadsheet {
+                match &frame.event {
+                    Event::Start(e)
+                        if frame.depth == 2 && e.local_name().as_ref().as_bytes() == b"sheets" =>
+                    {
+                        sheets_open = true
+                    }
+                    Event::End(e)
+                        if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"sheets" =>
+                    {
+                        sheets_open = false
+                    }
+                    _ => {}
+                }
+            }
             match frame.event {
                 Event::Start(e) if e.local_name().as_ref().as_bytes() == b"AlternateContent" => {
                     return Err(Error::new(
@@ -379,15 +492,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     .with_part(&part));
                 }
                 Event::Start(e)
-                    if frame.scope == Scope::Spreadsheet
+                    if sheets_open
+                        && frame.scope == Scope::Spreadsheet
                         && frame.depth == 3
                         && e.local_name().as_ref().as_bytes() == b"sheet" =>
                 {
-                    if sheet_index == index
-                        && attribute(&e, b"state")?.is_some_and(|state| state != "visible")
-                    {
-                        return Err(invalid("Active sheet must be visible").with_part(&part));
-                    }
                     sheet_index += 1;
                 }
                 Event::Eof => break,
@@ -397,7 +506,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         if sheet_index != count {
             return Err(invalid("Original sheet catalog changed").with_part(&part));
         }
-        Ok(bytes)
+        Ok(())
     }
     pub(crate) fn commit_active(&mut self, index: usize, bytes: usize) {
         self.active_patch = Some(index);
@@ -834,6 +943,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.view_patches = BTreeMap::new();
         self.print_patches = BTreeMap::new();
         self.active_patch = None;
+        self.visibility_patches = BTreeMap::new();
         self.patch_bytes = 0;
         self.patch_cells = 0;
     }
@@ -848,6 +958,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         options: SaveOptions,
     ) -> Result<(W, SaveStats)> {
         crate::writer::validate_compression_level(options.compression_level)?;
+        let active = self.active_for_save()?;
         let dirty = self.patch_cells != 0;
         let mut zip = ZipWriter::new(output);
         zip.set_raw_comment(self.book.archive.comment().to_vec().into_boxed_slice())
@@ -875,7 +986,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 && self.book.sheets().iter().any(|sheet| {
                     sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
                 });
-            let workbook = (dirty || self.active_patch.is_some())
+            let workbook = (dirty || active.is_some() || !self.visibility_patches.is_empty())
                 && part.name.as_ref() == self.book.workbook_part;
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
             if worksheet || workbook || shared_strings || chain_metadata {
@@ -919,7 +1030,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         &part.name,
                         self.options.resources,
                         dirty,
-                        self.active_patch,
+                        active,
+                        &self.visibility_patches,
                     )
                 } else if shared_strings {
                     patch_shared_strings(file, budget, &part.name, self.options.resources)
@@ -977,6 +1089,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         output
             .flush()
             .map_err(|error| io_error("Cannot flush edited package", error))?;
+        if !self.visibility_patches.is_empty() {
+            self.active_patch = active;
+        }
         Ok((output, stats))
     }
     /// Write a fresh adjacent temporary output and replace the target only after
@@ -1816,6 +1931,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
     limits: ResourceLimits,
     invalidate_caches: bool,
     active: Option<usize>,
+    visibility: &BTreeMap<usize, crabxl_core::SheetVisibility>,
 ) -> Result<u64> {
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -1829,9 +1945,26 @@ fn patch_workbook<R: Read + Seek, W: Write>(
     let mut views_seen = false;
     let mut views_open = false;
     let mut active_written = false;
+    let mut sheet_index = 0usize;
+    let mut sheets_open = false;
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
+        if frame.scope == Scope::Spreadsheet {
+            match &frame.event {
+                Event::Start(e)
+                    if frame.depth == 2 && e.local_name().as_ref().as_bytes() == b"sheets" =>
+                {
+                    sheets_open = true
+                }
+                Event::End(e)
+                    if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"sheets" =>
+                {
+                    sheets_open = false
+                }
+                _ => {}
+            }
+        }
         if matches!(&frame.event,Event::Start(e) if e.local_name().as_ref().as_bytes()==b"AlternateContent")
         {
             return Err(Error::new(
@@ -1848,6 +1981,35 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                 }
                 uri = frame.spreadsheet_uri;
                 emit(&mut writer, Event::Start(e))?;
+            }
+            Event::Start(e)
+                if sheets_open
+                    && frame.scope == Scope::Spreadsheet
+                    && frame.depth == 3
+                    && e.local_name().as_ref().as_bytes() == b"sheet" =>
+            {
+                let state = visibility.get(&sheet_index);
+                sheet_index += 1;
+                if let Some(state) = state {
+                    let mut start = e.to_owned();
+                    start.clear_attributes();
+                    for attribute in e.attributes() {
+                        let attribute = attribute.map_err(|error| {
+                            Error::caused_by(
+                                ErrorKind::Xml,
+                                "Invalid sheet catalog attribute",
+                                error,
+                            )
+                        })?;
+                        if attribute.key.as_ref().as_bytes() != b"state" {
+                            start.push_attribute(attribute);
+                        }
+                    }
+                    start.push_attribute(("state", state.as_str()));
+                    emit(&mut writer, Event::Start(start))?;
+                } else {
+                    emit(&mut writer, Event::Start(e))?;
+                }
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
