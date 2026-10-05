@@ -51,7 +51,7 @@ def prepare(version):
     if count != 1:
         raise ValueError("Expected one workspace package version")
     for name in ("crabxl-core", "crabxl-xlsx"):
-        text, count = re.subn(rf'({name} = \{{[^\n]*version = ")[^"]+(" \}})',
+        text, count = re.subn(rf'(?m)^({name} = \{{[^\n]*?\bversion = ")[^"]+(")',
                              rf'\g<1>={version}\2', text)
         if count != 1:
             raise ValueError(f"Expected one dependency entry for {name}")
