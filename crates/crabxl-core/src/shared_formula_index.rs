@@ -14,15 +14,14 @@ pub enum SharedFormulaIndex {
 impl SharedFormulaIndex {
     /// Own a public source property, optimizing only canonical u32 decimals.
     pub fn from_literal(value: &str) -> Self {
-        if value == "0"
+        if (value == "0"
             || value
                 .as_bytes()
                 .first()
-                .is_some_and(|byte| matches!(byte, b'1'..=b'9'))
+                .is_some_and(|byte| matches!(byte, b'1'..=b'9')))
+            && let Ok(number) = value.parse::<u32>()
         {
-            if let Ok(number) = value.parse::<u32>() {
-                return Self::Numeric(number);
-            }
+            return Self::Numeric(number);
         }
         Self::Literal(Arc::from(value))
     }

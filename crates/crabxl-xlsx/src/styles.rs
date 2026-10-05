@@ -46,10 +46,10 @@ pub(crate) fn validate_catalog(catalog: &crabxl_core::StyleCatalog) -> Result<()
         crate::encode::validate_xml_text(&style.name)?;
     }
     for differential in &catalog.differential_styles {
-        if let Some(font) = &differential.font {
-            if let Some(name) = &font.name {
-                crate::encode::validate_xml_text(name)?;
-            }
+        if let Some(font) = &differential.font
+            && let Some(name) = &font.name
+        {
+            crate::encode::validate_xml_text(name)?;
         }
         if let Some(number) = &differential.number_format {
             crate::encode::validate_xml_text(number.code())?;

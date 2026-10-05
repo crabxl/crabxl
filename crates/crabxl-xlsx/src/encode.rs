@@ -213,24 +213,21 @@ pub(crate) fn encode_cells<'a>(
             .map_err(|error| error.with_cell(cell.address))?;
         validate_value(&cell.value, maximum_cell, validation_epoch)
             .map_err(|error| error.with_cell(cell.address))?;
-        if iso_date {
-            if let Some(date) = date_value(&cell.value) {
-                validate_text(&date.to_iso8601()?, maximum_cell)
-                    .map_err(|error| error.with_cell(cell.address))?;
-            }
+        if iso_date && let Some(date) = date_value(&cell.value) {
+            validate_text(&date.to_iso8601()?, maximum_cell)
+                .map_err(|error| error.with_cell(cell.address))?;
         }
-        if let CellValue::RichText(value) = &cell.value {
-            if value
+        if let CellValue::RichText(value) = &cell.value
+            && value
                 .phonetic_properties
                 .as_ref()
                 .is_some_and(|p| p.font_id as usize >= styles.fonts())
-            {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Phonetic font is not registered in the writer catalog",
-                )
-                .with_cell(cell.address));
-            }
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Phonetic font is not registered in the writer catalog",
+            )
+            .with_cell(cell.address));
         }
     }
     // Validate every input before interning any derived style. A later encoded
@@ -382,10 +379,10 @@ pub(crate) fn validate_value(
         CellValue::Formula(value) => {
             if let Some(metadata) = value.metadata() {
                 metadata.validate()?;
-                if let crabxl_core::FormulaType::Shared { index, .. } = &metadata.kind {
-                    if let Some(literal) = index.literal() {
-                        validate_xml_text(literal)?;
-                    }
+                if let crabxl_core::FormulaType::Shared { index, .. } = &metadata.kind
+                    && let Some(literal) = index.literal()
+                {
+                    validate_xml_text(literal)?;
                 }
                 if let Some(reference) = &metadata.reference {
                     validate_xml_text(&reference.spelling())?;

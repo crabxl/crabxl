@@ -222,37 +222,31 @@ impl<B: BufRead> XmlStream<B> {
             _ => {}
         }
         let mut office_relationship = None;
-        if scope == Scope::Spreadsheet {
-            if let Event::Start(e) = &event {
-                if matches!(e.local_name().as_ref(), b"sheet" | b"pageSetup") {
-                    for attribute in e.attributes() {
-                        let attribute = attribute.map_err(|e| {
-                            Error::caused_by(ErrorKind::Xml, "Invalid XML attribute", e)
-                                .with_part(self.part.clone())
-                        })?;
-                        let (namespace, name) =
-                            self.reader.resolver().resolve_attribute(attribute.key);
-                        if name.as_ref() == b"id"
-                            && matches!(namespace, ResolveResult::Bound(ns) if ns.as_ref() == OFFICE_REL || ns.as_ref() == STRICT_OFFICE_REL)
-                        {
-                            office_relationship = Some(
-                                attribute
-                                    .decoded_and_normalized_value(
-                                        quick_xml::XmlVersion::Implicit1_0,
-                                        decoder,
-                                    )
-                                    .map_err(|e| {
-                                        Error::caused_by(
-                                            ErrorKind::Xml,
-                                            "Invalid relationship ID",
-                                            e,
-                                        )
-                                        .with_part(self.part.clone())
-                                    })?
-                                    .into_owned(),
-                            );
-                        }
-                    }
+        if scope == Scope::Spreadsheet
+            && let Event::Start(e) = &event
+            && matches!(e.local_name().as_ref(), b"sheet" | b"pageSetup")
+        {
+            for attribute in e.attributes() {
+                let attribute = attribute.map_err(|e| {
+                    Error::caused_by(ErrorKind::Xml, "Invalid XML attribute", e)
+                        .with_part(self.part.clone())
+                })?;
+                let (namespace, name) = self.reader.resolver().resolve_attribute(attribute.key);
+                if name.as_ref() == b"id"
+                    && matches!(namespace, ResolveResult::Bound(ns) if ns.as_ref() == OFFICE_REL || ns.as_ref() == STRICT_OFFICE_REL)
+                {
+                    office_relationship = Some(
+                        attribute
+                            .decoded_and_normalized_value(
+                                quick_xml::XmlVersion::Implicit1_0,
+                                decoder,
+                            )
+                            .map_err(|e| {
+                                Error::caused_by(ErrorKind::Xml, "Invalid relationship ID", e)
+                                    .with_part(self.part.clone())
+                            })?
+                            .into_owned(),
+                    );
                 }
             }
         }
