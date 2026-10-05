@@ -61,8 +61,9 @@ resource guarantees remain intact. M2 closure is explicitly deferred to alpha.5.
 
 ## Alpha.5: Test consolidation and M2 closure
 
-Implementation and M2 acceptance are verified; alpha.5 publication/public
-installation verification are in progress. See [acceptance evidence](validation/alpha5-m2-acceptance.md)
+Completed: M2 core acceptance is closed; all three alpha.5 crates, 25 Python
+wheels and sdist are published and public installations are verified. See
+[publication evidence](validation/alpha5-release.md). See [acceptance evidence](validation/alpha5-m2-acceptance.md)
 and [coverage](validation/alpha5-coverage.json).
 
 1. Audit current code against M2 acceptance. Distinguish implemented behavior,
