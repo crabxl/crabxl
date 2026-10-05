@@ -12,7 +12,7 @@ Worksheet viewport metadata now has typed read/create/edit support through a sel
 
 See the [detailed Rust completion plan](completion-plan.md) for dependency order, remaining checkpoints, resource strategies and acceptance gates.
 
-The current delivery goals are recorded in the [Alpha.3 and Alpha.4 plan](alpha-3-4-plan.md): editing/writing optimization first, then test consolidation and verified M2 closure.
+The current delivery goals are recorded in the [Alpha.3 through Alpha.5 plan](alpha-3-4-plan.md): editing/writing optimization, configurable compression, then test consolidation and verified M2 closure in alpha.5.
 
 ## Scope and completion
 

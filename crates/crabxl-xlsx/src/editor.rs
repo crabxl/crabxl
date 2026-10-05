@@ -18,7 +18,7 @@ use std::{
     io::{self, BufReader, BufWriter, Read, Seek, Write},
     path::Path,
 };
-use zip::{ZipWriter, write::SimpleFileOptions};
+use zip::ZipWriter;
 
 const PATCH_BYTES: usize = 256;
 // Box large metadata values so sparse BTree nodes retain pointer-sized slots.
@@ -87,6 +87,10 @@ impl Default for EditorOptions {
 /// Controls CRC validation during copying. Rewritten XML is always parsed to EOF.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SaveOptions {
+    /// ZIP level 0..=9 for rewritten parts; 0 stores without compression.
+    /// Copied entries retain their original compressed bytes.
+    /// None retains the backend default (6).
+    pub compression_level: Option<u8>,
     /// Decompress unchanged parts to a bounded sink and validate CRC before raw
     /// copying. False preserves compressed payloads without revalidating them.
     pub verify_unchanged: bool,
@@ -655,6 +659,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         output: W,
         options: SaveOptions,
     ) -> Result<(W, SaveStats)> {
+        crate::writer::validate_compression_level(options.compression_level)?;
         let dirty = self.patch_cells != 0;
         let mut zip = ZipWriter::new(output);
         zip.set_raw_comment(self.book.archive.comment().to_vec().into_boxed_slice())
@@ -688,11 +693,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 let file = self.book.archive.by_index(index).map_err(|error| {
                     zip_error("Cannot read affected XML part", error).with_part(part.name.as_ref())
                 })?;
-                // Edited parts use deflate; unknown parts retain original compression.
+                // Rewritten parts use the selected level; copied parts keep their bytes.
                 zip.start_file(
                     part.name.as_ref(),
-                    SimpleFileOptions::default()
-                        .compression_method(zip::CompressionMethod::Deflated)
+                    crate::writer::compression_options(options.compression_level)
                         .large_file(self.options.resources.max_part_bytes >= u64::from(u32::MAX)),
                 )
                 .map_err(|error| {

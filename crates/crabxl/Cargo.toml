@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 description = "A Rust spreadsheet library with bounded streaming XLSX reads"
 
+[features]
+default = ["deflate-zlib-rs"]
+deflate-zlib-rs = ["crabxl-xlsx/deflate-zlib-rs"]
+deflate-zlib = ["crabxl-xlsx/deflate-zlib"]
+
 [dependencies]
 crabxl-core.workspace = true
 crabxl-xlsx.workspace = true

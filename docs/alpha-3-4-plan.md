@@ -1,10 +1,10 @@
-# Alpha.3 and Alpha.4 delivery plan
+# Alpha.3, Alpha.4 and Alpha.5 delivery plan
 
 ## Objective and release order
 
-Complete and publish `0.1.0-alpha.3`, then `0.1.0-alpha.4`, including the
+Complete and publish `0.1.0-alpha.3`, then `0.1.0-alpha.4` and `0.1.0-alpha.5`, including the
 canonical Rust crates and the separately maintained Python package. Python
-versions are `0.1.0a3` and `0.1.0a4`. Published alpha.2 artifacts and tags remain
+versions are `0.1.0a3`, `0.1.0a4` and `0.1.0a5`. Published alpha.2 artifacts and tags remain
 immutable. Manual version increments occur only for verified, usable changes.
 
 This plan sets delivery goals, not completion claims. M2 remains open until its
@@ -13,10 +13,9 @@ acceptance criteria are satisfied. The existing [roadmap](roadmap.md) and
 
 ## Alpha.3: Editing and writing performance
 
-Current checkpoint: bounded editor compression buffering is implemented and
-verified against alpha.2; see [measurements](../benchmarks/alpha3-edit-buffering.md).
-Python scalar conversion optimization and package release validation are in
-progress. Alpha.3 is not yet claimed as published.
+Current checkpoint: Rust alpha.3 is published and verified. Python scalar
+conversion optimization passes all supported local interpreter tests; its
+publication is in progress. See [measurements](../benchmarks/alpha3-edit-buffering.md).
 
 1. Establish alpha.2 baselines for ordinary creation, write-only creation and
    existing-file edit/save. Include numeric, text, date/style and formula
@@ -43,7 +42,23 @@ required behavior remains correct, and memory and temporary-storage changes are
 documented. Regressions must be investigated and resolved or explicitly justified
 before publication.
 
-## Alpha.4: Test consolidation and M2 closure
+## Alpha.4: Configurable ZIP compression
+
+1. Compare the existing ZIP features, pure-Rust zlib-rs and native zlib with
+   equivalent numeric/text creation and existing-file editing workloads.
+2. Expose validated per-save compression levels in Rust and Python. Level 0
+   stores rewritten parts without compression; levels 1 through 9 use Deflate.
+   None retains the default level 6. Original compressed passthrough stays intact.
+3. Record timing, output size, memory and correctness across backends/levels;
+   select a documented default based on evidence and portability.
+4. Verify Rust 1.88, alternative-backend builds and supported Python platforms.
+   Publish and verify alpha.4 crates and Python packages.
+
+Acceptance: options work across ordinary creation, write-only creation and loaded
+editing; invalid levels protect targets and permit retry; package semantics and
+resource guarantees remain intact. M2 closure is explicitly deferred to alpha.5.
+
+## Alpha.5: Test consolidation and M2 closure
 
 1. Audit current code against M2 acceptance. Distinguish implemented behavior,
    remaining gaps and historical checkpoint notes. Keep M4/M5 and Python adapter
@@ -66,7 +81,7 @@ before publication.
    workloads and investigate performance regressions.
 6. Update capability mappings, limitations, acceptance evidence and milestone
    status. Close M2 only when every required acceptance item has supporting
-   evidence. Publish alpha.4 and verify public installation.
+   evidence. Publish alpha.5 and verify public installation.
 
 Acceptance: test consolidation retains effective behavior coverage; M2 has no
 unresolved acceptance blockers; correctness, resource behavior and performance

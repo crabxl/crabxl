@@ -23,7 +23,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Row count must fit an XLSX worksheet".into());
     }
     let mut writer = WorkbookWriter::new(WriteOptions {
-        temp_directory: args.next().map(PathBuf::from),
+        temp_directory: args.next().filter(|value| value != "-").map(PathBuf::from),
+        compression_level: args.next().map(|value| value.parse()).transpose()?,
         date_1904: mode == "features1904",
         ..WriteOptions::default()
     })?;

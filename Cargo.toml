@@ -11,8 +11,8 @@ repository = "https://github.com/crabxl/crabxl"
 
 [workspace.dependencies]
 crabxl-core = { path = "crates/crabxl-core", version = "=0.1.0-alpha.3" }
-crabxl-xlsx = { path = "crates/crabxl-xlsx", version = "=0.1.0-alpha.3" }
-zip = { version = "8.6", default-features = false, features = ["deflate"] }
+crabxl-xlsx = { path = "crates/crabxl-xlsx", version = "=0.1.0-alpha.3", default-features = false }
+zip = { version = "8.6", default-features = false }
 quick-xml = "0.42.0"
 fast-float2 = "0.2"
 percent-encoding = "2.3"

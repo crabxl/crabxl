@@ -87,7 +87,13 @@ fn unchanged_saves_keep_every_original_part_and_repeat_with_owned_source() {
     assert!(!editor.is_dirty());
     for verify_unchanged in [false, true] {
         let (output, stats) = editor
-            .save(Cursor::new(Vec::new()), SaveOptions { verify_unchanged })
+            .save(
+                Cursor::new(Vec::new()),
+                SaveOptions {
+                    verify_unchanged,
+                    ..Default::default()
+                },
+            )
             .unwrap();
         assert_eq!(stats.rewritten_parts, 0);
         assert_eq!(stats.copied_parts, expected.len());
@@ -502,7 +508,8 @@ fn optional_validation_detects_opaque_part_crc_corruption() {
             .save(
                 Cursor::new(Vec::new()),
                 SaveOptions {
-                    verify_unchanged: true
+                    verify_unchanged: true,
+                    ..Default::default()
                 }
             )
             .is_err()
@@ -689,6 +696,7 @@ fn edited_chain_removes_part_and_package_refs_with_repeat_save_and_revert() {
                 Cursor::new(Vec::new()),
                 SaveOptions {
                     verify_unchanged: true,
+                    ..Default::default()
                 },
             )
             .unwrap();
