@@ -280,6 +280,7 @@ impl<B: BufRead> XmlStream<B> {
         self.byte_limit - self.reader.get_ref().part_remaining
     }
 
+    #[inline(always)]
     pub fn next(&mut self) -> Result<Frame<'_>> {
         self.buffer.clear();
         self.namespaces.before_event();

@@ -24,6 +24,10 @@ Failure context is indirectly owned so successful Result paths do not carry its
 full inline size; public error categories, diagnostics and source chains remain
 unchanged. See [ADR 0067](decisions/0067-compact-error-context.md).
 
+The shared checked XML event method inlines into codec loops after measured
+numeric improvements; [evidence and code-size tradeoffs](../benchmarks/alpha7-inline-xml.md)
+remain separate from Python conversion and calamine acceptance.
+
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).
