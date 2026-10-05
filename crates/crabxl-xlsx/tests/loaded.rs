@@ -461,6 +461,48 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         assert_eq!(reader.sheets()[0].visibility(), Visible);
         assert_eq!(reader.sheets()[1].visibility(), VeryHidden);
         assert_eq!(reader.active_index(), Some(0));
+        let cells_before = workbook.model().cell_count();
+        let renamed = "Second<&\" \u{65b0}";
+        workbook.rename_sheet(second, renamed).unwrap();
+        workbook.rename_sheet(first, "RenamedFirst").unwrap();
+        assert_eq!(workbook.sheet_id(renamed), Some(second));
+        assert_eq!(workbook.sheet_id("Second"), None);
+        assert_eq!(workbook.model().cell_count(), cells_before);
+        assert!(!workbook.is_materialized(second));
+        let retained = workbook.managed_retained_bytes();
+        let patched = workbook.patch_bytes();
+        for rejected in ["renamedfirst", "", "Invalid/Name", "Invalid\u{0}"] {
+            assert!(workbook.rename_sheet(second, rejected).is_err());
+            assert_eq!(workbook.sheet_id(renamed), Some(second));
+            assert_eq!(workbook.managed_retained_bytes(), retained);
+            assert_eq!(workbook.patch_bytes(), patched);
+        }
+        assert_eq!(workbook.sheet(second).unwrap().name(), renamed);
+        assert_eq!(
+            workbook
+                .sheet(second)
+                .unwrap()
+                .get(CellAddress::new(0, 0).unwrap())
+                .unwrap()
+                .value,
+            CellValue::Integer(0)
+        );
+        for _ in 0..2 {
+            let (output, stats) = workbook
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap();
+            assert_eq!(stats.rewritten_parts, 1);
+            let saved = parts(output.into_inner());
+            for (name, bytes) in &input {
+                if name != workbook_part {
+                    assert_eq!(&saved[name], bytes, "renamed {mode}: {name}");
+                }
+            }
+            let reader = crabxl_xlsx::WorkbookReader::new(Cursor::new(package(saved))).unwrap();
+            assert_eq!(reader.sheets()[0].name(), "RenamedFirst");
+            assert_eq!(reader.sheets()[1].name(), renamed);
+            assert_eq!(reader.sheets()[1].visibility(), VeryHidden);
+        }
     }
     for mode in ["hidden", "signed", "alternative", "patch-cap"] {
         let mut input = original.clone();
@@ -506,6 +548,8 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         assert_eq!(workbook.patch_bytes(), 0);
         assert_eq!(workbook.managed_retained_bytes(), before);
         if mode != "hidden" {
+            assert!(workbook.rename_sheet(second, "Renamed").is_err());
+            assert_eq!(workbook.sheet_id("Second"), Some(second));
             assert!(
                 workbook
                     .set_sheet_visibility(second, crabxl_core::SheetVisibility::Hidden)

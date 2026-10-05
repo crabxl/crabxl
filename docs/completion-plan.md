@@ -122,6 +122,11 @@ Acceptance: mixed loaded/new sheet workflows, retained aliases, failed budget mu
 
 ## M4.2: Package graph and workbook mutations
 
+Checkpoint: lazy source-backed rename shares joint bank/catalog reservations,
+retains stable source/part identities and preserves unrelated package bytes
+across repeat saves (ADR 0069). Remaining sheet and row/column structure gates
+are open; title changes do not implement typed defined-name/metadata graphs.
+
 Checkpoint: lazy active selection synchronizes the original view and stable bank
 ID, preserves formula caches/chains for metadata-only saves, and rejects hidden,
 signed, unsupported or over-budget selections before mutation (ADR 0058). Other

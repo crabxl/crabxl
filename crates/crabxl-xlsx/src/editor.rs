@@ -141,6 +141,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     print_patches: BTreeMap<String, Box<crabxl_core::PrintSettings>>,
     active_patch: Option<ActivePatch>,
     visibility_patches: BTreeMap<usize, crabxl_core::SheetVisibility>,
+    name_patches: BTreeMap<usize, Box<str>>,
     options: EditorOptions,
     patch_bytes: usize,
     patch_cells: usize,
@@ -285,6 +286,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             print_patches: BTreeMap::new(),
             active_patch: None,
             visibility_patches: BTreeMap::new(),
+            name_patches: BTreeMap::new(),
             options,
             patch_bytes: 0,
             patch_cells: 0,
@@ -312,6 +314,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             || !self.print_patches.is_empty()
             || self.active_patch.is_some()
             || !self.visibility_patches.is_empty()
+            || !self.name_patches.is_empty()
     }
     /// Shared automatic/explicit operation allowance computed at construction.
     /// Original ZIP/catalog/inventory allocations are additional.
@@ -325,6 +328,58 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// Conservative managed patch allowance currently used.
     pub fn patch_bytes(&self) -> usize {
         self.patch_bytes
+    }
+    /// Rename an original catalog entry without changing its part or relationship
+    /// identity. The selector is its original source name, even after a rename.
+    /// Formula expressions and defined-name text retain reference behavior: they
+    /// are not automatically rewritten when a sheet title changes.
+    pub fn rename_sheet(&mut self, source_name: &str, name: impl Into<Box<str>>) -> Result<()> {
+        let index = self
+            .book
+            .sheets()
+            .iter()
+            .position(|sheet| sheet.name() == source_name)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet does not exist"))?;
+        let name = name.into();
+        let planned = self.prepare_name(index, &name)?;
+        self.commit_name(index, name, planned);
+        Ok(())
+    }
+    pub(crate) fn prepare_name(&mut self, index: usize, name: &str) -> Result<usize> {
+        crate::encode::validate_xml_text(name)?;
+        if name.is_empty() || name.chars().any(|ch| ":\\/?*[]".contains(ch)) {
+            return Err(invalid("Invalid worksheet name"));
+        }
+        let folded = name.to_lowercase();
+        if self
+            .book
+            .sheets()
+            .iter()
+            .enumerate()
+            .any(|(position, sheet)| {
+                position != index
+                    && self
+                        .name_patches
+                        .get(&position)
+                        .map_or(sheet.name(), |value| value.as_ref())
+                        .to_lowercase()
+                        == folded
+            })
+        {
+            return Err(invalid("Duplicate worksheet name"));
+        }
+        let previous = self.name_patches.get(&index);
+        let bytes = self
+            .patch_bytes
+            .saturating_sub(previous.map_or(0, |name| name.len()))
+            .saturating_add(if previous.is_none() { PATCH_BYTES } else { 0 })
+            .saturating_add(name.len());
+        self.validate_workbook_patch(index, bytes, false)?;
+        Ok(bytes)
+    }
+    pub(crate) fn commit_name(&mut self, index: usize, name: Box<str>, bytes: usize) {
+        self.name_patches.insert(index, name);
+        self.patch_bytes = bytes;
     }
     /// Select a visible original worksheet/chartsheet without decoding its cells.
     /// Only workbook view metadata changes; formula caches/chains stay intact.
@@ -1070,6 +1125,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.print_patches = BTreeMap::new();
         self.active_patch = None;
         self.visibility_patches = BTreeMap::new();
+        self.name_patches = BTreeMap::new();
         self.patch_bytes = 0;
         self.patch_cells = 0;
     }
@@ -1112,7 +1168,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 && self.book.sheets().iter().any(|sheet| {
                     sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
                 });
-            let workbook = (dirty || active.is_some() || !self.visibility_patches.is_empty())
+            let workbook = (dirty
+                || active.is_some()
+                || !self.visibility_patches.is_empty()
+                || !self.name_patches.is_empty())
                 && part.name.as_ref() == self.book.workbook_part;
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
             if worksheet || workbook || shared_strings || chain_metadata {
@@ -1154,10 +1213,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         file,
                         budget,
                         &part.name,
-                        self.options.resources,
-                        dirty,
-                        active,
-                        &self.visibility_patches,
+                        WorkbookRewrite {
+                            limits: self.options.resources,
+                            invalidate_caches: dirty,
+                            active,
+                            visibility: &self.visibility_patches,
+                            names: &self.name_patches,
+                        },
                     )
                 } else if shared_strings {
                     patch_shared_strings(file, budget, &part.name, self.options.resources)
@@ -2053,15 +2115,26 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
         .map_err(|error| io_error("Cannot flush rewritten XML part", error))?;
     Ok(output.bytes)
 }
+struct WorkbookRewrite<'a> {
+    limits: ResourceLimits,
+    invalidate_caches: bool,
+    active: Option<crabxl_core::ActiveViewSelection>,
+    visibility: &'a BTreeMap<usize, crabxl_core::SheetVisibility>,
+    names: &'a BTreeMap<usize, Box<str>>,
+}
 fn patch_workbook<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
     output: PartOutput<W>,
     part: &str,
-    limits: ResourceLimits,
-    invalidate_caches: bool,
-    active: Option<crabxl_core::ActiveViewSelection>,
-    visibility: &BTreeMap<usize, crabxl_core::SheetVisibility>,
+    rewrite: WorkbookRewrite<'_>,
 ) -> Result<u64> {
+    let WorkbookRewrite {
+        limits,
+        invalidate_caches,
+        active,
+        visibility,
+        names,
+    } = rewrite;
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
         part.into(),
@@ -2118,8 +2191,9 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                     && e.local_name().as_ref().as_bytes() == b"sheet" =>
             {
                 let state = visibility.get(&sheet_index);
+                let name = names.get(&sheet_index);
                 sheet_index += 1;
-                if let Some(state) = state {
+                if state.is_some() || name.is_some() {
                     let mut start = e.to_owned();
                     start.clear_attributes();
                     for attribute in e.attributes() {
@@ -2130,11 +2204,18 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                                 error,
                             )
                         })?;
-                        if attribute.key.as_ref().as_bytes() != b"state" {
+                        if !(state.is_some() && attribute.key.as_ref().as_bytes() == b"state"
+                            || name.is_some() && attribute.key.as_ref().as_bytes() == b"name")
+                        {
                             start.push_attribute(attribute);
                         }
                     }
-                    start.push_attribute(("state", state.as_str()));
+                    if let Some(state) = state {
+                        start.push_attribute(("state", state.as_str()));
+                    }
+                    if let Some(name) = name {
+                        start.push_attribute(("name", name.as_ref()));
+                    }
                     emit(&mut writer, Event::Start(start))?;
                 } else {
                     emit(&mut writer, Event::Start(e))?;
