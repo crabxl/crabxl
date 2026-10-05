@@ -51,7 +51,7 @@ Do not move an existing tag or overwrite an immutable crates.io package.
 GitHub OIDC publication is configured separately in the Python repository; its
 workflow does not use this Cargo token.
 
-Starting with the next release, the Rust crate MSRV is 1.88.0. The immutable
+Starting with `0.1.0-alpha.2`, the Rust crate MSRV is 1.88.0. The immutable
 `0.1.0-alpha.1` release still requires 1.99.0. Both normal CI and release CI run
 the workspace tests with Rust 1.88.0; publication waits for that check as well as
 the current development toolchain checks. Formatting and Clippy use 1.99.0.
