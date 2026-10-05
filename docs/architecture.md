@@ -6,6 +6,11 @@ Source-backed scalar/formula append coordinates canonical model and package
 overlays atomically; see [ADR 0063](decisions/0063-atomic-loaded-row-append.md).
 Python exposure and remaining M4 sheet/structural mutations stay separate gates.
 
+Canonical cells use bounded ordered blocks to reduce full-model tree allocation;
+see [ADR 0064](decisions/0064-packed-sparse-cell-storage.md) and
+[numeric/text tradeoffs](../benchmarks/alpha7-packed-models.md). Resource ledgers
+remain conservative; measured RSS is reported independently.
+
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).

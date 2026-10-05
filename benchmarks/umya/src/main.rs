@@ -2,6 +2,51 @@
 use crabxl::{CellAddress, CellValue, LoadOptions, LoadedWorkbook, MemoryPolicy, WorkbookReader};
 use std::{fs::File, path::Path, time::Instant};
 
+fn verify_text(text: &str, index: usize, unique: usize) -> Result<i64, Box<dyn std::error::Error>> {
+    if unique == 0 || text != format!("item-{:08}-{}", index % unique, "x".repeat(96)) {
+        return Err("Text model value/order mismatch".into());
+    }
+    Ok(text.len() as i64)
+}
+
+fn verify_styled(cell: &crabxl::Cell, index: usize) -> Result<(), Box<dyn std::error::Error>> {
+    let row = index / 10;
+    let column = index % 10;
+    if cell.address.row.get() as usize != row || cell.address.column.get() as usize != column {
+        return Err("Styled model coordinate mismatch".into());
+    }
+    let expected_style = match column {
+        1 | 2 | 4 | 7 => 1,
+        3 => 2,
+        _ => 0,
+    };
+    if cell.style.get() != expected_style {
+        return Err("Styled model identity mismatch".into());
+    }
+    let valid = match (column, &cell.value) {
+        (0 | 9, CellValue::Number(value)) => *value == 1.25,
+        (1 | 7, CellValue::DateTime(value)) => {
+            value.kind() == crabxl::DateKind::DateTime
+                && value.serial() == 45292.25 + (row % 365) as f64
+        }
+        (2, CellValue::DateTime(value)) => {
+            value.kind() == crabxl::DateKind::Time && value.serial() == 0.5
+        }
+        (3, CellValue::DateTime(value)) => {
+            value.kind() == crabxl::DateKind::Duration && value.serial() == (row % 101) as f64 / 4.0
+        }
+        (4, CellValue::Boolean(value)) => *value == !row.is_multiple_of(2),
+        (5, CellValue::Text(value)) => value.as_str() == format!("styled-{row:08}"),
+        (6, CellValue::Error(value)) => value.as_str() == "#DIV/0!",
+        (8, CellValue::Integer(value)) => *value == row as i64,
+        _ => false,
+    };
+    if !valid {
+        return Err("Styled model value mismatch".into());
+    }
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     let input = Path::new(args.get(1).ok_or("Missing input path")?);
@@ -102,11 +147,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         checksum = (count as i64) * (count as i64 - 1) / 2;
         sheets = 1;
         output_bytes = std::fs::metadata(output)?.len();
+    } else if mode == "calamine-text-model" {
+        use calamine::{Data, Reader};
+        let unique: usize = args.get(4).ok_or("Missing unique count")?.parse()?;
+        let mut book: calamine::Xlsx<_> = calamine::open_workbook(input)?;
+        let mut ranges = Vec::new();
+        for name in book.sheet_names() {
+            let range = book.worksheet_range(&name)?;
+            for (_, _, value) in range.used_cells() {
+                let Data::String(text) = value else {
+                    return Err("Expected text".into());
+                };
+                checksum += verify_text(text, count, unique)?;
+                count += 1;
+            }
+            sheets += 1;
+            ranges.push(range);
+        }
+        std::hint::black_box(&ranges);
     } else if mode.starts_with("calamine-") {
         use calamine::{Data, DataRef, Reader};
         let mut book: calamine::Xlsx<_> = calamine::open_workbook(input)?;
         let names = book.sheet_names();
         sheets = names.len();
+        let mut retained_ranges = Vec::new();
         for name in names {
             if mode == "calamine-stream" {
                 let mut cells = book.worksheet_cells_reader(&name)?;
@@ -118,7 +182,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     sum(value);
                 }
-            } else if mode == "calamine-range" {
+            } else if mode == "calamine-range" || mode == "calamine-model" {
                 let range = book.worksheet_range(&name)?;
                 for cell in range.used_cells() {
                     let value = match cell.2 {
@@ -128,10 +192,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     sum(value);
                 }
+                if mode == "calamine-model" {
+                    retained_ranges.push(range);
+                }
             } else {
                 return Err("Unknown calamine mode".into());
             }
         }
+        // Explicitly keep all returned ranges alive through complete traversal.
+        std::hint::black_box(&retained_ranges);
     } else if mode.starts_with("umya-") {
         if mode == "umya-stream" {
             // These are the two declarations emitted by workbook_demo.
@@ -169,6 +238,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     output_bytes = std::fs::metadata(target)?.len();
                 }
             }
+        }
+    } else if mode == "crabxl-text-model" || mode == "crabxl-styled-model" {
+        let unique: usize = args.get(4).ok_or("Missing unique count")?.parse()?;
+        let storage = match args.get(5).map(String::as_str).unwrap_or("memory") {
+            "memory" => crabxl::SharedStringStorage::Memory,
+            "disk" => crabxl::SharedStringStorage::Disk,
+            _ => return Err("Invalid SST policy".into()),
+        };
+        let maximum = 1024 * 1024 * 1024;
+        let mut book = LoadedWorkbook::with_options(
+            File::open(input)?,
+            LoadOptions {
+                memory_policy: MemoryPolicy::Budget(maximum),
+                resources: crabxl::ResourceLimits {
+                    max_materialized_bytes: maximum,
+                    ..Default::default()
+                },
+                workbook: crabxl::WorkbookLimits {
+                    max_bytes: maximum,
+                    sheet: crabxl::EditLimits {
+                        max_bytes: maximum,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                read: crabxl::ReadOptions {
+                    data_only: true,
+                    ..Default::default()
+                },
+                shared_strings: crabxl::SharedStringOptions {
+                    storage,
+                    memory_policy: MemoryPolicy::Budget(256 * 1024 * 1024),
+                    cache_bytes: 1024 * 1024,
+                    temp_directory: target.and_then(Path::parent).map(Path::to_owned),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )?;
+        let ids = book.model().sheets().map(|(id, _)| id).collect::<Vec<_>>();
+        for id in ids {
+            for cell in book.sheet(id)?.cells() {
+                if mode == "crabxl-text-model" {
+                    let CellValue::Text(text) = &cell.value else {
+                        return Err("Expected text".into());
+                    };
+                    checksum += verify_text(text.as_str(), count, unique)?;
+                } else {
+                    verify_styled(cell, count)?;
+                    checksum += 1;
+                }
+                count += 1;
+            }
+            sheets += 1;
         }
     } else if mode == "crabxl-stream" {
         let mut reader = WorkbookReader::open(input)?;
