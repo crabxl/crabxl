@@ -13,6 +13,11 @@ acceptance criteria are satisfied. The existing [roadmap](roadmap.md) and
 
 ## Alpha.3: Editing and writing performance
 
+Current checkpoint: bounded editor compression buffering is implemented and
+verified against alpha.2; see [measurements](../benchmarks/alpha3-edit-buffering.md).
+Python scalar conversion optimization and package release validation are in
+progress. Alpha.3 is not yet claimed as published.
+
 1. Establish alpha.2 baselines for ordinary creation, write-only creation and
    existing-file edit/save. Include numeric, text, date/style and formula
    workloads at representative sizes. Separate loading, mutation and saving

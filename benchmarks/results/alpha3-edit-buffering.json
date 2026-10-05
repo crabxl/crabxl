@@ -1,0 +1,71 @@
+{
+  "scope": "Existing A1 integer replacement and save; one warmup followed by rotating serial samples. All original package semantics, including global formula-cache invalidation, remain enabled. Validation is outside timing.",
+  "source_sha256": "df45fa845fcd795ec659bec900bb1b6a976cba36bcaae733a7aa6cbf0cf3b4b2",
+  "binary_sha256": {
+    "alpha2": "e1bd1cbd9a1ee6f9494e471acb09269c412a1c9fc15151d24a96a1beac51e72d",
+    "candidate": "bc7404269ff2b0591c2cc27fc8d03e98993e26d46a9193f8f3b94368fefb4be9"
+  },
+  "samples": {
+    "alpha2": [
+      {
+        "seconds": 6.910898614,
+        "cpu_seconds": 6.897537,
+        "peak_rss_kib": 2540,
+        "save_stats": "7 2 38867950 536",
+        "output_bytes": 3868674
+      },
+      {
+        "seconds": 7.218815109,
+        "cpu_seconds": 7.210956,
+        "peak_rss_kib": 2600,
+        "save_stats": "7 2 38867950 536",
+        "output_bytes": 3868674
+      },
+      {
+        "seconds": 7.048512963,
+        "cpu_seconds": 7.041346,
+        "peak_rss_kib": 2540,
+        "save_stats": "7 2 38867950 536",
+        "output_bytes": 3868674
+      }
+    ],
+    "candidate": [
+      {
+        "seconds": 1.344956424,
+        "cpu_seconds": 1.344331,
+        "peak_rss_kib": 2684,
+        "save_stats": "7 2 38867950 536",
+        "output_bytes": 3156360
+      },
+      {
+        "seconds": 1.32733048,
+        "cpu_seconds": 1.32633,
+        "peak_rss_kib": 2684,
+        "save_stats": "7 2 38867950 536",
+        "output_bytes": 3156360
+      },
+      {
+        "seconds": 1.355395773,
+        "cpu_seconds": 1.353785,
+        "peak_rss_kib": 2724,
+        "save_stats": "7 2 38867950 536",
+        "output_bytes": 3156360
+      }
+    ]
+  },
+  "all_uncompressed_parts_identical": true,
+  "median": {
+    "alpha2": {
+      "seconds": 7.048512963,
+      "cpu_seconds": 7.041346,
+      "peak_rss_kib": 2540,
+      "output_bytes": 3868674
+    },
+    "candidate": {
+      "seconds": 1.344956424,
+      "cpu_seconds": 1.344331,
+      "peak_rss_kib": 2684,
+      "output_bytes": 3156360
+    }
+  }
+}

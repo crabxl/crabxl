@@ -15,7 +15,7 @@ use quick_xml::{
 use std::{
     collections::{BTreeMap, HashSet},
     fs::File,
-    io::{self, BufReader, Read, Seek, Write},
+    io::{self, BufReader, BufWriter, Read, Seek, Write},
     path::Path,
 };
 use zip::{ZipWriter, write::SimpleFileOptions};
@@ -699,7 +699,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     zip_error("Cannot start affected XML part", error).with_part(part.name.as_ref())
                 })?;
                 let budget = PartOutput {
-                    inner: &mut zip,
+                    // Batch XML event fragments before feeding the compressor.
+                    // The fixed buffer fits the operation's 64 KiB work reserve.
+                    inner: BufWriter::with_capacity(64 * 1024, &mut zip),
                     bytes: 0,
                     maximum: self.options.resources.max_part_bytes,
                 };
@@ -1601,7 +1603,11 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
             "Pending replacement targets a missing physical cell",
         ));
     }
-    Ok(writer.into_inner().bytes)
+    let mut output = writer.into_inner();
+    output
+        .flush()
+        .map_err(|error| io_error("Cannot flush rewritten XML part", error))?;
+    Ok(output.bytes)
 }
 fn patch_workbook<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
@@ -1705,7 +1711,11 @@ fn patch_workbook<R: Read + Seek, W: Write>(
     if !seen {
         return Err(invalid("Workbook calculation properties were not written"));
     }
-    Ok(writer.into_inner().bytes)
+    let mut output = writer.into_inner();
+    output
+        .flush()
+        .map_err(|error| io_error("Cannot flush rewritten XML part", error))?;
+    Ok(output.bytes)
 }
 fn emit_calculation<W: Write>(writer: &mut Writer<PartOutput<W>>, uri: Option<&str>) -> Result<()> {
     let mut start = BytesStart::new("calcPr");
@@ -1762,7 +1772,11 @@ fn patch_shared_strings<R: Read + Seek, W: Write>(
     if !root {
         return Err(invalid("Shared string part has no root"));
     }
-    Ok(writer.into_inner().bytes)
+    let mut output = writer.into_inner();
+    output
+        .flush()
+        .map_err(|error| io_error("Cannot flush rewritten XML part", error))?;
+    Ok(output.bytes)
 }
 
 fn catalog_chain_removal<R: Read + Seek>(
@@ -1950,5 +1964,9 @@ fn patch_chain_metadata<R: Read + Seek, W: Write>(
             event => emit(&mut writer, event)?,
         }
     }
-    Ok(writer.into_inner().bytes)
+    let mut output = writer.into_inner();
+    output
+        .flush()
+        .map_err(|error| io_error("Cannot flush rewritten XML part", error))?;
+    Ok(output.bytes)
 }
