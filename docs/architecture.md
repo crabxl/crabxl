@@ -28,6 +28,11 @@ The shared checked XML event method inlines into codec loops after measured
 numeric improvements; [evidence and code-size tradeoffs](../benchmarks/alpha7-inline-xml.md)
 remain separate from Python conversion and calamine acceptance.
 
+Packed model range iteration resolves each block's exact binary boundaries
+without scanning preceding cells; see
+[ADR 0068](decisions/0068-binary-sparse-row-boundaries.md) and
+[public-core row measurements](../benchmarks/alpha7-row-cursor.md).
+
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).

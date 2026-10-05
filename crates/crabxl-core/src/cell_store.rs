@@ -44,8 +44,12 @@ impl CellStore {
             .map_or(start, |(key, _)| *key);
         self.blocks
             .range(first..=end)
-            .flat_map(|(_, block)| block.iter())
-            .filter(move |cell| (start..=end).contains(&key(cell)))
+            .flat_map(move |(_, block)| {
+                let from = block.partition_point(|cell| key(cell) < start);
+                let to = block.partition_point(|cell| key(cell) <= end);
+                // Reversed bounds yield an empty slice, as the prior filter did.
+                block[from.min(to)..to].iter()
+            })
             .map(|cell| (key(cell), cell))
     }
     pub(crate) fn get(&self, target: &Key) -> Option<&Cell> {
