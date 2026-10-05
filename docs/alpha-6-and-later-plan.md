@@ -5,6 +5,11 @@
 This plan follows alpha.5 and records the agreed staged M4 acceptance boundary.
 All releases below are planned, not completed or published.
 
+The active delivery goal includes completing and publishing A6 through A8,
+then implementing all M6 acceptance groups and publishing multiple usable
+Alpha releases. M6 planning alone does not satisfy this goal. M7 remains the
+subsequent full compatibility and release-quality milestone.
+
 | Release | Scope | Acceptance boundary |
 | --- | --- | --- |
 | A6: `0.1.0-alpha.6` | M4 loaded-model integration, existing-file edits, worksheet and row/column operations | Complete the M4 stage defined below; retain explicit M5/M6 dependency tracking |
