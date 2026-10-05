@@ -6,7 +6,7 @@
     "revision": "13627b03ca25a1a98becf40e533b955615b13429"
   },
   "inventory_complete": true,
-  "policy": "Every cataloged public surface and release documentation topic stays in staged scope. Verified entries are separate, narrow checkpoints. Planned baseline entries do not inherit verified status from a related reader feature. Language-specific calls map through future adapters.",
+  "policy": "Every cataloged public surface and release documentation topic stays in staged scope. Verified entries are separate, narrow checkpoints. Planned baseline entries do not inherit verified status from a related reader feature. Language-specific calls map through future adapters. M2 behavioral acceptance is documented separately; original broad module classifications and all baseline capability commitments are retained across their existing dependency milestones.",
   "items": [
     {
       "id": "package.discovery",
@@ -308,7 +308,14 @@
         "open": "openpyxl.reader.excel.load_workbook"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl._constants",
@@ -330,7 +337,14 @@
       "public_functions": [],
       "public_exports": {},
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.cell",
@@ -357,7 +371,14 @@
         "WriteOnlyCell": "openpyxl.cell.cell.WriteOnlyCell"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.cell._writer",
@@ -394,7 +415,14 @@
         "write_cell": "openpyxl.cell._writer.lxml_write_cell"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.cell.cell",
@@ -485,7 +513,14 @@
         "is_date_format": "openpyxl.styles.numbers.is_date_format"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.cell.read_only",
@@ -543,7 +578,14 @@
         "is_date_format": "openpyxl.styles.numbers.is_date_format"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.cell.rich_text",
@@ -596,7 +638,14 @@
         "whitespace": "openpyxl.xml.functions.whitespace"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.cell.text",
@@ -719,7 +768,14 @@
         "Typed": "openpyxl.descriptors.base.Typed"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.chart",
@@ -7692,7 +7748,12 @@
         "Tokenizer": "openpyxl.formula.tokenizer.Tokenizer"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M5"
+      ]
     },
     {
       "id": "baseline.openpyxl.formula.tokenizer",
@@ -7763,7 +7824,12 @@
         "TokenizerError": "openpyxl.formula.tokenizer.TokenizerError"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M5"
+      ]
     },
     {
       "id": "baseline.openpyxl.formula.translate",
@@ -7808,7 +7874,12 @@
         "coordinate_to_tuple": "openpyxl.utils.cell.coordinate_to_tuple"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M5"
+      ]
     },
     {
       "id": "baseline.openpyxl.packaging",
@@ -9615,7 +9686,14 @@
       "public_functions": [],
       "public_exports": {},
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.reader.drawings",
@@ -9708,7 +9786,14 @@
         "read_string_table": "openpyxl.reader.strings.read_string_table"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.reader.strings",
@@ -9738,7 +9823,14 @@
         "read_string_table": "openpyxl.reader.strings.read_string_table"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.reader.workbook",
@@ -9781,7 +9873,14 @@
         "read_external_link": "openpyxl.workbook.external_link.external.read_external_link"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.styles",
@@ -10801,7 +10900,14 @@
         "rows_from_range": "openpyxl.utils.cell.rows_from_range"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.bound_dictionary",
@@ -10840,7 +10946,14 @@
         "BoundDictionary": "openpyxl.utils.bound_dictionary.BoundDictionary"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.cell",
@@ -10883,7 +10996,14 @@
         "rows_from_range": "openpyxl.utils.cell.rows_from_range"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.dataframe",
@@ -10911,7 +11031,13 @@
         "expand_index": "openpyxl.utils.dataframe.expand_index"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M6",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.datetime",
@@ -10949,7 +11075,14 @@
         "to_excel": "openpyxl.utils.datetime.to_excel"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.escape",
@@ -10977,7 +11110,14 @@
         "unescape": "openpyxl.utils.escape.unescape"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.exceptions",
@@ -11043,7 +11183,14 @@
         "WorkbookAlreadySaved": "openpyxl.utils.exceptions.WorkbookAlreadySaved"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.formulas",
@@ -11070,7 +11217,14 @@
         "validate": "openpyxl.utils.formulas.validate"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.indexed_list",
@@ -11109,7 +11263,14 @@
         "IndexedList": "openpyxl.utils.indexed_list.IndexedList"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.inference",
@@ -11139,7 +11300,14 @@
         "cast_time": "openpyxl.utils.inference.cast_time"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.utils.protection",
@@ -11219,7 +11387,13 @@
         "short_color": "openpyxl.utils.units.short_color"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M6",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.workbook",
@@ -14730,7 +14904,14 @@
         "lxml_env_set": "openpyxl.xml.lxml_env_set"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M4",
+        "M5",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.xml.constants",
@@ -14752,7 +14933,13 @@
       "public_functions": [],
       "public_exports": {},
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M6",
+        "M7"
+      ]
     },
     {
       "id": "baseline.openpyxl.xml.functions",
@@ -14780,7 +14967,13 @@
         "whitespace": "openpyxl.xml.functions.whitespace"
       },
       "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification. Original milestone is the coarse inventory classifier, not complete module acceptance. Existing completion-plan gates determine behavior-specific scope; whole-module statuses remain planned.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "behavioral_milestones": [
+        "M2",
+        "M6",
+        "M7"
+      ]
     },
     {
       "id": "document.doc/changes.rst",
@@ -16393,7 +16586,9 @@
         "malformed_boolean_values_have_context_and_projection_can_skip_them",
         "boolean_payload_does_not_increase_cell_storage"
       ],
-      "limitations": "Nonzero styles, formulas and metadata remain unsupported; M2 is incomplete. Accept signed ASCII decimal integers; do not promise permissive Python integer syntax for malformed OOXML."
+      "limitations": "Signed ASCII decimal boolean inputs are supported; permissive Python integer syntax for malformed OOXML is not promised.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Nonzero styles, formulas and metadata remain unsupported; M2 is incomplete. Accept signed ASCII decimal integers; do not promise permissive Python integer syntax for malformed OOXML."
     },
     {
       "id": "read.exact-integers",
@@ -16420,7 +16615,9 @@
       "tests": [
         "exact_integers_float_lexemes_errors_and_plain_inline_text"
       ],
-      "limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
+      "limitations": "Exact decimal integer and float lexical distinctions are supported. Managed budgets exclude allocator overhead and caller-owned outputs.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
     },
     {
       "id": "read.plain-text-errors",
@@ -16448,7 +16645,9 @@
         "exact_integers_float_lexemes_errors_and_plain_inline_text",
         "inline_text_rejects_unmodeled_rich_runs_and_malformed_structure"
       ],
-      "limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
+      "limitations": "Shared plain/rich codecs and literal error spelling are supported. XML-illegal selected text rejects explicitly.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
     },
     {
       "id": "resources.scalar-payloads",
@@ -16476,7 +16675,9 @@
         "owned_text_payloads_are_counted_in_row_batch_and_materialization_limits",
         "adaptive_text_growth_falls_back_without_losing_owned_values"
       ],
-      "limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
+      "limitations": "Owned payloads participate in row/batch/materialization and joint budgets. Caller-owned output, dependency/allocator overhead and OS cache are additional.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Shared/rich strings, OOXML text escapes, formulas, dates and full styles remain required. Data budgets exclude allocator overhead and caller-retained outputs."
     },
     {
       "id": "write.scalar-streaming",
@@ -16872,7 +17073,9 @@
         "crates/crabxl-xlsx/tests/streaming.rs::adaptive_shared_text_spills_payload_and_index_without_losing_ids",
         "crates/crabxl-xlsx/tests/streaming.rs::shared_string_crc_and_xml_failures_leave_no_prepared_table"
       ],
-      "limitations": "Plain strings only; rich/phonetic entries explicitly reject selected access. Preparation validates the entire SST; component budgets and owned caller rows are additional. Not complete M2."
+      "limitations": "Plain/rich/projection storage and RAM/Auto/disk policies are supported. Preparation validates the entire SST; returned owned rows remain caller allocations.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Plain strings only; rich/phonetic entries explicitly reject selected access. Preparation validates the entire SST; component budgets and owned caller rows are additional. Not complete M2."
     },
     {
       "id": "read.rich-text",
@@ -16902,7 +17105,9 @@
         "crates/crabxl-xlsx/tests/writer.rs::typed_rich_runs_fonts_colors_phonetics_and_empty_style_round_trip",
         "crates/crabxl-xlsx/tests/writer.rs::rich_existing_literal_replacement_preserves_other_cells_and_repeats"
       ],
-      "limitations": "Narrow checkpoint, not the full rich public baseline. Imported font/theme resolution and new phonetic font assignment in existing packages are staged. Unknown extensions reject typed access. Python rich_text=True remains explicitly unsupported until compatible rich classes/conversion exist."
+      "limitations": "Core typed rich/phonetic read/create is verified. Complete Python rich proxies, existing-file phonetic font assignment and unknown extension semantics remain staged; selected unsupported content rejects explicitly.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Narrow checkpoint, not the full rich public baseline. Imported font/theme resolution and new phonetic font assignment in existing packages are staged. Unknown extensions reject typed access. Python rich_text=True remains explicitly unsupported until compatible rich classes/conversion exist."
     },
     {
       "id": "read.styles-catalog.numeric-dates",
@@ -16935,7 +17140,9 @@
         "crates/crabxl-xlsx/tests/writer.rs::complete_style_components_round_trip_through_shared_catalog_without_flattening",
         "benchmarks/verify_style_fixture.py"
       ],
-      "limitations": "Narrow component/catalog and numeric-date checkpoint, not complete style/date baseline or M2. Theme resolution, differential/table/extension typed editing, normalized writer catalog integration, ISO dates/durations, calendar construction precision and aggregate/adaptive catalog accounting remain staged. Complete catalogs are additional retained allocations. Source preservation does not verify catalog export. Original-package date/new phonetic assignment remains guarded."
+      "limitations": "Shared typed style/date catalogs, ISO/precision policies and joint accounting are verified. Complete style mutation/theme rendering and original-package structural catalog integration remain M4/M5; preservation is distinct from typed extension support.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Narrow component/catalog and numeric-date checkpoint, not complete style/date baseline or M2. Theme resolution, differential/table/extension typed editing, normalized writer catalog integration, ISO dates/durations, calendar construction precision and aggregate/adaptive catalog accounting remain staged. Complete catalogs are additional retained allocations. Source preservation does not verify catalog export. Original-package date/new phonetic assignment remains guarded."
     },
     {
       "id": "values.literal-date-precision",
@@ -16962,7 +17169,9 @@
         "crates/crabxl-core/tests/values.rs::literal_calendar_clock_and_duration_keep_microseconds_and_ambiguous_dates",
         "benchmarks/verify_date_fixture.py"
       ],
-      "limitations": "Imported numeric values retain baseline millisecond conversion; literal values retain exact components. Numeric XLSX output does not promise literal microsecond readback. ISO/date-only codecs and original-package date assignment remain staged. Python integration is separately pinned and validated."
+      "limitations": "Imported numeric dates retain baseline millisecond conversion; literal components retain their documented precision. Numeric XLSX output does not promise literal microsecond readback.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Imported numeric values retain baseline millisecond conversion; literal values retain exact components. Numeric XLSX output does not promise literal microsecond readback. ISO/date-only codecs and original-package date assignment remain staged. Python integration is separately pinned and validated."
     },
     {
       "id": "values.iso-date-time",
@@ -16995,7 +17204,9 @@
         "crates/crabxl-xlsx/tests/writer.rs::iso_payload_limits_fail_before_spooling_and_allow_retry",
         "benchmarks/verify_iso_fixture.py"
       ],
-      "limitations": "Pinned prefix compatibility, not strict ISO validation or timezone-aware values. Numeric creation defaults remain separate; elapsed durations are numeric in ISO mode. Full source style editing/normalization and original-package date assignment remain staged. Python compatibility integration is separately pinned and tested."
+      "limitations": "Reference prefix compatibility, not strict ISO/timezone validation. Numeric creation is a separate policy; duration output remains numeric in ISO mode.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Pinned prefix compatibility, not strict ISO validation or timezone-aware values. Numeric creation defaults remain separate; elapsed durations are numeric in ISO mode. Full source style editing/normalization and original-package date assignment remain staged. Python compatibility integration is separately pinned and tested."
     },
     {
       "id": "formula.structured-records",
@@ -17024,7 +17235,9 @@
         "benchmarks/verify_formula_probe.py",
         "benchmarks/verify_structured_formula_fixture.py"
       ],
-      "limitations": "Narrow checkpoint; resolved shared write output is normalized, not a group-creation API. Dynamic cm/vm graphs, complete expression parsing, nonfinite numeric caches, shared graph editing and aggregate adaptive budgets remain staged. See ADR 0014 and benchmarks/m2-formulas.md."
+      "limitations": "Normal/shared/array/data-table/visible dynamic records and caches are verified. Full metadata/spill/shared graph creation/editing remains M4/M6; complete tokenizer is M5.8.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Narrow checkpoint; resolved shared write output is normalized, not a group-creation API. Dynamic cm/vm graphs, complete expression parsing, nonfinite numeric caches, shared graph editing and aggregate adaptive budgets remain staged. See ADR 0014 and benchmarks/m2-formulas.md."
     },
     {
       "id": "edit.structured-formula-records",
@@ -17078,7 +17291,9 @@
         "benchmarks/probe_nonfinite.py",
         "benchmarks/verify_formula_probe.py"
       ],
-      "limitations": "Compatible serialization deliberately converts nonfinite values to blanks; it is not exact IEEE-754 round-trip storage. Nonfinite datetime/style fields remain invalid. Aggregate budgets, complete style/theme catalogs and dynamic formula graphs remain staged."
+      "limitations": "Compatible serialization converts nonfinite numbers to blanks; this is not exact IEEE round-trip storage. Nonfinite datetime/style components reject explicitly.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Compatible serialization deliberately converts nonfinite values to blanks; it is not exact IEEE-754 round-trip storage. Nonfinite datetime/style fields remain invalid. Aggregate budgets, complete style/theme catalogs and dynamic formula graphs remain staged."
     },
     {
       "id": "styles.borrowed-views-builtins",
@@ -17104,7 +17319,9 @@
         "crates/crabxl-core/tests/values.rs::borrowed_style_views_share_components_and_do_not_install_inheritance",
         "benchmarks/verify_builtin_formats.py"
       ],
-      "limitations": "No new parser or per-cell allocation is introduced. Unknown locale IDs stay explicit; custom declarations override builtins. Borrowed view does not fabricate base-style application or inheritance. Writer catalog normalization, themes and aggregate budgets remain staged."
+      "limitations": "Source custom formats override builtins. Unknown locale format identities remain explicit; borrowed views do not fabricate base-style inheritance.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "No new parser or per-cell allocation is introduced. Unknown locale IDs stay explicit; custom declarations override builtins. Borrowed view does not fabricate base-style application or inheritance. Writer catalog normalization, themes and aggregate budgets remain staged."
     },
     {
       "id": "styles.canonical-registration",
@@ -17140,7 +17357,8 @@
         "crates/crabxl-xlsx/tests/writer.rs::public_font_domains_and_case_sensitive_colors_roundtrip",
         "benchmarks/probe_style_integer_domains.py"
       ],
-      "limitations": "New registration and sequential output only; loaded bank ownership/imported catalog mutation, complete themes/differential/table styles and aggregate Auto budgets remain staged. Managed capacity/index estimates exclude allocator/runtime and caller-owned input; reader XML event limits are independent. No complete M2/M4 style editing is claimed. Fractional family, exact arbitrary decimal charset/theme/indexed identities and compact ARGB casing are verified (ADR 0054). Theme resolution, complete loaded style mutation and Python style proxies remain separate work."
+      "limitations": "New registration and sequential output only; loaded bank ownership/imported catalog mutation, complete themes/differential/table styles and aggregate Auto budgets remain staged. Managed capacity/index estimates exclude allocator/runtime and caller-owned input; reader XML event limits are independent. No complete M2/M4 style editing is claimed. Fractional family, exact arbitrary decimal charset/theme/indexed identities and compact ARGB casing are verified (ADR 0054). Theme resolution, complete loaded style mutation and Python style proxies remain separate work.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md"
     },
     {
       "id": "themes.opaque-default-parts",
@@ -17170,7 +17388,9 @@
         "crates/crabxl-xlsx/tests/writer.rs::theme_and_styles_share_metadata_input_allowance_in_either_order",
         "crates/crabxl-xlsx/tests/streaming.rs::lazy_themes_resolve_custom_parts_keep_opaque_bytes_and_enforce_limits"
       ],
-      "limitations": "Opaque bytes are the reference public baseline; typed palette/fonts, theme rendering and loaded mutation remain staged. Default validation is not imposed on reference-compatible opaque theme access. No M2/M4 completion is claimed."
+      "limitations": "Opaque public theme access and explicitly requested bounded palette/font catalogs are verified (ADR 0051). Unsupported color choices/transforms reject typed access; theme rendering and full mutation remain M5/M6.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Opaque bytes are the reference public baseline; typed palette/fonts, theme rendering and loaded mutation remain staged. Default validation is not imposed on reference-compatible opaque theme access. No M2/M4 completion is claimed."
     },
     {
       "id": "formula.dynamic-visible-projection",
@@ -17199,7 +17419,9 @@
         "crates/crabxl-xlsx/tests/streaming.rs::dynamic_array_and_opaque_metadata_project_visible_values_or_explicitly_reject",
         "crates/crabxl-xlsx/tests/editor.rs::replacing_annotated_cells_drops_only_target_references_and_preserves_metadata_parts"
       ],
-      "limitations": "Visible reference projections do not retain typed cm/vm identities or implement metadata graph/spill editing. Only overwritten physical target references are removed; others and opaque parts remain. No core milestone completion is claimed."
+      "limitations": "Visible formula projection and explicitly requested owned cm/vm formula references are verified (ADR 0052). Scalar rich metadata and metadata/spill graph interpretation/create/edit remain M6.4.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Visible reference projections do not retain typed cm/vm identities or implement metadata graph/spill editing. Only overwritten physical target references are removed; others and opaque parts remain. No core milestone completion is claimed."
     },
     {
       "id": "resources.joint-managed-policy",
@@ -17236,7 +17458,9 @@
         "crates/crabxl-xlsx/tests/streaming.rs::projected_policy_does_not_retain_shared_groups_after_the_requested_last_row",
         "benchmarks/policy_options_checkpoint.py"
       ],
-      "limitations": "ReadOptions composition is verified for sampling, materialization and fallback; compatible projection avoids unrelated shared masters beyond the requested last row. Direct component APIs remain independent. Not a hard RSS cap: dependency/allocator overhead, OS cache and caller-held outputs are additional. Prior prepared Auto table rebalancing temporarily retains prior storage until successful transfer. No milestone completion claimed."
+      "limitations": "Operation-local catalog/string/cache/template/library-row accounting and concurrency-aware Auto are verified (ADRs 0044/0050/0053). Independent component APIs and caller output are additional; no hard RSS cap. NativeHost probes do not discover private job/process constraints; use caller overrides on constrained desktops.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "ReadOptions composition is verified for sampling, materialization and fallback; compatible projection avoids unrelated shared masters beyond the requested last row. Direct component APIs remain independent. Not a hard RSS cap: dependency/allocator overhead, OS cache and caller-held outputs are additional. Prior prepared Auto table rebalancing temporarily retains prior storage until successful transfer. No milestone completion claimed."
     },
     {
       "id": "formula.cache-only-projection",
@@ -17262,7 +17486,9 @@
         "crates/crabxl-xlsx/tests/streaming.rs::cache_only_projection_ignores_formula_semantics_without_ignoring_xml_or_values",
         "benchmarks/formula_cache_checkpoint.py"
       ],
-      "limitations": "Does not evaluate formulas or interpret typed metadata graphs. ValidateGroups explicitly validates formulas even in data-only mode; XML-event and cache-value limits remain enforced. No milestone completion claimed."
+      "limitations": "No calculation or interpreted metadata graph support. Explicit ValidateGroups validates formulas even with data-only projection; XML/cache limits remain enforced.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Does not evaluate formulas or interpret typed metadata graphs. ValidateGroups explicitly validates formulas even in data-only mode; XML-event and cache-value limits remain enforced. No milestone completion claimed."
     },
     {
       "id": "formula.attribute-write-policies",
@@ -17289,7 +17515,9 @@
         "crates/crabxl-xlsx/tests/editor.rs::assigned_formula_attributes_follow_the_same_writer_policy_on_repeated_saves",
         "benchmarks/probe_formula_attributes.py"
       ],
-      "limitations": "Physical formula replacement only; array spill/shared/metadata graph synchronization remains staged. Source flags differ deliberately from assigned boolean values. No milestone completion claimed."
+      "limitations": "Physical replacement and literal/assigned flag policies are verified. Full array/spill/shared metadata graph synchronization remains M4/M6.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Physical formula replacement only; array spill/shared/metadata graph synchronization remains staged. Source flags differ deliberately from assigned boolean values. No milestone completion claimed."
     },
     {
       "id": "styles.canonical-format-classification",
@@ -17316,7 +17544,9 @@
         "crates/crabxl-core/tests/values.rs::number_format_classification_stays_consistent_when_the_owned_code_changes",
         "benchmarks/style_classification_checkpoint.py"
       ],
-      "limitations": "Canonical record mutation does not complete loaded-workbook style catalog editing. Unknown locale formats are not fabricated; complete style scratch accounting and milestone acceptance remain staged."
+      "limitations": "Shared format classification and owned temporal assignment are verified. Complete loaded-workbook style mutation remains M4/M5; unknown locale formats are not fabricated.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Canonical record mutation does not complete loaded-workbook style catalog editing. Unknown locale formats are not fabricated; complete style scratch accounting and milestone acceptance remain staged."
     },
     {
       "id": "workbook.owned-theme",
@@ -17373,7 +17603,9 @@
         "crates/crabxl-xlsx/tests/streaming.rs::consuming_reader_transfers_original_style_records_for_canonical_registration",
         "benchmarks/style_import_checkpoint.py"
       ],
-      "limitations": "In-memory catalog/identity edits only; full bank/export/package integration and unmodeled typed sections remain staged. Ownership transfer consumes the reader; index/scratch allowances are managed rather than process RSS caps. No milestone completion claimed."
+      "limitations": "Owned catalog/bank adoption and source export are verified. Original feature graph integration and full structural edits remain M4/M5; managed indexes are not process RSS caps.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "In-memory catalog/identity edits only; full bank/export/package integration and unmodeled typed sections remain staged. Ownership transfer consumes the reader; index/scratch allowances are managed rather than process RSS caps. No milestone completion claimed."
     },
     {
       "id": "styles.source-catalog-export",
@@ -17402,7 +17634,9 @@
         "crates/crabxl-xlsx/tests/writer.rs::source_catalog_creation_rejects_unmodeled_sections_and_accepts_large_configured_counts",
         "benchmarks/style_export_checkpoint.py"
       ],
-      "limitations": "Creates a new package; original advanced/opaque part graphs and full bank/structural edits are not covered. Unmodeled style sections reject creation. Unused native source declarations remain unlike reference pruning. Arbitrary date/style assignment acceptance remains staged. No milestone completion claimed."
+      "limitations": "New-package source catalog export retains identities and temporal policies. Unmodeled extensions reject creation; original graph preservation is separate from new typed creation.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Creates a new package; original advanced/opaque part graphs and full bank/structural edits are not covered. Unmodeled style sections reject creation. Unused native source declarations remain unlike reference pruning. Arbitrary date/style assignment acceptance remains staged. No milestone completion claimed."
     },
     {
       "id": "styles.differential-table-definitions",
@@ -17431,7 +17665,9 @@
         "crates/crabxl-xlsx/tests/writer.rs::typed_differential_table_catalogs_export_with_original_identity_and_count_properties",
         "benchmarks/style_extras_checkpoint.py"
       ],
-      "limitations": "Verified definition properties and source-catalog export only; worksheet conditional-formatting/table instances and structural graphs remain M5 work. Extension payloads remain explicit markers and reject new-package export. Full bank mutation and Python style surfaces remain staged. Advertised count is retained for named definitions but does not allocate. No milestone completion claimed."
+      "limitations": "Typed definitions, defaults, all 28 regions and source-catalog export are verified. Worksheet rules/table instances and structural graphs remain M5; extension markers are explicit and reject new-package export.",
+      "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
+      "checkpoint_limitations": "Verified definition properties and source-catalog export only; worksheet conditional-formatting/table instances and structural graphs remain M5 work. Extension payloads remain explicit markers and reject new-package export. Full bank mutation and Python style surfaces remain staged. Advertised count is retained for named definitions but does not allocate. No milestone completion claimed."
     },
     {
       "id": "worksheet.viewport-metadata",
@@ -17493,5 +17729,12 @@
       "limitations": "Typed margins/options/page setup/pageSetUpPr and sparse row/column breaks; i64 integer fields, finite margins, baseline paper prefix spelling. Source read scans full worksheet through EOF/CRC without loading cells. Original printer IDs/binaries/relationships are retained; new/changed printer relationships require the later graph. Existing dangling printer relationships are not repaired. Header/footer creation/editing, names-based print areas/titles and protection remain open. Invalid-schema descriptor coercions and integers outside i64 are not complete. ADR 0045 adds component updates and source-validation reuse; incoming caller payloads are additional, and source getters remain distinct from pending overlays."
     }
   ],
-  "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."
+  "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",
+  "milestone_acceptance": {
+    "M2": {
+      "status": "complete",
+      "evidence": "docs/validation/alpha5-m2-acceptance.md",
+      "scope": "Assigned core value/string/date/formula read semantics and bounded SST/style resource acceptance; full baseline modules and M4-M7/adapter capabilities remain separately staged."
+    }
+  }
 }

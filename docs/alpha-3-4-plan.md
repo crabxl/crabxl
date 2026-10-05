@@ -7,8 +7,7 @@ canonical Rust crates and the separately maintained Python package. Python
 versions are `0.1.0a3`, `0.1.0a4` and `0.1.0a5`. Published alpha.2 artifacts and tags remain
 immutable. Manual version increments occur only for verified, usable changes.
 
-This plan sets delivery goals, not completion claims. M2 remains open until its
-acceptance criteria are satisfied. The existing [roadmap](roadmap.md) and
+This plan sets delivery goals, not completion claims. M2 core acceptance is verified in the [alpha.5 audit](validation/alpha5-m2-acceptance.md). The existing [roadmap](roadmap.md) and
 [Rust completion plan](completion-plan.md) define the broader scope.
 
 ## Alpha.3: Editing and writing performance
@@ -43,8 +42,8 @@ before publication.
 
 ## Alpha.4: Configurable ZIP compression
 
-Implemented and verified on Linux/Windows Rust 1.88 with both backends;
-publication is in progress. See [compression evidence](../benchmarks/alpha4-compression.md).
+Completed: Rust and Python alpha.4 are published; release workflows
+37281095098 and 37281599566 succeeded. See [compression evidence](../benchmarks/alpha4-compression.md).
 
 1. Compare the existing ZIP features, pure-Rust zlib-rs and native zlib with
    equivalent numeric/text creation and existing-file editing workloads.
@@ -61,6 +60,10 @@ editing; invalid levels protect targets and permit retry; package semantics and
 resource guarantees remain intact. M2 closure is explicitly deferred to alpha.5.
 
 ## Alpha.5: Test consolidation and M2 closure
+
+Implementation and M2 acceptance are verified; alpha.5 publication/public
+installation verification are in progress. See [acceptance evidence](validation/alpha5-m2-acceptance.md)
+and [coverage](validation/alpha5-coverage.json).
 
 1. Audit current code against M2 acceptance. Distinguish implemented behavior,
    remaining gaps and historical checkpoint notes. Keep M4/M5 and Python adapter

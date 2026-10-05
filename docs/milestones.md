@@ -19,7 +19,19 @@
 - Acceptance is raw finite f64/empty cells. Integer precision, strings, boolean/error/date/formula/style semantics are M2. Unsupported selected content returns errors rather than claiming support. Style index zero is not interpreted.
 - Closure changes add style identity and lifecycle verification without changing the numeric parser hot path; existing release benchmark evidence remains applicable.
 
-## M2: In progress
+## M2: Complete core acceptance
+
+The [alpha.5 audit](validation/alpha5-m2-acceptance.md) verifies every assigned
+value/string/date/formula read gate, bounded high-cardinality SST storage,
+read-side style catalogs, actual payload accounting and representative release
+measurements. Exact style integers, explicit theme/font catalogs, owned formula
+annotation references, native host probes and concurrency-aware Auto finish the
+remaining checkpoints. Linux/Windows/macOS Rust 1.88 default/native-zlib and
+latest quality checks pass in CI run 37293401537. Full baseline modules and
+M4–M7/adapter capabilities remain independently staged.
+
+Historical initial M2 checkpoints below record what was known at their time;
+current status and limitations are those of the linked acceptance audit.
 
 The first verified checkpoint adds typed booleans through the shared streaming path without increasing CellValue storage. Integer precision, errors, shared/inline/rich strings, styles/date systems, formula caches, and disk-backed high-cardinality strings remain required. Individual checkpoints update the verified feature matrix. M2 completion requires mixed-value correctness, large-string resource/cleanup evidence, and representative release benchmarks; M1 numeric results do not establish it.
 

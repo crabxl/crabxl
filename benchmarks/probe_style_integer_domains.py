@@ -4,6 +4,7 @@ from io import BytesIO
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 from zipfile import ZipFile
 import openpyxl
 from openpyxl.styles import Color, Font
@@ -13,7 +14,7 @@ parser.add_argument('--native', type=Path, required=True)
 parser.add_argument('--output', type=Path, required=True)
 args = parser.parse_args()
 assert openpyxl.__version__ == '3.1.5'
-with __import__('tempfile').TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory() as directory:
     fixture = Path(directory) / 'integers.xlsx'
     sizes = subprocess.check_output([str(args.native.resolve()), str(fixture)], text=True).strip()
     book = openpyxl.load_workbook(fixture)

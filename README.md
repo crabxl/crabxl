@@ -221,3 +221,6 @@ interpreting their dependent graphs. Data-only projection and annotated scalar
 cells are incompatible with this policy. New-file/assigned-value output returns
 Unsupported for such annotated formulas; ordinary visible projection remains
 available. See [annotation ownership](docs/decisions/0052-owned-formula-annotation-references.md).
+
+M2 core read acceptance is complete; [alpha.5 audit](docs/validation/alpha5-m2-acceptance.md)
+records behavior, resource limits, tests and remaining M4–M7/adapter scope.
