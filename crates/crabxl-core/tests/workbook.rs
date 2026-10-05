@@ -142,6 +142,96 @@ fn freed_space_is_reusable_and_slot_capacity_remains_accounted() {
 }
 
 #[test]
+fn decoded_models_transfer_without_clones_and_replace_stable_handles_atomically() {
+    let mut book = Workbook::new(WorkbookLimits {
+        max_bytes: 1400,
+        max_cells: 3,
+        sheet: EditLimits {
+            max_bytes: 1000,
+            max_cells: 2,
+        },
+        ..WorkbookLimits::default()
+    })
+    .unwrap();
+    let placeholder = book.create_sheet("Loaded").unwrap();
+    let mut incoming = crabxl_core::Worksheet::new("Loaded", EditLimits::default()).unwrap();
+    let value = Box::new(crabxl_core::CellText::new("loaded text"));
+    let pointer = value.as_str().as_ptr();
+    incoming
+        .set(Cell {
+            address: CellAddress::new(0, 0).unwrap(),
+            value: CellValue::Text(value),
+            style: StyleId::new(0),
+        })
+        .unwrap();
+    incoming.mark_clean();
+    let former = book.replace_sheet(placeholder, incoming).unwrap();
+    assert!(former.is_empty());
+    let CellValue::Text(value) = &book
+        .sheet(placeholder)
+        .unwrap()
+        .get(CellAddress::new(0, 0).unwrap())
+        .unwrap()
+        .value
+    else {
+        panic!("Expected transferred text");
+    };
+    assert_eq!(value.as_str().as_ptr(), pointer);
+    assert_eq!(book.sheet_id("Loaded"), Some(placeholder));
+    let bytes = book.charged_bytes();
+    assert_eq!(book.remaining_bytes(), 1400 - bytes);
+    let mut too_many = crabxl_core::Worksheet::new("Loaded", EditLimits::default()).unwrap();
+    for row in 0..3 {
+        too_many.set(cell(row, row.into())).unwrap();
+    }
+    assert_eq!(
+        book.replace_sheet(placeholder, too_many)
+            .err()
+            .unwrap()
+            .kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    assert_eq!(book.charged_bytes(), bytes);
+    assert_eq!(book.sheet(placeholder).unwrap().len(), 1);
+    let wrong_name = crabxl_core::Worksheet::new("Other", EditLimits::default()).unwrap();
+    assert_eq!(
+        book.replace_sheet(placeholder, wrong_name)
+            .err()
+            .unwrap()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+    let mut added = crabxl_core::Worksheet::new("Added", EditLimits::default()).unwrap();
+    added.set(cell(2, 9)).unwrap();
+    let id = book.adopt_sheet(added).unwrap();
+    assert_eq!(book.sheet(id).unwrap().row_extent(), 3);
+    assert_eq!(book.cell_count(), 2);
+    let duplicate = crabxl_core::Worksheet::new("added", EditLimits::default()).unwrap();
+    assert!(book.adopt_sheet(duplicate).is_err());
+    assert_eq!(book.len(), 2);
+    book.remove_sheet(id).unwrap();
+    let removed = crabxl_core::Worksheet::new("Added", EditLimits::default()).unwrap();
+    assert_eq!(
+        book.replace_sheet(id, removed).err().unwrap().kind(),
+        ErrorKind::SheetNotFound
+    );
+    // Source style identities must resolve in an initialized bank before commit.
+    let mut styled = Workbook::new(WorkbookLimits::default()).unwrap();
+    styled
+        .register_style(crabxl_core::CellStyle::default())
+        .unwrap();
+    let mut invalid = crabxl_core::Worksheet::new("Invalid", EditLimits::default()).unwrap();
+    let mut value = cell(0, 1);
+    value.style = StyleId::new(u32::MAX);
+    invalid.set(value).unwrap();
+    assert_eq!(
+        styled.adopt_sheet(invalid).unwrap_err().kind(),
+        ErrorKind::InvalidData
+    );
+    assert!(styled.is_empty());
+}
+
+#[test]
 fn themes_share_immutable_bytes_and_obey_the_bank_allowance_atomically() {
     use crabxl_core::Theme;
     let mut book = Workbook::new(WorkbookLimits {

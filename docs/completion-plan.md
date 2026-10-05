@@ -93,6 +93,11 @@ M2 acceptance: all assigned value/string/date/formula read cases pass in streami
 
 ## M4.1: Loaded workbook ownership
 
+Checkpoint: decoded worksheet ownership transfer and atomic stable-ID replacement
+use the canonical bank's per-sheet and aggregate validation (ADR 0055). Format
+coordination, source catalog adoption, aggregate loaded resources and Python
+integration remain open; this does not complete the A6 stage.
+
 Checkpoint: owned set/append resolves temporal style IDs before committing cells with joint prospective-cell/style accounting, shared canonical presets and reusable failure state (ADR 0040). Raw standalone models remain catalog-free; loaded graphs and general repeated styled save remain open.
 
 Checkpoint: canonical owned-bank style import/registration, aggregate theme/style/sheet budgeting and consuming registry/sheet export are verified in ADR 0030 and benchmarks/m4-bank-styles.md. Lazy loading, repeated non-consuming styled save and original feature graphs remain open; this checkpoint does not complete M4.1.
