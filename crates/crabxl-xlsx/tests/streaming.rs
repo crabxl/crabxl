@@ -607,6 +607,10 @@ fn event_cell_row_depth_and_metadata_limits_are_enforced() {
 }
 #[test]
 fn compressed_archive_and_entry_count_limits_are_checked() {
+    let defaults = ResourceLimits::default();
+    assert_eq!(defaults.max_archive_bytes, u64::MAX);
+    assert_eq!(defaults.max_total_uncompressed_bytes, u64::MAX);
+    assert_eq!(defaults.max_part_bytes, u64::MAX);
     let parts = entries(&format!(
         "<worksheet xmlns=\"{MAIN}\"><sheetData/></worksheet>"
     ));
@@ -630,6 +634,77 @@ fn compressed_archive_and_entry_count_limits_are_checked() {
         },
     ] {
         assert!(WorkbookReader::with_limits(Cursor::new(data.clone()), limits).is_err());
+    }
+    let error = WorkbookReader::with_limits(
+        Cursor::new(data),
+        ResourceLimits {
+            max_total_uncompressed_bytes: 10,
+            ..defaults
+        },
+    )
+    .err()
+    .unwrap();
+    assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+    assert!(
+        error
+            .to_string()
+            .contains("max_total_uncompressed_bytes=10")
+    );
+
+    // A non-seekable ZIP writer emits data descriptors, including with ZIP64 entries.
+    for zip64 in [false, true] {
+        let mut bytes = Vec::new();
+        let mut writer = ZipWriter::new_stream(&mut bytes);
+        for (name, content) in entries(&format!(
+            "<worksheet xmlns=\"{MAIN}\"><dimension ref=\"A1\"/><sheetData><row r=\"1\"><c r=\"A1\"><v>7</v></c></row><row r=\"2\"><c r=\"A2\"><v>9</v></c></row></sheetData></worksheet>"
+        )) {
+            writer
+                .start_file(
+                    name,
+                    SimpleFileOptions::default()
+                        .compression_method(zip::CompressionMethod::Deflated)
+                        .large_file(zip64),
+                )
+                .unwrap();
+            writer.write_all(content.as_bytes()).unwrap();
+        }
+        writer.finish().unwrap();
+        assert!(bytes.windows(4).any(|signature| signature == b"PK\x07\x08"));
+        let declared: u64 = parts.iter().map(|(_, content)| content.len() as u64).sum();
+        let too_small = WorkbookReader::with_limits(
+            Cursor::new(bytes.clone()),
+            ResourceLimits {
+                max_total_uncompressed_bytes: 10,
+                ..defaults
+            },
+        )
+        .err()
+        .unwrap();
+        assert_eq!(too_small.kind(), ErrorKind::LimitExceeded);
+        assert!(
+            too_small
+                .to_string()
+                .contains("max_total_uncompressed_bytes=10")
+        );
+        // An explicit generous cap must also accept data descriptors.
+        assert!(
+            WorkbookReader::with_limits(
+                Cursor::new(bytes.clone()),
+                ResourceLimits {
+                    max_total_uncompressed_bytes: declared + 4096,
+                    ..defaults
+                },
+            )
+            .is_ok()
+        );
+        let mut reader = WorkbookReader::new(Cursor::new(bytes)).unwrap();
+        let rows = reader
+            .rows("A & B")
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[1].cells[0].value, CellValue::Integer(9));
     }
 }
 #[test]

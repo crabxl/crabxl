@@ -244,7 +244,10 @@ impl<R: Read + Seek> WorkbookReader<R> {
             .seek(SeekFrom::End(0))
             .map_err(|e| Error::caused_by(ErrorKind::Io, "Cannot measure archive", e))?;
         if size > limits.max_archive_bytes {
-            return Err(limit("Compressed archive size limit exceeded"));
+            return Err(limit(format!(
+                "Compressed archive size {size} bytes exceeds max_archive_bytes={} bytes",
+                limits.max_archive_bytes
+            )));
         }
         source
             .seek(SeekFrom::Start(0))
@@ -254,11 +257,22 @@ impl<R: Read + Seek> WorkbookReader<R> {
         if archive.len() > limits.max_archive_entries {
             return Err(limit("Archive entry count limit exceeded"));
         }
-        if archive
-            .decompressed_size()
-            .is_none_or(|n| n > u128::from(limits.max_total_uncompressed_bytes))
-        {
-            return Err(limit("Declared uncompressed archive size limit exceeded"));
+        if limits.max_total_uncompressed_bytes != u64::MAX {
+            // ZIP's aggregate helper returns None for valid data-descriptor entries.
+            // Read their central-directory sizes without decompressing any payload.
+            let mut declared = 0u128;
+            for index in 0..archive.len() {
+                let entry = archive.by_index_raw(index).map_err(|error| {
+                    Error::caused_by(ErrorKind::Archive, "Cannot inspect ZIP entry size", error)
+                })?;
+                declared += u128::from(entry.size());
+            }
+            if declared > u128::from(limits.max_total_uncompressed_bytes) {
+                return Err(limit(format!(
+                    "Declared uncompressed archive size {declared} bytes exceeds max_total_uncompressed_bytes={} bytes",
+                    limits.max_total_uncompressed_bytes
+                )));
+            }
         }
         let mut metadata_remaining = limits.max_metadata_bytes;
         let root =

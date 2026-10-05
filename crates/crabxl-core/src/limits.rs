@@ -10,13 +10,13 @@ pub struct ResourceLimits {
     /// Maximum estimated retained allocation for explicit sheet materialization.
     /// This is a data budget, not a hard process RSS cap.
     pub max_materialized_bytes: usize,
-    /// Maximum compressed archive size, checked before ZIP parsing.
+    /// Maximum compressed archive size, checked before ZIP parsing. Defaults to no size cap.
     pub max_archive_bytes: u64,
     /// Maximum number of archive entries.
     pub max_archive_entries: usize,
-    /// Maximum sum of declared uncompressed archive entry sizes.
+    /// Maximum sum of declared uncompressed archive entry sizes. Defaults to no size cap.
     pub max_total_uncompressed_bytes: u64,
-    /// Maximum uncompressed worksheet size.
+    /// Maximum uncompressed worksheet size. Defaults to no size cap; not a RAM allowance.
     pub max_part_bytes: u64,
     /// Combined uncompressed metadata budget.
     pub max_metadata_bytes: u64,
@@ -52,10 +52,10 @@ impl Default for ResourceLimits {
         Self {
             input_buffer_bytes: 32 * 1024,
             max_materialized_bytes: 256 * 1024 * 1024,
-            max_archive_bytes: 512 * 1024 * 1024,
+            max_archive_bytes: u64::MAX,
             max_archive_entries: 16_384,
-            max_total_uncompressed_bytes: 4 * 1024 * 1024 * 1024,
-            max_part_bytes: 2 * 1024 * 1024 * 1024,
+            max_total_uncompressed_bytes: u64::MAX,
+            max_part_bytes: u64::MAX,
             max_metadata_bytes: 16 * 1024 * 1024,
             max_xml_event_bytes: 64 * 1024,
             max_cell_bytes: 64 * 1024,
