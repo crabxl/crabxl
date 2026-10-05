@@ -3,18 +3,20 @@
 ## Release order
 
 This plan follows alpha.5 and records the agreed staged M4 acceptance boundary.
-All releases below are planned, not completed or published.
+Alpha 6 is an urgent large/stream-generated archive compatibility release.
+The previously planned feature releases move back by one number and remain open.
 
-The active delivery goal includes completing and publishing A6 through A8,
+The active delivery goal includes completing and publishing A7 through A9,
 then implementing all M6 acceptance groups and publishing multiple usable
 Alpha releases. M6 planning alone does not satisfy this goal. M7 remains the
 subsequent full compatibility and release-quality milestone.
 
 | Release | Scope | Acceptance boundary |
 | --- | --- | --- |
-| A6: `0.1.0-alpha.6` | M4 loaded-model integration, existing-file edits, worksheet and row/column operations | Complete the M4 stage defined below; retain explicit M5/M6 dependency tracking |
-| A7: `0.1.0-alpha.7` | Remaining read, write, edit, and Python binding performance problems | Profile and fix the measured backlog, with equivalent-workload evidence and correctness/resource checks |
-| A8: `0.1.0-alpha.8` | M5 common features | Full assigned style, merge, table, validation, conditional-formatting, comment, printing, and formula-tool acceptance |
+| A6: `0.1.0-alpha.6` | Large and stream-generated archive compatibility | Remove default archive byte caps, accept ZIP/ZIP64 data descriptors, and retain explicit finite caps |
+| A7: `0.1.0-alpha.7` | M4 loaded-model integration, existing-file edits, worksheet and row/column operations | Complete the M4 stage defined below; retain explicit M5/M6 dependency tracking |
+| A8: `0.1.0-alpha.8` | Remaining read, write, edit, and Python binding performance problems | Profile and fix the measured backlog, with equivalent-workload evidence and correctness/resource checks |
+| A9: `0.1.0-alpha.9` | M5 common features | Full assigned style, merge, table, validation, conditional-formatting, comment, printing, and formula-tool acceptance |
 | Subsequent alphas | M6 advanced graphs | Release usable, independently verified feature groups; choose each next alpha number manually |
 | M7 completion release | Full compatibility, platform support, performance, and release quality | Complete the full baseline acceptance matrix, including deferred M4 graph interactions |
 
@@ -24,7 +26,7 @@ independent release histories, so matching numbers require checking both before
 preparation. Do not change versions or submit release requests just to record a
 plan. Publish only after a usable checkpoint meets its gate.
 
-## A6: M4 staged acceptance
+## A7: M4 staged acceptance
 
 ### Current gaps
 
@@ -66,17 +68,17 @@ feature-graph transformations remain open.
 
 ### Stage boundary and deferred dependencies
 
-The user explicitly selected staged M4 acceptance. A6 completes loaded ownership,
+The user explicitly selected staged M4 acceptance. A7 completes loaded ownership,
 package/sheet mutations, and structural operations for implemented content. An
 operation affecting an unimplemented M5/M6 graph must return an explicit
 unsupported error before mutation or target replacement. Unaffected opaque parts
 must continue to survive supported edits.
 
-A6 does not complete all M4 interactions with future styles, merges, tables,
+A7 does not complete all M4 interactions with future styles, merges, tables,
 validation, conditional formatting, comments, drawing anchors, charts, pivots,
 external links, or complex cell metadata. Track these dependencies in the
 existing behavioral inventory and completion plan; verify them when the owning
-M5/M6 family is implemented. Report **M4 stage accepted for A6**, keeping full M4
+M5/M6 family is implemented. Report **M4 stage accepted for A7**, keeping full M4
 acceptance open until the dependency cases pass. Preservation alone does not
 verify typed reading, creation, or editing.
 
@@ -93,13 +95,13 @@ verify typed reading, creation, or editing.
 - Meaningful public-reference interoperability and failure assertions, extending
   existing tests where practical. Preserve the selected upstream test bodies.
 - Relevant native and Python measurements, including wall/CPU time, peak RSS,
-  temporary bytes/cleanup, and actual output checks. A7 is not a reason to defer
-  resource accounting or introduce unmeasured regressions in A6.
+  temporary bytes/cleanup, and actual output checks. A8 is not a reason to defer
+  resource accounting or introduce unmeasured regressions in A7.
 
-## A7: Performance backlog
+## A8: Performance backlog
 
-Start from the published A6 revision. Record specific measured problems and their
-locations before choosing optimizations. A7 covers the backlog across native
+Start from the published A7 revision. Record specific measured problems and their
+locations before choosing optimizations. A8 covers the backlog across native
 processing and Python calls; it is not limited to compression or one fixture.
 
 Investigate the calamine read-speed gap, XML/value parsing and allocation, SST
@@ -119,7 +121,7 @@ tradeoffs explicitly; publication must not imply universal superiority or that
 no further optimization is possible. Extend existing high-value correctness
 checks rather than adding timing thresholds or redundant test permutations.
 
-## A8: M5 common features
+## A9: M5 common features
 
 Complete the existing M5.1–M5.8 acceptance definitions: styles and rich text;
 dimensions, merges, groups and views; names, hyperlinks and properties; tables,
