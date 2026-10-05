@@ -55,6 +55,9 @@ pub enum StyleWritePolicy {
 /// These bound managed buffers/metadata and temporary XML, not process RSS.
 #[derive(Clone, Debug)]
 pub struct WriteOptions {
+    /// ZIP level 0..=9: 0 stores without compression; 1..=9 uses Deflate.
+    /// None retains the backend default (6).
+    pub compression_level: Option<u8>,
     /// Owned temporary files are created here; None uses the system directory.
     pub temp_directory: Option<PathBuf>,
     /// Buffer for the one active worksheet's temporary file.
@@ -93,6 +96,7 @@ pub struct WriteOptions {
 impl Default for WriteOptions {
     fn default() -> Self {
         Self {
+            compression_level: None,
             temp_directory: None,
             buffer_bytes: 32768,
             max_sheets: 1024,
@@ -206,6 +210,7 @@ impl WorkbookWriter {
         Ok(writer)
     }
     fn new_with_styles(options: WriteOptions, source: StyleSource) -> Result<Self> {
+        validate_compression_level(options.compression_level)?;
         if options.max_styles < 5
             || options.max_styles > u32::MAX as usize
             || options.buffer_bytes == 0
@@ -884,6 +889,13 @@ impl WorkbookWriter {
     pub fn stats(&self) -> WriteStats {
         self.stats
     }
+    /// Set the ZIP level for packaging without changing worksheet spools.
+    pub fn set_compression_level(&mut self, level: Option<u8>) -> Result<()> {
+        self.ensure_open()?;
+        validate_compression_level(level)?;
+        self.options.compression_level = level;
+        Ok(())
+    }
     /// Set the active display sheet before packaging. Finish validates the index.
     pub fn set_active_sheet(&mut self, index: usize) -> Result<()> {
         self.ensure_open()?;
@@ -978,8 +990,7 @@ impl WorkbookWriter {
             return Err(state("Active sheet index is outside the completed catalog"));
         }
         let mut zip = ZipWriter::new(output);
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        let options = compression_options(self.options.compression_level);
         for (index, sheet) in self.sheets.iter_mut().enumerate() {
             let part = format!("xl/worksheets/sheet{}.xml", index + 1);
             let size = sheet
@@ -1085,6 +1096,24 @@ fn validate_sheet_name(name: &str) -> Result<()> {
         return Err(Error::new(ErrorKind::InvalidData, "Invalid worksheet name"));
     }
     validate_xml_text(name)
+}
+pub(crate) fn validate_compression_level(level: Option<u8>) -> Result<()> {
+    if level.is_some_and(|level| level > 9) {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "ZIP compression level must be between 0 and 9",
+        ));
+    }
+    Ok(())
+}
+pub(crate) fn compression_options(level: Option<u8>) -> SimpleFileOptions {
+    SimpleFileOptions::default()
+        .compression_method(if level == Some(0) {
+            zip::CompressionMethod::Stored
+        } else {
+            zip::CompressionMethod::Deflated
+        })
+        .compression_level(level.filter(|level| *level != 0).map(i64::from))
 }
 fn state(message: &str) -> Error {
     Error::new(ErrorKind::InvalidState, message)

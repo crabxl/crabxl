@@ -24,6 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         target,
         SaveOptions {
             verify_unchanged: mode == "verify",
+            compression_level: arguments.next().map(|value| value.parse()).transpose()?,
         },
     )?;
     println!(

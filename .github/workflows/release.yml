@@ -67,6 +67,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.88.0
       - run: cargo test --workspace --locked
+      - name: Verify optional native zlib on the MSRV
+        run: cargo test -p crabxl -p crabxl-xlsx --no-default-features --features deflate-zlib --locked
 
   publish:
     needs: [verify, msrv]

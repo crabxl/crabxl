@@ -199,6 +199,14 @@ Finite style size/gradient-edge domains, empty format strings and imported color
 `StyleCatalog` includes typed sparse differential overrides and table/pivot defaults/definitions with all 28 region tokens, optional count/size properties and validated differential references. Source-owned boxes/vectors transfer without full catalog snapshots. Extension payloads and worksheet rule/table graphs remain staged. See [ADR 0033](docs/decisions/0033-differential-table-style-catalogs.md) and [public metadata readback/measurements](benchmarks/m2-style-extras.md).
 
 Dependency policy: prefer current stable toolchains and dependencies after validation.
+
+ZIP compression is configurable through `WriteOptions::compression_level`,
+`WorkbookWriter::set_compression_level` and `SaveOptions::compression_level`.
+`None` retains default level 6; levels 1 through 9 use Deflate; 0 stores without
+compression. Editors retain original compressed bytes for untouched parts.
+The default backend is pure-Rust zlib-rs. Native zlib is available with
+`--no-default-features --features deflate-zlib`; see
+[compression decisions](docs/decisions/0049-configurable-zip-compression.md).
 The XML codec uses quick-xml 0.42 with validated UTF-8 string events,
 XML 1.0 text/attribute normalization and resolved namespace checks. Python 3.15 release-candidate validation is the explicit prerelease
 exception while waiting for the final release.
