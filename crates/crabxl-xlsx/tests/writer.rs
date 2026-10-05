@@ -61,7 +61,8 @@ fn scalar_round_trip_sparse_rows_empty_sheet_and_epoch() {
     assert_eq!(writer.stats().cells, 11);
     let temp_bytes = std::fs::read_dir(directory.path())
         .unwrap()
-        .map(|entry| entry.unwrap().metadata().unwrap().len())
+        // Query the file directly; Windows directory entries can cache old sizes.
+        .map(|entry| std::fs::metadata(entry.unwrap().path()).unwrap().len())
         .sum::<u64>();
     assert_eq!(writer.temporary_bytes(), temp_bytes);
     assert_eq!(writer.stats().peak_temp_bytes, temp_bytes);
@@ -247,6 +248,8 @@ fn name_sheet_row_cell_metadata_and_temp_limits_are_enforced() {
     }
 }
 #[test]
+// Windows does not permit renaming a directory containing an open spool.
+#[cfg(unix)]
 fn failed_new_temp_file_keeps_previous_sheet_usable() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("spool");
