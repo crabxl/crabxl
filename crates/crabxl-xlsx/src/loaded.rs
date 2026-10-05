@@ -566,6 +566,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                     Some(maximum),
                     self.bank.style_catalog(),
                     retained.saturating_add(incoming.charged_bytes()),
+                    true,
                 )?;
                 let mut row = Row::new(RowIndex::new(0)?);
                 rows.set_aggregate_retained(retained.saturating_add(incoming.charged_bytes()))?;

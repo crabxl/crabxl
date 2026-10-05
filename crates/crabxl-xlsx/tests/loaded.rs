@@ -168,6 +168,54 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
     );
     assert!(workbook.managed_retained_bytes() <= workbook.memory_allowance().retained_data_bytes);
     assert_eq!(workbook.into_source().into_inner(), bytes);
+    for storage in [
+        SharedStringStorage::Memory,
+        SharedStringStorage::Disk,
+        SharedStringStorage::Auto,
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let mut workbook = LoadedWorkbook::with_options(
+            Cursor::new(source(3, true)),
+            LoadOptions {
+                shared_strings: SharedStringOptions {
+                    storage,
+                    cache_bytes: 0,
+                    temp_directory: Some(directory.path().into()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let first = workbook.sheet_id("First").unwrap();
+        let second = workbook.sheet_id("Second").unwrap();
+        let value = workbook
+            .sheet(first)
+            .unwrap()
+            .get(CellAddress::new(0, 0).unwrap())
+            .unwrap()
+            .value
+            .clone();
+        let CellValue::Text(retained) = &value else {
+            unreachable!()
+        };
+        let other = &workbook
+            .sheet(second)
+            .unwrap()
+            .get(CellAddress::new(0, 0).unwrap())
+            .unwrap()
+            .value;
+        assert_eq!(&value, other);
+        if storage == SharedStringStorage::Memory {
+            let CellValue::Text(other) = other else {
+                unreachable!()
+            };
+            assert_eq!(retained.as_str().as_ptr(), other.as_str().as_ptr());
+        }
+        drop(workbook);
+        assert_eq!(retained.as_str(), format!("00000000{}", "x".repeat(120)));
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    }
     // An unimplemented chartsheet stays opaque without blocking an unrelated
     // worksheet's typed read/edit or removing its original package part.
     let mut input = ZipArchive::new(Cursor::new(source(3, false))).unwrap();

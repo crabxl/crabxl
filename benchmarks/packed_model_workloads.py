@@ -13,12 +13,13 @@ from editable_engines import BINARY, HERE, measure
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--before", type=Path, required=True)
+    parser.add_argument("--before-core", default="4279dcb")
     parser.add_argument("--rows", nargs="+", type=int, default=[10000, 100000])
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     report = {
-        "method": "One warmup and three rotating serial release samples. Complete retained model plus every-value/coordinate verification inside each native worker; import/build/generation excluded. Identical worker source/lockfile/toolchain, prior core 4279dcb versus packed candidate; hashes identify binaries. Calamine returns retained noneditable text ranges; CrabXL retains editable models plus source catalogs.",
+        "method": f"One warmup and {args.runs} rotating serial release samples. Complete retained model plus every-value/coordinate verification inside each native worker; import/build/generation excluded. Identical worker source/lockfile/toolchain, prior core {args.before_core} versus candidate; hashes identify binaries. Calamine returns retained noneditable text ranges; CrabXL retains editable models plus source catalogs.",
         "binary_sha256": {
             label: hashlib.sha256(binary.read_bytes()).hexdigest()
             for label, binary in (("before", args.before), ("after", BINARY))

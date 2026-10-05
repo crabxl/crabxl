@@ -67,6 +67,23 @@ fn formulas_distinguish_missing_cache_and_typed_zero_and_count_payloads() {
         Some(&CellValue::Integer(0))
     );
     assert_eq!(size_of::<CellValue>(), 16);
+    let text: std::sync::Arc<str> = std::sync::Arc::from(" shared UTF-8 \u{6587}\u{672c} ");
+    let shared = CellValue::shared_text(std::sync::Arc::clone(&text));
+    assert_eq!(shared, CellValue::text(text.as_ref()));
+    let CellValue::Text(value) = &shared else {
+        unreachable!()
+    };
+    assert_eq!(value.as_str().as_ptr(), text.as_ptr());
+    let copied = shared.clone();
+    drop(text);
+    drop(shared);
+    let CellValue::Text(value) = copied else {
+        unreachable!()
+    };
+    assert_eq!(
+        value.into_string().as_ref(),
+        " shared UTF-8 \u{6587}\u{672c} "
+    );
 }
 
 #[test]

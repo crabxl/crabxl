@@ -1,30 +1,64 @@
 use crate::{Error, ErrorKind, Result};
+use std::sync::Arc;
+
+#[derive(Clone, Debug)]
+enum TextStorage {
+    Owned(Box<str>),
+    Shared(Arc<str>),
+}
 
 /// Owned literal text. Indirection keeps common numeric cells compact.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct CellText {
-    value: Box<str>,
+    value: TextStorage,
 }
 impl CellText {
     /// Own a string without trimming meaningful whitespace.
     pub fn new(value: impl Into<Box<str>>) -> Self {
         Self {
-            value: value.into(),
+            value: TextStorage::Owned(value.into()),
         }
     }
     /// Borrow the original text.
     pub fn as_str(&self) -> &str {
-        &self.value
+        match &self.value {
+            TextStorage::Owned(value) => value,
+            TextStorage::Shared(value) => value,
+        }
     }
-    /// Transfer the owned text without cloning its payload.
+    /// Retain an immutable shared payload without copying its text. The value
+    /// remains independent of the source table/cache lifetime.
+    pub fn from_shared(value: Arc<str>) -> Self {
+        Self {
+            value: TextStorage::Shared(value),
+        }
+    }
+    /// Transfer directly owned text without cloning; shared text is copied into
+    /// a detached box because other source/model handles may retain its payload.
     pub fn into_string(self) -> Box<str> {
-        self.value
+        match self.value {
+            TextStorage::Owned(value) => value,
+            TextStorage::Shared(value) => value.as_ref().into(),
+        }
     }
-    /// Heap allocation including the boxed wrapper when stored in CellValue.
+    /// Conservative heap charge including the boxed CellValue wrapper. Shared
+    /// payloads and reference-count headers are charged per alias, not deduplicated.
     pub fn memory_bytes(&self) -> usize {
-        size_of::<Self>() + self.value.len()
+        size_of::<Self>()
+            + self.as_str().len()
+            + if matches!(self.value, TextStorage::Shared(_)) {
+                2 * size_of::<usize>()
+            } else {
+                0
+            }
     }
 }
+impl PartialEq for CellText {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+impl Eq for CellText {}
 
 /// An exact signed decimal integer exceeding the reader's i64 fast path.
 ///

@@ -709,7 +709,8 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 None => error,
             }
         };
-        let mut stream = self.rows_with_allowance(name, options, allowance)?;
+        let mut stream =
+            self.rows_with_catalog_allowance(name, options, allowance, None, 0, true)?;
         let mut sheet = SheetData { rows: Vec::new() };
         let mut cell_bytes = 0usize;
         while let Some(row) = stream.next_row()? {
@@ -781,7 +782,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
         options: ReadOptions,
         allowance: Option<usize>,
     ) -> Result<Rows<'_, R>> {
-        self.rows_with_catalog_allowance(name, options, allowance, None, 0)
+        self.rows_with_catalog_allowance(name, options, allowance, None, 0, false)
     }
     pub(crate) fn rows_with_catalog_allowance<'a>(
         &'a mut self,
@@ -790,6 +791,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
         allowance: Option<usize>,
         catalog: Option<&'a crabxl_core::StyleCatalog>,
         retained: usize,
+        share_values: bool,
     ) -> Result<Rows<'a, R>> {
         if self.styles_transferred && self.imported_styles.is_some() && catalog.is_none() {
             return Err(invalid(
@@ -851,13 +853,11 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     })
             })
             .transpose()?;
-        if options.rich_text
-            && self
-                .shared_strings
-                .as_ref()
-                .is_some_and(|s| !s.stats().rich_text_preserved)
-        {
-            // Rebuild once when upgrading a plain projection to metadata-preserving reads.
+        if self.shared_strings.as_ref().is_some_and(|s| {
+            (options.rich_text && !s.stats().rich_text_preserved)
+                || share_values != s.shares_values()
+        }) {
+            // Rebuild when changing metadata preservation or text ownership.
             self.shared_strings = None;
         }
         if self.shared_strings.is_none()
@@ -887,6 +887,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 self.limits,
                 &string_options,
                 options.rich_text,
+                share_values,
             )?;
             self.shared_strings = Some(strings);
         }
