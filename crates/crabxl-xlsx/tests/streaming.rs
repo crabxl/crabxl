@@ -475,6 +475,48 @@ fn prefixes_and_strict_spreadsheet_namespaces_work() {
             .value,
         CellValue::Integer(4)
     );
+    // Default-scope changes restore on sibling/empty/end events; prefixed
+    // elements still use the authoritative resolver, including shadowing.
+    let strict = "http://purl.oclc.org/ooxml/spreadsheetml/main";
+    for sheet in [
+        format!(
+            "<worksheet xmlns=\"{MAIN}\"><extLst xmlns=\"urn:other\"><ext/></extLst><sheetData><row xmlns=\"{strict}\"><c r=\"A1\"><v xmlns=\"{MAIN}\">4</v></c><c r=\"B1\"><v>5</v></c></row><row r=\"2\"><c r=\"A2\"><v>6</v></c></row></sheetData></worksheet>"
+        ),
+        format!(
+            "<s:worksheet xmlns:s=\"{strict}\" xmlns=\"urn:other\"><s:extLst xmlns:s=\"urn:extension\"><s:ext/></s:extLst><s:sheetData><s:row><s:c r=\"A1\"><s:v>4</s:v></s:c><s:c r=\"B1\"><s:v>5</s:v></s:c></s:row><s:row r=\"2\"><s:c r=\"A2\"><s:v>6</s:v></s:c></s:row></s:sheetData></s:worksheet>"
+        ),
+    ] {
+        let mut book = from_entries(&entries(&sheet));
+        let mut rows = book.rows("A & B").unwrap();
+        let first = rows.next_row().unwrap().unwrap();
+        assert_eq!(first.cells.len(), 2);
+        assert_eq!(first.cells[0].value, CellValue::Integer(4));
+        assert_eq!(first.cells[1].value, CellValue::Integer(5));
+        assert_eq!(
+            rows.next_row().unwrap().unwrap().cells[0].value,
+            CellValue::Integer(6)
+        );
+        assert!(rows.next_row().unwrap().is_none());
+    }
+    for (cell, kind) in [
+        ("<x:c><x:v>1</x:v></x:c>", ErrorKind::Xml),
+        (
+            "<c xmlns=\"urn:other\"><v>1</v></c>",
+            ErrorKind::InvalidData,
+        ),
+        ("<c xmlns=\"\"><v>1</v></c>", ErrorKind::InvalidData),
+        (
+            "<c><v xmlns=\"urn:other\">1</v></c>",
+            ErrorKind::Unsupported,
+        ),
+        ("<c xmlns:xml=\"urn:bad\"><v>1</v></c>", ErrorKind::Xml),
+        ("<c xmlns:xmlns=\"urn:bad\"><v>1</v></c>", ErrorKind::Xml),
+    ] {
+        let mut book = open(&format!("<row>{cell}</row>"));
+        let error = book.rows("A & B").unwrap().next_row().unwrap_err();
+        assert_eq!(error.kind(), kind, "{cell}: {error}");
+        assert_eq!(error.part(), Some("data/values.xml"));
+    }
 }
 #[test]
 fn ignores_nested_extension_sheet_lookalikes_in_metadata() {

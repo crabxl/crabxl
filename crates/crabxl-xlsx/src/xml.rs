@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // XML reader configuration adapted from calamine, Copyright 2016-2026 Johann Tuffe.
+// Namespace event ownership adapted from quick-xml, Copyright (c) 2016 Johann Tuffe.
 // Source provenance and changes: third_party/ports.json.
 
 use crabxl_core::{Error, ErrorKind, ResourceLimits, Result};
 use quick_xml::{
-    NsReader,
+    Reader,
     events::{BytesStart, Event},
-    name::ResolveResult,
+    name::{NamespaceResolver, QName, ResolveResult},
 };
 use std::{
     fmt,
@@ -39,6 +40,152 @@ pub(crate) struct Frame<'a> {
     pub event: Event<'a>,
     pub office_relationship: Option<String>,
     pub depth: usize,
+}
+
+#[derive(Clone, Copy)]
+struct DefaultScope {
+    scope: Scope,
+    spreadsheet_uri: Option<&'static str>,
+}
+impl DefaultScope {
+    const OTHER: Self = Self {
+        scope: Scope::Other,
+        spreadsheet_uri: None,
+    };
+}
+struct NamespaceSnapshot {
+    level: u16,
+    previous: DefaultScope,
+}
+
+/// Keep quick-xml's resolver authoritative, caching only semantic default scope.
+/// No attribute can declare a namespace without a lowercase `x` in its key.
+struct StreamNamespaces {
+    resolver: NamespaceResolver,
+    default: DefaultScope,
+    snapshots: Vec<NamespaceSnapshot>,
+    pending_pop: bool,
+}
+impl StreamNamespaces {
+    fn new() -> Self {
+        Self {
+            resolver: NamespaceResolver::default(),
+            default: DefaultScope::OTHER,
+            snapshots: Vec::new(),
+            pending_pop: false,
+        }
+    }
+    fn before_event(&mut self) {
+        if self.pending_pop {
+            if self
+                .snapshots
+                .last()
+                .is_some_and(|v| v.level == self.resolver.level())
+            {
+                self.default = self
+                    .snapshots
+                    .pop()
+                    .map_or(DefaultScope::OTHER, |v| v.previous);
+            }
+            self.resolver.pop();
+            self.pending_pop = false;
+        }
+    }
+    fn event(&mut self, event: &Event<'_>) -> Result<DefaultScope> {
+        let name = match event {
+            Event::Start(start) | Event::Empty(start) => {
+                let mut declaration = false;
+                if start.attributes_raw().as_bytes().contains(&b'x') {
+                    for attribute in start.attributes().with_checks(false) {
+                        let Ok(attribute) = attribute else { break };
+                        if attribute.key.as_namespace_binding().is_some() {
+                            declaration = true;
+                            break;
+                        }
+                    }
+                }
+                if declaration {
+                    self.snapshots.try_reserve_exact(1).map_err(|cause| {
+                        Error::caused_by(
+                            ErrorKind::LimitExceeded,
+                            "Cannot allocate namespace scope cache",
+                            cause,
+                        )
+                    })?;
+                    let previous = self.default;
+                    self.resolver.push(start).map_err(|cause| {
+                        Error::caused_by(ErrorKind::Xml, "Invalid XML namespace declaration", cause)
+                    })?;
+                    self.default = namespace_scope(self.resolver.resolve_element(QName("n")).0)?;
+                    self.snapshots.push(NamespaceSnapshot {
+                        level: self.resolver.level(),
+                        previous,
+                    });
+                } else {
+                    // Advance the authoritative nesting level without reparsing
+                    // ordinary coordinates/types/styles as namespace declarations.
+                    self.resolver.push(&BytesStart::new("n")).map_err(|cause| {
+                        Error::caused_by(ErrorKind::Xml, "Invalid XML namespace nesting", cause)
+                    })?;
+                }
+                self.pending_pop = matches!(event, Event::Empty(_));
+                start.name()
+            }
+            Event::End(end) => {
+                self.pending_pop = true;
+                end.name()
+            }
+            _ => return Ok(DefaultScope::OTHER),
+        };
+        if !name.as_ref().as_bytes().contains(&b':') {
+            Ok(self.default)
+        } else {
+            namespace_scope(self.resolver.resolve_element(name).0)
+        }
+    }
+}
+
+fn namespace_scope(namespace: ResolveResult<'_>) -> Result<DefaultScope> {
+    let (scope, spreadsheet_uri) = match namespace {
+        ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == MAIN => {
+            (Scope::Spreadsheet, Some(MAIN_URI))
+        }
+        ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == STRICT_MAIN => {
+            (Scope::Spreadsheet, Some(STRICT_MAIN_URI))
+        }
+        ResolveResult::Bound(ns)
+            if ns.as_ref().as_bytes()
+                == b"http://schemas.openxmlformats.org/package/2006/relationships" =>
+        {
+            (Scope::Relationships, None)
+        }
+        ResolveResult::Bound(ns)
+            if ns.as_ref().as_bytes()
+                == b"http://schemas.openxmlformats.org/package/2006/content-types" =>
+        {
+            (Scope::ContentTypes, None)
+        }
+        ResolveResult::Bound(ns)
+            if matches!(
+                ns.as_ref().as_bytes(),
+                b"http://schemas.openxmlformats.org/drawingml/2006/main"
+                    | b"http://purl.oclc.org/ooxml/drawingml/main"
+            ) =>
+        {
+            (Scope::Drawing, None)
+        }
+        ResolveResult::Unknown(_) => {
+            return Err(Error::new(
+                ErrorKind::Xml,
+                "Undeclared XML namespace prefix",
+            ));
+        }
+        _ => (Scope::Other, None),
+    };
+    Ok(DefaultScope {
+        scope,
+        spreadsheet_uri,
+    })
 }
 
 #[derive(Debug)]
@@ -91,7 +238,8 @@ impl<B: BufRead> Read for BudgetInput<B> {
 }
 
 pub(crate) struct XmlStream<B> {
-    reader: NsReader<BudgetInput<B>>,
+    reader: Reader<BudgetInput<B>>,
+    namespaces: StreamNamespaces,
     buffer: Vec<u8>,
     limits: ResourceLimits,
     part: String,
@@ -101,7 +249,7 @@ pub(crate) struct XmlStream<B> {
 }
 impl<B: BufRead> XmlStream<B> {
     pub fn new(input: B, part: String, byte_limit: u64, limits: ResourceLimits) -> Self {
-        let mut reader = NsReader::from_reader(BudgetInput {
+        let mut reader = Reader::from_reader(BudgetInput {
             inner: input,
             event_remaining: limits.max_xml_event_bytes,
             part_remaining: byte_limit,
@@ -111,6 +259,7 @@ impl<B: BufRead> XmlStream<B> {
         reader.config_mut().trim_text(false);
         Self {
             reader,
+            namespaces: StreamNamespaces::new(),
             buffer: Vec::with_capacity(1024.min(limits.max_xml_event_bytes)),
             limits,
             part,
@@ -129,49 +278,19 @@ impl<B: BufRead> XmlStream<B> {
 
     pub fn next(&mut self) -> Result<Frame<'_>> {
         self.buffer.clear();
+        self.namespaces.before_event();
         self.reader.get_mut().event_remaining = self.limits.max_xml_event_bytes;
-        let (namespace, event) = self.reader.read_resolved_event_into(&mut self.buffer).map_err(|cause| {
+        let event = self.reader.read_event_into(&mut self.buffer).map_err(|cause| {
             let limited = matches!(&cause, quick_xml::Error::Io(e) if e.get_ref().is_some_and(|source| source.is::<BudgetExceeded>()));
             Error::caused_by(if limited { ErrorKind::LimitExceeded } else { ErrorKind::Xml }, "Cannot parse XML", cause).with_part(self.part.clone())
         })?;
-        // Classify each resolved namespace once; preservation needs the exact
-        // spreadsheet URI while streaming only needs its semantic scope.
-        let (scope, spreadsheet_uri) = match namespace {
-            ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == MAIN => {
-                (Scope::Spreadsheet, Some(MAIN_URI))
-            }
-            ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == STRICT_MAIN => {
-                (Scope::Spreadsheet, Some(STRICT_MAIN_URI))
-            }
-            ResolveResult::Bound(ns)
-                if ns.as_ref().as_bytes()
-                    == b"http://schemas.openxmlformats.org/package/2006/relationships" =>
-            {
-                (Scope::Relationships, None)
-            }
-            ResolveResult::Bound(ns)
-                if ns.as_ref().as_bytes()
-                    == b"http://schemas.openxmlformats.org/package/2006/content-types" =>
-            {
-                (Scope::ContentTypes, None)
-            }
-            ResolveResult::Bound(ns)
-                if matches!(
-                    ns.as_ref().as_bytes(),
-                    b"http://schemas.openxmlformats.org/drawingml/2006/main"
-                        | b"http://purl.oclc.org/ooxml/drawingml/main"
-                ) =>
-            {
-                (Scope::Drawing, None)
-            }
-            ResolveResult::Unknown(_) => {
-                return Err(
-                    Error::new(ErrorKind::Xml, "Undeclared XML namespace prefix")
-                        .with_part(self.part.clone()),
-                );
-            }
-            _ => (Scope::Other, None),
-        };
+        let DefaultScope {
+            scope,
+            spreadsheet_uri,
+        } = self
+            .namespaces
+            .event(&event)
+            .map_err(|error| error.with_part(self.part.clone()))?;
         match &event {
             Event::Start(_) => {
                 if self.depth == 0 && self.root_seen {
@@ -233,7 +352,7 @@ impl<B: BufRead> XmlStream<B> {
                     Error::caused_by(ErrorKind::Xml, "Invalid XML attribute", e)
                         .with_part(self.part.clone())
                 })?;
-                let (namespace, name) = self.reader.resolver().resolve_attribute(attribute.key);
+                let (namespace, name) = self.namespaces.resolver.resolve_attribute(attribute.key);
                 if name.as_ref() == "id"
                     && matches!(namespace, ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == OFFICE_REL || ns.as_ref().as_bytes() == STRICT_OFFICE_REL)
                 {
