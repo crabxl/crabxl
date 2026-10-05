@@ -22,6 +22,10 @@ int main(int argc, char **argv) {
         perror("execvp");
         _exit(127);
     }
+    if (getenv("CRABXL_MEASURE_CHILD_PID")) {
+        fprintf(stderr, "CHILD_PID %ld\n", (long)child);
+        fflush(stderr);
+    }
     int status;
     struct rusage usage;
     while (wait4(child, &status, 0, &usage) < 0) {

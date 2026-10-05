@@ -1,5 +1,6 @@
 /target/
 /benchmarks/calamine/target/
+/benchmarks/umya/target/
 /benchmarks/measure
 /benchmarks/data/
 /benchmarks/*.local.json

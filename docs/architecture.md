@@ -29,7 +29,11 @@ The public documentation distinguishes a general editable model, lazy read-only 
 ## Design decisions
 
 - Preserve the complete public feature baseline. Staged implementation changes delivery order, not final scope.
-- Clone, pin, inspect, port, and refactor selected calamine/rust_xlsxwriter modules. Do not build the core as a wholesale wrapper or re-export of those libraries.
+- Use umya-spreadsheet as the primary feature-port source for editable workbooks,
+  existing-file integration and M5/M6. Retain calamine and rust_xlsxwriter as
+  performance references and secondary sources for overlapping read/write
+  algorithms. Clone, pin, inspect and refactor coherent modules into the shared
+  core; do not re-export upstream engines or maintain competing model banks.
 - Use mature foundational ZIP, XML, date, and temporary-file crates as normal dependencies.
 - Share a single value, formula, style, address, error, and feature model across readers and writers.
 - Internals may use ownership, borrowing, enums, traits, iterators, builders, and typed IDs extensively. Public Rust names and syntax may differ, but functionality and observable semantics must meet openpyxl expectations.
@@ -98,6 +102,8 @@ The following allocations describe the overall port plan. Numeric package/cell/c
 
 | Upstream | Destination | Refactoring |
 |---|---|---|
+| umya-spreadsheet workbook/worksheet/package | Loaded coordinator and shared editable models | Primary source: reuse feature and relationship rules, replace unbounded XML/model copies with borrowed or budgeted sources |
+| umya-spreadsheet common/advanced feature families | Shared M5/M6 models and XLSX read/create/edit codecs | Primary source: styles, tables, validations, comments, drawings, charts, pivots and metadata; verify actual support, preserve provenance |
 | calamine datatype/formats | Core values, XLSX date/style codecs | Shared value and format semantics |
 | calamine xlsx/mod.rs and cells_reader.rs | Package metadata, reader, strings, part codecs | Reuse cell parsing; emit rows/batches; move Range collection to explicit materialization |
 | calamine errors/utils | Core errors/addresses, XLSX helpers | One coordinate/error convention; remove duplication |
@@ -108,7 +114,10 @@ The following allocations describe the overall port plan. Numeric package/cell/c
 | rust_xlsxwriter charts/drawings/images/tables/rules/notes | Core feature models and XLSX parts | Pair serializers with readers and editing support |
 | Upstream tests/examples | Focused regression fixtures and benchmarks | Retain provenance; validate this project's public behavior |
 
-Port coherent modules, retain mature algorithms, and integrate them into one architecture. Additional parser gaps require targeted source evaluation or implementation.
+Port coherent modules, retain mature algorithms, and integrate them into one
+architecture. This priority does not imply all umya features match the pinned
+public baseline or its I/O/memory strategy should be copied unchanged. Prioritize
+measured read/write speed and peak RSS costs alongside functional integration.
 
 ## Memory strategy
 
