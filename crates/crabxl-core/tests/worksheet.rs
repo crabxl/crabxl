@@ -48,6 +48,82 @@ fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
     assert!(sheet.remove(address(1, 1)).is_some());
     assert!(sheet.is_dirty());
     assert_eq!(sheet.append(vec![Value::Boolean(false)]).unwrap().get(), 2);
+
+    // Exercise multiple storage blocks, backwards interior insertion, block
+    // boundary removal and sparse row traversal against an independent map.
+    let mut sheet = Worksheet::new("Sparse", EditLimits::default()).unwrap();
+    let mut expected = std::collections::BTreeMap::new();
+    for index in 0..640u32 {
+        let coordinate = (index / 32 * 3, index % 32 * 2);
+        set(
+            &mut sheet,
+            coordinate.0,
+            coordinate.1,
+            Value::Integer(index.into()),
+        );
+        expected.insert(coordinate, i64::from(index));
+    }
+    for index in (0..640u32).rev() {
+        let coordinate = (index / 32 * 3, index % 32 * 2 + 1);
+        set(
+            &mut sheet,
+            coordinate.0,
+            coordinate.1,
+            Value::Integer(-i64::from(index)),
+        );
+        expected.insert(coordinate, -i64::from(index));
+    }
+    let removed = expected.keys().copied().step_by(3).collect::<Vec<_>>();
+    for coordinate in removed {
+        let value = expected.remove(&coordinate).unwrap();
+        assert_eq!(
+            sheet
+                .remove(address(coordinate.0, coordinate.1))
+                .unwrap()
+                .value,
+            Value::Integer(value)
+        );
+    }
+    assert_eq!(sheet.len(), expected.len());
+    let actual = sheet
+        .cells()
+        .map(|cell| {
+            (
+                (cell.address.row.get(), cell.address.column.get()),
+                cell.value.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let reference = expected
+        .iter()
+        .map(|(coordinate, value)| (*coordinate, Value::Integer(*value)))
+        .collect::<Vec<_>>();
+    assert_eq!(actual, reference);
+    for row in 0..60 {
+        let actual = sheet
+            .row_cells(RowIndex::new(row).unwrap())
+            .map(|cell| (cell.address.column.get(), cell.value.clone()))
+            .collect::<Vec<_>>();
+        let reference = expected
+            .range((row, 0)..=(row, u32::MAX))
+            .map(|((_, column), value)| (*column, Value::Integer(*value)))
+            .collect::<Vec<_>>();
+        assert_eq!(actual, reference);
+    }
+    for (coordinate, value) in expected.iter().rev() {
+        assert_eq!(
+            sheet
+                .get(address(coordinate.0, coordinate.1))
+                .unwrap()
+                .value,
+            Value::Integer(*value)
+        );
+        sheet.remove(address(coordinate.0, coordinate.1)).unwrap();
+    }
+    assert!(sheet.is_empty());
+    assert!(sheet.cells().next().is_none());
+    set(&mut sheet, 0, 0, Value::Integer(42));
+    assert_eq!(sheet.get(address(0, 0)).unwrap().value, Value::Integer(42));
 }
 #[test]
 fn row_column_shifts_preserve_styles_and_formulas_verbatim() {

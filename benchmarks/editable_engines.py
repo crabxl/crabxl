@@ -117,6 +117,7 @@ def main():
         "umya-stream",
         "crabxl-model",
         "calamine-range",
+        "calamine-model",
         "umya-model",
         "umya-lazy-model",
         "crabxl-edit",

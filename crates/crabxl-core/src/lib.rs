@@ -1,6 +1,7 @@
 //! Runtime-independent spreadsheet values, coordinates, errors, and limits.
 
 mod address;
+mod cell_store;
 mod date;
 mod error;
 mod formula;

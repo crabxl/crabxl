@@ -1,4 +1,5 @@
 //! Sparse, runtime-independent worksheet editing with explicit allocation allowances.
+use crate::cell_store::CellStore;
 use crate::{
     Cell, CellAddress, CellValue, Error, ErrorKind, MAX_COLUMNS, MAX_ROWS, Result, RowIndex,
     StyleId,
@@ -89,7 +90,7 @@ impl SheetVisibility {
 /// This is distinct from a lazy original-file editor and opaque preservation.
 pub struct Worksheet {
     name: Box<str>,
-    cells: BTreeMap<(u32, u32), Cell>,
+    cells: CellStore,
     limits: EditLimits,
     charged: usize,
     append_cursor: u32,
@@ -111,7 +112,7 @@ impl Worksheet {
         Ok(Self {
             charged: name.len(),
             name,
-            cells: BTreeMap::new(),
+            cells: CellStore::new(),
             limits,
             append_cursor: 0,
             dirty: false,
