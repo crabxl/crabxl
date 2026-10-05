@@ -94,8 +94,9 @@ M2 acceptance: all assigned value/string/date/formula read cases pass in streami
 ## M4.1: Loaded workbook ownership
 
 Checkpoint: loaded models and preserving scalar overlays now share one original
-package coordinator, joint reservations and repeatable saves (ADR 0057). Typed
-date/style edits, sheet/structural mutation and Python migration remain open.
+package coordinator, joint reservations and repeatable saves (ADR 0057). Python
+loaded handles now share that owner (adapter ADR 0017). Typed date/style edits and
+sheet/structural mutations remain open.
 
 Checkpoint: source-backed lazy bank loading transfers source style payloads and
 coordinates committed/incoming models with source SST/cache storage under one
@@ -119,6 +120,11 @@ Checkpoint: canonical owned-bank style import/registration, aggregate theme/styl
 Acceptance: mixed loaded/new sheet workflows, retained aliases, failed budget mutations and source release behave consistently. Python tests exercise the canonical implementation without implementing missing feature logic in Python.
 
 ## M4.2: Package graph and workbook mutations
+
+Checkpoint: lazy active selection synchronizes the original view and stable bank
+ID, preserves formula caches/chains for metadata-only saves, and rejects hidden,
+signed, unsupported or over-budget selections before mutation (ADR 0058). Other
+workbook/sheet mutations and full graph cases remain open.
 
 - Centralize relationships, content types, part allocation and imported IDs; use normalized relative targets and strict/transitional namespaces.
 - Support existing-file sheet create/copy/remove/rename/reorder/visibility/active selection, plus macro/template and external-link policies.

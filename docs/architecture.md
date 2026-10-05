@@ -171,4 +171,7 @@ Lazy source-backed `LoadedWorkbook` now moves source styles into the canonical
 bank and commits full-sheet models behind stable identities, with joint source/
 model/SST accounting (ADR 0056). The same source coordinator now integrates
 preserving value overlays with lazy or cached models and repeatable original-part
-saves (ADR 0057). Source graph mutations and Python handles remain in progress.
+saves (ADR 0057). Python loaded handles now share this same owner in
+[adapter ADR 0017](https://github.com/crabxl/crabxl-python/blob/f3251f63c33626338c9c071b5df515ca199bd688/docs/decisions/0017-canonical-loaded-workbook-owner.md).
+Lazy active selection rewrites workbook views independently of value-cache
+invalidation (ADR 0058). Other source graph mutations remain in progress.

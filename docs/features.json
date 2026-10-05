@@ -16994,10 +16994,12 @@
         "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py",
         "crates/crabxl-xlsx/tests/loaded.rs"
       ],
-      "limitations": "Owned scalar/formula models and lazy source-backed read-only models share canonical bank/style ownership. Source catalogs, SST/cache and models have joint managed accounting in LoadedWorkbook; preserving mutation overlays and Python loaded handles remain staged. No original feature-graph copying or existing-file sheet surgery is claimed. Aggregate managed accounting is not hard RSS.",
-      "acceptance_ref": "docs/decisions/0056-lazy-source-backed-workbook-bank.md",
+      "limitations": "Owned scalar/formula models and lazy source-backed models share canonical bank/style ownership. Source catalogs, SST/cache, all models and preserving value overlays have joint managed accounting in LoadedWorkbook; Python loaded handles share the same owner. Native lazy active selection preserves unaffected original parts and formula caches/chains. Typed date/style source mutation, original feature-graph copying and other existing-file sheet/structural surgery remain staged. Aggregate managed accounting is not hard RSS.",
+      "acceptance_ref": "docs/decisions/0058-lazy-active-workbook-selection.md",
       "benchmarks": [
-        "benchmarks/alpha6-loaded-bank.md"
+        "benchmarks/alpha6-loaded-bank.md",
+        "benchmarks/alpha6-loaded-coordinator.md",
+        "benchmarks/alpha6-active-selection.md"
       ]
     },
     {
@@ -17022,9 +17024,10 @@
       ],
       "tests": [
         "https://github.com/crabxl/crabxl-python/blob/main/tests/test_upstream_workbook.py",
-        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py"
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_parity.py",
+        "https://github.com/crabxl/crabxl-python/blob/f3251f63c33626338c9c071b5df515ca199bd688/tests/test_resources.py"
       ],
-      "limitations": "Scalar/formula models only; full feature catalogs and loaded structural/feature-graph copies remain required. New registered sheets share managed bank allowance; loaded, standalone, removed caller-retained models and Python heap are separate. Not a hard RSS cap."
+      "limitations": "New and ordinary loaded worksheets share canonical aggregate owner-scoped banks. Loaded models, catalogs, overlays and SST/cache share one retained allowance; I/O work, detached/removed caller-retained models and Python heap are additional. Scalar/formula integration is verified; full feature catalogs, typed source date/style assignment and loaded sheet/structural/feature-graph operations remain required. Native active selection is not yet exposed in the Python public interface. Not a hard RSS cap."
     },
     {
       "id": "editor.calculation-chain.policy",
@@ -17734,6 +17737,35 @@
         "printing_component_updates_share_aggregate_budget_and_preserve_unrelated_vectors"
       ],
       "limitations": "Typed margins/options/page setup/pageSetUpPr and sparse row/column breaks; i64 integer fields, finite margins, baseline paper prefix spelling. Source read scans full worksheet through EOF/CRC without loading cells. Original printer IDs/binaries/relationships are retained; new/changed printer relationships require the later graph. Existing dangling printer relationships are not repaired. Header/footer creation/editing, names-based print areas/titles and protection remain open. Invalid-schema descriptor coercions and integers outside i64 are not complete. ADR 0045 adds component updates and source-validation reuse; incoming caller payloads are additional, and source getters remain distinct from pending overlays."
+    },
+    {
+      "id": "editor.active-sheet",
+      "description": "Lazy visible original-sheet selection with stable loaded bank identity and preserving workbook-view output",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "original-package-editor",
+        "lazy-source-backed-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
+      "modules": [
+        "crates/crabxl-xlsx/src/editor.rs",
+        "crates/crabxl-xlsx/src/loaded.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/loaded.rs::active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_mutation"
+      ],
+      "limitations": "Changes the first workbook view, creates it if missing/empty and preserves additional view attributes. No eager sheet models; active-only saves keep caches/chains. Hidden, signed, alternative and resource failures reject before mutation. Typed full workbook views, visibility mutation, other sheet surgery and Python exposure remain staged.",
+      "acceptance_ref": "docs/decisions/0058-lazy-active-workbook-selection.md",
+      "benchmarks": [
+        "benchmarks/alpha6-active-selection.md"
+      ]
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

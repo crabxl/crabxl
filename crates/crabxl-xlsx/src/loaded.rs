@@ -167,6 +167,43 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .find(|sheet| sheet.id == id)
             .map(|sheet| sheet.kind)
     }
+    /// Select a visible original sheet by stable identity without materializing
+    /// its cells. Signed/unsupported metadata and resource failures reject before
+    /// changing the bank or its pending original-package view.
+    pub fn set_active_sheet(&mut self, id: SheetId) -> Result<()> {
+        let index = self
+            .sheets
+            .iter()
+            .position(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        let planned = self.editor.prepare_active(index)?;
+        let package = self
+            .package_extra_bytes()
+            .saturating_sub(self.editor.patch_bytes())
+            .saturating_add(planned);
+        let retained = self
+            .mapping_bytes()
+            .saturating_add(package)
+            .saturating_add(self.bank.charged_bytes());
+        let maximum = self
+            .allowance
+            .retained_data_bytes
+            .min(self.options.workbook.max_bytes);
+        self.editor
+            .book
+            .rebalance_strings_for_retained(retained, maximum)?;
+        let available = maximum
+            .checked_sub(
+                self.mapping_bytes()
+                    .saturating_add(package)
+                    .saturating_add(self.editor.book.retained_source_bytes()),
+            )
+            .ok_or_else(budget)?;
+        self.bank.set_memory_allowance(available)?;
+        self.bank.set_active_sheet(id)?;
+        self.editor.commit_active(index, planned);
+        self.rebalance()
+    }
     /// Whether a source worksheet has committed its decoded model.
     pub fn is_materialized(&self, id: SheetId) -> bool {
         self.sheets
