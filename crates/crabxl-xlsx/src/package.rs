@@ -338,46 +338,46 @@ impl<R: Read + Seek> WorkbookReader<R> {
     /// Lazily load and borrow exact theme bytes, without materializing drawing graphs.
     /// An absent relationship returns None. Unknown valid theme sections are retained.
     pub fn theme(&mut self) -> Result<Option<&crabxl_core::Theme>> {
-        if self.theme.is_none() {
-            if let Some(part) = &self.theme_part {
-                let mut file = self.archive.by_name(part).map_err(|error| {
-                    Error::caused_by(ErrorKind::Archive, "Cannot open theme", error).with_part(part)
-                })?;
-                let size = file.size();
-                let maximum = self
-                    .limits
-                    .max_part_bytes
-                    .min(self.style_metadata_remaining)
-                    .min(self.limits.max_theme_bytes as u64);
-                if size > maximum || size > isize::MAX as u64 {
-                    return Err(
-                        limit("Combined theme metadata input exceeds allowance").with_part(part)
-                    );
-                }
-                let mut bytes = Vec::new();
-                bytes.try_reserve_exact(size as usize).map_err(|error| {
-                    Error::caused_by(
-                        ErrorKind::MemoryBudgetExceeded,
-                        "Cannot reserve theme bytes",
-                        error,
-                    )
-                    .with_part(part)
-                })?;
-                bytes.resize(size as usize, 0);
-                file.read_exact(&mut bytes).map_err(|error| {
-                    Error::caused_by(ErrorKind::Io, "Cannot read theme", error).with_part(part)
-                })?;
-                let mut extra = [0];
-                if file.read(&mut extra).map_err(|error| {
-                    Error::caused_by(ErrorKind::Io, "Cannot finish theme and verify CRC", error)
-                        .with_part(part)
-                })? != 0
-                {
-                    return Err(invalid("Theme size differs from ZIP declaration").with_part(part));
-                }
-                self.theme = Some(crabxl_core::Theme::from_bytes(bytes.into_boxed_slice()));
-                self.style_metadata_remaining -= size;
+        if self.theme.is_none()
+            && let Some(part) = &self.theme_part
+        {
+            let mut file = self.archive.by_name(part).map_err(|error| {
+                Error::caused_by(ErrorKind::Archive, "Cannot open theme", error).with_part(part)
+            })?;
+            let size = file.size();
+            let maximum = self
+                .limits
+                .max_part_bytes
+                .min(self.style_metadata_remaining)
+                .min(self.limits.max_theme_bytes as u64);
+            if size > maximum || size > isize::MAX as u64 {
+                return Err(
+                    limit("Combined theme metadata input exceeds allowance").with_part(part)
+                );
             }
+            let mut bytes = Vec::new();
+            bytes.try_reserve_exact(size as usize).map_err(|error| {
+                Error::caused_by(
+                    ErrorKind::MemoryBudgetExceeded,
+                    "Cannot reserve theme bytes",
+                    error,
+                )
+                .with_part(part)
+            })?;
+            bytes.resize(size as usize, 0);
+            file.read_exact(&mut bytes).map_err(|error| {
+                Error::caused_by(ErrorKind::Io, "Cannot read theme", error).with_part(part)
+            })?;
+            let mut extra = [0];
+            if file.read(&mut extra).map_err(|error| {
+                Error::caused_by(ErrorKind::Io, "Cannot finish theme and verify CRC", error)
+                    .with_part(part)
+            })? != 0
+            {
+                return Err(invalid("Theme size differs from ZIP declaration").with_part(part));
+            }
+            self.theme = Some(crabxl_core::Theme::from_bytes(bytes.into_boxed_slice()));
+            self.style_metadata_remaining -= size;
         }
         Ok(self.theme.as_ref())
     }
@@ -728,40 +728,35 @@ impl<R: Read + Seek> WorkbookReader<R> {
             // Rebuild once when upgrading a plain projection to metadata-preserving reads.
             self.shared_strings = None;
         }
-        if self.shared_strings.is_none() {
-            if let Some(string_part) = &self.shared_string_part {
-                let file = self.archive.by_name(string_part).map_err(|e| {
-                    Error::caused_by(ErrorKind::Archive, "Cannot open shared-string part", e)
-                        .with_part(string_part)
-                })?;
-                if file.size() > self.limits.max_part_bytes {
-                    return Err(
-                        limit("Shared-string part size limit exceeded").with_part(string_part)
-                    );
-                }
-                let mut string_options = self.shared_string_options.clone();
-                if let Some(pool) = &pool {
-                    let details =
-                        crate::memory_allowance(string_options.memory_policy, self.limits)?;
-                    let retained = details.retained_data_bytes.min(pool.pool_bytes);
-                    string_options.memory_policy = crabxl_core::MemoryPolicy::Budget(
-                        details
-                            .working_reserve_bytes
-                            .checked_add(retained)
-                            .ok_or_else(|| {
-                                invalid("Aggregate shared-string allowance overflows")
-                            })?,
-                    );
-                }
-                let strings = SharedStrings::parse(
-                    BufReader::with_capacity(self.limits.input_buffer_bytes, file),
-                    string_part.clone(),
-                    self.limits,
-                    &string_options,
-                    options.rich_text,
-                )?;
-                self.shared_strings = Some(strings);
+        if self.shared_strings.is_none()
+            && let Some(string_part) = &self.shared_string_part
+        {
+            let file = self.archive.by_name(string_part).map_err(|e| {
+                Error::caused_by(ErrorKind::Archive, "Cannot open shared-string part", e)
+                    .with_part(string_part)
+            })?;
+            if file.size() > self.limits.max_part_bytes {
+                return Err(limit("Shared-string part size limit exceeded").with_part(string_part));
             }
+            let mut string_options = self.shared_string_options.clone();
+            if let Some(pool) = &pool {
+                let details = crate::memory_allowance(string_options.memory_policy, self.limits)?;
+                let retained = details.retained_data_bytes.min(pool.pool_bytes);
+                string_options.memory_policy = crabxl_core::MemoryPolicy::Budget(
+                    details
+                        .working_reserve_bytes
+                        .checked_add(retained)
+                        .ok_or_else(|| invalid("Aggregate shared-string allowance overflows"))?,
+                );
+            }
+            let strings = SharedStrings::parse(
+                BufReader::with_capacity(self.limits.input_buffer_bytes, file),
+                string_part.clone(),
+                self.limits,
+                &string_options,
+                options.rich_text,
+            )?;
+            self.shared_strings = Some(strings);
         }
         if let (Some(pool), Some(strings)) = (&pool, &mut self.shared_strings) {
             strings.limit_or_spill(&self.shared_string_options, pool.pool_bytes)?;

@@ -863,17 +863,17 @@ fn emit<W: Write>(writer: &mut Writer<PartOutput<W>>, event: Event<'_>) -> Resul
     })
 }
 fn check_declaration(event: &Event<'_>) -> Result<()> {
-    if let Event::Decl(declaration) = event {
-        if let Some(encoding) = declaration.encoding() {
-            let encoding = encoding.map_err(|error| {
-                Error::caused_by(ErrorKind::Xml, "Invalid XML encoding declaration", error)
-            })?;
-            if !encoding.eq_ignore_ascii_case(b"UTF-8") {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Rewriting non-UTF-8 XML is not supported",
-                ));
-            }
+    if let Event::Decl(declaration) = event
+        && let Some(encoding) = declaration.encoding()
+    {
+        let encoding = encoding.map_err(|error| {
+            Error::caused_by(ErrorKind::Xml, "Invalid XML encoding declaration", error)
+        })?;
+        if !encoding.eq_ignore_ascii_case(b"UTF-8") {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Rewriting non-UTF-8 XML is not supported",
+            ));
         }
     }
     Ok(())
@@ -1131,67 +1131,63 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 "Editing markup-compatibility alternatives requires typed branch handling",
             ));
         }
-        if let Some(rewrite) = &mut print_rewrite {
-            if frame.scope == Scope::Spreadsheet {
-                match &frame.event {
-                    Event::Start(e) => {
-                        let skip = rewrite
-                            .before_start(
-                                writer.get_mut(),
-                                e.local_name().as_ref(),
-                                frame.depth,
-                                frame.spreadsheet_uri,
-                            )
-                            .map_err(|error| io_error("Cannot replace printing metadata", error))?;
-                        if skip {
-                            let depth = frame.depth;
-                            crate::style_codec::skip(&mut xml, depth)?;
-                            continue;
-                        }
-                    }
-                    Event::End(e) => rewrite
-                        .before_end(
+        if let Some(rewrite) = &mut print_rewrite
+            && frame.scope == Scope::Spreadsheet
+        {
+            match &frame.event {
+                Event::Start(e) => {
+                    let skip = rewrite
+                        .before_start(
                             writer.get_mut(),
                             e.local_name().as_ref(),
                             frame.depth,
                             frame.spreadsheet_uri,
                         )
-                        .map_err(|error| io_error("Cannot finish printing metadata", error))?,
-                    _ => {}
-                }
-            }
-        }
-        if let Some(views) = views {
-            if let Event::Start(e) = &frame.event {
-                if frame.depth == 2 && frame.scope == Scope::Spreadsheet {
-                    let name = e.local_name();
-                    if !views_written && !matches!(name.as_ref(), b"sheetPr" | b"dimension") {
-                        crate::worksheet_view::write_views(
-                            writer.get_mut(),
-                            views,
-                            frame.spreadsheet_uri,
-                        )
-                        .map_err(|error| io_error("Cannot write worksheet views", error))?;
-                        views_written = true;
-                    }
-                    if name.as_ref() == b"sheetViews" {
-                        if skipped_views {
-                            return Err(invalid("Duplicate worksheet views container"));
-                        }
-                        skipped_views = true;
-                        loop {
-                            let old = xml.next()?;
-                            if matches!(&old.event, Event::End(e) if old.depth == 1 && e.local_name().as_ref() == b"sheetViews")
-                            {
-                                break;
-                            }
-                            if matches!(old.event, Event::Eof) {
-                                return Err(invalid("Incomplete replaced worksheet views"));
-                            }
-                        }
+                        .map_err(|error| io_error("Cannot replace printing metadata", error))?;
+                    if skip {
+                        let depth = frame.depth;
+                        crate::style_codec::skip(&mut xml, depth)?;
                         continue;
                     }
                 }
+                Event::End(e) => rewrite
+                    .before_end(
+                        writer.get_mut(),
+                        e.local_name().as_ref(),
+                        frame.depth,
+                        frame.spreadsheet_uri,
+                    )
+                    .map_err(|error| io_error("Cannot finish printing metadata", error))?,
+                _ => {}
+            }
+        }
+        if let Some(views) = views
+            && let Event::Start(e) = &frame.event
+            && frame.depth == 2
+            && frame.scope == Scope::Spreadsheet
+        {
+            let name = e.local_name();
+            if !views_written && !matches!(name.as_ref(), b"sheetPr" | b"dimension") {
+                crate::worksheet_view::write_views(writer.get_mut(), views, frame.spreadsheet_uri)
+                    .map_err(|error| io_error("Cannot write worksheet views", error))?;
+                views_written = true;
+            }
+            if name.as_ref() == b"sheetViews" {
+                if skipped_views {
+                    return Err(invalid("Duplicate worksheet views container"));
+                }
+                skipped_views = true;
+                loop {
+                    let old = xml.next()?;
+                    if matches!(&old.event, Event::End(e) if old.depth == 1 && e.local_name().as_ref() == b"sheetViews")
+                    {
+                        break;
+                    }
+                    if matches!(old.event, Event::Eof) {
+                        return Err(invalid("Incomplete replaced worksheet views"));
+                    }
+                }
+                continue;
             }
         }
         match frame.event {

@@ -588,16 +588,15 @@ impl WorkbookWriter {
         if !self.sheets.is_empty() || self.active.is_some() {
             return Err(state("Workbook model export requires a fresh writer"));
         }
-        if let Some(catalog) = workbook.style_catalog() {
-            if self
+        if let Some(catalog) = workbook.style_catalog()
+            && self
                 .styles
                 .as_ref()
                 .is_none_or(|styles| styles.catalog() != catalog)
-            {
-                return Err(state(
-                    "Borrowed styled export requires an identical writer catalog or from_workbook ownership transfer",
-                ));
-            }
+        {
+            return Err(state(
+                "Borrowed styled export requires an identical writer catalog or from_workbook ownership transfer",
+            ));
         }
         if workbook.is_empty() {
             return Err(state("A workbook requires at least one worksheet"));
@@ -751,43 +750,42 @@ impl WorkbookWriter {
         let mut first_error = None;
         let mut remaining = Vec::new();
         for path in self.cleanup_paths.drain(..) {
-            if let Err(error) = std::fs::remove_file(&path) {
-                if error.kind() != io::ErrorKind::NotFound {
-                    if first_error.is_none() {
-                        first_error = Some(io_error(
-                            "Cannot retry worksheet temporary-file cleanup",
-                            error,
-                        ));
-                    }
-                    remaining.push(path);
+            if let Err(error) = std::fs::remove_file(&path)
+                && error.kind() != io::ErrorKind::NotFound
+            {
+                if first_error.is_none() {
+                    first_error = Some(io_error(
+                        "Cannot retry worksheet temporary-file cleanup",
+                        error,
+                    ));
                 }
+                remaining.push(path);
             }
         }
         if let Some(active) = self.active.take() {
             let (file, _) = active.output.into_parts();
             let path = file.path().to_owned();
-            if let Err(error) = file.close() {
-                if error.kind() != io::ErrorKind::NotFound {
-                    if first_error.is_none() {
-                        first_error = Some(io_error(
-                            "Cannot remove active worksheet temporary file",
-                            error,
-                        ));
-                    }
-                    remaining.push(path);
+            if let Err(error) = file.close()
+                && error.kind() != io::ErrorKind::NotFound
+            {
+                if first_error.is_none() {
+                    first_error = Some(io_error(
+                        "Cannot remove active worksheet temporary file",
+                        error,
+                    ));
                 }
+                remaining.push(path);
             }
         }
         for sheet in self.sheets.drain(..) {
             let path = sheet.file.path().to_owned();
-            if let Err(error) = sheet.file.close() {
-                if error.kind() != io::ErrorKind::NotFound {
-                    if first_error.is_none() {
-                        first_error =
-                            Some(io_error("Cannot remove worksheet temporary file", error));
-                    }
-                    remaining.push(path);
+            if let Err(error) = sheet.file.close()
+                && error.kind() != io::ErrorKind::NotFound
+            {
+                if first_error.is_none() {
+                    first_error = Some(io_error("Cannot remove worksheet temporary file", error));
                 }
+                remaining.push(path);
             }
         }
         self.cleanup_paths = remaining;

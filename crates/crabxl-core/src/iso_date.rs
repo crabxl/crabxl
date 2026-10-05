@@ -91,11 +91,11 @@ pub fn parse_iso8601(value: &str) -> Result<Option<ExcelDateTime>> {
         .zip(digits(b, 8, 2))
         .filter(|_| b.get(4) == Some(&b'-') && b.get(7) == Some(&b'-'))
     {
-        if b.get(10) == Some(&b'T') {
-            if let Some((h, m, s, u)) = clock(&b[11..])? {
-                return ExcelDateTime::from_ymd_hms_micro(year as i32, month, day, h, m, s, u)
-                    .map(Some);
-            }
+        if b.get(10) == Some(&b'T')
+            && let Some((h, m, s, u)) = clock(&b[11..])?
+        {
+            return ExcelDateTime::from_ymd_hms_micro(year as i32, month, day, h, m, s, u)
+                .map(Some);
         }
         return ExcelDateTime::from_ymd(year as i32, month, day).map(Some);
     }

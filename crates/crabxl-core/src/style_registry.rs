@@ -432,14 +432,13 @@ impl StyleRegistry {
             )?;
         }
         for i in 0..value.catalog.fills.len() {
-            if let Fill::Gradient(v) = &value.catalog.fills[i] {
-                if value
+            if let Fill::Gradient(v) = &value.catalog.fills[i]
+                && value
                     .memory_bytes()
                     .saturating_add(v.stops.len().saturating_mul(size_of::<u64>()))
                     > limits.max_bytes
-                {
-                    return Err(limit());
-                }
+            {
+                return Err(limit());
             }
             value.catalog.fills[i].validate()?;
             value.index_imported(
@@ -850,16 +849,15 @@ impl StyleRegistry {
         if self.memory_bytes() > maximum {
             return Err(limit());
         }
-        if let Fill::Gradient(gradient) = &style.fill {
-            if gradient
+        if let Fill::Gradient(gradient) = &style.fill
+            && gradient
                 .stops
                 .len()
                 .saturating_mul(size_of::<u64>())
                 .saturating_add(self.memory_bytes())
                 > maximum
-            {
-                return Err(limit());
-            }
+        {
+            return Err(limit());
         }
         if style.heap_bytes() > maximum {
             return Err(limit());

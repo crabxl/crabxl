@@ -449,12 +449,12 @@ pub(crate) fn write(
             FormulaType::Array => attribute(output, "t", "array")?,
             FormulaType::DataTable => attribute(output, "t", "dataTable")?,
         }
-        if !matches!(metadata.kind, FormulaType::Shared { .. }) {
-            if let Some(reference) = &metadata.reference {
-                let spelling = reference.spelling();
-                if !spelling.is_empty() || policy == crate::FormulaWritePolicy::RetainExplicit {
-                    attribute(output, "ref", &spelling)?;
-                }
+        if !matches!(metadata.kind, FormulaType::Shared { .. })
+            && let Some(reference) = &metadata.reference
+        {
+            let spelling = reference.spelling();
+            if !spelling.is_empty() || policy == crate::FormulaWritePolicy::RetainExplicit {
+                attribute(output, "ref", &spelling)?;
             }
         }
         flag(output, "aca", &metadata.flags.always_calculate, policy)?;
@@ -465,15 +465,15 @@ pub(crate) fn write(
             flag(output, "dtr", &table.row_table, policy)?;
             flag(output, "del1", &table.deleted1, policy)?;
             flag(output, "del2", &table.deleted2, policy)?;
-            if let Some(reference) = &table.input1 {
-                if !reference.is_empty() || policy == crate::FormulaWritePolicy::RetainExplicit {
-                    attribute(output, "r1", reference)?;
-                }
+            if let Some(reference) = &table.input1
+                && (!reference.is_empty() || policy == crate::FormulaWritePolicy::RetainExplicit)
+            {
+                attribute(output, "r1", reference)?;
             }
-            if let Some(reference) = &table.input2 {
-                if !reference.is_empty() || policy == crate::FormulaWritePolicy::RetainExplicit {
-                    attribute(output, "r2", reference)?;
-                }
+            if let Some(reference) = &table.input2
+                && (!reference.is_empty() || policy == crate::FormulaWritePolicy::RetainExplicit)
+            {
+                attribute(output, "r2", reference)?;
             }
         }
     }

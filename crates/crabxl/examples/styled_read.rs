@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     value.kind() == DateKind::Duration
                         && value.to_duration()?.num_seconds() == (index % 101) as i64 * 21600
                 }
-                (4, CellValue::Boolean(value)) => *value == (index % 2 != 0),
+                (4, CellValue::Boolean(value)) => *value == !index.is_multiple_of(2),
                 (5, CellValue::Text(value)) => value.as_str() == format!("styled-{index:08}"),
                 (6, CellValue::Error(value)) => value.as_str() == "#DIV/0!",
                 (8, CellValue::Integer(value)) => *value == index as i64,

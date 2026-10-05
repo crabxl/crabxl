@@ -605,19 +605,18 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         && e.local_name().as_ref() == b"c" =>
                 {
                     value = self.interpret_date(value, date_kind)?;
-                    if let CellValue::RichText(rich) = &value {
-                        if rich
+                    if let CellValue::RichText(rich) = &value
+                        && rich
                             .phonetic_properties
                             .as_ref()
                             .is_some_and(|p| match self.styles {
                                 Some(styles) => p.font_id as usize >= styles.catalog.fonts.len(),
                                 None => p.font_id != 0,
                             })
-                        {
-                            return Err(
-                                self.invalid("Phonetic text references a missing workbook font")
-                            );
-                        }
+                    {
+                        return Err(
+                            self.invalid("Phonetic text references a missing workbook font")
+                        );
                     }
                     if seen_formula && self.options.data_only {
                         return Ok(value);
