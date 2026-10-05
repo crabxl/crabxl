@@ -13,9 +13,8 @@ acceptance criteria are satisfied. The existing [roadmap](roadmap.md) and
 
 ## Alpha.3: Editing and writing performance
 
-Current checkpoint: Rust alpha.3 is published and verified. Python scalar
-conversion optimization passes all supported local interpreter tests; its
-publication is in progress. See [measurements](../benchmarks/alpha3-edit-buffering.md).
+Completed: Rust and Python alpha.3 are published and public installations are
+verified. See [measurements](../benchmarks/alpha3-edit-buffering.md).
 
 1. Establish alpha.2 baselines for ordinary creation, write-only creation and
    existing-file edit/save. Include numeric, text, date/style and formula
@@ -43,6 +42,9 @@ documented. Regressions must be investigated and resolved or explicitly justifie
 before publication.
 
 ## Alpha.4: Configurable ZIP compression
+
+Implemented and verified on Linux/Windows Rust 1.88 with both backends;
+publication is in progress. See [compression evidence](../benchmarks/alpha4-compression.md).
 
 1. Compare the existing ZIP features, pure-Rust zlib-rs and native zlib with
    equivalent numeric/text creation and existing-file editing workloads.
