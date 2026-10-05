@@ -12,6 +12,8 @@ Worksheet viewport metadata now has typed read/create/edit support through a sel
 
 See the [detailed Rust completion plan](completion-plan.md) for dependency order, remaining checkpoints, resource strategies and acceptance gates.
 
+The current delivery goals are recorded in the [Alpha.3 and Alpha.4 plan](alpha-3-4-plan.md): editing/writing optimization first, then test consolidation and verified M2 closure.
+
 ## Scope and completion
 
 The compatibility baseline is openpyxl 3.1.5, Mercurial tag revision `13627b03ca25a1a98becf40e533b955615b13429`. The version-specific inventory uses public runtime metadata and release documentation without reading implementation source. It covers 190 modules, 567 public classes and their public members, functions/exports, and 45 RST documents. This is an audit index, not a complete behavioral specification; semantic verification is staged. Partial support and preservation-only features in that baseline must also be represented.
