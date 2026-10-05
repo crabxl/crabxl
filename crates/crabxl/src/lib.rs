@@ -76,7 +76,7 @@ pub use crabxl_core::DateReadPolicy;
 
 pub use crabxl_core::{
     DataTableOptions, FormulaFlag, FormulaFlags, FormulaMetadata, FormulaRange, FormulaReference,
-    FormulaType,
+    FormulaType, SharedFormulaIndex,
 };
 
 pub use crabxl_core::FormulaReadPolicy;

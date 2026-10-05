@@ -1,9 +1,9 @@
 //! Typed formula records shared by XLSX and language adapters.
-use crate::{CellAddress, CellRange, Error, ErrorKind, Result};
+use crate::{CellAddress, CellRange, Error, ErrorKind, Result, SharedFormulaIndex};
 use std::borrow::Cow;
 
 /// Formula encoding category; shared indices are local to one worksheet.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum FormulaType {
     /// Ordinary expression.
     #[default]
@@ -11,7 +11,7 @@ pub enum FormulaType {
     /// Shared template or follower; expanded text remains separately available.
     Shared {
         /// Sparse group identity.
-        index: u32,
+        index: SharedFormulaIndex,
         /// Whether this source record contains the template.
         master: bool,
     },
@@ -271,13 +271,20 @@ impl FormulaMetadata {
     }
     /// Decoded source string bytes, excluding fixed typed wrappers.
     pub fn payload_bytes(&self) -> usize {
-        self.reference.as_ref().map_or(0, FormulaRange::heap_bytes)
+        (match &self.kind {
+            FormulaType::Shared { index, .. } => index.payload_bytes(),
+            _ => 0,
+        }) + self.reference.as_ref().map_or(0, FormulaRange::heap_bytes)
             + self.flags.heap_bytes()
             + self.data_table.as_ref().map_or(0, |v| v.heap_bytes())
     }
     /// Boxed wrapper plus retained source/reference/options bytes.
     pub fn memory_bytes(&self) -> usize {
         size_of::<Self>()
+            + match &self.kind {
+                FormulaType::Shared { index, .. } => index.heap_bytes(),
+                _ => 0,
+            }
             + self.reference.as_ref().map_or(0, FormulaRange::heap_bytes)
             + self.flags.heap_bytes()
             + self

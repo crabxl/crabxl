@@ -5,7 +5,7 @@
 use crate::encode::write_attribute as attribute;
 use crabxl_core::{
     CellAddress, CellRange, DataTableOptions, Error, ErrorKind, Formula, FormulaFlag,
-    FormulaMetadata, FormulaRange, FormulaReadPolicy, FormulaType, Result,
+    FormulaMetadata, FormulaRange, FormulaReadPolicy, FormulaType, Result, SharedFormulaIndex,
 };
 use quick_xml::{encoding::Decoder, events::BytesStart};
 use std::{collections::HashMap, io::Write};
@@ -75,7 +75,7 @@ pub(crate) fn header(
         kind = match value.as_ref() {
             "normal" => FormulaType::Normal,
             "shared" => FormulaType::Shared {
-                index: 0,
+                index: SharedFormulaIndex::Numeric(0),
                 master: false,
             },
             "array" => FormulaType::Array,
@@ -90,7 +90,7 @@ pub(crate) fn header(
         };
     }
     let mut metadata = FormulaMetadata {
-        kind,
+        kind: kind.clone(),
         ..Default::default()
     };
     let mut index = None;
@@ -138,11 +138,15 @@ pub(crate) fn header(
         match attribute.key.as_ref() {
             b"t" => {}
             b"si" => {
-                index = Some(
-                    value
-                        .parse::<u32>()
-                        .map_err(|_| invalid("Invalid shared formula index"))?,
-                )
+                index = Some(if policy == HeaderPolicy::Strict {
+                    SharedFormulaIndex::Numeric(
+                        value
+                            .parse::<u32>()
+                            .map_err(|_| invalid("Invalid shared formula index"))?,
+                    )
+                } else {
+                    SharedFormulaIndex::from_literal(&value)
+                })
             }
             b"ref" => {
                 metadata.reference = Some(FormulaRange::from_literal(
@@ -186,7 +190,11 @@ pub(crate) fn header(
     }
     if matches!(metadata.kind, FormulaType::Shared { .. }) {
         metadata.kind = FormulaType::Shared {
-            index: index.ok_or_else(|| invalid("Shared formula index is missing"))?,
+            index: match index {
+                Some(index) => index,
+                None if policy != HeaderPolicy::Strict => SharedFormulaIndex::Missing,
+                None => return Err(invalid("Shared formula index is missing")),
+            },
             master: false,
         };
     }
@@ -221,7 +229,7 @@ pub struct SharedFormulaStats {
     pub unresolved: u64,
 }
 pub(crate) struct SharedFormulas {
-    templates: HashMap<u32, Template>,
+    templates: HashMap<SharedFormulaIndex, Template>,
     payload: usize,
     maximum: usize,
     maximum_count: usize,
@@ -244,11 +252,15 @@ impl SharedFormulas {
             (capacity.saturating_add(1))
                 .checked_next_power_of_two()
                 .unwrap_or(usize::MAX)
-                .saturating_mul(size_of::<(u32, Template)>() + 1)
+                .saturating_mul(size_of::<(SharedFormulaIndex, Template)>() + 1)
                 .saturating_add(16)
         }
     }
-    pub(crate) fn required_bytes(&self, index: u32, expression_bytes: usize) -> usize {
+    pub(crate) fn required_bytes(
+        &self,
+        index: &SharedFormulaIndex,
+        expression_bytes: usize,
+    ) -> usize {
         if self.contains(index) {
             return self.stats.accounted_bytes;
         }
@@ -266,6 +278,7 @@ impl SharedFormulas {
             .saturating_add(buckets)
             .saturating_add(self.payload)
             .saturating_add(expression_bytes)
+            .saturating_add(index.heap_bytes())
     }
     pub(crate) fn set_maximum(&mut self, maximum: usize) {
         self.maximum = maximum;
@@ -273,8 +286,8 @@ impl SharedFormulas {
     pub(crate) fn stats(&self) -> SharedFormulaStats {
         self.stats
     }
-    pub(crate) fn contains(&self, index: u32) -> bool {
-        self.templates.contains_key(&index)
+    pub(crate) fn contains(&self, index: &SharedFormulaIndex) -> bool {
+        self.templates.contains_key(index)
     }
     pub(crate) fn resolve(
         &mut self,
@@ -284,11 +297,12 @@ impl SharedFormulas {
         policy: FormulaReadPolicy,
         maximum_expression: usize,
     ) -> Result<Box<str>> {
-        let FormulaType::Shared { index, .. } = metadata.kind else {
+        let FormulaType::Shared { index, .. } = &metadata.kind else {
             return Ok(expression);
         };
+        let index = index.clone();
         let strict = policy == FormulaReadPolicy::ValidateGroups;
-        if let Some(template) = self.templates.get(&index) {
+        if let Some((stored_index, template)) = self.templates.get_key_value(&index) {
             if strict && !expression.is_empty() {
                 return Err(invalid("Duplicate shared formula master"));
             }
@@ -298,7 +312,7 @@ impl SharedFormulas {
             // The public baseline retains the first group definition. Later
             // source bodies do not silently replace an existing template.
             metadata.kind = FormulaType::Shared {
-                index,
+                index: stored_index.clone(),
                 master: false,
             };
             expression = crabxl_core::translate_expression(
@@ -314,7 +328,7 @@ impl SharedFormulas {
                 return Err(invalid("Shared formula template is missing"));
             }
             metadata.kind = FormulaType::Shared {
-                index,
+                index: index.clone(),
                 master: !expression.is_empty(),
             };
             let range = if strict {
@@ -335,6 +349,7 @@ impl SharedFormulas {
             let payload = self
                 .payload
                 .checked_add(expression.len())
+                .and_then(|bytes| bytes.checked_add(index.heap_bytes()))
                 .ok_or_else(limit)?;
             let capacity = self.templates.capacity();
             let buckets = if self.templates.len() == capacity {
@@ -376,7 +391,7 @@ impl SharedFormulas {
             })?;
             stored.push_str(&expression);
             self.templates.insert(
-                index,
+                index.clone(),
                 Template {
                     anchor: address,
                     range,
@@ -418,13 +433,17 @@ pub(crate) fn write(
 ) -> std::io::Result<()> {
     output.write_all(b"<f")?;
     if let Some(metadata) = formula.metadata() {
-        match metadata.kind {
+        match &metadata.kind {
             FormulaType::Normal => {}
             // Public reference save expands ordinary shared groups. Only an
             // unresolved source follower keeps its index instead of inventing text.
             FormulaType::Shared { index, .. } if formula.expression().is_empty() => {
                 attribute(output, "t", "shared")?;
-                write!(output, " si=\"{index}\"")?;
+                match index {
+                    SharedFormulaIndex::Missing => {}
+                    SharedFormulaIndex::Numeric(index) => write!(output, " si=\"{index}\"")?,
+                    SharedFormulaIndex::Literal(index) => attribute(output, "si", index)?,
+                }
             }
             FormulaType::Shared { .. } => {}
             FormulaType::Array => attribute(output, "t", "array")?,

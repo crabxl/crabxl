@@ -159,7 +159,7 @@ impl Formula {
     pub fn formula_type(&self) -> FormulaType {
         self.metadata
             .as_ref()
-            .map_or(FormulaType::Normal, |v| v.kind)
+            .map_or(FormulaType::Normal, |v| v.kind.clone())
     }
     /// Optional structured source metadata.
     pub fn metadata(&self) -> Option<&FormulaMetadata> {

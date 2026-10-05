@@ -173,7 +173,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         expression: &str,
     ) -> Result<()> {
         if let (Some(pool), crabxl_core::FormulaType::Shared { index, .. }) =
-            (&self.aggregate, metadata.kind)
+            (&self.aggregate, &metadata.kind)
         {
             let required = self.shared_formulas.required_bytes(index, expression.len());
             let available = pool.available(required)?;
@@ -854,7 +854,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                             self.options.formula_policy.into(),
                         )?;
                         let expression = self.read_formula_text()?;
-                        let index = match metadata.kind {
+                        let index = match &metadata.kind {
                             crabxl_core::FormulaType::Shared { index, .. } => index,
                             _ => return Err(self.invalid("Invalid projected shared formula")),
                         };

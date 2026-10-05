@@ -382,6 +382,11 @@ pub(crate) fn validate_value(
         CellValue::Formula(value) => {
             if let Some(metadata) = value.metadata() {
                 metadata.validate()?;
+                if let crabxl_core::FormulaType::Shared { index, .. } = &metadata.kind {
+                    if let Some(literal) = index.literal() {
+                        validate_xml_text(literal)?;
+                    }
+                }
                 if let Some(reference) = &metadata.reference {
                     validate_xml_text(&reference.spelling())?;
                 }

@@ -2062,7 +2062,7 @@ fn literal_empty_formula_references_follow_compatible_and_retained_policies() {
                 None,
                 None,
                 FormulaMetadata {
-                    kind,
+                    kind: kind.clone(),
                     reference: Some(FormulaReference::from_literal("")),
                     ..Default::default()
                 },
@@ -2312,4 +2312,58 @@ fn default_owned_temporal_catalog_supports_repeated_borrowed_saves_without_reint
     let mut mismatched = WorkbookWriter::new(WriteOptions::default()).unwrap();
     assert!(mismatched.write_workbook(&book).is_err());
     assert_eq!(mismatched.temporary_bytes(), 0);
+}
+
+#[test]
+fn unresolved_literal_shared_ids_escape_and_validate_before_spooling() {
+    use crabxl_core::{Formula, FormulaMetadata, FormulaType, SharedFormulaIndex, StyleId};
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let formula = |identifier: &str| {
+        CellValue::Formula(Box::new(
+            Formula::with_metadata(
+                "",
+                None,
+                FormulaMetadata {
+                    kind: FormulaType::Shared {
+                        index: SharedFormulaIndex::from_literal(identifier),
+                        master: false,
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap(),
+        ))
+    };
+    let mut row = Row {
+        index: RowIndex::new(0).unwrap(),
+        cells: vec![Cell {
+            address: "A1".parse().unwrap(),
+            value: formula("invalid\0id"),
+            style: StyleId::new(0),
+        }],
+    };
+    let temporary = writer.temporary_bytes();
+    assert!(writer.write_row(&row).is_err());
+    assert_eq!(writer.temporary_bytes(), temporary);
+    row.cells[0].value = formula("quoted & value");
+    writer.write_row(&row).unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    let read = reader
+        .read_sheet_with_options(
+            "Sheet",
+            crabxl_core::ReadOptions {
+                formula_metadata: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let CellValue::Formula(value) = &read.rows[0].cells[0].value else {
+        panic!("Expected shared formula");
+    };
+    assert!(
+        matches!(value.formula_type(), FormulaType::Shared { index, .. } if index.literal() == Some("quoted & value"))
+    );
+    assert_eq!(value.expression(), "");
 }

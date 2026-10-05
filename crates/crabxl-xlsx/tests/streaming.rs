@@ -2069,7 +2069,7 @@ fn shared_formulas_use_actual_anchors_sparse_ids_and_projected_dependencies() {
     assert_eq!(
         formula.formula_type(),
         FormulaType::Shared {
-            index: u32::MAX,
+            index: u32::MAX.into(),
             master: false
         }
     );
@@ -2660,7 +2660,7 @@ fn aggregate_policy_options_retain_projected_shared_metadata_and_cache_modes() {
                     assert_eq!(
                         formula.formula_type(),
                         FormulaType::Shared {
-                            index: 9,
+                            index: 9.into(),
                             master: false
                         }
                     );
@@ -3171,5 +3171,132 @@ fn indexed_palette_literals_preserve_case_and_normalize_six_digit_alpha() {
         .unwrap();
         assert!(invalid.style_catalog().is_err());
         assert_eq!(invalid.style_memory_bytes(), 0);
+    }
+}
+
+#[test]
+fn compatible_shared_ids_retain_literal_identity_missing_empty_and_numeric_distinctions() {
+    use crabxl_core::{FormulaType, SharedFormulaIndex};
+    for (master, follower, expression) in [
+        ("", "", "A2+1"),
+        (" si=\"\"", " si=\"\"", "A2+1"),
+        (" si=\"01\"", " si=\"01\"", "A2+1"),
+        (" si=\"1\"", " si=\"1\"", "A2+1"),
+        (" si=\"+1\"", " si=\"+1\"", "A2+1"),
+        (" si=\"-1\"", " si=\"-1\"", "A2+1"),
+        (" si=\"4294967296\"", " si=\"4294967296\"", "A2+1"),
+        (" si=\"text\"", " si=\"text\"", "A2+1"),
+        (" si=\"1 \"", " si=\"1 \"", "A2+1"),
+        (" si=\"01\"", " si=\"1\"", ""),
+        (" si=\"1\"", " si=\"01\"", ""),
+        ("", " si=\"\"", ""),
+        (" si=\"\"", "", ""),
+    ] {
+        let source = format!(
+            "<row r=\"1\"><c r=\"A1\"><f t=\"shared\"{master}>A1+1</f><v>2</v></c></row><row r=\"2\"><c r=\"A2\"><f t=\"shared\"{follower}/><v>3</v></c></row>"
+        );
+        let mut book = open(&source);
+        let mut rows = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    formula_metadata: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let first = rows.next_row().unwrap().unwrap();
+        let second = rows.next_row().unwrap().unwrap();
+        let CellValue::Formula(value) = &second.cells[0].value else {
+            panic!("Expected follower");
+        };
+        assert_eq!(value.expression(), expression);
+        let expected = if follower.is_empty() {
+            SharedFormulaIndex::Missing
+        } else {
+            let literal = follower
+                .strip_prefix(" si=\"")
+                .unwrap()
+                .strip_suffix('"')
+                .unwrap();
+            SharedFormulaIndex::from_literal(literal)
+        };
+        assert!(
+            matches!(value.formula_type(), FormulaType::Shared { index, .. } if index == expected)
+        );
+        if master == follower {
+            let CellValue::Formula(master) = &first.cells[0].value else {
+                panic!("Expected master");
+            };
+            if let (
+                FormulaType::Shared {
+                    index: SharedFormulaIndex::Literal(first),
+                    ..
+                },
+                FormulaType::Shared {
+                    index: SharedFormulaIndex::Literal(second),
+                    ..
+                },
+            ) = (
+                &master.metadata().unwrap().kind,
+                &value.metadata().unwrap().kind,
+            ) {
+                assert!(std::sync::Arc::ptr_eq(first, second));
+            }
+            assert_eq!(rows.shared_formula_stats().templates, 1);
+        } else {
+            assert_eq!(rows.shared_formula_stats().templates, 2);
+        }
+        assert!(rows.next_row().unwrap().is_none());
+        drop(rows);
+        let mut projected = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    rows: Some(RowIndex::new(1).unwrap()..=RowIndex::new(1).unwrap()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let selected = projected.next_row().unwrap().unwrap();
+        let CellValue::Formula(value) = &selected.cells[0].value else {
+            panic!("Expected projected follower");
+        };
+        assert_eq!(value.expression(), expression);
+        drop(projected);
+        let materialized = book
+            .read_sheet_with_options(
+                "A & B",
+                ReadOptions {
+                    formula_metadata: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let CellValue::Formula(value) = &materialized.rows[1].cells[0].value else {
+            panic!("Expected materialized follower");
+        };
+        assert_eq!(value.expression(), expression);
+    }
+}
+
+#[test]
+fn strict_shared_ids_reject_missing_opaque_and_large_indices_with_context() {
+    for attribute in ["", " si=\"\"", " si=\"text\"", " si=\"4294967296\""] {
+        let mut book = open(&format!(
+            "<row><c><f t=\"shared\"{attribute}>1</f></c></row>"
+        ));
+        let mut rows = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    formula_policy: crabxl_core::FormulaReadPolicy::ValidateGroups,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let error = rows.next_row().unwrap_err();
+        assert_eq!(error.kind(), crabxl_core::ErrorKind::InvalidData);
+        assert_eq!(error.part(), Some("data/values.xml"));
     }
 }
