@@ -42,3 +42,11 @@ These are acceptance goals, not assertions about current results. Functional cor
 Use pinned versions, identical inputs and verified outputs, equivalent semantics/modes, release builds, warmups and alternating repeated runs. Record wall time, CPU time, peak RSS, temporary storage, output size and relevant feature/checksum assertions. Include representative numeric, repeated/high-cardinality text, styled, sparse, multi-sheet and edit workloads as capabilities become available. Separate streaming, materialized and preserving-edit operations; report unequal capabilities explicitly rather than presenting them as equivalent measurements.
 
 Compare Python migration workloads through the Python adapter using compatible calls and include conversion/runtime costs. Report native Rust comparisons separately. Include runtime baselines and avoid subtracting them from headline RSS results. Memory policies remain configurable: bounded streaming, explicit budgets and measured adaptive Auto behavior. Extra memory is useful only where measurements establish a speed benefit; lower RSS must not be claimed by concealing temporary-disk or I/O costs.
+
+Loading optimization now explicitly targets calamine for both streaming and
+non-streaming reads. Attempt lower elapsed time and lower peak RSS for complete
+retained models, including all sheets and their source catalogs. A smaller model
+does not satisfy the speed target. Track native parsing, model retention and
+Python value conversion separately, and evaluate bounded column/batch delivery
+for potential Pandas/Polars integration. Integration is a future capability,
+not a claim of adoption or an existing adapter.

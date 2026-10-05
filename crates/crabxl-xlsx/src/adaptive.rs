@@ -136,7 +136,16 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     .with_part(&part)
             })?
             .size();
-        let mut rows = self.rows_with_allowance(name, options.clone(), Some(allowance))?;
+        // Sampling prepares the same ownership strategy as materialization so
+        // rebalancing its string table remains valid during the retained read.
+        let mut rows = self.rows_with_catalog_allowance(
+            name,
+            options.clone(),
+            Some(allowance),
+            None,
+            0,
+            true,
+        )?;
         let start = rows.bytes_consumed();
         let mut weight = 0u128;
         for _ in 0..128 {

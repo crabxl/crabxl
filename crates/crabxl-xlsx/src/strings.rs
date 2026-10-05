@@ -13,6 +13,7 @@ use std::{
     fs::File,
     io::{BufRead, BufWriter, Read, Seek, SeekFrom, Write},
     path::PathBuf,
+    sync::Arc,
 };
 
 /// Placement of decoded shared strings and their index.
@@ -83,6 +84,7 @@ pub struct SharedStringStats {
 #[derive(Clone)]
 enum Entry {
     Text(Box<str>),
+    SharedText(Arc<str>),
     Rich(Box<crabxl_core::RichText>),
     Unsupported,
 }
@@ -90,6 +92,7 @@ impl Entry {
     fn payload_bytes(&self) -> usize {
         match self {
             Self::Text(s) => s.len(),
+            Self::SharedText(s) => s.len().saturating_add(2 * size_of::<usize>()),
             Self::Rich(v) => v.memory_bytes(),
             Self::Unsupported => 0,
         }
@@ -97,6 +100,7 @@ impl Entry {
     fn view(&self) -> EntryView<'_> {
         match self {
             Self::Text(v) => EntryView::Text(v),
+            Self::SharedText(v) => EntryView::Text(v),
             Self::Rich(v) => EntryView::Rich(v),
             Self::Unsupported => EntryView::Unsupported,
         }
@@ -104,6 +108,7 @@ impl Entry {
     fn value(&self, preserve: bool) -> Result<CellValue> {
         match self {
             Self::Text(s) => Ok(CellValue::text(s.as_ref())),
+            Self::SharedText(s) => Ok(CellValue::shared_text(Arc::clone(s))),
             Self::Rich(v) if preserve => {
                 let mut value = (**v).clone();
                 for run in &mut value.runs {
@@ -120,6 +125,13 @@ impl Entry {
                 }))
             }
             Self::Unsupported => Err(unsupported()),
+        }
+    }
+    fn plain(value: Box<str>, shared: bool) -> Self {
+        if shared {
+            Self::SharedText(Arc::from(value))
+        } else {
+            Self::Text(value)
         }
     }
 }
@@ -220,6 +232,8 @@ struct CacheEntry {
 pub(crate) struct SharedStrings {
     memory: Vec<Entry>,
     plain_memory: Vec<Option<Box<str>>>,
+    shared_memory: Vec<Option<Arc<str>>>,
+    share_values: bool,
     disk: Option<Disk>,
     cache: Vec<Option<CacheEntry>>,
     cache_payload: usize,
@@ -235,8 +249,16 @@ impl SharedStrings {
         limits: ResourceLimits,
         options: &SharedStringOptions,
         preserve_rich: bool,
+        share_values: bool,
     ) -> Result<Self> {
-        let result = Self::parse_impl(input, part.clone(), limits, options, preserve_rich);
+        let result = Self::parse_impl(
+            input,
+            part.clone(),
+            limits,
+            options,
+            preserve_rich,
+            share_values,
+        );
         result.map_err(|e| e.with_part(part))
     }
     fn parse_impl<B: BufRead>(
@@ -245,6 +267,7 @@ impl SharedStrings {
         limits: ResourceLimits,
         options: &SharedStringOptions,
         preserve_rich: bool,
+        share_values: bool,
     ) -> Result<Self> {
         let allowance_details = memory_allowance(options.memory_policy, limits)?;
         let allowance = allowance_details.retained_data_bytes;
@@ -252,6 +275,8 @@ impl SharedStrings {
             limits,
             memory: Vec::new(),
             plain_memory: Vec::new(),
+            shared_memory: Vec::new(),
+            share_values,
             disk: None,
             cache: Vec::new(),
             cache_payload: 0,
@@ -288,7 +313,8 @@ impl SharedStrings {
                     if table.stats.entries >= options.max_entries {
                         return Err(limit("Shared-string entry limit exceeded"));
                     }
-                    let entry = parse_entry(&mut xml, limits.max_cell_bytes, preserve_rich)?;
+                    let entry =
+                        parse_entry(&mut xml, limits.max_cell_bytes, preserve_rich, share_values)?;
                     table.push(entry, options, allowance)?;
                 }
                 Event::Start(_) => return Err(invalid("Unexpected shared-string table element")),
@@ -327,6 +353,12 @@ impl SharedStrings {
                     self.memory.capacity(),
                     size_of::<Entry>(),
                 )
+            } else if self.share_values {
+                (
+                    self.shared_memory.len(),
+                    self.shared_memory.capacity(),
+                    size_of::<Option<Arc<str>>>(),
+                )
             } else {
                 (
                     self.plain_memory.len(),
@@ -356,6 +388,14 @@ impl SharedStrings {
                     for old in &self.memory {
                         disk.push(old.view(), options.max_temp_bytes)?;
                     }
+                } else if self.share_values {
+                    for old in &self.shared_memory {
+                        disk.push(
+                            old.as_deref()
+                                .map_or(EntryView::Unsupported, EntryView::Text),
+                            options.max_temp_bytes,
+                        )?;
+                    }
                 } else {
                     for old in &self.plain_memory {
                         disk.push(
@@ -367,11 +407,14 @@ impl SharedStrings {
                 }
                 self.memory = Vec::new();
                 self.plain_memory = Vec::new();
+                self.shared_memory = Vec::new();
                 self.disk = Some(disk);
                 self.stats.managed_bytes = 0;
             } else {
                 let result = if rich {
                     self.memory.try_reserve_exact(wanted - len)
+                } else if self.share_values {
+                    self.shared_memory.try_reserve_exact(wanted - len)
                 } else {
                     self.plain_memory.try_reserve_exact(wanted - len)
                 };
@@ -384,6 +427,8 @@ impl SharedStrings {
                 })?;
                 let actual_capacity = if rich {
                     self.memory.capacity()
+                } else if self.share_values {
+                    self.shared_memory.capacity()
                 } else {
                     self.plain_memory.capacity()
                 };
@@ -404,11 +449,17 @@ impl SharedStrings {
             disk.push(entry.view(), options.max_temp_bytes)?;
         } else if self.stats.rich_text_preserved {
             self.memory.push(entry);
+        } else if self.share_values {
+            self.shared_memory.push(match entry {
+                Entry::SharedText(value) => Some(value),
+                Entry::Unsupported => None,
+                _ => return Err(invalid("Shared plain table received incompatible data")),
+            });
         } else {
             self.plain_memory.push(match entry {
                 Entry::Text(v) => Some(v),
                 Entry::Unsupported => None,
-                Entry::Rich(_) => {
+                Entry::Rich(_) | Entry::SharedText(_) => {
                     return Err(invalid("Plain table received unprojected rich data"));
                 }
             });
@@ -423,6 +474,11 @@ impl SharedStrings {
         if self.disk.is_none() {
             return if self.stats.rich_text_preserved {
                 self.memory[id as usize].value(preserve)
+            } else if self.share_values {
+                self.shared_memory[id as usize].as_ref().map_or_else(
+                    || Err(unsupported()),
+                    |v| Ok(CellValue::shared_text(Arc::clone(v))),
+                )
             } else {
                 self.plain_memory[id as usize]
                     .as_ref()
@@ -489,7 +545,7 @@ impl SharedStrings {
             while !matches!(xml.next()?.event, Event::Eof) {}
             match value {
                 crate::rich_text::ParsedText::Rich(v) => Entry::Rich(v),
-                crate::rich_text::ParsedText::Plain(v) => Entry::Text(v),
+                crate::rich_text::ParsedText::Plain(v) => Entry::plain(v, self.share_values),
             }
         } else {
             let length = usize::try_from(length)
@@ -514,7 +570,7 @@ impl SharedStrings {
                     e,
                 )
             })?;
-            Entry::Text(text.into_boxed_str())
+            Entry::plain(text.into_boxed_str(), self.share_values)
         };
         let value = entry.value(preserve)?;
         let payload_bytes = entry.payload_bytes();
@@ -580,6 +636,15 @@ impl SharedStrings {
             for entry in &self.memory {
                 disk.push(entry.view(), options.max_temp_bytes)?;
             }
+        } else if self.share_values {
+            for entry in &self.shared_memory {
+                disk.push(
+                    entry
+                        .as_deref()
+                        .map_or(EntryView::Unsupported, EntryView::Text),
+                    options.max_temp_bytes,
+                )?;
+            }
         } else {
             for entry in &self.plain_memory {
                 disk.push(
@@ -596,6 +661,7 @@ impl SharedStrings {
         self.disk = Some(disk);
         self.memory = Vec::new();
         self.plain_memory = Vec::new();
+        self.shared_memory = Vec::new();
         self.cache = Vec::new();
         self.cache_payload = 0;
         self.cache_policy_maximum = options.cache_bytes.min(maximum);
@@ -652,21 +718,26 @@ impl SharedStrings {
     pub(crate) fn stats(&self) -> SharedStringStats {
         self.stats
     }
+    pub(crate) fn shares_values(&self) -> bool {
+        self.share_values
+    }
 }
 
 fn parse_entry<B: BufRead>(
     xml: &mut XmlStream<B>,
     maximum: usize,
     preserve_rich: bool,
+    share_values: bool,
 ) -> Result<Entry> {
     match crate::rich_text::read_container(xml, 2, b"si", maximum, preserve_rich) {
-        Ok(crate::rich_text::ParsedText::Plain(text)) => {
-            Ok(Entry::Text(if text.contains("x005F_") {
+        Ok(crate::rich_text::ParsedText::Plain(text)) => Ok(Entry::plain(
+            if text.contains("x005F_") {
                 text.replace("x005F_", "").into_boxed_str()
             } else {
                 text
-            }))
-        }
+            },
+            share_values,
+        )),
         Ok(crate::rich_text::ParsedText::Rich(v)) => Ok(Entry::Rich(v)),
         Err(error) if error.kind() == ErrorKind::Unsupported => {
             // Retain the ID of unsupported extension entries while validating XML.

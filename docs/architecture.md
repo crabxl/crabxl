@@ -11,6 +11,11 @@ see [ADR 0064](decisions/0064-packed-sparse-cell-storage.md) and
 [numeric/text tradeoffs](../benchmarks/alpha7-packed-models.md). Resource ledgers
 remain conservative; measured RSS is reported independently.
 
+Plain shared-string payloads use immutable shared ownership for retained models
+and owned storage for ordinary row streams; see
+[ADR 0065](decisions/0065-mode-aware-shared-text.md). Adaptive sampling uses the
+ownership strategy of materialization to preserve its aggregate budget plan.
+
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).

@@ -59,6 +59,10 @@ impl CellValue {
     pub fn text(value: impl Into<Box<str>>) -> Self {
         Self::Text(Box::new(CellText::new(value)))
     }
+    /// Retain immutable shared text without copying its UTF-8 payload.
+    pub fn shared_text(value: std::sync::Arc<str>) -> Self {
+        Self::Text(Box::new(CellText::from_shared(value)))
+    }
     /// Construct an owned spreadsheet error value.
     pub fn error(code: impl Into<Box<str>>) -> Self {
         Self::Error(Box::new(CellError::new(code)))
