@@ -1,0 +1,95 @@
+name: Release Rust alpha
+
+on:
+  push:
+    paths:
+      - .github/release-request.json
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Committed version, e.g. 0.1.0-alpha.1
+        required: true
+        type: string
+      feature_notes:
+        description: Describe the newly usable functionality and its verified limits
+        required: true
+        type: string
+      usable_feature:
+        description: This version adds tested, usable functionality
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-alpha-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref_name == github.event.repository.default_branch && (github.event_name == 'push' || inputs.usable_feature)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.request.outputs.version }}
+      feature_notes: ${{ steps.request.outputs.feature_notes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: rustfmt, clippy
+      - name: Validate explicit release request and committed manual version
+        id: request
+        env:
+          REQUEST_VERSION: ${{ inputs.version }}
+          REQUEST_NOTES: ${{ inputs.feature_notes }}
+          REQUEST_USABLE: ${{ inputs.usable_feature }}
+        run: python tools/release_request.py
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo doc --workspace --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -Dwarnings
+      - name: Verify the first publishable dependency
+        run: cargo package -p crabxl-core --locked
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - name: Publish and verify all three crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_API_TOKEN }}
+          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+        run: python tools/publish_crates.py "$RELEASE_VERSION"
+      - name: Create tag and prerelease after successful publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+          FEATURE_NOTES: ${{ needs.verify.outputs.feature_notes }}
+        run: |
+          printf '%s\n' "$FEATURE_NOTES" > "$RUNNER_TEMP/release-notes.md"
+          if gh release view "$RELEASE_VERSION" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_VERSION" target/package/*.crate --clobber
+          else
+            gh release create "$RELEASE_VERSION" target/package/*.crate \
+              --target "$GITHUB_SHA" --title "$RELEASE_VERSION" --prerelease \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi

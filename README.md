@@ -4,7 +4,7 @@ A Rust spreadsheet library focused on fast, memory-efficient XLSX processing and
 
 M1 provides bounded sparse XLSX row streaming and explicit owned sheet materialization. M2 adds exact integers, plain inline/shared/value text, booleans/errors, bounded shared-string storage, explicit typed rich text, shared style catalogs, numeric dates/time/durations and owned-payload budgets. M3 sequential writer acceptance is complete: scalars, dates/time/duration, normal formulas/caches and basic styles use shared core types and selected rust_xlsxwriter codecs. Complete theme/style editing, advanced formulas, complete editing/preservation, full Python compatibility and other language bindings remain staged.
 
-Rust 1.88.0 or later is required. Run the example against an unstyled numeric worksheet:
+Rust 1.99.0 or later is required. Run the example against an unstyled numeric worksheet:
 
 ```sh
 cargo run --release -p crabxl --example sum -- numbers.xlsx Sheet
@@ -194,3 +194,12 @@ Finite style size/gradient-edge domains, empty format strings and imported color
 `Formula::from_array_text` retains an optional literal array property in one payload; `array_text()` borrows that original spelling, while the XML-body view removes the first Unicode character to match public array save behavior. Source constructors clear the literal origin marker. See [ADR 0032](docs/decisions/0032-literal-array-text.md).
 
 `StyleCatalog` includes typed sparse differential overrides and table/pivot defaults/definitions with all 28 region tokens, optional count/size properties and validated differential references. Source-owned boxes/vectors transfer without full catalog snapshots. Extension payloads and worksheet rule/table graphs remain staged. See [ADR 0033](docs/decisions/0033-differential-table-style-catalogs.md) and [public metadata readback/measurements](benchmarks/m2-style-extras.md).
+
+Dependency policy: prefer current stable toolchains and dependencies after validation.
+The XML codec currently remains on quick-xml 0.41: 0.42 changes the byte-oriented
+XML API and requires a separate parser migration with correctness and performance
+verification. Python 3.15 release-candidate validation is the explicit prerelease
+exception while waiting for the final release.
+
+Manual alpha numbering and the crates.io/GitHub release workflow are documented
+in [releases](docs/releases.md).
