@@ -532,6 +532,7 @@ mod tests {
         fs::remove_dir_all(root).expect("Clean test hierarchy");
     }
     #[test]
+    #[cfg(target_os = "linux")]
     fn legacy_mount_discovery_obeys_visible_parent_usage_and_hybrid_membership() {
         let temporary = tempfile::tempdir().expect("Isolated controller mount");
         let root = temporary.path();
@@ -572,6 +573,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn unified_mount_discovery_handles_bind_roots_escaped_paths_and_aliases() {
         let temporary = tempfile::tempdir().expect("Isolated mount");
         let root = temporary.path().join("memory mount");
