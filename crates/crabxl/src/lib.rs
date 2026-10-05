@@ -89,7 +89,9 @@ pub use crabxl_core::{
 
 pub use crabxl_core::{StyleLimits, StyleRegistry, TemporalStyleIds};
 
-pub use crabxl_core::Theme;
+pub use crabxl_core::{
+    Theme, ThemeCatalog, ThemeColor, ThemeFontCollection, ThemeScriptFont, ThemeTypeface,
+};
 pub use crabxl_xlsx::ThemeWritePolicy;
 
 pub use crabxl_core::CellMetadataReadPolicy;
