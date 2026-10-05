@@ -81,3 +81,5 @@ Optional Python adapter: [same-call creation/edit comparison](python-adapter.md)
 M5 A1 translation: [same-call Translator evidence and writer regression](m5-formula.md); full tokenizer/common-feature acceptance remains staged.
 
 [Plain shared-string RAM/disk/Auto evidence](m2-shared-strings.md) includes repeated/high-cardinality text, full-value validation, disk/cache diagnostics and an explicit calamine speed gap.
+
+Worksheet viewport metadata: [M5 worksheet views](m5-worksheet-views.md) records the selected rust_xlsxwriter port, public read/create/edit interoperability, model/overlay memory, temporary storage and unconfigured numeric regression. Workbook/chartsheet/custom views and the remaining M5 feature families stay open.

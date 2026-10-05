@@ -624,3 +624,48 @@ fn failed_multi_kind_append_keeps_cells_atomic_and_valid_styles_reusable() {
         256 + temporal(DateKind::Date).heap_bytes()
     );
 }
+
+#[test]
+fn canonical_sheet_views_copy_and_aggregate_mutation_are_budgeted() {
+    let mut book = Workbook::new(WorkbookLimits::default()).unwrap();
+    let source = book.create_sheet("Source").unwrap();
+    let mut views = crabxl_core::SheetViews::default();
+    views.views[0]
+        .freeze_at(Some("B3".parse().unwrap()))
+        .unwrap();
+    book.sheet_mut(source)
+        .unwrap()
+        .set_sheet_views(Some(views))
+        .unwrap();
+    let copied = book.copy_sheet(source, "Copy").unwrap();
+    assert_eq!(
+        book.sheet(source).unwrap().sheet_views(),
+        book.sheet(copied).unwrap().sheet_views()
+    );
+    book.sheet_mut(copied)
+        .unwrap()
+        .set_sheet_views(None)
+        .unwrap();
+    assert!(book.sheet(source).unwrap().sheet_views().is_some());
+    assert!(book.sheet(copied).unwrap().sheet_views().is_none());
+    let mut limited = Workbook::new(WorkbookLimits {
+        max_bytes: 1024,
+        ..WorkbookLimits::default()
+    })
+    .unwrap();
+    let id = limited.create_sheet("Sheet").unwrap();
+    let before = limited.charged_bytes();
+    let mut huge = crabxl_core::SheetViews::default();
+    huge.views[0].top_left_cell = Some("x".repeat(4096).into());
+    assert_eq!(
+        limited
+            .sheet_mut(id)
+            .unwrap()
+            .set_sheet_views(Some(huge))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    assert_eq!(limited.charged_bytes(), before);
+    assert!(limited.sheet(id).unwrap().sheet_views().is_none());
+}

@@ -46,7 +46,8 @@ pub enum CalculationChainPolicy {
     /// recalculation. Unchanged saves retain the original chain.
     #[default]
     DiscardOnEdit,
-    /// Reject all edits when a calculation-chain part is present.
+    /// Reject value/formula edits when a calculation-chain part is present.
+    /// Pure viewport changes retain the chain.
     RejectEdits,
 }
 /// Budgets for a lazy package editor and its owned value overlays.
@@ -112,6 +113,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     book: WorkbookReader<R>,
     parts: Vec<PartInfo>,
     patches: BTreeMap<String, Patches>,
+    view_patches: BTreeMap<String, crabxl_core::SheetViews>,
     options: EditorOptions,
     patch_bytes: usize,
     patch_cells: usize,
@@ -253,6 +255,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             book,
             parts,
             patches: BTreeMap::new(),
+            view_patches: BTreeMap::new(),
             options,
             patch_bytes: 0,
             patch_cells: 0,
@@ -275,7 +278,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     }
     /// Whether pending overlays are present. Saving does not discard overlays.
     pub fn is_dirty(&self) -> bool {
-        self.patch_cells != 0
+        self.patch_cells != 0 || !self.view_patches.is_empty()
     }
     /// Shared automatic/explicit operation allowance computed at construction.
     /// Original ZIP/catalog/inventory allocations are additional.
@@ -289,6 +292,66 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// Conservative managed patch allowance currently used.
     pub fn patch_bytes(&self) -> usize {
         self.patch_bytes
+    }
+    /// Read original canonical view metadata. Pending replacements can be borrowed
+    /// separately without cloning their payloads.
+    pub fn sheet_views(&mut self, sheet: &str) -> Result<crabxl_core::SheetViews> {
+        self.book.sheet_views(sheet)
+    }
+    /// Borrow a pending display replacement.
+    pub fn pending_sheet_views(&self, sheet: &str) -> Option<&crabxl_core::SheetViews> {
+        let part = self
+            .book
+            .sheets()
+            .iter()
+            .find(|info| info.name() == sheet)?
+            .part();
+        self.view_patches.get(part)
+    }
+    /// Replace viewport metadata while preserving cell values, caches and unrelated
+    /// package parts. Unknown source view extensions reject replacement explicitly.
+    pub fn set_sheet_views(&mut self, sheet: &str, views: crabxl_core::SheetViews) -> Result<()> {
+        if self.signed {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Editing signed worksheet views requires an explicit signature policy",
+            ));
+        }
+        crate::worksheet_view::validate(&views)?;
+        let info = self
+            .book
+            .sheets()
+            .iter()
+            .find(|info| info.name() == sheet)
+            .ok_or_else(|| {
+                Error::new(ErrorKind::SheetNotFound, "Worksheet view source not found")
+            })?;
+        let part = info.part().to_owned();
+        let old = self
+            .view_patches
+            .get(&part)
+            .map_or(0, crabxl_core::SheetViews::memory_bytes);
+        let node = if self.view_patches.contains_key(&part) {
+            0
+        } else {
+            PATCH_BYTES.saturating_add(part.len())
+        };
+        let bytes = self
+            .patch_bytes
+            .saturating_sub(old)
+            .saturating_add(node)
+            .saturating_add(views.memory_bytes());
+        if bytes > self.options.max_patch_bytes {
+            return Err(limit("Worksheet view overlay allowance exceeded"));
+        }
+        // Header parsing verifies supported source metadata before it can be replaced.
+        // The temporary original model is bounded separately and released immediately.
+        let source_allowance = self.allowance.retained_data_bytes.saturating_sub(bytes);
+        self.book
+            .sheet_views_with_allowance(sheet, source_allowance)?;
+        self.view_patches.insert(part, views);
+        self.patch_bytes = bytes;
+        Ok(())
     }
     /// Replace an existing cell's value, preserving its style and unrelated cell
     /// attributes. Cell existence and unsupported metadata are checked on save.
@@ -439,6 +502,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// This does not adopt a previously saved file as the new source.
     pub fn clear_edits(&mut self) {
         self.patches = BTreeMap::new();
+        self.view_patches = BTreeMap::new();
         self.patch_bytes = 0;
         self.patch_cells = 0;
     }
@@ -451,7 +515,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         output: W,
         options: SaveOptions,
     ) -> Result<(W, SaveStats)> {
-        let dirty = self.is_dirty();
+        let dirty = self.patch_cells != 0;
         let mut zip = ZipWriter::new(output);
         zip.set_raw_comment(self.book.archive.comment().to_vec().into_boxed_slice())
             .map_err(|error| zip_error("Cannot preserve ZIP archive comment", error))?;
@@ -472,7 +536,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 && !self.calc_chain_parts.is_empty()
                 && (part.name.as_ref() == "[Content_Types].xml"
                     || part.name.as_ref() == self.workbook_relationships);
-            let worksheet = dirty
+            let view_patch = self.view_patches.get(part.name.as_ref());
+            let worksheet = (dirty || view_patch.is_some())
                 && self.book.sheets().iter().any(|sheet| {
                     sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
                 });
@@ -502,9 +567,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         file,
                         budget,
                         &part.name,
-                        self.patches.get(part.name.as_ref()),
-                        self.options.resources,
-                        self.options.formula_attributes,
+                        WorksheetRewrite {
+                            patches: self.patches.get(part.name.as_ref()),
+                            limits: self.options.resources,
+                            formula_attributes: self.options.formula_attributes,
+                            views: view_patch,
+                            invalidate_caches: dirty,
+                        },
                     )
                 } else if workbook {
                     patch_workbook(file, budget, &part.name, self.options.resources)
@@ -844,14 +913,26 @@ fn expanded_dimension(
     start.push_attribute(("ref", reference.as_str()));
     Ok(start)
 }
+struct WorksheetRewrite<'a> {
+    patches: Option<&'a Patches>,
+    limits: ResourceLimits,
+    formula_attributes: crate::FormulaWritePolicy,
+    views: Option<&'a crabxl_core::SheetViews>,
+    invalidate_caches: bool,
+}
 fn patch_worksheet<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
     output: PartOutput<W>,
     part: &str,
-    patches: Option<&Patches>,
-    limits: ResourceLimits,
-    formula_attributes: crate::FormulaWritePolicy,
+    rewrite: WorksheetRewrite<'_>,
 ) -> Result<u64> {
+    let WorksheetRewrite {
+        patches,
+        limits,
+        formula_attributes,
+        views,
+        invalidate_caches,
+    } = rewrite;
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
         part.into(),
@@ -875,6 +956,8 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
     let mut in_data = false;
     let mut in_row = false;
     let mut in_cell = false;
+    let mut views_written = false;
+    let mut skipped_views = false;
     let mut formula = false;
     let mut seen_v = false;
     let mut buffer = RowBuffer {
@@ -889,6 +972,39 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 ErrorKind::Unsupported,
                 "Editing markup-compatibility alternatives requires typed branch handling",
             ));
+        }
+        if let Some(views) = views {
+            if let Event::Start(e) = &frame.event {
+                if frame.depth == 2 && frame.scope == Scope::Spreadsheet {
+                    let name = e.local_name();
+                    if !views_written && !matches!(name.as_ref(), b"sheetPr" | b"dimension") {
+                        crate::worksheet_view::write_views(
+                            writer.get_mut(),
+                            views,
+                            frame.spreadsheet_uri,
+                        )
+                        .map_err(|error| io_error("Cannot write worksheet views", error))?;
+                        views_written = true;
+                    }
+                    if name.as_ref() == b"sheetViews" {
+                        if skipped_views {
+                            return Err(invalid("Duplicate worksheet views container"));
+                        }
+                        skipped_views = true;
+                        loop {
+                            let old = xml.next()?;
+                            if matches!(&old.event, Event::End(e) if old.depth == 1 && e.local_name().as_ref() == b"sheetViews")
+                            {
+                                break;
+                            }
+                            if matches!(old.event, Event::Eof) {
+                                return Err(invalid("Incomplete replaced worksheet views"));
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
         }
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {
@@ -1198,7 +1314,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     && e.local_name().as_ref() == b"v" =>
             {
                 seen_v = true;
-                if formula {
+                if formula && invalidate_caches {
                     loop {
                         let frame = xml.next()?;
                         if matches!(&frame.event,Event::End(end) if frame.depth==4 && end.local_name().as_ref()==b"v")

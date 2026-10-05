@@ -14349,16 +14349,19 @@
     {
       "id": "baseline.openpyxl.worksheet.views",
       "description": "Public types, callable behavior, fields, and exports of openpyxl.worksheet.views",
-      "status": "planned",
+      "status": "ported",
       "milestone": "M5",
       "capabilities": {
-        "read": "planned",
-        "create": "planned",
-        "edit": "planned",
-        "preserve": "planned"
+        "read": "ported",
+        "create": "ported",
+        "edit": "ported",
+        "preserve": "ported"
       },
       "modes": [
-        "mode-specific support to verify"
+        "bounded-header-read",
+        "sequential-create",
+        "owned-sparse-model",
+        "original-package-overlay"
       ],
       "reference": "docs/research/openpyxl-3.1.5-public-surface.json",
       "reference_module": "openpyxl.worksheet.views",
@@ -14443,8 +14446,15 @@
         "String": "openpyxl.descriptors.base.String",
         "Typed": "openpyxl.descriptors.base.Typed"
       },
-      "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "tests": [
+        "crates/crabxl-xlsx/tests/worksheet_views.rs",
+        "benchmarks/worksheet_views_checkpoint.py"
+      ],
+      "limitations": "Baseline worksheet view attributes, panes and selections have typed support. Header reading stops at views or sheetData and does not validate unconsumed XML/CRC; schema-order views are required. Unknown source view extensions reject replacement and remain preservable in unchanged packages. Integer attributes use i64; nonfinite splits reject instead of reproducing invalid reference XML. Chartsheet/workbook/custom views, binding descriptors and extLst typed editing remain open.",
+      "modules": [
+        "crates/crabxl-core/src/worksheet_view.rs",
+        "crates/crabxl-xlsx/src/worksheet_view.rs"
+      ]
     },
     {
       "id": "baseline.openpyxl.worksheet.worksheet",
@@ -17399,6 +17409,34 @@
         "benchmarks/style_extras_checkpoint.py"
       ],
       "limitations": "Verified definition properties and source-catalog export only; worksheet conditional-formatting/table instances and structural graphs remain M5 work. Extension payloads remain explicit markers and reject new-package export. Full bank mutation and Python style surfaces remain staged. Advertised count is retained for named definitions but does not allocate. No milestone completion claimed."
+    },
+    {
+      "id": "worksheet.viewport-metadata",
+      "description": "Canonical worksheet display attributes, split/frozen panes and source-ordered selections",
+      "status": "verified",
+      "milestone": "M5",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "bounded-header-read",
+        "sequential-create",
+        "owned-sparse-model",
+        "original-package-overlay"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/stable/api/openpyxl.worksheet.views.html",
+      "modules": [
+        "crates/crabxl-core/src/worksheet_view.rs",
+        "crates/crabxl-xlsx/src/worksheet_view.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/worksheet_views.rs",
+        "benchmarks/worksheet_views_checkpoint.py"
+      ],
+      "limitations": "Baseline worksheet view attributes, panes and selections have typed support. Header reading stops at views or sheetData and does not validate unconsumed XML/CRC; schema-order views are required. Unknown source view extensions reject replacement and remain preservable in unchanged packages. Integer attributes use i64; nonfinite splits reject instead of reproducing invalid reference XML. Chartsheet/workbook/custom views, binding descriptors and extLst typed editing remain open."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

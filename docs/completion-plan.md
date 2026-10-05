@@ -108,6 +108,9 @@ M4 acceptance: unchanged and edited XLSX/XLSM/XLTX/XLTM workflows, repeated save
 
 ## M5: Common feature families
 
+Checkpoint: selected rust_xlsxwriter viewport composition/serialization is integrated into canonical SheetViews/SheetView/Pane/Selection models (ADR 0042), with all baseline worksheet-view attributes, freeze/split panes, multiple views/selections, bounded header reading, creation, owned-sheet copy/budgeting and repeatable original-package editing. Pure display changes retain calculation caches/chains. Unknown view extensions, chartsheet/workbook/custom views and other M5.2 families remain open. This does not complete M5.
+
+
 | Checkpoint | Core models and format work | Required acceptance |
 |---|---|---|
 | M5.1 | Full styles, named styles, themes/colors, row/column styles and rich text | Read/create/edit style catalogs with stable references and bounded deduplication |

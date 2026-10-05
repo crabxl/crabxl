@@ -553,6 +553,11 @@ impl Worksheet {
     }
 }
 impl WorksheetEditor<'_> {
+    /// Replace canonical display metadata within the aggregate/per-sheet allowance.
+    pub fn set_sheet_views(&mut self, views: Option<crate::SheetViews>) -> Result<()> {
+        self.sheet.set_sheet_views(views)
+    }
+
     /// Insert or replace a shared-model cell within aggregate/per-sheet limits.
     pub fn set(&mut self, mut cell: Cell) -> Result<()> {
         let bytes = self.sheet.preflight_set(&cell)?;
