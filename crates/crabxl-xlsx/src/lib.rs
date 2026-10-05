@@ -47,3 +47,6 @@ mod aggregate;
 mod style_extras_codec;
 
 mod worksheet_view;
+
+mod metadata;
+mod printing;

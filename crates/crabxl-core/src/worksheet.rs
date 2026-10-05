@@ -74,6 +74,7 @@ pub struct Worksheet {
     append_cursor: u32,
     dirty: bool,
     views: Option<Box<crate::SheetViews>>,
+    printing: Option<Box<crate::PrintSettings>>,
 }
 impl Worksheet {
     /// Create an empty sheet with explicit managed-data/work allowances.
@@ -93,6 +94,7 @@ impl Worksheet {
             append_cursor: 0,
             dirty: false,
             views: None,
+            printing: None,
         })
     }
     /// Sheet display name. XLSX naming rules are checked by format writers.
@@ -137,6 +139,7 @@ impl Worksheet {
             copy.set(cell.clone())?;
         }
         copy.set_sheet_views(self.views.as_deref().cloned())?;
+        copy.set_print_settings(self.printing.as_deref().cloned())?;
         copy.append_cursor = self.append_cursor;
         copy.dirty = true;
         Ok(copy)
@@ -162,6 +165,34 @@ impl Worksheet {
     }
     fn view_bytes(&self) -> usize {
         self.views.as_ref().map_or(0, |views| views.memory_bytes())
+    }
+    /// Optional explicit printing metadata.
+    pub fn print_settings(&self) -> Option<&crate::PrintSettings> {
+        self.printing.as_deref()
+    }
+    /// Atomically replace printing settings within the retained-data allowance.
+    pub fn set_print_settings(&mut self, settings: Option<crate::PrintSettings>) -> Result<()> {
+        if let Some(settings) = &settings {
+            settings.validate()?;
+        }
+        let charged = self
+            .charged
+            .saturating_sub(self.print_bytes())
+            .saturating_add(
+                settings
+                    .as_ref()
+                    .map_or(0, crate::PrintSettings::memory_bytes),
+            );
+        self.check(charged, self.len())?;
+        self.printing = settings.map(Box::new);
+        self.charged = charged;
+        self.dirty = true;
+        Ok(())
+    }
+    fn print_bytes(&self) -> usize {
+        self.printing
+            .as_ref()
+            .map_or(0, |settings| settings.memory_bytes())
     }
     /// Number of physically present cells, including explicit Empty values.
     pub fn len(&self) -> usize {
@@ -545,8 +576,10 @@ impl Worksheet {
         Ok(())
     }
     fn recount(&mut self) {
-        self.charged =
-            self.name.len() + self.view_bytes() + self.cells.values().map(charge).sum::<usize>();
+        self.charged = self.name.len()
+            + self.view_bytes()
+            + self.print_bytes()
+            + self.cells.values().map(charge).sum::<usize>();
     }
     fn work_allowance(&self, extra: usize) -> Result<()> {
         self.check(

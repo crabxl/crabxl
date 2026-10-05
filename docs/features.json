@@ -13610,16 +13610,19 @@
     {
       "id": "baseline.openpyxl.worksheet.page",
       "description": "Public types, callable behavior, fields, and exports of openpyxl.worksheet.page",
-      "status": "planned",
+      "status": "ported",
       "milestone": "M5",
       "capabilities": {
-        "read": "planned",
-        "create": "planned",
-        "edit": "planned",
-        "preserve": "planned"
+        "read": "ported",
+        "create": "ported",
+        "edit": "ported",
+        "preserve": "ported"
       },
       "modes": [
-        "mode-specific support to verify"
+        "full-worksheet-metadata-scan",
+        "sequential-create",
+        "owned-sparse-model",
+        "original-package-overlay"
       ],
       "reference": "docs/research/openpyxl-3.1.5-public-surface.json",
       "reference_module": "openpyxl.worksheet.page",
@@ -13692,22 +13695,32 @@
         "Serialisable": "openpyxl.descriptors.serialisable.Serialisable",
         "UniversalMeasure": "openpyxl.descriptors.excel.UniversalMeasure"
       },
-      "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "tests": [
+        "crates/crabxl-xlsx/tests/printing.rs",
+        "benchmarks/printing_checkpoint.py"
+      ],
+      "limitations": "Typed margins/options/page setup/pageSetUpPr and sparse row/column breaks; i64 integer fields, finite margins, baseline paper prefix spelling. Source read scans full worksheet through EOF/CRC without loading cells. Original printer IDs/binaries/relationships are retained; new/changed printer relationships require the later graph. Existing dangling printer relationships are not repaired. Header/footer creation/editing, names-based print areas/titles and protection remain open. Invalid-schema descriptor coercions and integers outside i64 are not complete.",
+      "modules": [
+        "crates/crabxl-core/src/printing.rs",
+        "crates/crabxl-xlsx/src/printing.rs"
+      ]
     },
     {
       "id": "baseline.openpyxl.worksheet.pagebreak",
       "description": "Public types, callable behavior, fields, and exports of openpyxl.worksheet.pagebreak",
-      "status": "planned",
+      "status": "ported",
       "milestone": "M5",
       "capabilities": {
-        "read": "planned",
-        "create": "planned",
-        "edit": "planned",
-        "preserve": "planned"
+        "read": "ported",
+        "create": "ported",
+        "edit": "ported",
+        "preserve": "ported"
       },
       "modes": [
-        "mode-specific support to verify"
+        "full-worksheet-metadata-scan",
+        "sequential-create",
+        "owned-sparse-model",
+        "original-package-overlay"
       ],
       "reference": "docs/research/openpyxl-3.1.5-public-surface.json",
       "reference_module": "openpyxl.worksheet.pagebreak",
@@ -13769,8 +13782,15 @@
         "Sequence": "openpyxl.descriptors.sequence.Sequence",
         "Serialisable": "openpyxl.descriptors.serialisable.Serialisable"
       },
-      "tests": [],
-      "limitations": "Inventory coverage, not implemented support. Python descriptors/compatibility scaffolding map to Rust typed models, validation, or later adapters; spreadsheet semantics and fields remain required. Read/create/edit/preserve and mode applicability require individual verification."
+      "tests": [
+        "crates/crabxl-xlsx/tests/printing.rs",
+        "benchmarks/printing_checkpoint.py"
+      ],
+      "limitations": "Typed margins/options/page setup/pageSetUpPr and sparse row/column breaks; i64 integer fields, finite margins, baseline paper prefix spelling. Source read scans full worksheet through EOF/CRC without loading cells. Original printer IDs/binaries/relationships are retained; new/changed printer relationships require the later graph. Existing dangling printer relationships are not repaired. Header/footer creation/editing, names-based print areas/titles and protection remain open. Invalid-schema descriptor coercions and integers outside i64 are not complete.",
+      "modules": [
+        "crates/crabxl-core/src/printing.rs",
+        "crates/crabxl-xlsx/src/printing.rs"
+      ]
     },
     {
       "id": "baseline.openpyxl.worksheet.picture",
@@ -17437,6 +17457,34 @@
         "benchmarks/worksheet_views_checkpoint.py"
       ],
       "limitations": "Baseline worksheet view attributes, panes and selections have typed support. Header reading stops at views or sheetData and does not validate unconsumed XML/CRC; schema-order views are required. Unknown source view extensions reject replacement and remain preservable in unchanged packages. Integer attributes use i64; nonfinite splits reject instead of reproducing invalid reference XML. Chartsheet/workbook/custom views, binding descriptors and extLst typed editing remain open."
+    },
+    {
+      "id": "worksheet.printing-settings",
+      "description": "Canonical printing options/margins/page setup/properties and sparse row/column page breaks",
+      "status": "verified",
+      "milestone": "M5",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "full-worksheet-metadata-scan",
+        "sequential-create",
+        "owned-sparse-model",
+        "original-package-overlay"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/stable/api/openpyxl.worksheet.page.html",
+      "modules": [
+        "crates/crabxl-core/src/printing.rs",
+        "crates/crabxl-xlsx/src/printing.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/printing.rs",
+        "benchmarks/printing_checkpoint.py"
+      ],
+      "limitations": "Typed margins/options/page setup/pageSetUpPr and sparse row/column breaks; i64 integer fields, finite margins, baseline paper prefix spelling. Source read scans full worksheet through EOF/CRC without loading cells. Original printer IDs/binaries/relationships are retained; new/changed printer relationships require the later graph. Existing dangling printer relationships are not repaired. Header/footer creation/editing, names-based print areas/titles and protection remain open. Invalid-schema descriptor coercions and integers outside i64 are not complete."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation."

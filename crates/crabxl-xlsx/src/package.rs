@@ -139,6 +139,52 @@ impl<R: Read + Seek> WorkbookReader<R> {
         );
         crate::worksheet_view::read_header(&mut xml, maximum)
     }
+    /// Read printing metadata through worksheet EOF/CRC without materializing cells.
+    /// Full decompression is necessary because printing elements follow sheetData.
+    pub fn print_settings(&mut self, name: &str) -> Result<crabxl_core::PrintSettings> {
+        self.print_settings_with_allowance(name, usize::MAX)
+    }
+    pub(crate) fn print_settings_with_allowance(
+        &mut self,
+        name: &str,
+        allowance: usize,
+    ) -> Result<crabxl_core::PrintSettings> {
+        let info = self
+            .sheets
+            .iter()
+            .find(|sheet| sheet.name() == name)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::SheetNotFound,
+                    "Printing worksheet source not found",
+                )
+            })?;
+        if info.kind() != SheetKind::Worksheet {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Printing metadata requires a cell worksheet",
+            ));
+        }
+        let part = info.part().to_owned();
+        let file = self.archive.by_name(&part).map_err(|error| {
+            Error::caused_by(
+                ErrorKind::Archive,
+                "Cannot open printing worksheet source",
+                error,
+            )
+            .with_part(part.clone())
+        })?;
+        let maximum = usize::try_from(self.limits.max_metadata_bytes)
+            .unwrap_or(usize::MAX)
+            .min(allowance);
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(self.limits.input_buffer_bytes, file),
+            part,
+            self.limits.max_part_bytes,
+            self.limits,
+        );
+        crate::printing::read(&mut xml, maximum)
+    }
     /// Read package metadata from a seekable owned source with default limits.
     pub fn new(source: R) -> Result<Self> {
         Self::with_limits(source, ResourceLimits::default())
@@ -1009,7 +1055,7 @@ fn read_workbook<R: Read + Seek>(
                     return Err(invalid("Empty or duplicate sheet name").with_part(part));
                 }
                 let id = frame
-                    .sheet_relationship
+                    .office_relationship
                     .ok_or_else(|| invalid("Sheet relationship ID is missing").with_part(part))?;
                 let relationship = rels
                     .get(&id)

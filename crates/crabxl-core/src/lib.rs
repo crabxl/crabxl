@@ -84,3 +84,9 @@ mod worksheet_view;
 pub use worksheet_view::{
     Pane, PanePosition, PaneState, Selection, SheetView, SheetViews, ViewMode,
 };
+
+mod printing;
+pub use printing::{
+    PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup, PaperDimension, PrintOptions,
+    PrintSettings, PrintedComments, PrintedErrors,
+};

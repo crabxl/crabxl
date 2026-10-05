@@ -669,3 +669,56 @@ fn canonical_sheet_views_copy_and_aggregate_mutation_are_budgeted() {
     assert_eq!(limited.charged_bytes(), before);
     assert!(limited.sheet(id).unwrap().sheet_views().is_none());
 }
+
+#[test]
+fn printing_metadata_copy_recounts_and_failed_replacement_preserve_aggregate_charge() {
+    let mut book = Workbook::new(WorkbookLimits::default()).unwrap();
+    let id = book.create_sheet("Sheet").unwrap();
+    let mut printing = crabxl_core::PrintSettings::default();
+    printing.setup.scale = Some(85);
+    printing.row_breaks.push(crabxl_core::PageBreak {
+        id: Some(10),
+        ..crabxl_core::PageBreak::default()
+    });
+    book.sheet_mut(id)
+        .unwrap()
+        .set_print_settings(Some(printing))
+        .unwrap();
+    let before = book.charged_bytes();
+    book.sheet_mut(id)
+        .unwrap()
+        .insert_rows(RowIndex::new(0).unwrap(), 1)
+        .unwrap();
+    assert_eq!(book.charged_bytes(), before);
+    let copied = book.copy_sheet(id, "Copy").unwrap();
+    assert_eq!(
+        book.sheet(id).unwrap().print_settings(),
+        book.sheet(copied).unwrap().print_settings()
+    );
+    book.sheet_mut(copied)
+        .unwrap()
+        .set_print_settings(None)
+        .unwrap();
+    assert!(book.sheet(id).unwrap().print_settings().is_some());
+    let mut limited = Workbook::new(WorkbookLimits {
+        max_bytes: 1024,
+        ..WorkbookLimits::default()
+    })
+    .unwrap();
+    let id = limited.create_sheet("Sheet").unwrap();
+    let before = limited.charged_bytes();
+    let huge = crabxl_core::PrintSettings {
+        row_breaks: vec![crabxl_core::PageBreak::default(); 100],
+        ..crabxl_core::PrintSettings::default()
+    };
+    assert_eq!(
+        limited
+            .sheet_mut(id)
+            .unwrap()
+            .set_print_settings(Some(huge))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    assert_eq!(limited.charged_bytes(), before);
+}

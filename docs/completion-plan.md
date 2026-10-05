@@ -108,6 +108,9 @@ M4 acceptance: unchanged and edited XLSX/XLSM/XLTX/XLTM workflows, repeated save
 
 ## M5: Common feature families
 
+Checkpoint: selected rust_xlsxwriter printing/page-break layout is integrated into canonical PrintSettings/PageMargins/PageSetup/PageBreak models (ADR 0043), covering typed print flags, paper/scaling fields, pageSetUpPr and sparse breaks. Readers scan through worksheet EOF/CRC without cell materialization; bounded footer codecs reserve actual footer bytes, and repeatable overlays retain unrelated properties/header-footer/printer data. New/changed printer graphs, print areas/titles, header/footer creation/editing and protection remain open. This does not complete M5.7 or M5.
+
+
 Checkpoint: selected rust_xlsxwriter viewport composition/serialization is integrated into canonical SheetViews/SheetView/Pane/Selection models (ADR 0042), with all baseline worksheet-view attributes, freeze/split panes, multiple views/selections, bounded header reading, creation, owned-sheet copy/budgeting and repeatable original-package editing. Pure display changes retain calculation caches/chains. Unknown view extensions, chartsheet/workbook/custom views and other M5.2 families remain open. This does not complete M5.
 
 
