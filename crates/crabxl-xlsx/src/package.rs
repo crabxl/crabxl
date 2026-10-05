@@ -644,6 +644,10 @@ impl<R: Read + Seek> WorkbookReader<R> {
     pub fn sheets(&self) -> &[SheetInfo] {
         &self.sheets
     }
+    /// Original relationship-resolved SST identity, independent of conventional paths.
+    pub(crate) fn source_strings_part(&self) -> Option<&str> {
+        self.shared_string_part.as_deref()
+    }
     /// First workbook view's active display position, or None if out of range.
     /// Missing view metadata defaults to the first sheet.
     pub fn active_index(&self) -> Option<usize> {

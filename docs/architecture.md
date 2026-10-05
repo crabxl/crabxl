@@ -47,6 +47,13 @@ declaration cache, with atomic bank/package updates and deferred active-index
 semantics; see [ADR 0070](decisions/0070-source-sheet-display-order.md).
 Affected local defined-name owner graphs remain an explicit M5 dependency.
 
+Source-backed row/column and range transformations use canonical sparse edits
+and borrowed imported-catalog row encoding; see
+[ADR 0072](decisions/0072-source-backed-cell-structure.md). The first successful
+structural operation retires that sheet's coordinate overlays; future edits and
+append use its bank model. Affected unimplemented feature graphs reject before
+mutation, while unrelated original assets remain repeatable source parts.
+
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).

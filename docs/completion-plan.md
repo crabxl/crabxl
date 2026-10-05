@@ -150,6 +150,13 @@ Acceptance: repeatable existing-file sheet mutation retains unaffected assets, n
 
 ## M4.3: Structural edits and feature interactions
 
+Checkpoint: supported source-backed row/column insertion/deletion and rectangle
+move/copy use the canonical model and preserving borrowed-catalog save path
+(ADR 0072). Later scalar edits/append share that model; affected row/column
+formatting, rich/structured/metadata, common feature and drawing graphs reject
+before structural mutation. These dependencies remain assigned to M5/M6;
+loaded sheet create/copy/remove and full M4 graph acceptance remain open.
+
 Checkpoint: known array/data-table replacement accepts canonical literal flags while unknown-record/attribute and shared-group guards remain intact (ADR 0037). This does not implement structured formula range transformations or the broader feature interactions below.
 
 - Implement loaded append, row/column insert/delete, copy and move using sparse bounded transformations. Update dimensions and affected feature coordinates according to explicit reference-compatible behavior.

@@ -1075,4 +1075,345 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
             );
         }
     }
+    // Reuse the loaded overlay workflow for supported structural edits. The
+    // source bank is canonical after the first shift; subsequent edits/append
+    // cannot leave obsolete coordinate overlays behind on repeated saves.
+    let mut original = parts(bytes.clone());
+    let xml = String::from_utf8(original.remove("xl/worksheets/sheet1.xml").unwrap())
+        .unwrap()
+        .replace("<sheetData>", "<dimension ref=\"A1:A1\"/><sheetData>");
+    original.insert("xl/worksheets/sheet1.xml".into(), xml.into_bytes());
+    let mut shifted =
+        LoadedWorkbook::with_options(Cursor::new(package(original.clone())), Default::default())
+            .unwrap();
+    let id = shifted.sheet_id("First").unwrap();
+    shifted
+        .upsert_value(id, CellAddress::new(0, 0).unwrap(), CellValue::Integer(77))
+        .unwrap();
+    shifted
+        .insert_rows(id, RowIndex::new(1).unwrap(), 2)
+        .unwrap();
+    assert!(
+        shifted
+            .pending_value(id, CellAddress::new(0, 0).unwrap())
+            .is_none()
+    );
+    shifted
+        .insert_columns(id, crabxl_core::ColumnIndex::new(0).unwrap(), 1)
+        .unwrap();
+    shifted
+        .delete_rows(id, RowIndex::new(3).unwrap(), 1)
+        .unwrap();
+    shifted
+        .delete_columns(id, crabxl_core::ColumnIndex::new(0).unwrap(), 1)
+        .unwrap();
+    let one = crabxl_core::CellRange::new(
+        CellAddress::new(0, 0).unwrap(),
+        CellAddress::new(0, 0).unwrap(),
+    )
+    .unwrap();
+    shifted.move_range(id, one, 1, 1).unwrap();
+    let one = crabxl_core::CellRange::new(
+        CellAddress::new(1, 1).unwrap(),
+        CellAddress::new(1, 1).unwrap(),
+    )
+    .unwrap();
+    shifted.copy_range(id, one, 1, 1).unwrap();
+    shifted
+        .upsert_value(
+            id,
+            CellAddress::new(0, 3).unwrap(),
+            CellValue::Formula(Box::new(
+                crabxl_core::Formula::new("B2+1", Some(CellValue::Integer(78))).unwrap(),
+            )),
+        )
+        .unwrap();
+    let one = crabxl_core::CellRange::new(
+        CellAddress::new(0, 3).unwrap(),
+        CellAddress::new(0, 3).unwrap(),
+    )
+    .unwrap();
+    shifted.move_range_translated(id, one, 2, 1).unwrap();
+    assert_eq!(
+        shifted
+            .append(id, vec![CellValue::Integer(88)])
+            .unwrap()
+            .get(),
+        5
+    );
+    assert_eq!(shifted.append(id, vec![]).unwrap().get(), 6);
+    let before = shifted.managed_retained_bytes();
+    let patch = shifted.patch_bytes();
+    assert_eq!(
+        shifted
+            .insert_rows(id, RowIndex::new(0).unwrap(), crabxl_core::MAX_ROWS)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+    assert_eq!(shifted.patch_bytes(), patch);
+    assert_eq!(shifted.managed_retained_bytes(), before);
+    for _ in 0..2 {
+        let saved = shifted
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0
+            .into_inner();
+        let output_parts = parts(saved.clone());
+        assert_eq!(output_parts["xl/styles.xml"], original["xl/styles.xml"]);
+        assert_eq!(
+            output_parts["opaque/unaffected.bin"],
+            original["opaque/unaffected.bin"]
+        );
+        assert!(
+            String::from_utf8(output_parts["xl/worksheets/sheet1.xml"].clone())
+                .unwrap()
+                .contains("ref=\"A2:E6\"")
+        );
+        let mut reloaded =
+            LoadedWorkbook::with_options(Cursor::new(saved), Default::default()).unwrap();
+        let first = reloaded.sheet_id("First").unwrap();
+        let model = reloaded.sheet(first).unwrap();
+        for (row, column, value) in [(1, 1, 77), (2, 2, 77), (3, 0, 2), (5, 0, 88)] {
+            assert_eq!(
+                model
+                    .get(CellAddress::new(row, column).unwrap())
+                    .unwrap()
+                    .value,
+                CellValue::Integer(value)
+            );
+        }
+        let date = model.get(CellAddress::new(4, 0).unwrap()).unwrap();
+        assert!(matches!(&date.value, CellValue::DateTime(date) if date.serial() == 2.5));
+        let formula = model.get(CellAddress::new(2, 4).unwrap()).unwrap();
+        assert!(
+            matches!(&formula.value, CellValue::Formula(formula) if formula.expression() == "C4+1" && formula.cached().is_none())
+        );
+        assert_eq!(model.row_extent(), 7);
+    }
+    // A prefixed worksheet with no default namespace and a strict worksheet
+    // exercise the namespace boundary of shared unprefixed row encoding.
+    for (uri, prefixed) in [
+        ("http://purl.oclc.org/ooxml/spreadsheetml/main", false),
+        (
+            "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+            true,
+        ),
+    ] {
+        let mut variant = original.clone();
+        let mut xml = String::from_utf8(variant.remove("xl/worksheets/sheet1.xml").unwrap())
+            .unwrap()
+            .replace(
+                "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+                uri,
+            );
+        xml = xml.replacen(
+            "</row>",
+            "<c r=\"B1\" t=\"d\"><v>2025-01-02T03:04:05.123</v></c></row>",
+            1,
+        );
+        if prefixed {
+            xml = xml.replace(&format!("xmlns=\"{uri}\""), &format!("xmlns:w=\"{uri}\""));
+            for tag in [
+                "worksheet",
+                "dimension",
+                "sheetViews",
+                "sheetView",
+                "sheetFormatPr",
+                "sheetData",
+                "row",
+                "c",
+                "v",
+            ] {
+                xml = xml
+                    .replace(&format!("<{tag}"), &format!("<w:{tag}"))
+                    .replace(&format!("</{tag}>"), &format!("</w:{tag}>"));
+            }
+        }
+        variant.insert("xl/worksheets/sheet1.xml".into(), xml.into_bytes());
+        let mut book =
+            LoadedWorkbook::with_options(Cursor::new(package(variant)), Default::default())
+                .unwrap();
+        let id = book.sheet_id("First").unwrap();
+        book.insert_rows(id, RowIndex::new(0).unwrap(), 1).unwrap();
+        let saved = book
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0
+            .into_inner();
+        assert!(
+            String::from_utf8(parts(saved.clone())["xl/worksheets/sheet1.xml"].clone())
+                .unwrap()
+                .contains(&format!("<sheetData xmlns=\"{uri}\""))
+        );
+        let mut reloaded =
+            LoadedWorkbook::with_options(Cursor::new(saved), Default::default()).unwrap();
+        let id = reloaded.sheet_id("First").unwrap();
+        assert_eq!(
+            reloaded
+                .sheet(id)
+                .unwrap()
+                .get(CellAddress::new(1, 0).unwrap())
+                .unwrap()
+                .value,
+            CellValue::Integer(0)
+        );
+        let date = reloaded
+            .sheet(id)
+            .unwrap()
+            .get(CellAddress::new(1, 1).unwrap())
+            .unwrap();
+        assert_eq!(date.style.get(), 0);
+        assert!(
+            matches!(&date.value, CellValue::DateTime(date) if date.to_iso8601().unwrap() == "2025-01-02T03:04:05.123")
+        );
+    }
+    // SST guards use the relationship-resolved source, not a conventional name.
+    for rich in [false, true] {
+        let mut shared = parts(source(3, true));
+        let old = "xl/sharedStrings.xml";
+        let renamed = "xl/shared-renamed.xml";
+        let mut xml = String::from_utf8(shared.remove(old).unwrap()).unwrap();
+        if rich {
+            xml = xml
+                .replace("<si><t>", "<si><r><t>")
+                .replace("</t></si>", "</t></r></si>");
+        }
+        shared.insert(renamed.into(), xml.into_bytes());
+        for path in ["xl/_rels/workbook.xml.rels", "[Content_Types].xml"] {
+            let xml = String::from_utf8(shared.remove(path).unwrap())
+                .unwrap()
+                .replace("sharedStrings.xml", "shared-renamed.xml");
+            shared.insert(path.into(), xml.into_bytes());
+        }
+        let mut book =
+            LoadedWorkbook::with_options(Cursor::new(package(shared)), Default::default()).unwrap();
+        let id = book.sheet_id("First").unwrap();
+        let result = book.insert_rows(id, RowIndex::new(0).unwrap(), 1);
+        if rich {
+            assert_eq!(result.unwrap_err().kind(), ErrorKind::Unsupported);
+            assert!(!book.is_materialized(id));
+            assert_eq!(book.patch_bytes(), 0);
+        } else {
+            result.unwrap();
+            let saved = book
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap()
+                .0
+                .into_inner();
+            let mut reader = crabxl_xlsx::WorkbookReader::new(Cursor::new(saved)).unwrap();
+            assert!(
+                matches!(&reader.read_sheet("First").unwrap().rows[0].cells[0].value, CellValue::Text(text) if text.as_str().starts_with("00000000"))
+            );
+        }
+    }
+    let mut small = LoadedWorkbook::with_options(
+        Cursor::new(bytes.clone()),
+        LoadOptions {
+            workbook: WorkbookLimits {
+                sheet: EditLimits {
+                    max_bytes: 1500,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let id = small.sheet_id("First").unwrap();
+    small.sheet(id).unwrap();
+    let before = small.managed_retained_bytes();
+    assert_eq!(
+        small
+            .insert_rows(id, RowIndex::new(0).unwrap(), 1)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    assert_eq!(small.managed_retained_bytes(), before);
+    assert_eq!(small.patch_bytes(), 0);
+    assert_eq!(
+        parts(
+            small
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap()
+                .0
+                .into_inner()
+        ),
+        parts(bytes.clone())
+    );
+    // ISO elapsed durations with a non-duration source style need a new
+    // registration/stylesheet transaction; never silently turn them into numbers.
+    let mut duration_parts = original.clone();
+    let xml = String::from_utf8(duration_parts.remove("xl/worksheets/sheet1.xml").unwrap())
+        .unwrap()
+        .replacen("<c r=\"A1\"", "<c r=\"A1\" t=\"d\"", 1)
+        .replacen("<v>0</v>", "<v>PT1H</v>", 1);
+    duration_parts.insert("xl/worksheets/sheet1.xml".into(), xml.into_bytes());
+    let mut book = LoadedWorkbook::with_options(
+        Cursor::new(package(duration_parts.clone())),
+        Default::default(),
+    )
+    .unwrap();
+    let id = book.sheet_id("First").unwrap();
+    assert_eq!(
+        book.insert_rows(id, RowIndex::new(0).unwrap(), 1)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(book.patch_bytes(), 0);
+    assert_eq!(
+        parts(
+            book.save(Cursor::new(Vec::new()), Default::default())
+                .unwrap()
+                .0
+                .into_inner()
+        ),
+        duration_parts
+    );
+    // The same source fixture checks graph rejection before loading/mutation.
+    for (from, to) in [
+        (
+            "</sheetData>",
+            "</sheetData><mergeCells><mergeCell ref=\"A1:B1\"/></mergeCells>",
+        ),
+        ("<row r=\"1\">", "<row r=\"1\" ht=\"30\">"),
+        ("<c r=\"A1\"", "<c r=\"A1\" cm=\"1\""),
+        (
+            "</sheetData>",
+            "</sheetData><drawing xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" r:id=\"rId9\"/>",
+        ),
+    ] {
+        let mut guarded_parts = original.clone();
+        let xml =
+            String::from_utf8(guarded_parts.remove("xl/worksheets/sheet1.xml").unwrap()).unwrap();
+        assert!(xml.contains(from));
+        guarded_parts.insert(
+            "xl/worksheets/sheet1.xml".into(),
+            xml.replace(from, to).into_bytes(),
+        );
+        let input = package(guarded_parts.clone());
+        let mut guarded =
+            LoadedWorkbook::with_options(Cursor::new(input), Default::default()).unwrap();
+        let id = guarded.sheet_id("First").unwrap();
+        let before = guarded.managed_retained_bytes();
+        assert_eq!(
+            guarded
+                .insert_rows(id, RowIndex::new(0).unwrap(), 1)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::Unsupported
+        );
+        assert!(!guarded.is_materialized(id));
+        assert_eq!(guarded.patch_bytes(), 0);
+        assert_eq!(guarded.managed_retained_bytes(), before);
+        let saved = guarded
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0
+            .into_inner();
+        assert_eq!(parts(saved), guarded_parts);
+    }
 }

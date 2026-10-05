@@ -866,6 +866,7 @@ impl WorkbookWriter {
                 non_finite: self.options.non_finite,
                 formula_attributes: self.options.formula_attributes,
                 date_styles: self.date_styles,
+                invalidate_caches: false,
             },
         )
         .map_err(|error| error.with_part(&part))?;

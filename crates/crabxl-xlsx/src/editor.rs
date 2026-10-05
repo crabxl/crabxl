@@ -29,6 +29,10 @@ struct Patch {
     insert_missing: bool,
 }
 type Patches = BTreeMap<(u32, u32), Patch>;
+pub(crate) struct ModelPlan {
+    sheet: usize,
+    pub(crate) bytes: usize,
+}
 pub(crate) struct PatchPlan {
     sheet: usize,
     address: CellAddress,
@@ -170,6 +174,8 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     visibility_patches: BTreeMap<usize, crabxl_core::SheetVisibility>,
     name_patches: BTreeMap<usize, Box<str>>,
     catalog_order: Option<Box<CatalogOrder>>,
+    model_patches: BTreeMap<usize, crabxl_core::SheetId>,
+    structural_plain_strings: bool,
     options: EditorOptions,
     patch_bytes: usize,
     patch_cells: usize,
@@ -316,6 +322,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             visibility_patches: BTreeMap::new(),
             name_patches: BTreeMap::new(),
             catalog_order: None,
+            model_patches: BTreeMap::new(),
+            structural_plain_strings: false,
             options,
             patch_bytes: 0,
             patch_cells: 0,
@@ -339,6 +347,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// Whether pending overlays are present. Saving does not discard overlays.
     pub fn is_dirty(&self) -> bool {
         self.patch_cells != 0
+            || !self.model_patches.is_empty()
             || !self.view_patches.is_empty()
             || !self.print_patches.is_empty()
             || self.active_patch.is_some()
@@ -1195,12 +1204,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.commit_value(plan, value, insert_missing);
         Ok(())
     }
-    pub(crate) fn prepare_value(
-        &self,
-        sheet: &str,
-        address: CellAddress,
-        value: &CellValue,
-    ) -> Result<PatchPlan> {
+    fn editable_sheet(&self, sheet: &str) -> Result<usize> {
         if self.signed {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -1229,6 +1233,92 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 "Selected sheet is not a cell worksheet",
             ));
         }
+        Ok(sheet)
+    }
+    pub(crate) fn model_is_dirty(&self, sheet: &str) -> bool {
+        self.book
+            .sheets()
+            .iter()
+            .position(|info| info.name() == sheet)
+            .is_some_and(|index| self.model_patches.contains_key(&index))
+    }
+    pub(crate) fn prepare_model(&mut self, sheet: &str) -> Result<ModelPlan> {
+        let index = self.editable_sheet(sheet)?;
+        let part = self.book.sheets()[index].part().to_owned();
+        let old = self.patches.get(&part).map_or(0, |patches| {
+            PATCH_BYTES
+                + part.len()
+                + patches
+                    .values()
+                    .map(|patch| PATCH_BYTES.saturating_add(patch.cell.value.heap_bytes()))
+                    .sum::<usize>()
+        });
+        let bytes = self.patch_bytes.saturating_sub(old).saturating_add(
+            if self.model_patches.contains_key(&index) {
+                0
+            } else {
+                PATCH_BYTES
+            },
+        );
+        if bytes > self.options.max_patch_bytes {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Source model rewrite ledger allowance exceeded",
+            ));
+        }
+        if !self.model_patches.contains_key(&index) {
+            let file =
+                self.book.archive.by_name(&part).map_err(|cause| {
+                    zip_error("Cannot inspect structural source worksheet", cause)
+                })?;
+            let limits = self.options.resources;
+            let mut xml = XmlStream::new(
+                BufReader::with_capacity(limits.input_buffer_bytes, file),
+                part.clone(),
+                limits.max_part_bytes,
+                limits,
+            );
+            let shared_strings =
+                crate::loaded_codec::guard(&mut xml).map_err(|error| error.with_part(&part))?;
+            drop(xml);
+            if shared_strings && !self.structural_plain_strings {
+                if let Some(part) = self.book.source_strings_part().map(str::to_owned) {
+                    let file = self.book.archive.by_name(&part).map_err(|cause| {
+                        zip_error("Cannot inspect structural shared strings", cause)
+                    })?;
+                    let mut xml = XmlStream::new(
+                        BufReader::with_capacity(limits.input_buffer_bytes, file),
+                        part.clone(),
+                        limits.max_part_bytes,
+                        limits,
+                    );
+                    crate::loaded_codec::guard_strings(&mut xml)
+                        .map_err(|error| error.with_part(&part))?;
+                }
+                self.structural_plain_strings = true;
+            }
+        }
+        Ok(ModelPlan {
+            sheet: index,
+            bytes,
+        })
+    }
+    pub(crate) fn commit_model(&mut self, plan: ModelPlan, id: crabxl_core::SheetId) {
+        let part = self.book.sheets()[plan.sheet].part();
+        if let Some(patches) = self.patches.remove(part) {
+            self.patch_cells -= patches.len();
+        }
+        self.model_patches.insert(plan.sheet, id);
+        self.patch_bytes = plan.bytes;
+    }
+    pub(crate) fn prepare_value(
+        &self,
+        sheet: &str,
+        address: CellAddress,
+        value: &CellValue,
+    ) -> Result<PatchPlan> {
+        let sheet = self.editable_sheet(sheet)?;
+        let info = &self.book.sheets()[sheet];
         if contains_date(value) {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -1252,6 +1342,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .map_err(|error| error.with_cell(address))?;
         validate_value(value, self.options.resources.max_cell_bytes, epoch)
             .map_err(|error| error.with_cell(address))?;
+        if self.model_patches.contains_key(&sheet) {
+            return Ok(PatchPlan {
+                sheet,
+                address,
+                bytes: self.patch_bytes,
+                cells: self.patch_cells,
+            });
+        }
         let key = (address.row.get(), address.column.get());
         let old = self
             .patches
@@ -1414,6 +1512,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.visibility_patches = BTreeMap::new();
         self.name_patches = BTreeMap::new();
         self.catalog_order = None;
+        self.model_patches = BTreeMap::new();
         self.patch_bytes = 0;
         self.patch_cells = 0;
     }
@@ -1427,9 +1526,27 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         output: W,
         options: SaveOptions,
     ) -> Result<(W, SaveStats)> {
+        self.save_with_models(output, options, None)
+    }
+    pub(crate) fn save_with_models<W: Write + Seek>(
+        &mut self,
+        output: W,
+        options: SaveOptions,
+        bank: Option<&crabxl_core::Workbook>,
+    ) -> Result<(W, SaveStats)> {
+        if !self.model_patches.is_empty() && bank.is_none() {
+            return Err(invalid(
+                "Model rewrite requires its canonical workbook owner",
+            ));
+        }
         crate::writer::validate_compression_level(options.compression_level)?;
         let active = self.active_for_save()?;
-        let dirty = self.patch_cells != 0;
+        let epoch = if self.book.date_1904() {
+            DateEpoch::Mac1904
+        } else {
+            DateEpoch::Windows1900
+        };
+        let dirty = self.patch_cells != 0 || !self.model_patches.is_empty();
         let mut zip = ZipWriter::new(output);
         zip.set_raw_comment(self.book.archive.comment().to_vec().into_boxed_slice())
             .map_err(|error| zip_error("Cannot preserve ZIP archive comment", error))?;
@@ -1452,6 +1569,17 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     || part.name.as_ref() == self.workbook_relationships);
             let view_patch = self.view_patches.get(part.name.as_ref()).map(Box::as_ref);
             let print_patch = self.print_patches.get(part.name.as_ref()).map(Box::as_ref);
+            let model = self
+                .book
+                .sheets()
+                .iter()
+                .position(|sheet| sheet.part() == part.name.as_ref())
+                .and_then(|index| self.model_patches.get(&index))
+                .map(|id| {
+                    bank.ok_or_else(|| invalid("Missing canonical model owner"))?
+                        .sheet(*id)
+                })
+                .transpose()?;
             let worksheet = (dirty || view_patch.is_some() || print_patch.is_some())
                 && self.book.sheets().iter().any(|sheet| {
                     sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
@@ -1495,6 +1623,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             views: view_patch,
                             printing: print_patch,
                             invalidate_caches: dirty,
+                            model,
+                            catalog: bank.and_then(crabxl_core::Workbook::style_catalog),
+                            epoch,
+                            non_finite: self.options.non_finite,
                         },
                     )
                 } else if workbook {
@@ -1746,6 +1878,7 @@ fn write_body<W: Write>(
             iso_dates: false,
             non_finite: crate::NonFiniteWritePolicy::Blank,
             formula_attributes,
+            invalidate_caches: false,
             date_styles: crate::encode::DateStyleIds {
                 datetime: crabxl_core::StyleId::new(1),
                 time: crabxl_core::StyleId::new(2),
@@ -1874,6 +2007,10 @@ struct WorksheetRewrite<'a> {
     views: Option<&'a crabxl_core::SheetViews>,
     printing: Option<&'a crabxl_core::PrintSettings>,
     invalidate_caches: bool,
+    model: Option<&'a crabxl_core::Worksheet>,
+    catalog: Option<&'a crabxl_core::StyleCatalog>,
+    epoch: DateEpoch,
+    non_finite: crate::NonFiniteWritePolicy,
 }
 fn patch_worksheet<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
@@ -1888,6 +2025,10 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
         views,
         printing,
         invalidate_caches,
+        model,
+        catalog,
+        epoch,
+        non_finite,
     } = rewrite;
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -1902,6 +2043,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
     let mut next_column = 0u32;
     let mut last_row = None;
     let mut selected_row = false;
+    let patches = patches.filter(|_| model.is_none());
     let mut pending = patches
         .into_iter()
         .flat_map(|patches| patches.values())
@@ -1988,6 +2130,54 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     }
                 }
                 continue;
+            }
+        }
+        if let Some(model) = model
+            && let Event::Start(e) = &frame.event
+            && frame.scope == Scope::Spreadsheet
+            && frame.depth == 2
+        {
+            match e.local_name().as_ref().as_bytes() {
+                b"dimension" => {
+                    let mut start = e.to_owned();
+                    start.clear_attributes();
+                    for attr in e.attributes() {
+                        let attr = attr.map_err(|cause| {
+                            Error::caused_by(ErrorKind::Xml, "Invalid dimension attribute", cause)
+                        })?;
+                        if attr.key.as_ref().as_bytes() != b"ref" {
+                            start.push_attribute(attr);
+                        }
+                    }
+                    let reference = super::loaded_codec::dimension(model);
+                    start.push_attribute(("ref", reference.as_str()));
+                    emit(&mut writer, Event::Start(start))?;
+                    continue;
+                }
+                b"sheetData" => {
+                    if seen_data {
+                        return Err(invalid("Duplicate sheetData in affected worksheet"));
+                    }
+                    seen_data = true;
+                    super::loaded_codec::write_data(
+                        writer.get_mut(),
+                        model,
+                        catalog,
+                        limits,
+                        super::loaded_codec::Encoding {
+                            epoch,
+                            non_finite,
+                            formula_attributes,
+                        },
+                        frame
+                            .spreadsheet_uri
+                            .ok_or_else(|| invalid("Missing worksheet namespace"))?,
+                    )?;
+                    let depth = frame.depth;
+                    crate::style_codec::skip(&mut xml, depth)?;
+                    continue;
+                }
+                _ => {}
             }
         }
         match frame.event {
