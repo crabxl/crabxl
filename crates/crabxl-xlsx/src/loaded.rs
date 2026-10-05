@@ -360,6 +360,82 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     ) -> Result<()> {
         self.edit_value(id, address, value, true)
     }
+    /// Append a complete scalar/formula row after actual source/pending extent.
+    /// The selected sheet materializes once; advertised dimensions do not choose
+    /// the append position. Validate all values and joint model/overlay/scratch
+    /// allowances before committing either representation. Date and unresolved
+    /// phonetic-font assignments retain their explicit unsupported errors.
+    pub fn append(&mut self, id: SheetId, values: Vec<CellValue>) -> Result<RowIndex> {
+        self.sheet(id)?;
+        let sheet = self.bank.sheet(id)?;
+        let row = RowIndex::new(sheet.row_extent())?;
+        let increase = sheet
+            .preflight_append(&values)?
+            .saturating_sub(sheet.charged_bytes());
+        let source = self
+            .sheets
+            .iter()
+            .find(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        let maximum = self
+            .allowance
+            .retained_data_bytes
+            .min(self.options.workbook.max_bytes);
+        let planning_bytes = values
+            .len()
+            .saturating_mul(std::mem::size_of::<crate::editor::PatchPlan>());
+        let planning_retained = self
+            .mapping_bytes()
+            .saturating_add(self.package_extra_bytes())
+            .saturating_add(self.bank.charged_bytes())
+            .saturating_add(planning_bytes);
+        self.editor
+            .book
+            .rebalance_strings_for_retained(planning_retained, maximum)?;
+        let scratch_allowance = maximum.saturating_sub(self.managed_retained_bytes());
+        let plan = self
+            .editor
+            .prepare_row(&source.name, row, &values, scratch_allowance)?;
+        let package = self
+            .package_extra_bytes()
+            .saturating_sub(self.editor.patch_bytes())
+            .saturating_add(plan.bytes);
+        let scratch = plan.scratch_bytes.saturating_add(
+            values
+                .len()
+                .saturating_mul(std::mem::size_of::<CellValue>()),
+        );
+        let retained = self
+            .mapping_bytes()
+            .saturating_add(package)
+            .saturating_add(self.bank.charged_bytes())
+            .saturating_add(increase)
+            .saturating_add(scratch);
+        self.editor
+            .book
+            .rebalance_strings_for_retained(retained, maximum)?;
+        let available = maximum
+            .checked_sub(
+                self.mapping_bytes()
+                    .saturating_add(package)
+                    .saturating_add(self.editor.book.retained_source_bytes())
+                    .saturating_add(scratch),
+            )
+            .ok_or_else(budget)?;
+        self.bank.set_memory_allowance(available)?;
+        if self.bank.remaining_bytes() < increase {
+            self.rebalance()?;
+            return Err(budget());
+        }
+        let result = self.bank.sheet_mut(id)?.append(values.clone());
+        if let Err(error) = result {
+            self.rebalance()?;
+            return Err(error);
+        }
+        self.editor.commit_row(plan, values);
+        self.rebalance()?;
+        Ok(row)
+    }
     fn edit_value(
         &mut self,
         id: SheetId,
@@ -494,6 +570,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 let mut row = Row::new(RowIndex::new(0)?);
                 rows.set_aggregate_retained(retained.saturating_add(incoming.charged_bytes()))?;
                 while rows.read_row_into(&mut row)? {
+                    incoming.extend_row_extent(row.index.get() + 1)?;
                     rows.set_aggregate_retained(
                         retained
                             .saturating_add(incoming.charged_bytes())

@@ -257,6 +257,16 @@ impl Worksheet {
     pub fn row_extent(&self) -> u32 {
         self.append_cursor
     }
+    /// Extend the logical row count without allocating cells. This records
+    /// explicitly present empty source rows and advances subsequent appends.
+    /// Existing cells and a greater current extent are retained.
+    pub fn extend_row_extent(&mut self, rows: u32) -> Result<()> {
+        if rows > MAX_ROWS {
+            return Err(invalid("Logical row extent exceeds worksheet bounds"));
+        }
+        self.append_cursor = self.append_cursor.max(rows);
+        Ok(())
+    }
     /// Iterate distinct physical row indices without allocating an index table.
     pub fn row_indices(&self) -> impl Iterator<Item = RowIndex> + '_ {
         self.cells
@@ -327,7 +337,10 @@ impl Worksheet {
     pub fn append(&mut self, values: Vec<CellValue>) -> Result<RowIndex> {
         self.append_with_styles(values, |_| StyleId::new(0))
     }
-    pub(crate) fn preflight_append(&self, values: &[CellValue]) -> Result<usize> {
+    /// Validate an append without mutation and return its planned total charged
+    /// sheet bytes. Coordinators can reserve shared operation space before
+    /// calling `append`; subsequent mutation requires a fresh validation.
+    pub fn preflight_append(&self, values: &[CellValue]) -> Result<usize> {
         RowIndex::new(self.append_cursor)?;
         if values.len() > MAX_COLUMNS as usize {
             return Err(invalid("Appended row exceeds column bounds"));
