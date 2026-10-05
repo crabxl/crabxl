@@ -31,7 +31,7 @@ Documentation, failure checks, interoperability tests, provenance and relevant b
 
 Acceptance: both inline and shared fixtures preserve intended text and whitespace; literal/protected escapes, multiple runs, phonetics, empty values and malformed input have explicit tests. Selected public reference cases retain original assertions and licensed provenance.
 
-Checkpoint: Auto resolves mounted Linux cgroup v1/v2 visible hierarchies, including hybrid and namespace mount roots, and retains portable explicit/caller overrides (ADR 0044). Windows/macOS host RAM probes now use native APIs through sysinfo (ADR 0050); native Linux/Windows/macOS Rust 1.88 CI passed in run 37283497734. Private process/job constraints and complete Auto/concurrent strategy tuning remain open. Serial numeric decisions and regression evidence are recorded separately; this does not close M2.
+Checkpoint: Auto resolves mounted Linux cgroup v1/v2 visible hierarchies, including hybrid and namespace mount roots, and retains portable explicit/caller overrides (ADR 0044). Windows/macOS host RAM probes now use native APIs through sysinfo (ADR 0050); native Linux/Windows/macOS Rust 1.88 CI passed in run 37283497734. Caller-controlled concurrency allowance division and measured two-sheet Auto RAM/disk strategies are verified in ADR 0053. Private process/job constraints and broader M7 tuning remain open. Serial numeric decisions and regression evidence are recorded separately; this does not close M2.
 
 ## M2.2: Large shared-string storage
 

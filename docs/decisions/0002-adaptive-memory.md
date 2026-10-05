@@ -21,3 +21,11 @@ The current numeric buffer experiment found approximately seven seconds with 32 
 Budget accounting must distinguish managed allocations, working memory, runtime/dependency overhead, and caller-retained data. The existing ZIP catalog allocates before entry-count validation, so this checkpoint must not claim a hard global memory limit. Define/enforce accounting for new caches and materialization, reserve working headroom, shrink/evict safely when possible, and expose budget failures as typed errors. Never rely on process out-of-memory termination as the budget mechanism.
 
 Acceptance: repeated measured runs across scan/repeated-access and numeric/text/styled/multi-sheet workloads, small and large budgets, host/container constraints, and explicit overrides. Report wall time, CPU time, peak RSS, managed allocations, temporary storage, and correctness. Auto should choose measured useful strategies, remain predictable under constraints, and avoid materialization when it provides no workload benefit.
+
+## Alpha.5 follow-up
+
+Native Windows/macOS host RAM probes and explicit diagnostics are recorded in ADR
+0050. Caller-controlled concurrent allowance division and measured two-sheet
+strategies are recorded in ADR 0053. Historical staging statements above describe
+the initial checkpoint; private process/job constraints and complete M7 performance
+comparisons remain open.
