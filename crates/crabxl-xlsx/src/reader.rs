@@ -249,6 +249,16 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         if self.exhausted {
             return Ok(false);
         }
+        if self.options.stop_after_last_row
+            && self
+                .options
+                .rows
+                .as_ref()
+                .is_some_and(|range| self.last_row.is_some_and(|last| last >= *range.end()))
+        {
+            self.exhausted = true;
+            return Ok(false);
+        }
         let result = self
             .read_row_impl(row)
             .map_err(|error| error.with_part(self.xml.part()));
@@ -360,6 +370,16 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     let index = RowIndex::new(index).map_err(|e| e.with_part(self.xml.part()))?;
                     if self.last_row.is_some_and(|last| index <= last) {
                         return Err(self.invalid("Rows must be in strictly increasing order"));
+                    }
+                    if self.options.stop_after_last_row
+                        && self
+                            .options
+                            .rows
+                            .as_ref()
+                            .is_some_and(|range| index > *range.end())
+                    {
+                        self.exhausted = true;
+                        return Ok(false);
                     }
                     row.index = index;
                     self.next_row_index = index.get() + 1;

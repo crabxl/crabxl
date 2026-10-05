@@ -3300,3 +3300,37 @@ fn strict_shared_ids_reject_missing_opaque_and_large_indices_with_context() {
         assert_eq!(error.part(), Some("data/values.xml"));
     }
 }
+
+#[test]
+fn bounded_prefix_explicitly_skips_unread_tail_validation() {
+    for tail in [
+        "<row r=\"2\"><c r=\"A2\"><v>bad</v></c></row>",
+        "<row r=\"3\"><c r=\"A3\"><v>bad</v></c></row>",
+    ] {
+        let xml = format!("<row r=\"1\"><c r=\"A1\"><v>7</v></c></row>{tail}");
+        let mut book = open(&xml);
+        let options = ReadOptions {
+            rows: Some(RowIndex::new(0).unwrap()..=RowIndex::new(1).unwrap()),
+            stop_after_last_row: true,
+            ..Default::default()
+        };
+        let mut rows = book.rows_with_options("A & B", options).unwrap();
+        assert!(rows.next_row().unwrap().is_some());
+        if tail.contains("r=\"3\"") {
+            assert!(rows.next_row().unwrap().is_none());
+        } else {
+            assert!(rows.next_row().is_err());
+        }
+    }
+    let mut book = open("<row r=\"1\"><c r=\"A1\"><v>7</v></c></row><broken>");
+    let options = ReadOptions {
+        rows: Some(RowIndex::new(0).unwrap()..=RowIndex::new(0).unwrap()),
+        stop_after_last_row: true,
+        ..Default::default()
+    };
+    let mut rows = book.rows_with_options("A & B", options).unwrap();
+    assert!(rows.read_batch().unwrap().is_some());
+    assert!(rows.next_row().unwrap().is_none());
+    drop(rows);
+    assert!(book.rows("A & B").unwrap().read_batch().is_err());
+}
