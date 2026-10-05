@@ -91,6 +91,55 @@ impl WorkbookReader<File> {
     }
 }
 impl<R: Read + Seek> WorkbookReader<R> {
+    /// Read the declared worksheet dimension without loading cells. Missing
+    /// dimensions are returned as None; callers can stream to calculate them.
+    /// Stops at sheetData and does not validate unread worksheet bytes or CRC.
+    pub fn worksheet_dimension(&mut self, name: &str) -> Result<Option<crabxl_core::CellRange>> {
+        let sheet = self
+            .sheets
+            .iter()
+            .find(|sheet| sheet.name == name)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet not found"))?;
+        if sheet.kind != SheetKind::Worksheet {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Only worksheets have cell dimensions",
+            ));
+        }
+        let part = sheet.part.clone();
+        let file = self.archive.by_name(&part).map_err(|error| {
+            Error::caused_by(ErrorKind::Archive, "Cannot open worksheet", error).with_part(&part)
+        })?;
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(self.limits.input_buffer_bytes, file),
+            part,
+            self.limits.max_part_bytes,
+            self.limits,
+        );
+        loop {
+            let frame = xml.next()?;
+            match frame.event {
+                Event::Start(element)
+                    if frame.scope == Scope::Spreadsheet
+                        && element.local_name().as_ref() == b"dimension"
+                        && frame.depth == 2 =>
+                {
+                    return required_attribute(&element, b"ref", frame.decoder)?
+                        .parse()
+                        .map(Some);
+                }
+                Event::Start(element)
+                    if frame.scope == Scope::Spreadsheet
+                        && element.local_name().as_ref() == b"sheetData"
+                        && frame.depth == 2 =>
+                {
+                    return Ok(None);
+                }
+                Event::Eof => return Ok(None),
+                _ => {}
+            }
+        }
+    }
     /// Read bounded worksheet viewport metadata without materializing cells.
     /// Stops at the views container or sheetData: the unconsumed payload and CRC
     /// are not validated. Original-package save can validate every affected part.

@@ -38,6 +38,10 @@ The public documentation distinguishes a general editable model, lazy read-only 
 
 ## Workspace
 
+Independent append-only worksheet spools share one writer style bank and package
+creation order while retaining bounded per-sheet buffers. Header-only declared
+dimensions support optimized consumers; see ADR 0046.
+
 ```text
 crabxl/
 ├── Cargo.toml

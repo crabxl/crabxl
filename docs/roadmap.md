@@ -75,6 +75,11 @@ Acceptance: numeric, repeated-string, and high-cardinality-string correctness/me
 
 ## M3: Port writers and shared-model round-trip (complete)
 
+Independent appendable spools now support interleaved worksheet creation, bounded
+buffers and creation-order packaging (ADR 0046). Declared worksheet dimensions
+are inspectable without cell materialization. Python optimized-mode acceptance
+is tracked independently in the adapter repository.
+
 - Extract writer packaging, XML/cell encoding, initial styles, and constant-memory output from rust_xlsxwriter.
 - Use shared values/styles/formulas/addresses/errors and relationship/content-type/ID management.
 - Support numeric/text/date/formula/basic-style output. Distinguish finish, close, abort, and Drop cleanup; do not fabricate numeric empty cached results.

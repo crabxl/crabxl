@@ -125,10 +125,12 @@ pub struct WriteStats {
     pub peak_temp_bytes: u64,
 }
 struct StoredSheet {
+    id: usize,
     name: String,
     file: NamedTempFile,
 }
 struct ActiveSheet {
+    id: usize,
     name: String,
     output: BufWriter<NamedTempFile>,
     bytes: u64,
@@ -148,6 +150,8 @@ pub struct WorkbookWriter {
     styles: Option<StyleRegistry>,
     date_styles: DateStyleIds,
     active: Option<ActiveSheet>,
+    paused: Vec<ActiveSheet>,
+    next_sheet: usize,
     row_buffer: RowBuffer,
     temporary_bytes: u64,
     stats: WriteStats,
@@ -271,6 +275,8 @@ impl WorkbookWriter {
             styles: Some(styles),
             date_styles,
             active: None,
+            paused: Vec::new(),
+            next_sheet: 0,
             row_buffer,
             temporary_bytes: 0,
             stats: WriteStats::default(),
@@ -345,6 +351,7 @@ impl WorkbookWriter {
     }
     fn catalog_bytes(&self) -> usize {
         self.options.theme.memory_bytes()
+            + self.paused_bytes()
             + self.sheets.capacity() * size_of::<StoredSheet>()
             + self
                 .sheets
@@ -360,6 +367,135 @@ impl WorkbookWriter {
     fn style_bytes(&self) -> usize {
         self.style_memory_bytes()
             .saturating_add(self.options.theme.memory_bytes())
+    }
+    fn paused_bytes(&self) -> usize {
+        self.paused.capacity() * size_of::<ActiveSheet>()
+            + self
+                .paused
+                .iter()
+                .map(|sheet| {
+                    sheet.name.capacity()
+                        + sheet.output.capacity()
+                        + sheet.output.get_ref().path().as_os_str().len()
+                        + sheet.footer.as_ref().map_or(0, Vec::capacity)
+                })
+                .sum::<usize>()
+    }
+    fn paused_footers(&self) -> u64 {
+        self.paused
+            .iter()
+            .map(|sheet| sheet.footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64)
+            .sum()
+    }
+    /// Start an independently appendable sheet, preserving other live spools.
+    /// The returned ID is stable until finish/abort. Sheets package in creation
+    /// order; buffers, catalogs and temporary bytes remain explicitly bounded.
+    pub fn start_interleaved_sheet(&mut self, name: impl Into<String>) -> Result<usize> {
+        self.ensure_open()?;
+        let previous = self.active.as_ref().map(|sheet| sheet.id);
+        if self.active.is_some() {
+            self.paused.try_reserve_exact(1).map_err(|error| {
+                io_error("Cannot reserve paused worksheet", io::Error::other(error))
+            })?;
+            if self
+                .style_memory_bytes()
+                .saturating_add(self.catalog_bytes())
+                .saturating_add(self.options.buffer_bytes)
+                > self.options.max_metadata_bytes
+            {
+                return Err(limit("Paused worksheet buffers exceed metadata allowance"));
+            }
+            self.paused.push(
+                self.active
+                    .take()
+                    .ok_or_else(|| state("No active worksheet"))?,
+            );
+        }
+        if let Err(error) = self.start_sheet(name) {
+            if let Some(previous) = previous {
+                self.activate_sheet(previous)?;
+            }
+            return Err(error);
+        }
+        self.active
+            .as_ref()
+            .map(|sheet| sheet.id)
+            .ok_or_else(|| state("No active worksheet"))
+    }
+    /// Select a live append-only sheet. Closed or unknown IDs reject explicitly.
+    pub fn activate_sheet(&mut self, id: usize) -> Result<()> {
+        self.ensure_open()?;
+        if self.active.as_ref().is_some_and(|sheet| sheet.id == id) {
+            return Ok(());
+        }
+        let position = self
+            .paused
+            .iter()
+            .position(|sheet| sheet.id == id)
+            .ok_or_else(|| state("Worksheet is closed or unknown"))?;
+        let selected = self.paused.swap_remove(position);
+        if let Some(previous) = self.active.replace(selected) {
+            self.paused.push(previous);
+        }
+        Ok(())
+    }
+    /// Close one independently appendable sheet without closing other sheets.
+    pub fn close_interleaved_sheet(&mut self, id: usize) -> Result<()> {
+        self.activate_sheet(id)?;
+        self.close_sheet()
+    }
+    /// Change the metadata name of an existing live or completed sheet.
+    pub fn rename_interleaved_sheet(&mut self, id: usize, name: impl Into<String>) -> Result<()> {
+        let name = name.into();
+        self.ensure_open()?;
+        validate_sheet_name(&name)?;
+        let folded = name.to_lowercase();
+        if self
+            .sheets
+            .iter()
+            .any(|sheet| sheet.id != id && sheet.name.to_lowercase() == folded)
+            || self
+                .paused
+                .iter()
+                .any(|sheet| sheet.id != id && sheet.name.to_lowercase() == folded)
+            || self
+                .active
+                .as_ref()
+                .is_some_and(|sheet| sheet.id != id && sheet.name.to_lowercase() == folded)
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Worksheet names must be unique ignoring case",
+            ));
+        }
+        if self
+            .style_memory_bytes()
+            .saturating_add(self.catalog_bytes())
+            .saturating_add(name.capacity())
+            > self.options.max_metadata_bytes
+        {
+            return Err(limit("Worksheet name exceeds metadata allowance"));
+        }
+        let target = self
+            .sheets
+            .iter_mut()
+            .find(|sheet| sheet.id == id)
+            .map(|sheet| &mut sheet.name)
+            .or_else(|| {
+                self.paused
+                    .iter_mut()
+                    .find(|sheet| sheet.id == id)
+                    .map(|sheet| &mut sheet.name)
+            })
+            .or_else(|| {
+                self.active
+                    .as_mut()
+                    .filter(|sheet| sheet.id == id)
+                    .map(|sheet| &mut sheet.name)
+            })
+            .ok_or_else(|| state("Unknown worksheet ID"))?;
+        *target = name;
+        Ok(())
     }
     /// Start a sheet, completing the previous one. Failed validation or temporary
     /// file creation leaves the previous active sheet usable.
@@ -472,15 +608,19 @@ impl WorkbookWriter {
     ) -> Result<()> {
         self.ensure_open()?;
         validate_sheet_name(&name)?;
-        let count = self.sheets.len() + usize::from(self.active.is_some());
+        let count = self.sheets.len() + self.paused.len() + usize::from(self.active.is_some());
         if count >= self.options.max_sheets {
             return Err(limit("Writer sheet count limit exceeded"));
         }
         let folded = name.to_lowercase();
         if self
-            .sheets
+            .paused
             .iter()
             .any(|sheet| sheet.name.to_lowercase() == folded)
+            || self
+                .sheets
+                .iter()
+                .any(|sheet| sheet.name.to_lowercase() == folded)
             || self
                 .active
                 .as_ref()
@@ -500,11 +640,12 @@ impl WorkbookWriter {
                     error,
                 )
             })?;
-        let existing = self
-            .sheets
-            .iter()
-            .map(|sheet| sheet.name.capacity() + sheet.file.path().as_os_str().len())
-            .sum::<usize>()
+        let existing = self.paused_bytes()
+            + self
+                .sheets
+                .iter()
+                .map(|sheet| sheet.name.capacity() + sheet.file.path().as_os_str().len())
+                .sum::<usize>()
             + self.active.as_ref().map_or(0, |sheet| {
                 sheet.name.capacity()
                     + sheet.output.get_ref().path().as_os_str().len()
@@ -539,9 +680,10 @@ impl WorkbookWriter {
             return Err(limit("Writer catalog budget exceeded"));
         }
         // Reserve both the old sheet's footer and new sheet before mutating state.
-        let old_footer = self.active.as_ref().map_or(0, |sheet| {
-            sheet.footer.as_ref().map_or(FOOTER.len(), Vec::len)
-        }) as u64;
+        let old_footer = self.paused_footers()
+            + self.active.as_ref().map_or(0, |sheet| {
+                sheet.footer.as_ref().map_or(FOOTER.len(), Vec::len)
+            }) as u64;
         let footer_bytes = footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64;
         self.check_temp(header.len() as u64 + old_footer + footer_bytes)?;
         if header.len() as u64 + footer_bytes > self.options.max_sheet_bytes {
@@ -549,6 +691,7 @@ impl WorkbookWriter {
         }
         self.close_sheet()?;
         self.active = Some(ActiveSheet {
+            id: self.next_sheet,
             name,
             output: BufWriter::with_capacity(self.options.buffer_bytes, file),
             bytes: 0,
@@ -556,6 +699,7 @@ impl WorkbookWriter {
             footer,
         });
         self.write_active(header)?;
+        self.next_sheet += 1;
         Ok(())
     }
     /// Write a complete sparse row. Validate/encode before spooling so invalid
@@ -585,7 +729,7 @@ impl WorkbookWriter {
     /// Model epoch and active sheet are applied before any worksheet starts.
     pub fn write_workbook(&mut self, workbook: &crabxl_core::Workbook) -> Result<()> {
         self.ensure_open()?;
-        if !self.sheets.is_empty() || self.active.is_some() {
+        if !self.sheets.is_empty() || !self.paused.is_empty() || self.active.is_some() {
             return Err(state("Workbook model export requires a fresh writer"));
         }
         if let Some(catalog) = workbook.style_catalog()
@@ -682,6 +826,7 @@ impl WorkbookWriter {
         let length = self.row_buffer.data.len() as u64;
         self.check_temp(
             length
+                + self.paused_footers()
                 + self.active.as_ref().map_or(FOOTER.len(), |sheet| {
                     sheet.footer.as_ref().map_or(FOOTER.len(), Vec::len)
                 }) as u64,
@@ -729,6 +874,7 @@ impl WorkbookWriter {
             io_error("Cannot flush worksheet temporary file", error.into_error())
         })?;
         self.sheets.push(StoredSheet {
+            id: active.id,
             name: active.name,
             file,
         });
@@ -737,6 +883,25 @@ impl WorkbookWriter {
     /// Return progress and peak logical temporary storage.
     pub fn stats(&self) -> WriteStats {
         self.stats
+    }
+    /// Set the active display sheet before packaging. Finish validates the index.
+    pub fn set_active_sheet(&mut self, index: usize) -> Result<()> {
+        self.ensure_open()?;
+        self.options.active_sheet = index;
+        Ok(())
+    }
+    /// Set temporal storage before any rows are committed. Already serialized
+    /// values cannot be reinterpreted by changing the epoch or ISO policy.
+    pub fn set_temporal_options(&mut self, date_1904: bool, iso_dates: bool) -> Result<()> {
+        self.ensure_open()?;
+        if self.stats.rows != 0 {
+            return Err(state(
+                "Temporal options cannot change after rows are written",
+            ));
+        }
+        self.options.date_1904 = date_1904;
+        self.options.iso_dates = iso_dates;
+        Ok(())
     }
     /// Bytes currently retained in owned temporary worksheets, including buffers.
     pub fn temporary_bytes(&self) -> u64 {
@@ -762,7 +927,7 @@ impl WorkbookWriter {
                 remaining.push(path);
             }
         }
-        if let Some(active) = self.active.take() {
+        for active in self.active.take().into_iter().chain(self.paused.drain(..)) {
             let (file, _) = active.output.into_parts();
             let path = file.path().to_owned();
             if let Err(error) = file.close()
@@ -790,6 +955,7 @@ impl WorkbookWriter {
         }
         self.cleanup_paths = remaining;
         self.sheets = Vec::new();
+        self.paused = Vec::new();
         self.styles = None;
         self.options.theme = crate::ThemeWritePolicy::Omit;
         self.row_buffer.data = Vec::new();
@@ -800,6 +966,11 @@ impl WorkbookWriter {
     /// may leave partial bytes in caller output; abort/Drop never imply save.
     pub fn finish<W: Write + Seek>(mut self, output: W) -> Result<W> {
         self.close_sheet()?;
+        while let Some(active) = self.paused.pop() {
+            self.active = Some(active);
+            self.close_sheet()?;
+        }
+        self.sheets.sort_by_key(|sheet| sheet.id);
         if self.sheets.is_empty() {
             return Err(state("A workbook requires at least one worksheet"));
         }
