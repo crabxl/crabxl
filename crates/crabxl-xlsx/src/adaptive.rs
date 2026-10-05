@@ -249,20 +249,38 @@ fn finite_limit(text: &str, label: &str) -> Option<u64> {
             .ok()
     })
 }
-fn cgroup_headroom(directory: &Path) -> Option<u64> {
-    let maximum = fs::read_to_string(directory.join("memory.max")).ok()?;
-    if maximum.trim() == "max" {
+#[derive(Clone, Copy)]
+enum CgroupMemory {
+    Unified,
+    Legacy,
+}
+impl CgroupMemory {
+    fn files(self) -> (&'static str, &'static str) {
+        match self {
+            Self::Unified => ("memory.max", "memory.current"),
+            Self::Legacy => ("memory.limit_in_bytes", "memory.usage_in_bytes"),
+        }
+    }
+}
+fn cgroup_headroom(directory: &Path, version: CgroupMemory) -> Option<u64> {
+    let (limit, usage) = version.files();
+    let maximum = fs::read_to_string(directory.join(limit)).ok()?;
+    if matches!(version, CgroupMemory::Unified) && maximum.trim() == "max" {
         return Some(u64::MAX);
     }
     let maximum: u64 = maximum.trim().parse().ok()?;
-    let current: u64 = fs::read_to_string(directory.join("memory.current"))
+    let current: u64 = fs::read_to_string(directory.join(usage))
         .ok()?
         .trim()
         .parse()
         .ok()?;
     Some(maximum.saturating_sub(current))
 }
+#[cfg(test)]
 fn cgroup_available(root: &Path, membership: &str) -> Option<u64> {
+    cgroup_directory_available(root, membership, CgroupMemory::Unified)
+}
+fn cgroup_directory_available(root: &Path, membership: &str, version: CgroupMemory) -> Option<u64> {
     let relative = Path::new(membership.trim_start_matches('/'));
     if relative
         .components()
@@ -274,10 +292,10 @@ fn cgroup_available(root: &Path, membership: &str) -> Option<u64> {
     let mut available = u64::MAX;
     let mut observed = false;
     loop {
-        match fs::metadata(directory.join("memory.max")) {
+        match fs::metadata(directory.join(version.files().0)) {
             Ok(_) => {
                 // A present but unreadable/malformed limit makes discovery incomplete.
-                available = available.min(cgroup_headroom(&directory)?);
+                available = available.min(cgroup_headroom(&directory, version)?);
                 observed = true;
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -289,8 +307,107 @@ fn cgroup_available(root: &Path, membership: &str) -> Option<u64> {
     }
     observed.then_some(available)
 }
+// mountinfo escapes space, tab, newline and backslash in path fields.
+fn mount_path(value: &str) -> Option<std::path::PathBuf> {
+    let mut bytes = Vec::with_capacity(value.len());
+    let mut input = value.as_bytes().iter().copied();
+    while let Some(byte) = input.next() {
+        if byte == b'\\' {
+            let digits = [input.next()?, input.next()?, input.next()?];
+            bytes.push(match &digits {
+                b"040" => b' ',
+                b"011" => b'\t',
+                b"012" => b'\n',
+                b"134" => b'\\',
+                _ => return None,
+            });
+        } else {
+            bytes.push(byte);
+        }
+    }
+    let value = String::from_utf8(bytes).ok()?;
+    let path = Path::new(&value);
+    (path.is_absolute()
+        && !path
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir)))
+    .then(|| path.to_owned())
+}
+
+fn mounted_cgroup_available(membership: &str, mounts: &str) -> Option<u64> {
+    let legacy = membership.lines().find_map(|line| {
+        let mut fields = line.splitn(3, ':');
+        fields.next()?;
+        let controllers = fields.next()?;
+        controllers
+            .split(',')
+            .any(|item| item == "memory")
+            .then(|| fields.next())
+            .flatten()
+    });
+    let (member, version) = if let Some(member) = legacy {
+        (member, CgroupMemory::Legacy)
+    } else {
+        (
+            membership
+                .lines()
+                .find_map(|line| line.strip_prefix("0::"))?,
+            CgroupMemory::Unified,
+        )
+    };
+    let member = Path::new(member);
+    if !member.is_absolute()
+        || member
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir))
+    {
+        return None;
+    }
+    let mut available = u64::MAX;
+    let mut observed = false;
+    for line in mounts.lines() {
+        let Some((details, filesystem)) = line.split_once(" - ") else {
+            continue;
+        };
+        let mut filesystem = filesystem.split_whitespace();
+        let Some(kind) = filesystem.next() else {
+            continue;
+        };
+        filesystem.next();
+        let options = filesystem.next().unwrap_or_default();
+        let matches = match version {
+            CgroupMemory::Unified => kind == "cgroup2",
+            CgroupMemory::Legacy => {
+                kind == "cgroup" && options.split(',').any(|item| item == "memory")
+            }
+        };
+        if !matches {
+            continue;
+        }
+        let mut fields = details.split_whitespace().skip(3);
+        let root_field = fields.next()?;
+        let directory = mount_path(fields.next()?)?;
+        // A cgroup namespace can expose its mounted ancestor as /.. while
+        // reporting process membership as /. Inspect the visible mount root;
+        // never append or traverse the synthetic parent marker on the host FS.
+        // Descendant constraints hidden by the namespace remain unobservable.
+        let relative = if root_field == "/.." && member == Path::new("/") {
+            String::new()
+        } else {
+            let root = mount_path(root_field)?;
+            let Ok(relative) = member.strip_prefix(root) else {
+                continue;
+            };
+            relative.to_str()?.to_owned()
+        };
+        available = available.min(cgroup_directory_available(&directory, &relative, version)?);
+        observed = true;
+    }
+    observed.then_some(available)
+}
+
 fn detect_available() -> (u64, MemorySource) {
-    // Portable conservative fallback; Linux v1 and other OS probes are not implemented.
+    // Other OS probes remain staged; caller overrides are portable.
     const FALLBACK: u64 = 256 * 1024 * 1024;
     if !cfg!(target_os = "linux") {
         return (FALLBACK, MemorySource::ConservativeFallback);
@@ -298,20 +415,16 @@ fn detect_available() -> (u64, MemorySource) {
     let host = fs::read_to_string("/proc/meminfo")
         .ok()
         .and_then(|text| kib_field(&text, "MemAvailable:"));
-    let membership = fs::read_to_string("/proc/self/cgroup")
+    let cgroup = fs::read_to_string("/proc/self/cgroup")
         .ok()
-        .and_then(|text| {
-            text.lines()
-                .find_map(|line| line.strip_prefix("0::").map(str::to_owned))
+        .and_then(|membership| {
+            let mounts = fs::read_to_string("/proc/self/mountinfo").ok()?;
+            mounted_cgroup_available(&membership, &mounts)
         });
     let Some(mut available) = host else {
         return (FALLBACK, MemorySource::ConservativeFallback);
     };
-    let root = Path::new("/sys/fs/cgroup");
-    let Some(membership) = membership else {
-        return (available.min(FALLBACK), MemorySource::ConservativeFallback);
-    };
-    let Some(cgroup) = cgroup_available(root, &membership) else {
+    let Some(cgroup) = cgroup else {
         return (available.min(FALLBACK), MemorySource::ConservativeFallback);
     };
     available = available.min(cgroup);
@@ -417,5 +530,85 @@ mod tests {
         assert_eq!(cgroup_available(&root, "/group/child"), None);
         assert_eq!(cgroup_available(&root, "/../escape"), None);
         fs::remove_dir_all(root).expect("Clean test hierarchy");
+    }
+    #[test]
+    fn legacy_mount_discovery_obeys_visible_parent_usage_and_hybrid_membership() {
+        let temporary = tempfile::tempdir().expect("Isolated controller mount");
+        let root = temporary.path();
+        let child = root.join("child");
+        fs::create_dir(&child).expect("Child controller");
+        for (directory, limit, usage) in [(root, "1000", "950"), (child.as_path(), "600", "100")] {
+            fs::write(directory.join("memory.limit_in_bytes"), limit).expect("Legacy limit");
+            fs::write(directory.join("memory.usage_in_bytes"), usage).expect("Legacy usage");
+        }
+        let mounts = format!(
+            "25 1 0:20 /tenant {} rw - cgroup cgroup rw,memory,other\n",
+            root.display()
+        );
+        let membership = "0::/unified\n7:cpu,cpuacct:/other\n8:memory:/tenant/child\n";
+        assert_eq!(mounted_cgroup_available(membership, &mounts), Some(50));
+        fs::write(child.join("memory.usage_in_bytes"), "700").expect("Over limit");
+        assert_eq!(mounted_cgroup_available(membership, &mounts), Some(0));
+        fs::write(child.join("memory.limit_in_bytes"), "9223372036854771712")
+            .expect("Legacy unlimited sentinel");
+        assert_eq!(mounted_cgroup_available(membership, &mounts), Some(50));
+        fs::remove_file(child.join("memory.usage_in_bytes")).expect("Remove usage");
+        assert_eq!(mounted_cgroup_available(membership, &mounts), None);
+        assert_eq!(
+            mounted_cgroup_available("8:memory:/unrelated", &mounts),
+            None
+        );
+        assert_eq!(
+            mounted_cgroup_available("8:memory:/tenant/../escape", &mounts),
+            None
+        );
+        assert_eq!(
+            mounted_cgroup_available(
+                "8:memory:/tenant/child",
+                &mounts.replace("rw,memory,other", "rw,cpu")
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn unified_mount_discovery_handles_bind_roots_escaped_paths_and_aliases() {
+        let temporary = tempfile::tempdir().expect("Isolated mount");
+        let root = temporary.path().join("memory mount");
+        fs::create_dir(&root).expect("Mount with space");
+        fs::write(root.join("memory.max"), "400").expect("Unified limit");
+        fs::write(root.join("memory.current"), "150").expect("Unified usage");
+        let directory = root.to_str().expect("UTF8 test path").replace(' ', "\\040");
+        let mounts = format!("25 1 0:20 /tenant {directory} rw shared:2 - cgroup2 cgroup rw\n");
+        assert_eq!(mounted_cgroup_available("0::/tenant", &mounts), Some(250));
+        assert_eq!(mounted_cgroup_available("0::/tenant2", &mounts), None);
+        assert_eq!(mounted_cgroup_available("0::/", &mounts), None);
+        let namespace_mount = mounts.replace(" /tenant ", " /.. ");
+        assert_eq!(
+            mounted_cgroup_available("0::/", &namespace_mount),
+            Some(250)
+        );
+        assert_eq!(
+            mounted_cgroup_available("0::/tenant", &namespace_mount),
+            None
+        );
+        assert_eq!(
+            mounted_cgroup_available("0::/tenant", &(mounts.clone() + &mounts)),
+            Some(250)
+        );
+        assert_eq!(
+            mount_path("/a\\134b\\011c\\012d"),
+            Some(std::path::PathBuf::from("/a\\b\tc\nd"))
+        );
+        for path in ["relative", "/a/../b", "/a\\999", "/a\\04", "/a\\000"] {
+            assert_eq!(mount_path(path), None);
+        }
+        fs::write(root.join("memory.max"), "max").expect("Unlimited controller");
+        assert_eq!(
+            mounted_cgroup_available("0::/tenant", &mounts),
+            Some(u64::MAX)
+        );
+        fs::write(root.join("memory.max"), "broken").expect("Invalid controller");
+        assert_eq!(mounted_cgroup_available("0::/tenant", &mounts), None);
     }
 }

@@ -1,0 +1,557 @@
+{
+  "baseline_core": "fa5f3b0fb1148803ee312de726fd182be152e504",
+  "baseline_binary_sha256": "f15fe555488ef80edf678a0a4af2138256a7229cbeb96eec854625422c608230",
+  "reference": "3.1.5",
+  "measurement": "One warmup and five rotating serial cold-process runs; builds/tests/generation excluded. Kernel RSS, wall/CPU; 25ms temporary sampling with cleanup. Auto decisions retained per sample.",
+  "semantics": "Ten numeric columns. Auto scan streams once; Auto repeated access retains a sparse snapshot when it fits and sums three times. Corresponding reference uses read_only scanning or ordinary loaded model. Full row count and checksum checked. Native processes and Python runtime overhead differ. Live host is cgroup v2; v1 mount/hierarchy behavior is deterministic fixture-tested, not performance-tested on an actual v1 host. Availability is a snapshot and may vary per process.",
+  "cases": [
+    {
+      "rows": 5000,
+      "cells": 50000,
+      "mode": "auto-scan",
+      "passes": 1,
+      "expected": "50000 1249975000",
+      "source_bytes": 164752,
+      "source_sha256": "72b06a4aab01eebd17943838dd06b71c8a71422e939778ad50cecc1a3c12c7a7",
+      "samples": {
+        "current": [
+          {
+            "seconds": 0.039305819,
+            "cpu_seconds": 0.039155,
+            "peak_rss_kib": 2060,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186768384, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185419660, estimated_data_bytes: None, available_bytes: Some(1015508992), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.041005077,
+            "cpu_seconds": 0.040761,
+            "peak_rss_kib": 2052,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186816512, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185467788, estimated_data_bytes: None, available_bytes: Some(1015701504), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.041673799,
+            "cpu_seconds": 0.041514,
+            "peak_rss_kib": 2052,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186691584, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185342860, estimated_data_bytes: None, available_bytes: Some(1015201792), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.055952216,
+            "cpu_seconds": 0.055709,
+            "peak_rss_kib": 2060,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186705920, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185357196, estimated_data_bytes: None, available_bytes: Some(1015259136), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.040878104,
+            "cpu_seconds": 0.040752,
+            "peak_rss_kib": 2064,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186779648, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185430924, estimated_data_bytes: None, available_bytes: Some(1015554048), memory_source: Linux, reason: SequentialAccess }"
+          }
+        ],
+        "baseline": [
+          {
+            "seconds": 0.038398509,
+            "cpu_seconds": 0.038301,
+            "peak_rss_kib": 1992,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186807296, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185458572, estimated_data_bytes: None, available_bytes: Some(1015664640), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.038529733,
+            "cpu_seconds": 0.038422,
+            "peak_rss_kib": 1932,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186710016, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185361292, estimated_data_bytes: None, available_bytes: Some(1015275520), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.039081078,
+            "cpu_seconds": 0.038971,
+            "peak_rss_kib": 1932,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186730496, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185381772, estimated_data_bytes: None, available_bytes: Some(1015357440), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.044942852,
+            "cpu_seconds": 0.044807,
+            "peak_rss_kib": 1932,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186747904, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185399180, estimated_data_bytes: None, available_bytes: Some(1015427072), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.038187377,
+            "cpu_seconds": 0.038049,
+            "peak_rss_kib": 1996,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186812416, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185463692, estimated_data_bytes: None, available_bytes: Some(1015685120), memory_source: Linux, reason: SequentialAccess }"
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 0.378465358,
+            "cpu_seconds": 0.526942,
+            "peak_rss_kib": 35636,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.38095637,
+            "cpu_seconds": 0.562538,
+            "peak_rss_kib": 35640,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.364209716,
+            "cpu_seconds": 0.520514,
+            "peak_rss_kib": 35636,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.398895376,
+            "cpu_seconds": 0.555193,
+            "peak_rss_kib": 35636,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.403251285,
+            "cpu_seconds": 0.539947,
+            "peak_rss_kib": 35636,
+            "sampled_temp_peak_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "current": {
+          "seconds": 0.041005077,
+          "cpu_seconds": 0.040761,
+          "peak_rss_kib": 2060,
+          "sampled_temp_peak_bytes": 0
+        },
+        "baseline": {
+          "seconds": 0.038529733,
+          "cpu_seconds": 0.038422,
+          "peak_rss_kib": 1932,
+          "sampled_temp_peak_bytes": 0
+        },
+        "openpyxl": {
+          "seconds": 0.38095637,
+          "cpu_seconds": 0.539947,
+          "peak_rss_kib": 35636,
+          "sampled_temp_peak_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 5000,
+      "cells": 50000,
+      "mode": "auto-repeat",
+      "passes": 3,
+      "expected": "150000 3749925000",
+      "source_bytes": 164752,
+      "source_sha256": "72b06a4aab01eebd17943838dd06b71c8a71422e939778ad50cecc1a3c12c7a7",
+      "samples": {
+        "current": [
+          {
+            "seconds": 0.044935707,
+            "cpu_seconds": 0.044776,
+            "peak_rss_kib": 4688,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186758144, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185409420, estimated_data_bytes: Some(4768706), available_bytes: Some(1015468032), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.044328654,
+            "cpu_seconds": 0.044014,
+            "peak_rss_kib": 4680,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186734592, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185385868, estimated_data_bytes: Some(4768706), available_bytes: Some(1015373824), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.041284288,
+            "cpu_seconds": 0.04117,
+            "peak_rss_kib": 4680,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186759168, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185410444, estimated_data_bytes: Some(4768706), available_bytes: Some(1015472128), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.041347597,
+            "cpu_seconds": 0.041219,
+            "peak_rss_kib": 4612,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186730496, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185381772, estimated_data_bytes: Some(4768706), available_bytes: Some(1015357440), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.040886571,
+            "cpu_seconds": 0.040725,
+            "peak_rss_kib": 4628,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186705920, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185357196, estimated_data_bytes: Some(4768706), available_bytes: Some(1015259136), memory_source: Linux, reason: SampleFits }"
+          }
+        ],
+        "baseline": [
+          {
+            "seconds": 0.043238263,
+            "cpu_seconds": 0.04297,
+            "peak_rss_kib": 4684,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186775552, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185426828, estimated_data_bytes: Some(4768706), available_bytes: Some(1015537664), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.04330581,
+            "cpu_seconds": 0.04311,
+            "peak_rss_kib": 4684,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186750976, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185402252, estimated_data_bytes: Some(4768706), available_bytes: Some(1015439360), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.042573622,
+            "cpu_seconds": 0.04247,
+            "peak_rss_kib": 4620,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186778624, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185429900, estimated_data_bytes: Some(4768706), available_bytes: Some(1015549952), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.040220387,
+            "cpu_seconds": 0.039961,
+            "peak_rss_kib": 4748,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186748928, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185400204, estimated_data_bytes: Some(4768706), available_bytes: Some(1015431168), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.040814394,
+            "cpu_seconds": 0.040715,
+            "peak_rss_kib": 4748,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186659840, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185311116, estimated_data_bytes: Some(4768706), available_bytes: Some(1015074816), memory_source: Linux, reason: SampleFits }"
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 0.489848464,
+            "cpu_seconds": 0.694631,
+            "peak_rss_kib": 55784,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.485197383,
+            "cpu_seconds": 0.605299,
+            "peak_rss_kib": 55796,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.4919594,
+            "cpu_seconds": 0.696068,
+            "peak_rss_kib": 55780,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.442362029,
+            "cpu_seconds": 0.644028,
+            "peak_rss_kib": 55784,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 0.464385869,
+            "cpu_seconds": 0.650044,
+            "peak_rss_kib": 55796,
+            "sampled_temp_peak_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "current": {
+          "seconds": 0.041347597,
+          "cpu_seconds": 0.041219,
+          "peak_rss_kib": 4680,
+          "sampled_temp_peak_bytes": 0
+        },
+        "baseline": {
+          "seconds": 0.042573622,
+          "cpu_seconds": 0.04247,
+          "peak_rss_kib": 4684,
+          "sampled_temp_peak_bytes": 0
+        },
+        "openpyxl": {
+          "seconds": 0.485197383,
+          "cpu_seconds": 0.650044,
+          "peak_rss_kib": 55784,
+          "sampled_temp_peak_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 50000,
+      "cells": 500000,
+      "mode": "auto-scan",
+      "passes": 1,
+      "expected": "500000 124999750000",
+      "source_bytes": 1577029,
+      "source_sha256": "1701c8a993e6c155a64fa9a4dcf7a9fb5233852893c9258dcab2d97035394630",
+      "samples": {
+        "current": [
+          {
+            "seconds": 0.383639673,
+            "cpu_seconds": 0.383453,
+            "peak_rss_kib": 2068,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186368000, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185019276, estimated_data_bytes: None, available_bytes: Some(1013907456), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.372415008,
+            "cpu_seconds": 0.371696,
+            "peak_rss_kib": 2060,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186291200, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184942476, estimated_data_bytes: None, available_bytes: Some(1013600256), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.375480505,
+            "cpu_seconds": 0.375346,
+            "peak_rss_kib": 2044,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186354688, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185005964, estimated_data_bytes: None, available_bytes: Some(1013854208), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.365274951,
+            "cpu_seconds": 0.364277,
+            "peak_rss_kib": 2064,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186402816, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185054092, estimated_data_bytes: None, available_bytes: Some(1014046720), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.386134547,
+            "cpu_seconds": 0.385963,
+            "peak_rss_kib": 2004,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186309632, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184960908, estimated_data_bytes: None, available_bytes: Some(1013673984), memory_source: Linux, reason: SequentialAccess }"
+          }
+        ],
+        "baseline": [
+          {
+            "seconds": 0.384125888,
+            "cpu_seconds": 0.383956,
+            "peak_rss_kib": 1932,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186343424, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184994700, estimated_data_bytes: None, available_bytes: Some(1013809152), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.376748823,
+            "cpu_seconds": 0.376654,
+            "peak_rss_kib": 1996,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186406912, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185058188, estimated_data_bytes: None, available_bytes: Some(1014063104), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.373075082,
+            "cpu_seconds": 0.372918,
+            "peak_rss_kib": 1996,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186332160, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184983436, estimated_data_bytes: None, available_bytes: Some(1013764096), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.366274708,
+            "cpu_seconds": 0.365946,
+            "peak_rss_kib": 1996,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186435584, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 185086860, estimated_data_bytes: None, available_bytes: Some(1014177792), memory_source: Linux, reason: SequentialAccess }"
+          },
+          {
+            "seconds": 0.379123296,
+            "cpu_seconds": 0.378953,
+            "peak_rss_kib": 1932,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Streaming, budget_bytes: 186267648, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184918924, estimated_data_bytes: None, available_bytes: Some(1013506048), memory_source: Linux, reason: SequentialAccess }"
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 2.27011012,
+            "cpu_seconds": 2.428868,
+            "peak_rss_kib": 39448,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 2.243068387,
+            "cpu_seconds": 2.399605,
+            "peak_rss_kib": 39452,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 2.216041977,
+            "cpu_seconds": 2.333177,
+            "peak_rss_kib": 39720,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 2.231823127,
+            "cpu_seconds": 2.420024,
+            "peak_rss_kib": 39732,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 2.210221994,
+            "cpu_seconds": 2.365682,
+            "peak_rss_kib": 39452,
+            "sampled_temp_peak_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "current": {
+          "seconds": 0.375480505,
+          "cpu_seconds": 0.375346,
+          "peak_rss_kib": 2060,
+          "sampled_temp_peak_bytes": 0
+        },
+        "baseline": {
+          "seconds": 0.376748823,
+          "cpu_seconds": 0.376654,
+          "peak_rss_kib": 1996,
+          "sampled_temp_peak_bytes": 0
+        },
+        "openpyxl": {
+          "seconds": 2.231823127,
+          "cpu_seconds": 2.399605,
+          "peak_rss_kib": 39452,
+          "sampled_temp_peak_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 50000,
+      "cells": 500000,
+      "mode": "auto-repeat",
+      "passes": 3,
+      "expected": "1500000 374999250000",
+      "source_bytes": 1577029,
+      "source_sha256": "1701c8a993e6c155a64fa9a4dcf7a9fb5233852893c9258dcab2d97035394630",
+      "samples": {
+        "current": [
+          {
+            "seconds": 0.414888183,
+            "cpu_seconds": 0.4147,
+            "peak_rss_kib": 29324,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 185986048, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184637324, estimated_data_bytes: Some(50415926), available_bytes: Some(1012379648), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.408074698,
+            "cpu_seconds": 0.407918,
+            "peak_rss_kib": 29200,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186064896, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184716172, estimated_data_bytes: Some(50415926), available_bytes: Some(1012695040), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.435023213,
+            "cpu_seconds": 0.434802,
+            "peak_rss_kib": 29256,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 185971712, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184622988, estimated_data_bytes: Some(50415926), available_bytes: Some(1012322304), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.405051229,
+            "cpu_seconds": 0.40487,
+            "peak_rss_kib": 29320,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186029056, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184680332, estimated_data_bytes: Some(50415926), available_bytes: Some(1012551680), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.395045845,
+            "cpu_seconds": 0.394888,
+            "peak_rss_kib": 29272,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 185948160, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184599436, estimated_data_bytes: Some(50415926), available_bytes: Some(1012228096), memory_source: Linux, reason: SampleFits }"
+          }
+        ],
+        "baseline": [
+          {
+            "seconds": 0.411727913,
+            "cpu_seconds": 0.411257,
+            "peak_rss_kib": 29260,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186013696, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184664972, estimated_data_bytes: Some(50415926), available_bytes: Some(1012490240), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.386055192,
+            "cpu_seconds": 0.38591,
+            "peak_rss_kib": 29240,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 185960448, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184611724, estimated_data_bytes: Some(50415926), available_bytes: Some(1012277248), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.402842004,
+            "cpu_seconds": 0.402724,
+            "peak_rss_kib": 29260,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186002432, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184653708, estimated_data_bytes: Some(50415926), available_bytes: Some(1012445184), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.395370171,
+            "cpu_seconds": 0.395239,
+            "peak_rss_kib": 29320,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 186056704, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184707980, estimated_data_bytes: Some(50415926), available_bytes: Some(1012662272), memory_source: Linux, reason: SampleFits }"
+          },
+          {
+            "seconds": 0.407706709,
+            "cpu_seconds": 0.407558,
+            "peak_rss_kib": 29260,
+            "sampled_temp_peak_bytes": 0,
+            "decision": "ReadDecision { mode: Materialized, budget_bytes: 185963520, working_reserve_bytes: 1343488, catalog_bytes: 5236, cache_bytes: 0, retained_data_bytes: 184614796, estimated_data_bytes: Some(50415926), available_bytes: Some(1012289536), memory_source: Linux, reason: SampleFits }"
+          }
+        ],
+        "openpyxl": [
+          {
+            "seconds": 4.834003157,
+            "cpu_seconds": 5.019947,
+            "peak_rss_kib": 240060,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 4.751312082,
+            "cpu_seconds": 4.889299,
+            "peak_rss_kib": 239992,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 4.688108974,
+            "cpu_seconds": 4.817153,
+            "peak_rss_kib": 239996,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 4.910953224,
+            "cpu_seconds": 5.035112,
+            "peak_rss_kib": 240004,
+            "sampled_temp_peak_bytes": 0
+          },
+          {
+            "seconds": 4.814842623,
+            "cpu_seconds": 5.015149,
+            "peak_rss_kib": 240036,
+            "sampled_temp_peak_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "current": {
+          "seconds": 0.408074698,
+          "cpu_seconds": 0.407918,
+          "peak_rss_kib": 29272,
+          "sampled_temp_peak_bytes": 0
+        },
+        "baseline": {
+          "seconds": 0.402842004,
+          "cpu_seconds": 0.402724,
+          "peak_rss_kib": 29260,
+          "sampled_temp_peak_bytes": 0
+        },
+        "openpyxl": {
+          "seconds": 4.814842623,
+          "cpu_seconds": 5.015149,
+          "peak_rss_kib": 240004,
+          "sampled_temp_peak_bytes": 0
+        }
+      }
+    }
+  ]
+}

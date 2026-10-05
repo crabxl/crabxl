@@ -31,6 +31,8 @@ Documentation, failure checks, interoperability tests, provenance and relevant b
 
 Acceptance: both inline and shared fixtures preserve intended text and whitespace; literal/protected escapes, multiple runs, phonetics, empty values and malformed input have explicit tests. Selected public reference cases retain original assertions and licensed provenance.
 
+Checkpoint: Auto resolves mounted Linux cgroup v1/v2 visible hierarchies, including hybrid and namespace mount roots, and retains portable explicit/caller overrides (ADR 0044). Non-Linux probes and complete Auto/concurrent strategy tuning remain open. Serial numeric decisions and regression evidence are recorded separately; this does not close M2.
+
 ## M2.2: Large shared-string storage
 
 - Resolve the shared-string part through workbook relationships; do not assume `xl/sharedStrings.xml` or trust declared unique counts as allocation sizes.

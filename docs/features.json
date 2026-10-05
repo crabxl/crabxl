@@ -278,9 +278,11 @@
         "crates/crabxl-xlsx/tests/streaming.rs::adaptive_scan_streams_without_sampling_and_respects_fixed_budget",
         "crates/crabxl-xlsx/tests/streaming.rs::adaptive_repeated_access_materializes_using_available_memory",
         "crates/crabxl-xlsx/tests/streaming.rs::adaptive_heterogeneous_input_falls_back_at_actual_budget",
-        "crates/crabxl-xlsx/tests/streaming.rs::adaptive_errors_are_not_hidden_by_streaming_fallback"
+        "crates/crabxl-xlsx/tests/streaming.rs::adaptive_errors_are_not_hidden_by_streaming_fallback",
+        "crates/crabxl-xlsx/src/adaptive.rs::tests::legacy_mount_discovery_obeys_visible_parent_usage_and_hybrid_membership",
+        "crates/crabxl-xlsx/src/adaptive.rs::tests::unified_mount_discovery_handles_bind_roots_escaped_paths_and_aliases"
       ],
-      "limitations": "Initial raw numeric policy only; Linux cgroup v2/host/process probes and portable caller override. Other OS/cgroup v1 use conservative fallback. Budgets exclude existing catalog, dependency overhead and caller-owned outputs; not a global RSS cap. String/style caches and concurrent strategies remain planned."
+      "limitations": "Verified numeric policy scope; mounted Linux cgroup v1/v2 visible-hierarchy, host/process probes and portable caller override (ADR 0044). Hidden controller constraints and non-Linux native probing remain limited; incomplete discovery falls back conservatively. Managed aggregate reader accounting is implemented separately; dependency overhead and caller-owned outputs are additional, not a global RSS cap. Complete Auto/concurrent strategy tuning remains open."
     },
     {
       "id": "baseline.openpyxl",
