@@ -801,4 +801,99 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
     }
     assert!(workbook.managed_retained_bytes() <= workbook.memory_allowance().retained_data_bytes);
     assert_eq!(workbook.into_source().into_inner(), bytes);
+
+    // Append uses actual source rows, including explicit empty rows, rather
+    // than either undersized or oversized advertised dimensions. Failed rows
+    // commit neither overlays nor cursor changes; repeated saves retain assets.
+    for dimension in ["A1:A1", "A1:XFD1048576"] {
+        let mut original = parts(bytes.clone());
+        let xml = String::from_utf8(original.remove("xl/worksheets/sheet1.xml").unwrap()).unwrap();
+        let xml = xml
+            .replace(
+                "<sheetData>",
+                &format!("<dimension ref=\"{dimension}\"/><sheetData>"),
+            )
+            .replace("</sheetData>", "<row r=\"9\"/></sheetData>");
+        original.insert("xl/worksheets/sheet1.xml".into(), xml.into_bytes());
+        let mut appended = LoadedWorkbook::with_options(
+            Cursor::new(package(original)),
+            LoadOptions {
+                editor: crabxl_xlsx::EditorOptions {
+                    max_patch_cells: 2,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let id = appended.sheet_id("First").unwrap();
+        assert_eq!(appended.sheet(id).unwrap().row_extent(), 9);
+        let retained = appended.managed_retained_bytes();
+        assert_eq!(
+            appended
+                .append(id, vec![CellValue::Integer(1); 3])
+                .unwrap_err()
+                .kind(),
+            ErrorKind::MemoryBudgetExceeded
+        );
+        assert_eq!(appended.sheet(id).unwrap().row_extent(), 9);
+        assert_eq!(appended.patch_bytes(), 0);
+        assert_eq!(appended.managed_retained_bytes(), retained);
+        let date = ExcelDateTime::from_serial(
+            2.5,
+            crabxl_core::DateEpoch::Windows1900,
+            DateKind::DateTime,
+        )
+        .unwrap();
+        assert_eq!(
+            appended
+                .append(
+                    id,
+                    vec![CellValue::Integer(1), CellValue::DateTime(Box::new(date))]
+                )
+                .unwrap_err()
+                .kind(),
+            ErrorKind::Unsupported
+        );
+        assert_eq!(appended.patch_bytes(), 0);
+        assert_eq!(appended.sheet(id).unwrap().row_extent(), 9);
+        assert_eq!(
+            appended
+                .append(
+                    id,
+                    vec![CellValue::Integer(41), CellValue::text("appended")]
+                )
+                .unwrap()
+                .get(),
+            9
+        );
+        assert_eq!(appended.append(id, Vec::new()).unwrap().get(), 10);
+        assert_eq!(appended.sheet(id).unwrap().row_extent(), 11);
+        assert!(!appended.is_materialized(appended.sheet_id("Second").unwrap()));
+        for _ in 0..2 {
+            let mut target = Cursor::new(Vec::new());
+            appended.save(&mut target, Default::default()).unwrap();
+            let saved = target.into_inner();
+            let mut reloaded =
+                LoadedWorkbook::with_options(Cursor::new(saved.clone()), Default::default())
+                    .unwrap();
+            let id = reloaded.sheet_id("First").unwrap();
+            assert_eq!(
+                reloaded
+                    .sheet(id)
+                    .unwrap()
+                    .get(CellAddress::new(9, 0).unwrap())
+                    .unwrap()
+                    .value,
+                CellValue::Integer(41)
+            );
+            assert!(
+                matches!(&reloaded.sheet(id).unwrap().get(CellAddress::new(9, 1).unwrap()).unwrap().value, CellValue::Text(text) if text.as_str() == "appended")
+            );
+            assert_eq!(
+                parts(saved)["opaque/unaffected.bin"],
+                b"retained original asset"
+            );
+        }
+    }
 }

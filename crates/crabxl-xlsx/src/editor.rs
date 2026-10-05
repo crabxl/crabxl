@@ -35,6 +35,11 @@ pub(crate) struct PatchPlan {
     pub(crate) bytes: usize,
     cells: usize,
 }
+pub(crate) struct RowPatchPlan {
+    plans: Vec<PatchPlan>,
+    pub(crate) bytes: usize,
+    pub(crate) scratch_bytes: usize,
+}
 
 /// Owned original-part inventory; content is not loaded into RAM.
 #[derive(Clone, Debug)]
@@ -955,6 +960,80 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         );
         self.patch_bytes = plan.bytes;
         self.patch_cells = plan.cells;
+    }
+    /// Validate the entire row and its combined overlay charge before mutation.
+    pub(crate) fn prepare_row(
+        &self,
+        sheet: &str,
+        row: crabxl_core::RowIndex,
+        values: &[CellValue],
+        scratch_allowance: usize,
+    ) -> Result<RowPatchPlan> {
+        if values.len() > crabxl_core::MAX_COLUMNS as usize {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Appended row exceeds column bounds",
+            ));
+        }
+        if values
+            .len()
+            .saturating_mul(std::mem::size_of::<PatchPlan>())
+            > scratch_allowance
+        {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Row edit planning allowance exceeded",
+            ));
+        }
+        let mut plans = Vec::new();
+        plans.try_reserve_exact(values.len()).map_err(|cause| {
+            Error::caused_by(
+                ErrorKind::MemoryBudgetExceeded,
+                "Cannot allocate row edit plan",
+                cause,
+            )
+        })?;
+        let mut bytes = self.patch_bytes;
+        let mut cells = self.patch_cells;
+        for (column, value) in values.iter().enumerate() {
+            let address = CellAddress::new(row.get(), column as u32)?;
+            let mut plan = self.prepare_value(sheet, address, value)?;
+            let part = self.book.sheets()[plan.sheet].part();
+            let repeated_part = if !plans.is_empty() && !self.patches.contains_key(part) {
+                PATCH_BYTES + part.len()
+            } else {
+                0
+            };
+            bytes = bytes.saturating_add(
+                plan.bytes
+                    .saturating_sub(self.patch_bytes)
+                    .saturating_sub(repeated_part),
+            );
+            cells = cells.saturating_add(plan.cells.saturating_sub(self.patch_cells));
+            if bytes > self.options.max_patch_bytes || cells > self.options.max_patch_cells {
+                return Err(Error::new(
+                    ErrorKind::MemoryBudgetExceeded,
+                    "Pending row overlay allowance exceeded",
+                )
+                .with_cell(address));
+            }
+            plan.bytes = bytes;
+            plan.cells = cells;
+            plans.push(plan);
+        }
+        let scratch_bytes = plans
+            .capacity()
+            .saturating_mul(std::mem::size_of::<PatchPlan>());
+        Ok(RowPatchPlan {
+            plans,
+            bytes,
+            scratch_bytes,
+        })
+    }
+    pub(crate) fn commit_row(&mut self, plan: RowPatchPlan, values: Vec<CellValue>) {
+        for (patch, value) in plan.plans.into_iter().zip(values) {
+            self.commit_value(patch, value, true);
+        }
     }
     /// Inspect only a pending replacement, without decoding the original cell.
     pub fn pending_value(&self, sheet: &str, address: CellAddress) -> Option<&CellValue> {

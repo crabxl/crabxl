@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .shared_string_stats()
                 .map_or(0, |stats| stats.temp_bytes),
         )
-    } else if mode == "bank" || mode == "bank-edit" {
+    } else if matches!(mode.as_str(), "bank" | "bank-edit" | "bank-append") {
         let mut workbook = LoadedWorkbook::with_options(
             File::open(path)?,
             LoadOptions {
@@ -113,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for id in ids.iter().copied() {
             sum(workbook.sheet(id)?)?;
         }
-        if mode == "bank-edit" {
+        if mode == "bank-edit" || mode == "bank-append" {
             let target = output.as_ref().ok_or("Edit mode requires output path")?;
             let id = *ids.first().ok_or("No source sheets")?;
             let address = CellAddress::new(0, 0)?;
@@ -121,7 +121,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 CellValue::Integer(value) => value,
                 _ => return Err("Expected integer A1".into()),
             };
-            workbook.set_value(id, address, CellValue::Integer(42))?;
+            let appended_row = if mode == "bank-append" {
+                let expected = workbook.sheet(id)?.row_extent();
+                let row = workbook.append(id, vec![CellValue::Integer(42); 10])?;
+                if row.get() != expected {
+                    return Err("Append cursor mismatch".into());
+                }
+                Some(row)
+            } else {
+                workbook.set_value(id, address, CellValue::Integer(42))?;
+                None
+            };
             workbook.save_path(target, crabxl::SaveOptions::default())?;
             output_bytes = std::fs::metadata(target)?.len();
             let mut saved = WorkbookReader::open(target)?;
@@ -132,6 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect::<Vec<_>>();
             let mut saved_count = 0usize;
             let mut saved_sum = 0i64;
+            let first_name = names.first().ok_or("No saved sheets")?.clone();
             for name in names {
                 let mut rows = saved.rows(&name)?;
                 while let Some(row) = rows.next_row()? {
@@ -139,6 +150,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let CellValue::Integer(value) = cell.value else {
                             return Err("Unexpected saved value".into());
                         };
+                        if let Some(appended) = appended_row
+                            && name == first_name
+                            && cell.address.row == appended
+                            && value != 42
+                        {
+                            return Err("Appended cell mismatch".into());
+                        }
                         saved_sum = saved_sum
                             .checked_add(value)
                             .ok_or("Saved checksum overflow")?;
@@ -146,7 +164,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
-            if saved_count != count || saved_sum != checksum - old + 42 {
+            let (expected_count, expected_sum) = if appended_row.is_some() {
+                (count + 10, checksum + 420)
+            } else {
+                (count, checksum - old + 42)
+            };
+            if saved_count != expected_count || saved_sum != expected_sum {
                 return Err("Edited output mismatch".into());
             }
             verified_edit = true;

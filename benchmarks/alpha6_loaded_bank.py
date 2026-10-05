@@ -2,10 +2,13 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import platform
 import statistics
 import subprocess
+import tempfile
+from pathlib import Path
+
+from editable_engines import measure
 
 ROOT = Path(__file__).resolve().parents[1]
 HERE = ROOT / "benchmarks"
@@ -21,6 +24,8 @@ def main():
     parser.add_argument("--output", type=Path, default=HERE / "results/alpha6-loaded-current.local.json")
     parser.add_argument("--checkpoint", default="A6 lazy canonical bank ownership; not M4 completion")
     parser.add_argument("--edit", action="store_true", help="Also verify full model/read/edit/save/reload")
+    parser.add_argument("--append", action="store_true", help="Also verify an atomic loaded append/save/reload")
+    parser.add_argument("--append-only", action="store_true", help="Measure only the new loaded append workflow")
     parser.add_argument("--active", action="store_true", help="Also verify lazy active selection/save/reload")
     parser.add_argument("--visibility", action="store_true", help="Also verify lazy visibility/active normalization/save/reload")
     parser.add_argument("--deferred", action="store_true", help="Also verify a signed relative view/save/reload")
@@ -42,6 +47,10 @@ def main():
         count = rows * 10
         expected = {"cells": 2 * count, "checksum": count * (count - 1)}
         modes = ["bank", "standalone", "bank-edit"] if args.edit else ["bank", "standalone"]
+        if args.append:
+            modes.append("bank-append")
+        if args.append_only:
+            modes = ["bank-append"]
         if args.active:
             modes.append("bank-active")
         if args.visibility:
@@ -52,22 +61,22 @@ def main():
         for repeat in range(4):
             order = modes[repeat % len(modes):] + modes[:repeat % len(modes)]
             for mode in order:
-                target = path.with_suffix(".edited.xlsx")
-                command = [HERE / "measure", EXAMPLES / "loaded_rows", path, mode]
-                if mode in ["bank-edit", "bank-active", "bank-visibility", "bank-deferred"]:
+                temporary = tempfile.TemporaryDirectory(prefix="crabxl-loaded-workflow-")
+                target = Path(temporary.name) / "output.xlsx"
+                command = [EXAMPLES / "loaded_rows", path, mode]
+                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred"]:
                     command.append(target)
-                result = run(command)
-                output = json.loads(result.stdout)
+                output, measured = measure(command, target.parent)
                 assert all(output[key] == value for key, value in expected.items()), output
                 assert output["sst_temp_bytes"] == 0
-                assert output["materialized_cells"] == (0 if mode in ["bank-active", "bank-visibility", "bank-deferred"] else expected["cells"])
-                if mode in ["bank-edit", "bank-active", "bank-visibility", "bank-deferred"]:
+                assert output["materialized_cells"] == (0 if mode in ["bank-active", "bank-visibility", "bank-deferred"] else expected["cells"] + (10 if mode == "bank-append" else 0))
+                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred"]:
                     assert output["verified_edit"] and output["output_bytes"] == target.stat().st_size
-                    assert not list(path.parent.glob("crabxl-save-*"))
                     target.unlink()
-                measure = json.loads(result.stderr.split("MEASURE ")[-1])
+                assert not list(target.parent.iterdir())
+                temporary.cleanup()
                 if repeat:
-                    samples[mode].append({**measure, "managed_bytes": output["managed_bytes"], "sst_temp_bytes": output["sst_temp_bytes"], "completed_adjacent_zip_bytes": output["output_bytes"]})
+                    samples[mode].append({**measured, "managed_bytes": output["managed_bytes"], "sst_temp_bytes": output["sst_temp_bytes"], "completed_adjacent_zip_bytes": output["output_bytes"]})
         case = {"rows_per_sheet": rows, "columns": 10, "sheets": 2, **expected,
                 "file_bytes": path.stat().st_size, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                 "samples": samples,
