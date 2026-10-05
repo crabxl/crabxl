@@ -169,6 +169,9 @@ pub enum CellMetadataReadPolicy {
     /// Match reference values/formulas without interpreting cm/vm graphs.
     #[default]
     Compatible,
+    /// Retain formula cm/vm references in FormulaMetadata, without interpreting
+    /// dependent graphs. Annotated scalar cells and data-only reads are rejected.
+    RetainFormulaReferences,
     /// Reject selected annotated cells instead of projecting their visible value.
     Reject,
 }

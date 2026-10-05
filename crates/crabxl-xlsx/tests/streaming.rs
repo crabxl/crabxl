@@ -3334,3 +3334,172 @@ fn bounded_prefix_explicitly_skips_unread_tail_validation() {
     drop(rows);
     assert!(book.rows("A & B").unwrap().read_batch().is_err());
 }
+
+#[test]
+fn formula_annotation_references_are_owned_bounded_and_separate_from_values() {
+    use crabxl_core::{CellMetadataReadPolicy, FormulaType};
+    use crabxl_xlsx::{WorkbookWriter, WriteOptions};
+    let content = r#"<row r="1"><c r="A1" cm="0001" vm="opaque &amp; value"><f t="array" ref="A1:A2">_xlfn.SEQUENCE(2)</f><v>7</v></c><c r="B1" cm=""><f>SUM(1)</f></c><c r="C1" vm="4294967295" t="str"><f t="array" ref="C1">""</f><v/></c><c r="D1" cm="ignored"><v>42</v></c></row>"#;
+    let options = ReadOptions {
+        columns: Some(ColumnIndex::new(0).unwrap()..=ColumnIndex::new(2).unwrap()),
+        cell_metadata_policy: CellMetadataReadPolicy::RetainFormulaReferences,
+        ..Default::default()
+    };
+    let mut book = open(content);
+    let mut stream = book.rows_with_options("A & B", options.clone()).unwrap();
+    let row = stream.next_row().unwrap().unwrap();
+    assert_eq!(stream.decoded_cells(), 3);
+    assert_eq!(stream.projected_metadata_cells(), 0);
+    assert!(stream.next_row().unwrap().is_none());
+    drop(stream);
+    let materialized = book
+        .read_sheet_with_options("A & B", options.clone())
+        .unwrap();
+    assert_eq!(materialized.rows, vec![row.clone()]);
+    {
+        let adaptive = book
+            .read_with_policy_options(
+                "A & B",
+                options,
+                AccessPattern::RepeatedAccess,
+                MemoryPolicy::Budget(8 * 1024 * 1024),
+            )
+            .unwrap();
+        let ReadData::Materialized(data) = adaptive.data else {
+            panic!("Expected bounded materialization")
+        };
+        assert_eq!(data.rows, vec![row.clone()]);
+    }
+    drop(book);
+    let CellValue::Formula(array) = &row.cells[0].value else {
+        panic!("Expected array formula")
+    };
+    assert_eq!(array.formula_type(), FormulaType::Array);
+    assert_eq!(array.expression(), "_xlfn.SEQUENCE(2)");
+    assert_eq!(array.cached(), Some(&CellValue::Integer(7)));
+    let annotations = array.metadata().unwrap().annotations.as_ref().unwrap();
+    assert_eq!(annotations.cell_metadata.as_deref(), Some("0001"));
+    assert_eq!(
+        annotations.value_metadata.as_deref(),
+        Some("opaque & value")
+    );
+    assert_eq!(annotations.payload_bytes(), 18);
+    let CellValue::Formula(normal) = &row.cells[1].value else {
+        panic!("Expected normal formula")
+    };
+    assert_eq!(normal.cached(), None);
+    assert_eq!(
+        normal
+            .metadata()
+            .unwrap()
+            .annotations
+            .as_ref()
+            .unwrap()
+            .cell_metadata
+            .as_deref(),
+        Some("")
+    );
+    let CellValue::Formula(cached_empty) = &row.cells[2].value else {
+        panic!("Expected cached formula")
+    };
+    assert_eq!(cached_empty.cached(), Some(&CellValue::text("")));
+    assert_eq!(
+        cached_empty
+            .metadata()
+            .unwrap()
+            .annotations
+            .as_ref()
+            .unwrap()
+            .value_metadata
+            .as_deref(),
+        Some("4294967295")
+    );
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    let error = writer.write_row(&row).unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert_eq!(error.cell().unwrap().to_string(), "A1");
+    assert_eq!(writer.stats().rows, 0);
+    let mut ordinary = row.clone();
+    ordinary.cells.clear();
+    writer.write_row(&ordinary).unwrap();
+    writer.finish(Cursor::new(Vec::new())).unwrap();
+}
+
+#[test]
+fn formula_annotation_requests_reject_incompatible_modes_and_respect_projection() {
+    use crabxl_core::CellMetadataReadPolicy;
+    let content = r#"<row><c r="A1" cm="0123456789"><f>1</f><v>1</v></c><c r="B1" vm="1"><v>42</v></c></row>"#;
+    let policy = CellMetadataReadPolicy::RetainFormulaReferences;
+    let mut book = open(content);
+    assert_eq!(
+        book.rows_with_options(
+            "A & B",
+            ReadOptions {
+                data_only: true,
+                cell_metadata_policy: policy,
+                ..Default::default()
+            }
+        )
+        .err()
+        .unwrap()
+        .kind(),
+        ErrorKind::InvalidData
+    );
+    let mut scalar = book
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                columns: Some(ColumnIndex::new(1).unwrap()..=ColumnIndex::new(1).unwrap()),
+                cell_metadata_policy: policy,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let error = scalar.next_row().unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert_eq!(error.cell().unwrap().to_string(), "B1");
+    drop(scalar);
+    // Build through the existing fixture generator, preserving all package parts.
+    let parts = entries(&format!(
+        "<worksheet xmlns=\"{MAIN}\"><sheetData>{content}</sheetData></worksheet>"
+    ));
+    let borrowed: Vec<_> = parts
+        .iter()
+        .map(|(name, value)| (name.as_str(), value.as_str()))
+        .collect();
+    let bytes = fixture(&borrowed);
+    let mut book = WorkbookReader::with_limits(
+        Cursor::new(bytes),
+        ResourceLimits {
+            max_cell_bytes: 4,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let mut selected = book
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                cell_metadata_policy: policy,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let error = selected.next_row().unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+    assert_eq!(error.cell().unwrap().to_string(), "A1");
+    drop(selected);
+    let mut excluded = book
+        .rows_with_options(
+            "A & B",
+            ReadOptions {
+                columns: Some(ColumnIndex::new(2).unwrap()..=ColumnIndex::new(3).unwrap()),
+                cell_metadata_policy: policy,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(excluded.next_row().unwrap().unwrap().cells.is_empty());
+    assert_eq!(excluded.decoded_cells(), 0);
+}

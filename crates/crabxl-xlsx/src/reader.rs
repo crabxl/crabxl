@@ -48,6 +48,16 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         styles: Option<&'a crate::style_reader::ImportedStyles>,
         epoch: crabxl_core::DateEpoch,
     ) -> Result<Self> {
+        if options.data_only
+            && options.cell_metadata_policy
+                == crabxl_core::CellMetadataReadPolicy::RetainFormulaReferences
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Formula annotation retention cannot be combined with data-only projection",
+            )
+            .with_part(part));
+        }
         let mut xml = XmlStream::new(input, part, limits.max_part_bytes, limits);
         loop {
             let frame = xml.next()?;
@@ -419,8 +429,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         && frame.depth == 4
                         && e.local_name().as_ref().as_bytes() == b"c" =>
                 {
-                    let header = CellHeader::read(&e, row.index, next_column)
-                        .map_err(|e| e.with_part(self.xml.part()))?;
+                    let header = CellHeader::read(&e, row.index, next_column)?;
                     if header.address.row != row.index || header.address.column.get() < next_column
                     {
                         return Err(self
@@ -449,15 +458,59 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     let style_kind = match self.styles {
                         Some(styles) => styles.kind(header.style),
                         None if header.style.get() == 0 => Ok(None),
-                        None => Err(self.invalid("Cell has a style ID without a style catalog")),
+                        None => Err(Error::new(
+                            ErrorKind::InvalidData,
+                            "Cell has a style ID without a style catalog",
+                        )),
                     }
                     .map_err(|e| e.with_cell(header.address))?;
+                    let annotations = if header.metadata
+                        && self.options.cell_metadata_policy
+                            == crabxl_core::CellMetadataReadPolicy::RetainFormulaReferences
+                    {
+                        let mut annotations = crabxl_core::FormulaAnnotations::default();
+                        crate::metadata::attributes(&e, |name, value| {
+                            if matches!(name, b"cm" | b"vm") {
+                                if value.len()
+                                    > self
+                                        .limits
+                                        .max_cell_bytes
+                                        .saturating_sub(annotations.payload_bytes())
+                                {
+                                    return Err(Error::new(
+                                        ErrorKind::LimitExceeded,
+                                        "Formula annotation byte limit exceeded",
+                                    ));
+                                }
+                                if name == b"cm" {
+                                    annotations.cell_metadata = Some(value.into());
+                                } else {
+                                    annotations.value_metadata = Some(value.into());
+                                }
+                            }
+                            Ok(())
+                        })
+                        .map_err(|error| {
+                            error.with_part(self.xml.part()).with_cell(header.address)
+                        })?;
+                        Some(Box::new(annotations))
+                    } else {
+                        None
+                    };
                     self.decoded_cells += 1;
                     let value = match header.kind {
-                        ScalarKind::Boolean => {
-                            self.read_cell::<true>(header.address, header.kind, style_kind)
-                        }
-                        _ => self.read_cell::<false>(header.address, header.kind, style_kind),
+                        ScalarKind::Boolean => self.read_cell::<true>(
+                            header.address,
+                            header.kind,
+                            style_kind,
+                            annotations,
+                        ),
+                        _ => self.read_cell::<false>(
+                            header.address,
+                            header.kind,
+                            style_kind,
+                            annotations,
+                        ),
                     }
                     .map_err(|e| e.with_part(self.xml.part()).with_cell(header.address))?;
                     self.push_cell(
@@ -468,7 +521,10 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                             style: header.style,
                         },
                     )?;
-                    if header.metadata {
+                    if header.metadata
+                        && self.options.cell_metadata_policy
+                            == crabxl_core::CellMetadataReadPolicy::Compatible
+                    {
                         self.projected_metadata_cells += 1;
                     }
                 }
@@ -538,6 +594,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         address: CellAddress,
         kind: ScalarKind,
         date_kind: Option<crabxl_core::DateKind>,
+        annotations: Option<Box<crabxl_core::FormulaAnnotations>>,
     ) -> Result<CellValue> {
         let mut value = CellValue::Empty;
         let mut seen_value = false;
@@ -637,14 +694,19 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     if seen_formula && self.options.data_only {
                         return Ok(value);
                     }
-                    if let Some((expression, metadata)) = formula {
+                    if let Some((expression, mut metadata)) = formula {
+                        metadata.annotations = annotations;
+                        if metadata.payload_bytes() > self.limits.max_cell_bytes {
+                            return Err(self.limit("Formula metadata exceeds cell byte limit"));
+                        }
                         if seen_value
                             && matches!(kind, ScalarKind::Text)
                             && matches!(value, CellValue::Empty)
                         {
                             value = CellValue::text("");
                         }
-                        let preserve = self.options.formula_metadata
+                        let preserve = metadata.annotations.is_some()
+                            || self.options.formula_metadata
                             || matches!(
                                 metadata.kind,
                                 crabxl_core::FormulaType::Array
@@ -656,6 +718,12 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                             seen_value.then_some(value),
                             preserve.then_some(metadata),
                         )?)));
+                    }
+                    if annotations.is_some() {
+                        return Err(Error::new(
+                            ErrorKind::Unsupported,
+                            "Retaining scalar cm/vm metadata is not implemented",
+                        ));
                     }
                     return Ok(value);
                 }

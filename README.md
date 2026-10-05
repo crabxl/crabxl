@@ -213,3 +213,11 @@ exception while waiting for the final release.
 
 Manual alpha numbering and the crates.io/GitHub release workflow are documented
 in [releases](docs/releases.md).
+
+
+Explicit `ReadOptions.cell_metadata_policy = CellMetadataReadPolicy::RetainFormulaReferences`
+retains formula cm/vm source literals in `FormulaMetadata.annotations` without
+interpreting their dependent graphs. Data-only projection and annotated scalar
+cells are incompatible with this policy. New-file/assigned-value output returns
+Unsupported for such annotated formulas; ordinary visible projection remains
+available. See [annotation ownership](docs/decisions/0052-owned-formula-annotation-references.md).

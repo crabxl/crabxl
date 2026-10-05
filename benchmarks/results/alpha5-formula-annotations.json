@@ -1,0 +1,173 @@
+{
+  "baseline_core": "ca40f674df0f97939821182c1e1f8c137b5ed3ae",
+  "scope": "One warmup and three rotating serial Linux native release samples. Projection modes both verify two visible cells per row, including every array/cache/range. Retention explicitly selects only column A and verifies every cm reference; it does different work and is not a speed comparison. Builds/tests/generation excluded; no worksheet materialization or temporary store.",
+  "binaries": {
+    "prior_projection": "8a0fa0b67ea9cbc89333074b5bf7ecabbb261fe971c57bbf5587d5b541dc279c",
+    "current_projection": "3f6e31c672b82e8d933662804bc87a7de014a06bbd1a19ceab59f9491b3d1a4a",
+    "current_retention": "f446eccaed6a99698b792e56c3d4242cf04dd67424bc17924d567a97ce0ec167"
+  },
+  "cases": [
+    {
+      "rows": 10000,
+      "mode": "prior_projection",
+      "source_sha256": "53d17946f914680e4a0b02523858cef7151d81e981f059660fcb42689c53060c",
+      "samples": [
+        {
+          "seconds": 0.029855442,
+          "cpu_seconds": 0.02972,
+          "peak_rss_kib": 2024
+        },
+        {
+          "seconds": 0.026269656,
+          "cpu_seconds": 0.026175,
+          "peak_rss_kib": 1980
+        },
+        {
+          "seconds": 0.026038048,
+          "cpu_seconds": 0.025925,
+          "peak_rss_kib": 2040
+        }
+      ],
+      "median": {
+        "seconds": 0.026269656,
+        "peak_rss_kib": 2024
+      },
+      "temporary_store_bytes": 0
+    },
+    {
+      "rows": 10000,
+      "mode": "current_projection",
+      "source_sha256": "53d17946f914680e4a0b02523858cef7151d81e981f059660fcb42689c53060c",
+      "samples": [
+        {
+          "seconds": 0.02679203,
+          "cpu_seconds": 0.026727,
+          "peak_rss_kib": 2060
+        },
+        {
+          "seconds": 0.027008976,
+          "cpu_seconds": 0.026901,
+          "peak_rss_kib": 2056
+        },
+        {
+          "seconds": 0.024800819,
+          "cpu_seconds": 0.024707,
+          "peak_rss_kib": 2016
+        }
+      ],
+      "median": {
+        "seconds": 0.02679203,
+        "peak_rss_kib": 2056
+      },
+      "temporary_store_bytes": 0
+    },
+    {
+      "rows": 10000,
+      "mode": "current_retention",
+      "source_sha256": "53d17946f914680e4a0b02523858cef7151d81e981f059660fcb42689c53060c",
+      "samples": [
+        {
+          "seconds": 0.028879566,
+          "cpu_seconds": 0.028774,
+          "peak_rss_kib": 2044
+        },
+        {
+          "seconds": 0.027377219,
+          "cpu_seconds": 0.027272,
+          "peak_rss_kib": 2004
+        },
+        {
+          "seconds": 0.027581126,
+          "cpu_seconds": 0.027457,
+          "peak_rss_kib": 1952
+        }
+      ],
+      "median": {
+        "seconds": 0.027581126,
+        "peak_rss_kib": 2004
+      },
+      "temporary_store_bytes": 0
+    },
+    {
+      "rows": 100000,
+      "mode": "prior_projection",
+      "source_sha256": "9b622172ae27e3ecbca311d96ff206df4cc70dc25078bbf4746dc2df15243735",
+      "samples": [
+        {
+          "seconds": 0.243589564,
+          "cpu_seconds": 0.24316,
+          "peak_rss_kib": 2020
+        },
+        {
+          "seconds": 0.239950759,
+          "cpu_seconds": 0.239809,
+          "peak_rss_kib": 1996
+        },
+        {
+          "seconds": 0.248747044,
+          "cpu_seconds": 0.248636,
+          "peak_rss_kib": 2008
+        }
+      ],
+      "median": {
+        "seconds": 0.243589564,
+        "peak_rss_kib": 2008
+      },
+      "temporary_store_bytes": 0
+    },
+    {
+      "rows": 100000,
+      "mode": "current_projection",
+      "source_sha256": "9b622172ae27e3ecbca311d96ff206df4cc70dc25078bbf4746dc2df15243735",
+      "samples": [
+        {
+          "seconds": 0.238145989,
+          "cpu_seconds": 0.237958,
+          "peak_rss_kib": 2056
+        },
+        {
+          "seconds": 0.249493325,
+          "cpu_seconds": 0.249174,
+          "peak_rss_kib": 2056
+        },
+        {
+          "seconds": 0.238315846,
+          "cpu_seconds": 0.238072,
+          "peak_rss_kib": 2012
+        }
+      ],
+      "median": {
+        "seconds": 0.238315846,
+        "peak_rss_kib": 2056
+      },
+      "temporary_store_bytes": 0
+    },
+    {
+      "rows": 100000,
+      "mode": "current_retention",
+      "source_sha256": "9b622172ae27e3ecbca311d96ff206df4cc70dc25078bbf4746dc2df15243735",
+      "samples": [
+        {
+          "seconds": 0.247330734,
+          "cpu_seconds": 0.247203,
+          "peak_rss_kib": 2028
+        },
+        {
+          "seconds": 0.250742229,
+          "cpu_seconds": 0.250416,
+          "peak_rss_kib": 1956
+        },
+        {
+          "seconds": 0.245224434,
+          "cpu_seconds": 0.244772,
+          "peak_rss_kib": 1956
+        }
+      ],
+      "median": {
+        "seconds": 0.247330734,
+        "peak_rss_kib": 1956
+      },
+      "temporary_store_bytes": 0
+    }
+  ]
+}
