@@ -1,0 +1,903 @@
+{
+  "tool": "cargo-llvm-cov 0.9.1",
+  "toolchain": "Rust 1.99.0 stable",
+  "core_revision": "44d4699f92487d45917664f974bf8142ec222ebf",
+  "additional_changes": "Existing streaming style budget test extended to six exact-integer payload placements; no library code changes.",
+  "command": "CARGO_INCREMENTAL=0 cargo llvm-cov --workspace --lib --tests --locked --json --summary-only --ignore-filename-regex '(/tests/|/examples/|/default_theme.rs$)' --output-path report.json",
+  "scope": "Standalone test/example paths and generated default_theme.rs excluded. Embedded cfg(test) source modules included. All 267 collected tests pass.",
+  "branches": "Not collected by this stable instrumentation; zero branch counters do not mean 0% branch coverage.",
+  "totals": {
+    "lines": {
+      "count": 14738,
+      "covered": 12908,
+      "percent": 87.58311846926313
+    },
+    "regions": {
+      "count": 23038,
+      "covered": 19519,
+      "notcovered": 3519,
+      "percent": 84.7252365656741
+    },
+    "functions": {
+      "count": 1450,
+      "covered": 1150,
+      "percent": 79.3103448275862
+    }
+  },
+  "files": [
+    {
+      "path": "crates/crabxl-core/src/address.rs",
+      "lines": {
+        "count": 77,
+        "covered": 77,
+        "percent": 100.0
+      },
+      "regions": {
+        "count": 126,
+        "covered": 120,
+        "notcovered": 6,
+        "percent": 95.23809523809523
+      },
+      "functions": {
+        "count": 11,
+        "covered": 11,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/date.rs",
+      "lines": {
+        "count": 311,
+        "covered": 272,
+        "percent": 87.45980707395499
+      },
+      "regions": {
+        "count": 415,
+        "covered": 366,
+        "notcovered": 49,
+        "percent": 88.19277108433734
+      },
+      "functions": {
+        "count": 48,
+        "covered": 37,
+        "percent": 77.08333333333334
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/error.rs",
+      "lines": {
+        "count": 52,
+        "covered": 50,
+        "percent": 96.15384615384616
+      },
+      "regions": {
+        "count": 56,
+        "covered": 51,
+        "notcovered": 5,
+        "percent": 91.07142857142857
+      },
+      "functions": {
+        "count": 10,
+        "covered": 10,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/formula.rs",
+      "lines": {
+        "count": 151,
+        "covered": 150,
+        "percent": 99.33774834437085
+      },
+      "regions": {
+        "count": 168,
+        "covered": 164,
+        "notcovered": 4,
+        "percent": 97.61904761904762
+      },
+      "functions": {
+        "count": 24,
+        "covered": 24,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/formula_metadata.rs",
+      "lines": {
+        "count": 180,
+        "covered": 165,
+        "percent": 91.66666666666666
+      },
+      "regions": {
+        "count": 230,
+        "covered": 218,
+        "notcovered": 12,
+        "percent": 94.78260869565217
+      },
+      "functions": {
+        "count": 34,
+        "covered": 33,
+        "percent": 97.05882352941178
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/iso_date.rs",
+      "lines": {
+        "count": 119,
+        "covered": 117,
+        "percent": 98.31932773109243
+      },
+      "regions": {
+        "count": 247,
+        "covered": 237,
+        "notcovered": 10,
+        "percent": 95.95141700404858
+      },
+      "functions": {
+        "count": 10,
+        "covered": 9,
+        "percent": 90.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/limits.rs",
+      "lines": {
+        "count": 24,
+        "covered": 24,
+        "percent": 100.0
+      },
+      "regions": {
+        "count": 14,
+        "covered": 14,
+        "notcovered": 0,
+        "percent": 100.0
+      },
+      "functions": {
+        "count": 1,
+        "covered": 1,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/memory.rs",
+      "lines": {
+        "count": 12,
+        "covered": 12,
+        "percent": 100.0
+      },
+      "regions": {
+        "count": 7,
+        "covered": 7,
+        "notcovered": 0,
+        "percent": 100.0
+      },
+      "functions": {
+        "count": 2,
+        "covered": 2,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/number_formats.rs",
+      "lines": {
+        "count": 41,
+        "covered": 40,
+        "percent": 97.5609756097561
+      },
+      "regions": {
+        "count": 60,
+        "covered": 59,
+        "notcovered": 1,
+        "percent": 98.33333333333333
+      },
+      "functions": {
+        "count": 5,
+        "covered": 5,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/printing.rs",
+      "lines": {
+        "count": 245,
+        "covered": 243,
+        "percent": 99.18367346938776
+      },
+      "regions": {
+        "count": 313,
+        "covered": 309,
+        "notcovered": 4,
+        "percent": 98.7220447284345
+      },
+      "functions": {
+        "count": 22,
+        "covered": 22,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/rich_text.rs",
+      "lines": {
+        "count": 125,
+        "covered": 110,
+        "percent": 88.0
+      },
+      "regions": {
+        "count": 170,
+        "covered": 152,
+        "notcovered": 18,
+        "percent": 89.41176470588236
+      },
+      "functions": {
+        "count": 24,
+        "covered": 21,
+        "percent": 87.5
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/row.rs",
+      "lines": {
+        "count": 70,
+        "covered": 70,
+        "percent": 100.0
+      },
+      "regions": {
+        "count": 92,
+        "covered": 92,
+        "notcovered": 0,
+        "percent": 100.0
+      },
+      "functions": {
+        "count": 15,
+        "covered": 15,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/scalar.rs",
+      "lines": {
+        "count": 79,
+        "covered": 76,
+        "percent": 96.20253164556962
+      },
+      "regions": {
+        "count": 107,
+        "covered": 100,
+        "notcovered": 7,
+        "percent": 93.45794392523364
+      },
+      "functions": {
+        "count": 17,
+        "covered": 17,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/shared_formula_index.rs",
+      "lines": {
+        "count": 40,
+        "covered": 39,
+        "percent": 97.5
+      },
+      "regions": {
+        "count": 61,
+        "covered": 60,
+        "notcovered": 1,
+        "percent": 98.36065573770492
+      },
+      "functions": {
+        "count": 8,
+        "covered": 8,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/style.rs",
+      "lines": {
+        "count": 35,
+        "covered": 35,
+        "percent": 100.0
+      },
+      "regions": {
+        "count": 26,
+        "covered": 26,
+        "notcovered": 0,
+        "percent": 100.0
+      },
+      "functions": {
+        "count": 4,
+        "covered": 4,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/style_catalog.rs",
+      "lines": {
+        "count": 182,
+        "covered": 175,
+        "percent": 96.15384615384616
+      },
+      "regions": {
+        "count": 234,
+        "covered": 222,
+        "notcovered": 12,
+        "percent": 94.87179487179486
+      },
+      "functions": {
+        "count": 28,
+        "covered": 25,
+        "percent": 89.28571428571429
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/style_components.rs",
+      "lines": {
+        "count": 72,
+        "covered": 72,
+        "percent": 100.0
+      },
+      "regions": {
+        "count": 56,
+        "covered": 56,
+        "notcovered": 0,
+        "percent": 100.0
+      },
+      "functions": {
+        "count": 9,
+        "covered": 9,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/style_extras.rs",
+      "lines": {
+        "count": 67,
+        "covered": 66,
+        "percent": 98.50746268656717
+      },
+      "regions": {
+        "count": 92,
+        "covered": 85,
+        "notcovered": 7,
+        "percent": 92.3913043478261
+      },
+      "functions": {
+        "count": 13,
+        "covered": 13,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/style_hash.rs",
+      "lines": {
+        "count": 51,
+        "covered": 51,
+        "percent": 100.0
+      },
+      "regions": {
+        "count": 121,
+        "covered": 121,
+        "notcovered": 0,
+        "percent": 100.0
+      },
+      "functions": {
+        "count": 7,
+        "covered": 7,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/style_registry.rs",
+      "lines": {
+        "count": 947,
+        "covered": 906,
+        "percent": 95.67053854276664
+      },
+      "regions": {
+        "count": 1533,
+        "covered": 1439,
+        "notcovered": 94,
+        "percent": 93.8682322243966
+      },
+      "functions": {
+        "count": 71,
+        "covered": 65,
+        "percent": 91.54929577464789
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/style_validation.rs",
+      "lines": {
+        "count": 102,
+        "covered": 94,
+        "percent": 92.15686274509804
+      },
+      "regions": {
+        "count": 162,
+        "covered": 151,
+        "notcovered": 11,
+        "percent": 93.20987654320987
+      },
+      "functions": {
+        "count": 20,
+        "covered": 19,
+        "percent": 95.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/theme.rs",
+      "lines": {
+        "count": 59,
+        "covered": 58,
+        "percent": 98.30508474576273
+      },
+      "regions": {
+        "count": 80,
+        "covered": 78,
+        "notcovered": 2,
+        "percent": 97.5
+      },
+      "functions": {
+        "count": 11,
+        "covered": 10,
+        "percent": 90.9090909090909
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/translate.rs",
+      "lines": {
+        "count": 258,
+        "covered": 245,
+        "percent": 94.96124031007754
+      },
+      "regions": {
+        "count": 432,
+        "covered": 397,
+        "notcovered": 35,
+        "percent": 91.89814814814817
+      },
+      "functions": {
+        "count": 28,
+        "covered": 21,
+        "percent": 75.0
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/workbook.rs",
+      "lines": {
+        "count": 555,
+        "covered": 497,
+        "percent": 89.54954954954954
+      },
+      "regions": {
+        "count": 836,
+        "covered": 747,
+        "notcovered": 89,
+        "percent": 89.35406698564594
+      },
+      "functions": {
+        "count": 81,
+        "covered": 69,
+        "percent": 85.18518518518519
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/worksheet.rs",
+      "lines": {
+        "count": 526,
+        "covered": 490,
+        "percent": 93.15589353612167
+      },
+      "regions": {
+        "count": 984,
+        "covered": 909,
+        "notcovered": 75,
+        "percent": 92.3780487804878
+      },
+      "functions": {
+        "count": 69,
+        "covered": 65,
+        "percent": 94.20289855072464
+      }
+    },
+    {
+      "path": "crates/crabxl-core/src/worksheet_view.rs",
+      "lines": {
+        "count": 223,
+        "covered": 213,
+        "percent": 95.51569506726457
+      },
+      "regions": {
+        "count": 270,
+        "covered": 260,
+        "notcovered": 10,
+        "percent": 96.29629629629629
+      },
+      "functions": {
+        "count": 25,
+        "covered": 24,
+        "percent": 96.0
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/adaptive.rs",
+      "lines": {
+        "count": 532,
+        "covered": 502,
+        "percent": 94.3609022556391
+      },
+      "regions": {
+        "count": 920,
+        "covered": 860,
+        "notcovered": 60,
+        "percent": 93.47826086956522
+      },
+      "functions": {
+        "count": 48,
+        "covered": 42,
+        "percent": 87.5
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/aggregate.rs",
+      "lines": {
+        "count": 11,
+        "covered": 7,
+        "percent": 63.63636363636363
+      },
+      "regions": {
+        "count": 14,
+        "covered": 10,
+        "notcovered": 4,
+        "percent": 71.42857142857143
+      },
+      "functions": {
+        "count": 3,
+        "covered": 2,
+        "percent": 66.66666666666666
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/editor.rs",
+      "lines": {
+        "count": 1706,
+        "covered": 1362,
+        "percent": 79.8358733880422
+      },
+      "regions": {
+        "count": 2699,
+        "covered": 2045,
+        "notcovered": 654,
+        "percent": 75.76880326046683
+      },
+      "functions": {
+        "count": 157,
+        "covered": 84,
+        "percent": 53.503184713375795
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/encode.rs",
+      "lines": {
+        "count": 396,
+        "covered": 359,
+        "percent": 90.65656565656566
+      },
+      "regions": {
+        "count": 638,
+        "covered": 564,
+        "notcovered": 74,
+        "percent": 88.40125391849529
+      },
+      "functions": {
+        "count": 31,
+        "covered": 26,
+        "percent": 83.87096774193549
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/formatting.rs",
+      "lines": {
+        "count": 273,
+        "covered": 223,
+        "percent": 81.68498168498168
+      },
+      "regions": {
+        "count": 502,
+        "covered": 391,
+        "notcovered": 111,
+        "percent": 77.88844621513944
+      },
+      "functions": {
+        "count": 22,
+        "covered": 13,
+        "percent": 59.09090909090909
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/formula_codec.rs",
+      "lines": {
+        "count": 383,
+        "covered": 343,
+        "percent": 89.55613577023499
+      },
+      "regions": {
+        "count": 599,
+        "covered": 524,
+        "notcovered": 75,
+        "percent": 87.47913188647746
+      },
+      "functions": {
+        "count": 29,
+        "covered": 22,
+        "percent": 75.86206896551724
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/metadata.rs",
+      "lines": {
+        "count": 43,
+        "covered": 26,
+        "percent": 60.46511627906976
+      },
+      "regions": {
+        "count": 60,
+        "covered": 39,
+        "notcovered": 21,
+        "percent": 65.0
+      },
+      "functions": {
+        "count": 7,
+        "covered": 3,
+        "percent": 42.857142857142854
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/package.rs",
+      "lines": {
+        "count": 1049,
+        "covered": 869,
+        "percent": 82.84080076263108
+      },
+      "regions": {
+        "count": 1597,
+        "covered": 1300,
+        "notcovered": 297,
+        "percent": 81.40262993112087
+      },
+      "functions": {
+        "count": 111,
+        "covered": 82,
+        "percent": 73.87387387387388
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/printing.rs",
+      "lines": {
+        "count": 505,
+        "covered": 452,
+        "percent": 89.50495049504951
+      },
+      "regions": {
+        "count": 827,
+        "covered": 685,
+        "notcovered": 142,
+        "percent": 82.82950423216445
+      },
+      "functions": {
+        "count": 24,
+        "covered": 21,
+        "percent": 87.5
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/reader.rs",
+      "lines": {
+        "count": 907,
+        "covered": 785,
+        "percent": 86.54906284454245
+      },
+      "regions": {
+        "count": 1364,
+        "covered": 1137,
+        "notcovered": 227,
+        "percent": 83.35777126099707
+      },
+      "functions": {
+        "count": 77,
+        "covered": 62,
+        "percent": 80.51948051948052
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/rich_text.rs",
+      "lines": {
+        "count": 432,
+        "covered": 351,
+        "percent": 81.25
+      },
+      "regions": {
+        "count": 700,
+        "covered": 576,
+        "notcovered": 124,
+        "percent": 82.28571428571428
+      },
+      "functions": {
+        "count": 26,
+        "covered": 24,
+        "percent": 92.3076923076923
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/strings.rs",
+      "lines": {
+        "count": 545,
+        "covered": 478,
+        "percent": 87.70642201834865
+      },
+      "regions": {
+        "count": 837,
+        "covered": 701,
+        "notcovered": 136,
+        "percent": 83.75149342891278
+      },
+      "functions": {
+        "count": 52,
+        "covered": 30,
+        "percent": 57.692307692307686
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/style_codec.rs",
+      "lines": {
+        "count": 474,
+        "covered": 412,
+        "percent": 86.91983122362869
+      },
+      "regions": {
+        "count": 837,
+        "covered": 654,
+        "notcovered": 183,
+        "percent": 78.13620071684588
+      },
+      "functions": {
+        "count": 38,
+        "covered": 30,
+        "percent": 78.94736842105263
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/style_extras_codec.rs",
+      "lines": {
+        "count": 280,
+        "covered": 229,
+        "percent": 81.78571428571428
+      },
+      "regions": {
+        "count": 539,
+        "covered": 397,
+        "notcovered": 142,
+        "percent": 73.65491651205936
+      },
+      "functions": {
+        "count": 10,
+        "covered": 7,
+        "percent": 70.0
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/style_reader.rs",
+      "lines": {
+        "count": 456,
+        "covered": 389,
+        "percent": 85.30701754385966
+      },
+      "regions": {
+        "count": 783,
+        "covered": 622,
+        "notcovered": 161,
+        "percent": 79.43805874840358
+      },
+      "functions": {
+        "count": 32,
+        "covered": 23,
+        "percent": 71.875
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/styles.rs",
+      "lines": {
+        "count": 183,
+        "covered": 158,
+        "percent": 86.33879781420765
+      },
+      "regions": {
+        "count": 314,
+        "covered": 244,
+        "notcovered": 70,
+        "percent": 77.70700636942675
+      },
+      "functions": {
+        "count": 4,
+        "covered": 4,
+        "percent": 100.0
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/theme.rs",
+      "lines": {
+        "count": 325,
+        "covered": 265,
+        "percent": 81.53846153846153
+      },
+      "regions": {
+        "count": 425,
+        "covered": 356,
+        "notcovered": 69,
+        "percent": 83.76470588235294
+      },
+      "functions": {
+        "count": 21,
+        "covered": 15,
+        "percent": 71.42857142857143
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/worksheet_view.rs",
+      "lines": {
+        "count": 349,
+        "covered": 272,
+        "percent": 77.93696275071633
+      },
+      "regions": {
+        "count": 592,
+        "covered": 447,
+        "notcovered": 145,
+        "percent": 75.50675675675676
+      },
+      "functions": {
+        "count": 21,
+        "covered": 12,
+        "percent": 57.14285714285714
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/writer.rs",
+      "lines": {
+        "count": 1045,
+        "covered": 902,
+        "percent": 86.31578947368422
+      },
+      "regions": {
+        "count": 1536,
+        "covered": 1268,
+        "notcovered": 268,
+        "percent": 82.55208333333334
+      },
+      "functions": {
+        "count": 115,
+        "covered": 87,
+        "percent": 75.65217391304347
+      }
+    },
+    {
+      "path": "crates/crabxl-xlsx/src/xml.rs",
+      "lines": {
+        "count": 241,
+        "covered": 177,
+        "percent": 73.44398340248964
+      },
+      "regions": {
+        "count": 363,
+        "covered": 259,
+        "notcovered": 104,
+        "percent": 71.34986225895317
+      },
+      "functions": {
+        "count": 25,
+        "covered": 15,
+        "percent": 60.0
+      }
+    }
+  ]
+}

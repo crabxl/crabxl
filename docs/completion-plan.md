@@ -4,7 +4,7 @@
 
 This plan completes the Rust core against the pinned openpyxl 3.1.5 public capability baseline. Python remains a separately versioned compatibility adapter and test client; other language bindings are subsequent projects. Formula calculation is not a baseline feature and is not introduced as a completion requirement.
 
-M0, M1 and the scoped M3 sequential-writer acceptance are complete. M2 and M4 are in progress; M5 has a bounded A1 translation checkpoint. M6 and M7 are not complete. M3 completion does not imply complete strings, styles, formulas or file editing. Each remaining milestone must meet its whole acceptance definition before its status changes.
+M0, M1, M2 and the scoped M3 sequential-writer acceptance are complete. M4 is in progress; M5 has a bounded A1 translation checkpoint. M6 and M7 are not complete. M3 completion does not imply complete strings, styles, formulas or file editing. Each remaining milestone must meet its whole acceptance definition before its status changes.
 
 The current inventory mixes large public-module/document entries with narrow verified checkpoints, including two Python-specific entries. Raw item counts and completed-milestone counts are not effort percentages. Do not report either as a precise Rust completion percentage. Expand broad entries into behavioral acceptance cases while retaining their original baseline mapping; do not inflate progress by counting new micro-items.
 
@@ -31,7 +31,7 @@ Documentation, failure checks, interoperability tests, provenance and relevant b
 
 Acceptance: both inline and shared fixtures preserve intended text and whitespace; literal/protected escapes, multiple runs, phonetics, empty values and malformed input have explicit tests. Selected public reference cases retain original assertions and licensed provenance.
 
-Checkpoint: Auto resolves mounted Linux cgroup v1/v2 visible hierarchies, including hybrid and namespace mount roots, and retains portable explicit/caller overrides (ADR 0044). Windows/macOS host RAM probes now use native APIs through sysinfo (ADR 0050); native Linux/Windows/macOS Rust 1.88 CI passed in run 37283497734. Caller-controlled concurrency allowance division and measured two-sheet Auto RAM/disk strategies are verified in ADR 0053. Private process/job constraints and broader M7 tuning remain open. Serial numeric decisions and regression evidence are recorded separately; this does not close M2.
+Checkpoint: Auto resolves mounted Linux cgroup v1/v2 visible hierarchies, including hybrid and namespace mount roots, and retains portable explicit/caller overrides (ADR 0044). Windows/macOS host RAM probes now use native APIs through sysinfo (ADR 0050); native Linux/Windows/macOS Rust 1.88 CI passed in run 37283497734. Caller-controlled concurrency allowance division and measured two-sheet Auto RAM/disk strategies are verified in ADR 0053. Private process/job constraints and broader M7 tuning remain open. Serial numeric decisions and regression evidence are recorded separately; this checkpoint alone did not close M2.
 
 ## M2.2: Large shared-string storage
 
@@ -52,7 +52,7 @@ Checkpoint: indexed palette entries share ArgbLiteral, preserving mixed case and
 
 Checkpoint: temporal output preserves any existing date/duration format and derives shared variants for non-date styles, using public default codes and the existing borrowed deduplication index (ADR 0038). Owned-bank temporal assignment now resolves shared style IDs before save (ADR 0040); complete style mutation remains open.
 
-Checkpoint: typed differential overrides and table/pivot definitions/defaults are verified in ADR 0033, including all 28 region tokens and bounded deferred reference checks. Extension payloads, full style mutation/assignment semantics and worksheet rule/table graph integration remain required.
+Checkpoint: typed differential overrides and table/pivot definitions/defaults are verified in ADR 0033, including all 28 region tokens and bounded deferred reference checks. Typed extension semantics, full style mutation/assignment and worksheet rule/table graphs remain required by M5; original payload preservation remains distinct.
 
 - Parse styles, number formats, fonts/fills/borders/alignment/protection, colors and themes into the shared core catalog, retaining imported style IDs and deduplicating new formats safely.
 - Separate format classification for value semantics from complete style editing. A formatting index alone must not force a numeric value into a date.
@@ -66,9 +66,9 @@ Acceptance: styled numeric/text/date/time/duration fixtures round-trip through r
 
 Checkpoint: explicit formula annotation reference retention owns cm/vm literals independently of expression/cache, with projection and byte accounting (ADR 0052). Metadata graph interpretation/create/edit and scalar rich-value metadata remain M6 work; this checkpoint does not itself close M2.
 
-Checkpoint: Compatible normal/shared reads ignore unused hints and read unknown type text, while XML validation and strict group/editor checks remain intact (ADR 0035). Raw structured flag ownership and compatible array/table unused hints are additionally verified in ADR 0036. Literal/missing shared IDs now use shared canonical identities with strict numeric validation remaining optional (ADR 0041). Remaining header/cache cases stay open.
+Checkpoint: Compatible normal/shared reads ignore unused hints and read unknown type text, while XML validation and strict group/editor checks remain intact (ADR 0035). Raw structured flag ownership and compatible array/table unused hints are additionally verified in ADR 0036. Literal/missing shared IDs now use shared canonical identities with strict numeric validation remaining optional (ADR 0041). The assigned header/cache read cases are verified in the alpha.5 acceptance audit.
 
-Checkpoint: optional/literal array text and literal formula reference/input ownership are verified in ADRs 0031, 0032 and 0034. Geometry is checked by explicit physical operations and strict shared-group reads; public property/save representation differences are tested. Remaining formula/cache/header and graph cases below keep this milestone open.
+Checkpoint: optional/literal array text and literal formula reference/input ownership are verified in ADRs 0031, 0032 and 0034. Geometry is checked by explicit physical operations and strict shared-group reads; public property/save representation differences are tested. The assigned formula/cache/header read cases are verified; full graph interpretation/editing remains M6.4.
 
 - Support shared formulas and follower expansion using the canonical A1 translation engine; validate master IDs/ranges and avoid dense range allocation.
 - Represent array, data-table and baseline dynamic formula metadata independently of normal formula text and optional typed cache.
@@ -76,7 +76,7 @@ Checkpoint: optional/literal array text and literal formula reference/input owne
 - Bound expression, metadata, shared-master and cache allocations; projection must avoid unnecessary decoding without corrupting later reference state.
 - Define supported non-finite and precision-sensitive numeric behavior through reference tests; unsupported current cases remain open until covered.
 
-M2 acceptance: all assigned value/string/date/formula read cases pass in streaming and explicit materialization, with high-cardinality disk-backed strings, mode restrictions, aggregate catalog accounting and representative benchmarks. M2 stays in progress until these requirements are met.
+M2 acceptance: all assigned value/string/date/formula read cases pass in streaming and explicit materialization, with high-cardinality disk-backed strings, mode restrictions, aggregate catalog accounting and representative benchmarks. These requirements are met; see [alpha.5 acceptance](validation/alpha5-m2-acceptance.md). M2 closure does not close M4–M7.
 
 ## M4.1: Loaded workbook ownership
 

@@ -1958,6 +1958,22 @@ fn style_catalog_actual_counts_bytes_bad_components_and_duplicate_ids_are_guarde
         assert_eq!(error.kind(), ErrorKind::InvalidData);
         assert_eq!(book.style_memory_bytes(), 0);
     }
+    let large = "9".repeat(8192);
+    for oversized in [
+        valid.replace("<font>", &format!("<font><charset val=\"{large}\"/>")),
+        valid.replace("<patternFill patternType=\"none\"/>", &format!("<patternFill><fgColor theme=\"{large}\"/></patternFill>")),
+        valid.replace("<patternFill patternType=\"none\"/>", &format!("<gradientFill><stop position=\"0\"><color indexed=\"{large}\"/></stop></gradientFill>")),
+        valid.replace("<border/>", &format!("<border><left><color indexed=\"{large}\"/></left></border>")),
+        format!("{valid}<colors><mruColors><color indexed=\"{large}\"/></mruColors></colors>"),
+        format!("{valid}<dxfs><dxf><font><charset val=\"{large}\"/></font></dxf></dxfs>"),
+    ] {
+        assert_ne!(oversized, valid);
+        let mut book = WorkbookReader::with_limits(Cursor::new(with_styles("<row/>", &oversized, false)), ResourceLimits {max_style_bytes: 4096, ..Default::default()}).unwrap();
+        let error = book.style_catalog().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+        assert_eq!(error.part(), Some("meta/styles.xml"));
+        assert_eq!(book.style_memory_bytes(), 0);
+    }
     let unknown = valid.replace("<font>", "<font unsupported=\"1\">");
     let mut book =
         WorkbookReader::new(Cursor::new(with_styles("<row/>", &unknown, false))).unwrap();
