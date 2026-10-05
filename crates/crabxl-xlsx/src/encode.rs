@@ -379,6 +379,12 @@ pub(crate) fn validate_value(
         CellValue::Formula(value) => {
             if let Some(metadata) = value.metadata() {
                 metadata.validate()?;
+                if metadata.annotations.is_some() {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Writing formula annotation metadata graphs is not implemented",
+                    ));
+                }
                 if let crabxl_core::FormulaType::Shared { index, .. } = &metadata.kind
                     && let Some(literal) = index.literal()
                 {

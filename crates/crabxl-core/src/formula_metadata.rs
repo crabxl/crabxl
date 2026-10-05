@@ -236,6 +236,27 @@ impl DataTableOptions {
             .sum::<usize>()
     }
 }
+/// Read-side cell/value metadata references attached to a formula. Literal
+/// source indices are retained independently of expression and cache. Their
+/// metadata part graphs are not interpreted or recreated by this model.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct FormulaAnnotations {
+    /// Original cm spelling, including empty or opaque literal values.
+    pub cell_metadata: Option<Box<str>>,
+    /// Original vm spelling, independently optional.
+    pub value_metadata: Option<Box<str>>,
+}
+impl FormulaAnnotations {
+    /// Retained literal index bytes, excluding the fixed wrapper.
+    pub fn payload_bytes(&self) -> usize {
+        self.cell_metadata.as_ref().map_or(0, |value| value.len())
+            + self.value_metadata.as_ref().map_or(0, |value| value.len())
+    }
+    /// Owned wrapper and literal payload charge.
+    pub fn memory_bytes(&self) -> usize {
+        size_of::<Self>() + self.payload_bytes()
+    }
+}
 /// Structured formula metadata; optional fields retain absence rather than
 /// installing flags/ranges or fabricated cached results.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -251,6 +272,9 @@ pub struct FormulaMetadata {
     pub flags: FormulaFlags,
     /// Data-table fields, only valid on data-table records.
     pub data_table: Option<Box<DataTableOptions>>,
+    /// Explicitly requested read-side formula cm/vm references. Recreating their
+    /// dependent metadata graphs is a separate unsupported write capability.
+    pub annotations: Option<Box<FormulaAnnotations>>,
 }
 impl FormulaMetadata {
     /// Validate shared typed models before I/O/model mutation.
@@ -277,6 +301,7 @@ impl FormulaMetadata {
         }) + self.reference.as_ref().map_or(0, FormulaRange::heap_bytes)
             + self.flags.heap_bytes()
             + self.data_table.as_ref().map_or(0, |v| v.heap_bytes())
+            + self.annotations.as_ref().map_or(0, |v| v.payload_bytes())
     }
     /// Boxed wrapper plus retained source/reference/options bytes.
     pub fn memory_bytes(&self) -> usize {
@@ -291,5 +316,6 @@ impl FormulaMetadata {
                 .data_table
                 .as_ref()
                 .map_or(0, |v| size_of::<DataTableOptions>() + v.heap_bytes())
+            + self.annotations.as_ref().map_or(0, |v| v.memory_bytes())
     }
 }
