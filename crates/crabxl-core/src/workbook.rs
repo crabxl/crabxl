@@ -553,6 +553,11 @@ impl Worksheet {
     }
 }
 impl WorksheetEditor<'_> {
+    /// Replace canonical printing metadata under aggregate/per-sheet limits.
+    pub fn set_print_settings(&mut self, settings: Option<crate::PrintSettings>) -> Result<()> {
+        self.sheet.set_print_settings(settings)
+    }
+
     /// Replace canonical display metadata within the aggregate/per-sheet allowance.
     pub fn set_sheet_views(&mut self, views: Option<crate::SheetViews>) -> Result<()> {
         self.sheet.set_sheet_views(views)

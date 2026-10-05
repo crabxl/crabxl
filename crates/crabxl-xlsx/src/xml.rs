@@ -21,7 +21,9 @@ pub(crate) const STRICT_MAIN: &[u8] = STRICT_MAIN_URI.as_bytes();
 pub(crate) const OFFICE_REL_URI: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const OFFICE_REL: &[u8] = OFFICE_REL_URI.as_bytes();
-const STRICT_OFFICE_REL: &[u8] = b"http://purl.oclc.org/ooxml/officeDocument/relationships";
+pub(crate) const STRICT_OFFICE_REL_URI: &str =
+    "http://purl.oclc.org/ooxml/officeDocument/relationships";
+const STRICT_OFFICE_REL: &[u8] = STRICT_OFFICE_REL_URI.as_bytes();
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Scope {
@@ -37,7 +39,7 @@ pub(crate) struct Frame<'a> {
     pub spreadsheet_uri: Option<&'static str>,
     pub event: Event<'a>,
     pub decoder: Decoder,
-    pub sheet_relationship: Option<String>,
+    pub office_relationship: Option<String>,
     pub depth: usize,
 }
 
@@ -219,10 +221,10 @@ impl<B: BufRead> XmlStream<B> {
             }
             _ => {}
         }
-        let mut sheet_relationship = None;
+        let mut office_relationship = None;
         if scope == Scope::Spreadsheet {
             if let Event::Start(e) = &event {
-                if e.local_name().as_ref() == b"sheet" {
+                if matches!(e.local_name().as_ref(), b"sheet" | b"pageSetup") {
                     for attribute in e.attributes() {
                         let attribute = attribute.map_err(|e| {
                             Error::caused_by(ErrorKind::Xml, "Invalid XML attribute", e)
@@ -233,7 +235,7 @@ impl<B: BufRead> XmlStream<B> {
                         if name.as_ref() == b"id"
                             && matches!(namespace, ResolveResult::Bound(ns) if ns.as_ref() == OFFICE_REL || ns.as_ref() == STRICT_OFFICE_REL)
                         {
-                            sheet_relationship = Some(
+                            office_relationship = Some(
                                 attribute
                                     .decoded_and_normalized_value(
                                         quick_xml::XmlVersion::Implicit1_0,
@@ -259,7 +261,7 @@ impl<B: BufRead> XmlStream<B> {
             spreadsheet_uri,
             event,
             decoder,
-            sheet_relationship,
+            office_relationship,
             depth: self.depth,
         })
     }

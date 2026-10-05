@@ -109,14 +109,12 @@ pub(crate) fn write_views(
     output.write_all(b"</sheetViews>")
 }
 
+use crate::metadata::{attributes, boolean, integer};
 use crate::xml::{Scope, XmlStream};
 use crabxl_core::{
     Error, ErrorKind, Pane, PanePosition, PaneState, Selection, SheetView, ViewMode,
 };
-use quick_xml::{
-    encoding::Decoder,
-    events::{BytesStart, Event},
-};
+use quick_xml::events::Event;
 use std::io::BufRead;
 
 fn invalid(message: &str) -> Error {
@@ -130,44 +128,6 @@ fn position(value: &str) -> Result<PanePosition> {
         "bottomRight" => Ok(PanePosition::BottomRight),
         _ => Err(invalid("Invalid worksheet pane position")),
     }
-}
-fn boolean(value: &str) -> Result<bool> {
-    match value {
-        "1" | "true" => Ok(true),
-        "0" | "false" => Ok(false),
-        _ => Err(invalid("Invalid worksheet view boolean")),
-    }
-}
-fn integer(value: &str) -> Result<i64> {
-    value
-        .parse()
-        .map_err(|_| invalid("Invalid worksheet view integer"))
-}
-fn attributes(
-    e: &BytesStart<'_>,
-    decoder: Decoder,
-    mut apply: impl FnMut(&[u8], &str) -> Result<()>,
-) -> Result<()> {
-    for attribute in e.attributes() {
-        let attribute = attribute.map_err(|error| {
-            Error::caused_by(ErrorKind::Xml, "Invalid worksheet view attribute", error)
-        })?;
-        let name = attribute.key.as_ref();
-        if name == b"xmlns" || name.starts_with(b"xmlns:") {
-            continue;
-        }
-        let value = attribute
-            .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
-            .map_err(|error| {
-                Error::caused_by(
-                    ErrorKind::Xml,
-                    "Cannot decode worksheet view attribute",
-                    error,
-                )
-            })?;
-        apply(name, &value)?;
-    }
-    Ok(())
 }
 fn unsupported() -> Error {
     Error::new(

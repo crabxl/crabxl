@@ -1,0 +1,197 @@
+{
+  "baseline_core": "b3e3460408bf2a034a7826eae35b7a0321f399ce",
+  "baseline_sha256": "0100ac1dd42b8db9390327e7f750c012b920dcb17b16d609dd8047e1953c878a",
+  "semantics": "Same unconfigured ten-column numeric writer and scalar generation in both versions; one warmup plus 5 rotating serial samples. Exact worksheet XML SHA/bytes match in every sample. Linux process wall/CPU/RSS, separate TMPDIR, no builds/tests during timing. 25ms temporary sampling is a lower bound; exact spool includes footer and excludes final ZIP.",
+  "cases": [
+    {
+      "rows": 5000,
+      "cells": 50000,
+      "worksheet_sha256": "671918b756235c5f299433895e32d875333dbead15745bc29ea7a1b6a037f517",
+      "samples": {
+        "current": [
+          {
+            "seconds": 0.04426809,
+            "cpu_seconds": 0.044159,
+            "peak_rss_kib": 2352,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          },
+          {
+            "seconds": 0.0437875,
+            "cpu_seconds": 0.043665,
+            "peak_rss_kib": 2356,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          },
+          {
+            "seconds": 0.042934159,
+            "cpu_seconds": 0.042827,
+            "peak_rss_kib": 2288,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          },
+          {
+            "seconds": 0.046312492,
+            "cpu_seconds": 0.046119,
+            "peak_rss_kib": 2348,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          },
+          {
+            "seconds": 0.043741252,
+            "cpu_seconds": 0.04361,
+            "peak_rss_kib": 2356,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          }
+        ],
+        "prior": [
+          {
+            "seconds": 0.04244091,
+            "cpu_seconds": 0.042358,
+            "peak_rss_kib": 2376,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          },
+          {
+            "seconds": 0.044468116,
+            "cpu_seconds": 0.044316,
+            "peak_rss_kib": 2372,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          },
+          {
+            "seconds": 0.044070759,
+            "cpu_seconds": 0.043939,
+            "peak_rss_kib": 2340,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          },
+          {
+            "seconds": 0.042383985,
+            "cpu_seconds": 0.042266,
+            "peak_rss_kib": 2432,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          },
+          {
+            "seconds": 0.044114167,
+            "cpu_seconds": 0.043946,
+            "peak_rss_kib": 2368,
+            "sampled_temp_peak_bytes": 1526880,
+            "logical_temp_peak_bytes": 1526880
+          }
+        ]
+      },
+      "medians": {
+        "current": {
+          "seconds": 0.0437875,
+          "cpu_seconds": 0.043665,
+          "peak_rss_kib": 2352,
+          "sampled_temp_peak_bytes": 1526880
+        },
+        "prior": {
+          "seconds": 0.044070759,
+          "cpu_seconds": 0.043939,
+          "peak_rss_kib": 2372,
+          "sampled_temp_peak_bytes": 1526880
+        }
+      }
+    },
+    {
+      "rows": 50000,
+      "cells": 500000,
+      "worksheet_sha256": "32d3d8ad79f4ca0fc0d7f9f1339d58602f921116472fd0784100b6f8074bca0e",
+      "samples": {
+        "current": [
+          {
+            "seconds": 0.519581326,
+            "cpu_seconds": 0.519137,
+            "peak_rss_kib": 2352,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          },
+          {
+            "seconds": 0.459084263,
+            "cpu_seconds": 0.458762,
+            "peak_rss_kib": 2356,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          },
+          {
+            "seconds": 0.518175493,
+            "cpu_seconds": 0.517745,
+            "peak_rss_kib": 2352,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          },
+          {
+            "seconds": 0.464826671,
+            "cpu_seconds": 0.464557,
+            "peak_rss_kib": 2360,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          },
+          {
+            "seconds": 0.463182355,
+            "cpu_seconds": 0.462806,
+            "peak_rss_kib": 2368,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          }
+        ],
+        "prior": [
+          {
+            "seconds": 0.466782286,
+            "cpu_seconds": 0.46623,
+            "peak_rss_kib": 2312,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          },
+          {
+            "seconds": 0.47683838,
+            "cpu_seconds": 0.476418,
+            "peak_rss_kib": 2284,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          },
+          {
+            "seconds": 0.459792917,
+            "cpu_seconds": 0.459568,
+            "peak_rss_kib": 2320,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          },
+          {
+            "seconds": 0.461210375,
+            "cpu_seconds": 0.460979,
+            "peak_rss_kib": 2312,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          },
+          {
+            "seconds": 0.464036024,
+            "cpu_seconds": 0.463526,
+            "peak_rss_kib": 2356,
+            "sampled_temp_peak_bytes": 16316891,
+            "logical_temp_peak_bytes": 16316891
+          }
+        ]
+      },
+      "medians": {
+        "current": {
+          "seconds": 0.464826671,
+          "cpu_seconds": 0.464557,
+          "peak_rss_kib": 2356,
+          "sampled_temp_peak_bytes": 16316891
+        },
+        "prior": {
+          "seconds": 0.464036024,
+          "cpu_seconds": 0.463526,
+          "peak_rss_kib": 2312,
+          "sampled_temp_peak_bytes": 16316891
+        }
+      }
+    }
+  ]
+}

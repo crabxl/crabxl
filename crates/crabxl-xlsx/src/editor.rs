@@ -21,6 +21,9 @@ use std::{
 use zip::{ZipWriter, write::SimpleFileOptions};
 
 const PATCH_BYTES: usize = 256;
+// Box large metadata values so sparse BTree nodes retain pointer-sized slots.
+// Conservative per-part node allowance; model payload/capacities are additional.
+const METADATA_ENTRY_BYTES: usize = 1024;
 struct Patch {
     cell: Cell,
     insert_missing: bool,
@@ -47,7 +50,7 @@ pub enum CalculationChainPolicy {
     #[default]
     DiscardOnEdit,
     /// Reject value/formula edits when a calculation-chain part is present.
-    /// Pure viewport changes retain the chain.
+    /// Pure display/printing changes retain the chain.
     RejectEdits,
 }
 /// Budgets for a lazy package editor and its owned value overlays.
@@ -57,7 +60,7 @@ pub struct EditorOptions {
     pub resources: ResourceLimits,
     /// Shared Auto or explicit managed operation budget, including work reserve.
     pub memory_policy: MemoryPolicy,
-    /// Additional patch cap (usize::MAX by default); excludes allocator overhead.
+    /// Owned cell/view/printing overlay cap; excludes allocator overhead.
     pub max_patch_bytes: usize,
     /// Maximum distinct pending cell replacements.
     pub max_patch_cells: usize,
@@ -104,16 +107,18 @@ pub struct SaveStats {
 /// parts on their original source. save borrows self, so repeated saves retain
 /// images/macros and never consume the original or the pending edits.
 ///
-/// This checkpoint changes existing scalar/normal-formula cells only. It keeps
-/// cell styles and relationships; upsert_value also inserts missing cells.
+/// Cell values/upserts, worksheet views and printing share bounded overlays.
+/// Styles, original relationships and unrelated content are preserved.
 /// Date/style registration and structural edits in existing packages remain staged.
-/// Derived calculation chains are discarded on edits under the default policy. Any edited
-/// workbook has worksheet formula caches invalidated and recalculation requested.
+/// Value/formula edits discard derived chains under the default policy, invalidate
+/// worksheet formula caches and request recalculation. Pure display/printing edits
+/// retain caches/chains and rewrite only their selected worksheets.
 pub struct WorkbookEditor<R: Read + Seek = File> {
     book: WorkbookReader<R>,
     parts: Vec<PartInfo>,
     patches: BTreeMap<String, Patches>,
-    view_patches: BTreeMap<String, crabxl_core::SheetViews>,
+    view_patches: BTreeMap<String, Box<crabxl_core::SheetViews>>,
+    print_patches: BTreeMap<String, Box<crabxl_core::PrintSettings>>,
     options: EditorOptions,
     patch_bytes: usize,
     patch_cells: usize,
@@ -256,6 +261,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             parts,
             patches: BTreeMap::new(),
             view_patches: BTreeMap::new(),
+            print_patches: BTreeMap::new(),
             options,
             patch_bytes: 0,
             patch_cells: 0,
@@ -278,7 +284,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     }
     /// Whether pending overlays are present. Saving does not discard overlays.
     pub fn is_dirty(&self) -> bool {
-        self.patch_cells != 0 || !self.view_patches.is_empty()
+        self.patch_cells != 0 || !self.view_patches.is_empty() || !self.print_patches.is_empty()
     }
     /// Shared automatic/explicit operation allowance computed at construction.
     /// Original ZIP/catalog/inventory allocations are additional.
@@ -306,7 +312,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .iter()
             .find(|info| info.name() == sheet)?
             .part();
-        self.view_patches.get(part)
+        self.view_patches.get(part).map(Box::as_ref)
     }
     /// Replace viewport metadata while preserving cell values, caches and unrelated
     /// package parts. Unknown source view extensions reject replacement explicitly.
@@ -330,11 +336,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         let old = self
             .view_patches
             .get(&part)
-            .map_or(0, crabxl_core::SheetViews::memory_bytes);
+            .map_or(0, |views| views.memory_bytes());
         let node = if self.view_patches.contains_key(&part) {
             0
         } else {
-            PATCH_BYTES.saturating_add(part.len())
+            METADATA_ENTRY_BYTES.saturating_add(part.len())
         };
         let bytes = self
             .patch_bytes
@@ -346,10 +352,87 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         // Header parsing verifies supported source metadata before it can be replaced.
         // The temporary original model is bounded separately and released immediately.
-        let source_allowance = self.allowance.retained_data_bytes.saturating_sub(bytes);
+        let source_allowance = self
+            .allowance
+            .retained_data_bytes
+            .saturating_sub(bytes.max(self.patch_bytes));
         self.book
             .sheet_views_with_allowance(sheet, source_allowance)?;
-        self.view_patches.insert(part, views);
+        self.view_patches.insert(part, Box::new(views));
+        self.patch_bytes = bytes;
+        Ok(())
+    }
+    /// Read original printing metadata through worksheet EOF/CRC.
+    pub fn print_settings(&mut self, sheet: &str) -> Result<crabxl_core::PrintSettings> {
+        self.book.print_settings(sheet)
+    }
+    /// Borrow a pending canonical printing replacement.
+    pub fn pending_print_settings(&self, sheet: &str) -> Option<&crabxl_core::PrintSettings> {
+        let part = self
+            .book
+            .sheets()
+            .iter()
+            .find(|info| info.name() == sheet)?
+            .part();
+        self.print_patches.get(part).map(Box::as_ref)
+    }
+    /// Replace printing metadata while preserving unrelated worksheet/package data.
+    /// Printer relationship identity must match the original; graph mutation is separate.
+    pub fn set_print_settings(
+        &mut self,
+        sheet: &str,
+        settings: crabxl_core::PrintSettings,
+    ) -> Result<()> {
+        if self.signed {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Editing signed printing settings requires an explicit signature policy",
+            ));
+        }
+        crate::printing::validate(&settings)?;
+        let info = self
+            .book
+            .sheets()
+            .iter()
+            .find(|info| info.name() == sheet)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::SheetNotFound,
+                    "Printing worksheet source not found",
+                )
+            })?;
+        let part = info.part().to_owned();
+        let old = self
+            .print_patches
+            .get(&part)
+            .map_or(0, |settings| settings.memory_bytes());
+        let node = if self.print_patches.contains_key(&part) {
+            0
+        } else {
+            METADATA_ENTRY_BYTES.saturating_add(part.len())
+        };
+        let bytes = self
+            .patch_bytes
+            .saturating_sub(old)
+            .saturating_add(node)
+            .saturating_add(settings.memory_bytes());
+        if bytes > self.options.max_patch_bytes {
+            return Err(limit("Printing overlay allowance exceeded"));
+        }
+        let source_allowance = self
+            .allowance
+            .retained_data_bytes
+            .saturating_sub(bytes.max(self.patch_bytes));
+        let original = self
+            .book
+            .print_settings_with_allowance(sheet, source_allowance)?;
+        if original.setup.printer_relationship != settings.setup.printer_relationship {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Changing printer identities requires a package feature graph",
+            ));
+        }
+        self.print_patches.insert(part, Box::new(settings));
         self.patch_bytes = bytes;
         Ok(())
     }
@@ -503,13 +586,15 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     pub fn clear_edits(&mut self) {
         self.patches = BTreeMap::new();
         self.view_patches = BTreeMap::new();
+        self.print_patches = BTreeMap::new();
         self.patch_bytes = 0;
         self.patch_cells = 0;
     }
     /// Save to a caller-owned fresh/truncated sink; failures may leave partial
     /// sink bytes. Caller ownership can be retained by passing &mut W.
-    /// Unchanged entries preserve compressed payloads; edited workbooks rewrite
-    /// all worksheets to remove old formula caches, plus calculation properties.
+    /// Unchanged entries preserve compressed payloads. Value/formula edits rewrite
+    /// all worksheets to remove old caches, plus calculation properties; pure
+    /// display/printing edits rewrite only the selected worksheets.
     pub fn save<W: Write + Seek>(
         &mut self,
         output: W,
@@ -536,8 +621,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 && !self.calc_chain_parts.is_empty()
                 && (part.name.as_ref() == "[Content_Types].xml"
                     || part.name.as_ref() == self.workbook_relationships);
-            let view_patch = self.view_patches.get(part.name.as_ref());
-            let worksheet = (dirty || view_patch.is_some())
+            let view_patch = self.view_patches.get(part.name.as_ref()).map(Box::as_ref);
+            let print_patch = self.print_patches.get(part.name.as_ref()).map(Box::as_ref);
+            let worksheet = (dirty || view_patch.is_some() || print_patch.is_some())
                 && self.book.sheets().iter().any(|sheet| {
                     sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
                 });
@@ -572,6 +658,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             limits: self.options.resources,
                             formula_attributes: self.options.formula_attributes,
                             views: view_patch,
+                            printing: print_patch,
                             invalidate_caches: dirty,
                         },
                     )
@@ -918,6 +1005,7 @@ struct WorksheetRewrite<'a> {
     limits: ResourceLimits,
     formula_attributes: crate::FormulaWritePolicy,
     views: Option<&'a crabxl_core::SheetViews>,
+    printing: Option<&'a crabxl_core::PrintSettings>,
     invalidate_caches: bool,
 }
 fn patch_worksheet<R: Read + Seek, W: Write>(
@@ -931,6 +1019,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
         limits,
         formula_attributes,
         views,
+        printing,
         invalidate_caches,
     } = rewrite;
     let mut xml = XmlStream::new(
@@ -940,6 +1029,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
         limits,
     );
     let mut writer = Writer::new(output);
+    let mut print_rewrite = printing.map(crate::printing::Rewrite::new);
     let mut row = 0u32;
     let mut next_row = 0u32;
     let mut next_column = 0u32;
@@ -972,6 +1062,36 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 ErrorKind::Unsupported,
                 "Editing markup-compatibility alternatives requires typed branch handling",
             ));
+        }
+        if let Some(rewrite) = &mut print_rewrite {
+            if frame.scope == Scope::Spreadsheet {
+                match &frame.event {
+                    Event::Start(e) => {
+                        let skip = rewrite
+                            .before_start(
+                                writer.get_mut(),
+                                e.local_name().as_ref(),
+                                frame.depth,
+                                frame.spreadsheet_uri,
+                            )
+                            .map_err(|error| io_error("Cannot replace printing metadata", error))?;
+                        if skip {
+                            let depth = frame.depth;
+                            crate::style_codec::skip(&mut xml, depth)?;
+                            continue;
+                        }
+                    }
+                    Event::End(e) => rewrite
+                        .before_end(
+                            writer.get_mut(),
+                            e.local_name().as_ref(),
+                            frame.depth,
+                            frame.spreadsheet_uri,
+                        )
+                        .map_err(|error| io_error("Cannot finish printing metadata", error))?,
+                    _ => {}
+                }
+            }
         }
         if let Some(views) = views {
             if let Event::Start(e) = &frame.event {

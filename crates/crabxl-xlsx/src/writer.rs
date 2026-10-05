@@ -133,6 +133,7 @@ struct ActiveSheet {
     output: BufWriter<NamedTempFile>,
     bytes: u64,
     last_row: Option<RowIndex>,
+    footer: Option<Vec<u8>>,
 }
 
 /// One-shot XLSX writer using bounded rows and owned temporary worksheets.
@@ -351,7 +352,9 @@ impl WorkbookWriter {
                 .map(|sheet| sheet.name.capacity() + sheet.file.path().as_os_str().len())
                 .sum::<usize>()
             + self.active.as_ref().map_or(0, |sheet| {
-                sheet.name.capacity() + sheet.output.get_ref().path().as_os_str().len()
+                sheet.name.capacity()
+                    + sheet.output.get_ref().path().as_os_str().len()
+                    + sheet.footer.as_ref().map_or(0, Vec::capacity)
             })
     }
     fn style_bytes(&self) -> usize {
@@ -361,7 +364,7 @@ impl WorkbookWriter {
     /// Start a sheet, completing the previous one. Failed validation or temporary
     /// file creation leaves the previous active sheet usable.
     pub fn start_sheet(&mut self, name: impl Into<String>) -> Result<()> {
-        self.start_sheet_with_header(name.into(), HEADER, 0)
+        self.start_sheet_with_header(name.into(), HEADER, None, 0)
     }
     /// Start a sheet with borrowed canonical viewport metadata. Validation and
     /// bounded encoding precede any active-sheet closure or spool creation.
@@ -370,8 +373,32 @@ impl WorkbookWriter {
         name: impl Into<String>,
         views: &crabxl_core::SheetViews,
     ) -> Result<()> {
+        self.start_sheet_with_settings(name, Some(views), None)
+    }
+    /// Borrow canonical views and printing settings. Encoded metadata is bounded;
+    /// printing relationships require the later new-package relationship graph.
+    pub fn start_sheet_with_settings(
+        &mut self,
+        name: impl Into<String>,
+        views: Option<&crabxl_core::SheetViews>,
+        printing: Option<&crabxl_core::PrintSettings>,
+    ) -> Result<()> {
         self.ensure_open()?;
-        crate::worksheet_view::validate(views)?;
+        if views.is_none() && printing.is_none() {
+            return self.start_sheet(name);
+        }
+        if let Some(views) = views {
+            crate::worksheet_view::validate(views)?;
+        }
+        if let Some(printing) = printing {
+            crate::printing::validate(printing)?;
+            if printing.setup.printer_relationship.is_some() {
+                return Err(Error::new(
+                    ErrorKind::Unsupported,
+                    "New printer relationships require a package feature graph",
+                ));
+            }
+        }
         let maximum = self
             .options
             .max_metadata_bytes
@@ -381,27 +408,66 @@ impl WorkbookWriter {
             data: Vec::new(),
             maximum,
         };
-        header
-            .write_all(&HEADER[..HEADER.len() - b"<sheetData>".len()])
-            .and_then(|()| crate::worksheet_view::write_views(&mut header, views, None))
-            .and_then(|()| header.write_all(b"<sheetData>"))
-            .map_err(|error| {
-                Error::caused_by(
-                    if error.kind() == io::ErrorKind::FileTooLarge {
-                        ErrorKind::LimitExceeded
-                    } else {
-                        ErrorKind::Io
-                    },
-                    "Cannot encode worksheet views within metadata allowance",
-                    error,
-                )
-            })?;
-        self.start_sheet_with_header(name.into(), &header.data, header.data.capacity())
+        let mut footer = RowBuffer {
+            data: Vec::new(),
+            maximum: 0,
+        };
+        let encoded = (|| -> io::Result<()> {
+            header.write_all(&HEADER[..HEADER.len() - b"<sheetData>".len()])?;
+            if let Some(printing) = printing {
+                crate::printing::write_properties(&mut header, printing, None, true)?;
+            }
+            if let Some(views) = views {
+                crate::worksheet_view::write_views(&mut header, views, None)?;
+            }
+            header.write_all(b"<sheetData>")?;
+            if let Some(printing) = printing {
+                footer.maximum = maximum.saturating_sub(header.data.capacity());
+                footer.write_all(b"</sheetData>")?;
+                crate::printing::write_page(&mut footer, printing, None)?;
+                crate::printing::write_breaks(
+                    &mut footer,
+                    "rowBreaks",
+                    &printing.row_breaks,
+                    None,
+                )?;
+                crate::printing::write_breaks(
+                    &mut footer,
+                    "colBreaks",
+                    &printing.column_breaks,
+                    None,
+                )?;
+                footer.write_all(b"</worksheet>")?;
+            }
+            Ok(())
+        })();
+        encoded.map_err(|error| {
+            Error::caused_by(
+                if error.kind() == io::ErrorKind::FileTooLarge {
+                    ErrorKind::LimitExceeded
+                } else {
+                    ErrorKind::Io
+                },
+                "Cannot encode worksheet metadata within allowance",
+                error,
+            )
+        })?;
+        let scratch_bytes = header
+            .data
+            .capacity()
+            .saturating_add(footer.data.capacity());
+        self.start_sheet_with_header(
+            name.into(),
+            &header.data,
+            printing.map(|_| footer.data),
+            scratch_bytes,
+        )
     }
     fn start_sheet_with_header(
         &mut self,
         name: String,
         header: &[u8],
+        footer: Option<Vec<u8>>,
         scratch_bytes: usize,
     ) -> Result<()> {
         self.ensure_open()?;
@@ -440,7 +506,9 @@ impl WorkbookWriter {
             .map(|sheet| sheet.name.capacity() + sheet.file.path().as_os_str().len())
             .sum::<usize>()
             + self.active.as_ref().map_or(0, |sheet| {
-                sheet.name.capacity() + sheet.output.get_ref().path().as_os_str().len()
+                sheet.name.capacity()
+                    + sheet.output.get_ref().path().as_os_str().len()
+                    + sheet.footer.as_ref().map_or(0, Vec::capacity)
             });
         if self
             .style_bytes()
@@ -471,13 +539,12 @@ impl WorkbookWriter {
             return Err(limit("Writer catalog budget exceeded"));
         }
         // Reserve both the old sheet's footer and new sheet before mutating state.
-        let old_footer = if self.active.is_some() {
-            FOOTER.len() as u64
-        } else {
-            0
-        };
-        self.check_temp(header.len() as u64 + old_footer + FOOTER.len() as u64)?;
-        if header.len() as u64 + FOOTER.len() as u64 > self.options.max_sheet_bytes {
+        let old_footer = self.active.as_ref().map_or(0, |sheet| {
+            sheet.footer.as_ref().map_or(FOOTER.len(), Vec::len)
+        }) as u64;
+        let footer_bytes = footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64;
+        self.check_temp(header.len() as u64 + old_footer + footer_bytes)?;
+        if header.len() as u64 + footer_bytes > self.options.max_sheet_bytes {
             return Err(limit("Writer sheet byte limit exceeded"));
         }
         self.close_sheet()?;
@@ -486,6 +553,7 @@ impl WorkbookWriter {
             output: BufWriter::with_capacity(self.options.buffer_bytes, file),
             bytes: 0,
             last_row: None,
+            footer,
         });
         self.write_active(header)?;
         Ok(())
@@ -499,11 +567,7 @@ impl WorkbookWriter {
     /// Style IDs must refer to this writer's registered formats. This creates a
     /// new sheet; it does not preserve parts of a loaded source package.
     pub fn write_worksheet(&mut self, sheet: &crabxl_core::Worksheet) -> Result<()> {
-        if let Some(views) = sheet.sheet_views() {
-            self.start_sheet_with_views(sheet.name(), views)?;
-        } else {
-            self.start_sheet(sheet.name())?;
-        }
+        self.start_sheet_with_settings(sheet.name(), sheet.sheet_views(), sheet.print_settings())?;
         let mut last = None;
         for index in sheet.row_indices() {
             self.write_cells(index, sheet.row_cells(index))?;
@@ -617,8 +681,13 @@ impl WorkbookWriter {
         )
         .map_err(|error| error.with_part(&part))?;
         let length = self.row_buffer.data.len() as u64;
-        self.check_temp(length + FOOTER.len() as u64)
-            .map_err(|error| error.with_part(&part))?;
+        self.check_temp(
+            length
+                + self.active.as_ref().map_or(FOOTER.len(), |sheet| {
+                    sheet.footer.as_ref().map_or(FOOTER.len(), Vec::len)
+                }) as u64,
+        )
+        .map_err(|error| error.with_part(&part))?;
         let active = self
             .active
             .as_mut()
@@ -626,7 +695,7 @@ impl WorkbookWriter {
         if active
             .bytes
             .saturating_add(length)
-            .saturating_add(FOOTER.len() as u64)
+            .saturating_add(active.footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64)
             > self.options.max_sheet_bytes
         {
             return Err(limit("Writer sheet byte limit exceeded").with_part(part));
@@ -650,7 +719,8 @@ impl WorkbookWriter {
         if self.active.is_none() {
             return Ok(());
         }
-        self.write_active(FOOTER)?;
+        let footer = self.active.as_mut().and_then(|sheet| sheet.footer.take());
+        self.write_active(footer.as_deref().unwrap_or(FOOTER))?;
         let active = self
             .active
             .take()
