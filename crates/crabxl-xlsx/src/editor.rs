@@ -113,6 +113,11 @@ pub struct SaveStats {
     /// Actual bytes emitted across rewritten XML parts.
     pub rewritten_xml_bytes: u64,
 }
+#[derive(Clone, Copy)]
+enum ActivePatch {
+    Visible(usize),
+    Deferred(i64),
+}
 /// Owns the original source and a bounded overlay, keeping unknown XML/binary
 /// parts on their original source. save borrows self, so repeated saves retain
 /// images/macros and never consume the original or the pending edits.
@@ -129,7 +134,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     patches: BTreeMap<String, Patches>,
     view_patches: BTreeMap<String, Box<crabxl_core::SheetViews>>,
     print_patches: BTreeMap<String, Box<crabxl_core::PrintSettings>>,
-    active_patch: Option<usize>,
+    active_patch: Option<ActivePatch>,
     visibility_patches: BTreeMap<usize, crabxl_core::SheetVisibility>,
     options: EditorOptions,
     patch_bytes: usize,
@@ -340,6 +345,38 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.validate_workbook_patch(index, bytes, true)?;
         Ok(bytes)
     }
+    /// Set a deferred workbook view. Relative, hidden and out-of-range indexes
+    /// are resolved when saving, independently of strict visible-ID selection.
+    pub fn set_active_view_index(&mut self, index: i64) -> Result<()> {
+        let bytes = self.prepare_active_view(index)?;
+        self.commit_active_view(index, bytes);
+        Ok(())
+    }
+    pub(crate) fn prepare_active_view(&mut self, index: i64) -> Result<usize> {
+        let bytes = self
+            .patch_bytes
+            .saturating_add(if self.active_patch.is_none() {
+                PATCH_BYTES
+            } else {
+                0
+            });
+        let position =
+            crabxl_core::resolve_sheet_index(index, self.book.sheets().len()).unwrap_or(0);
+        self.validate_workbook_patch(position, bytes, false)?;
+        Ok(bytes)
+    }
+    pub(crate) fn commit_active_view(&mut self, index: i64, bytes: usize) {
+        self.active_patch = Some(ActivePatch::Deferred(index));
+        self.patch_bytes = bytes;
+    }
+    /// Pending signed view, or the original declaration when unchanged.
+    pub fn active_view_index(&self) -> i64 {
+        match self.active_patch {
+            Some(ActivePatch::Visible(index)) => index as i64,
+            Some(ActivePatch::Deferred(index)) => index,
+            None => self.book.active_view_index(),
+        }
+    }
     /// Effective catalog visibility without decoding any worksheet cells.
     pub fn sheet_visibility(&self, name: &str) -> Result<crabxl_core::SheetVisibility> {
         let index = self
@@ -394,7 +431,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     ) {
         self.visibility_patches.insert(index, visibility);
         if self.active_patch.is_none() {
-            self.active_patch = Some(self.book.active_index().unwrap_or(0));
+            self.active_patch = Some(ActivePatch::Visible(self.book.active_index().unwrap_or(0)));
         }
         self.patch_bytes = bytes;
     }
@@ -405,11 +442,19 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .unwrap_or_else(|| self.book.sheets()[index].visibility())
     }
     pub(crate) fn active_index(&self) -> Option<usize> {
-        self.active_patch.or_else(|| self.book.active_index())
+        crabxl_core::resolve_sheet_index(self.active_view_index(), self.book.sheets().len())
     }
-    fn active_for_save(&self) -> Result<Option<usize>> {
-        if self.visibility_patches.is_empty() {
-            return Ok(self.active_patch);
+    fn active_for_save(&self) -> Result<Option<crabxl_core::ActiveViewSelection>> {
+        if self.active_patch.is_none() && self.visibility_patches.is_empty() {
+            return Ok(None);
+        }
+        if let Some(ActivePatch::Deferred(index)) = self.active_patch {
+            return crabxl_core::normalize_active_view(
+                index,
+                self.book.sheets().len(),
+                |position| self.visibility_at(position),
+            )
+            .map(Some);
         }
         let mut visible = (0..self.book.sheets().len())
             .filter(|index| self.visibility_at(*index) == crabxl_core::SheetVisibility::Visible);
@@ -418,9 +463,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .next()
             .ok_or_else(|| invalid("A workbook requires at least one visible sheet"))?;
         let active = self.active_index().unwrap_or(first);
-        Ok(Some(
-            visible.find(|index| *index >= active).unwrap_or(first),
-        ))
+        let index = visible.find(|index| *index >= active).unwrap_or(first) as i64;
+        Ok(Some(crabxl_core::ActiveViewSelection {
+            serialized_index: Some(index),
+            requested_index: index,
+        }))
     }
     fn validate_workbook_patch(
         &mut self,
@@ -509,7 +556,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         Ok(())
     }
     pub(crate) fn commit_active(&mut self, index: usize, bytes: usize) {
-        self.active_patch = Some(index);
+        self.active_patch = Some(ActivePatch::Visible(index));
         self.patch_bytes = bytes;
     }
     pub(crate) fn retained_package_bytes(&self) -> usize {
@@ -1089,8 +1136,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         output
             .flush()
             .map_err(|error| io_error("Cannot flush edited package", error))?;
-        if !self.visibility_patches.is_empty() {
-            self.active_patch = active;
+        if let Some(active) = active {
+            self.active_patch = Some(match self.active_patch {
+                Some(ActivePatch::Deferred(_)) => ActivePatch::Deferred(active.requested_index),
+                _ => ActivePatch::Visible(active.requested_index as usize),
+            });
         }
         Ok((output, stats))
     }
@@ -1930,7 +1980,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
     part: &str,
     limits: ResourceLimits,
     invalidate_caches: bool,
-    active: Option<usize>,
+    active: Option<crabxl_core::ActiveViewSelection>,
     visibility: &BTreeMap<usize, crabxl_core::SheetVisibility>,
 ) -> Result<u64> {
     let mut xml = XmlStream::new(
@@ -2039,9 +2089,11 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                     }
                 }
                 let value = active
-                    .ok_or_else(|| invalid("Active index is missing"))?
-                    .to_string();
-                start.push_attribute(("activeTab", value.as_str()));
+                    .and_then(|view| view.serialized_index)
+                    .map(|index| index.to_string());
+                if let Some(value) = &value {
+                    start.push_attribute(("activeTab", value.as_str()));
+                }
                 emit(&mut writer, Event::Start(start))?;
                 active_written = true;
             }
@@ -2160,7 +2212,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
 fn emit_active_view<W: Write>(
     writer: &mut Writer<PartOutput<W>>,
     uri: Option<&str>,
-    active: Option<usize>,
+    active: Option<crabxl_core::ActiveViewSelection>,
 ) -> Result<()> {
     let mut start = BytesStart::new("workbookView");
     start.push_attribute((
@@ -2168,9 +2220,11 @@ fn emit_active_view<W: Write>(
         uri.ok_or_else(|| invalid("Workbook namespace is missing"))?,
     ));
     let value = active
-        .ok_or_else(|| invalid("Active index is missing"))?
-        .to_string();
-    start.push_attribute(("activeTab", value.as_str()));
+        .and_then(|view| view.serialized_index)
+        .map(|index| index.to_string());
+    if let Some(value) = &value {
+        start.push_attribute(("activeTab", value.as_str()));
+    }
     emit(writer, Event::Empty(start))
 }
 fn emit_calculation<W: Write>(writer: &mut Writer<PartOutput<W>>, uri: Option<&str>) -> Result<()> {

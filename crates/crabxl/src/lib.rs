@@ -44,6 +44,7 @@ pub use crabxl_core::{
     HorizontalAlignment, VerticalAlignment,
 };
 
+pub use crabxl_core::{ActiveViewSelection, normalize_active_view, resolve_sheet_index};
 pub use crabxl_core::{CellRange, EditLimits, SheetVisibility, Worksheet};
 
 pub use crabxl_xlsx::{

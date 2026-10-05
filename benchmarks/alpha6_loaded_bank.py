@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--edit", action="store_true", help="Also verify full model/read/edit/save/reload")
     parser.add_argument("--active", action="store_true", help="Also verify lazy active selection/save/reload")
     parser.add_argument("--visibility", action="store_true", help="Also verify lazy visibility/active normalization/save/reload")
+    parser.add_argument("--deferred", action="store_true", help="Also verify a signed relative view/save/reload")
     args = parser.parse_args()
     report = {
         "checkpoint": args.checkpoint,
@@ -45,20 +46,22 @@ def main():
             modes.append("bank-active")
         if args.visibility:
             modes.append("bank-visibility")
+        if args.deferred:
+            modes.append("bank-deferred")
         samples = {mode: [] for mode in modes}
         for repeat in range(4):
             order = modes[repeat % len(modes):] + modes[:repeat % len(modes)]
             for mode in order:
                 target = path.with_suffix(".edited.xlsx")
                 command = [HERE / "measure", EXAMPLES / "loaded_rows", path, mode]
-                if mode in ["bank-edit", "bank-active", "bank-visibility"]:
+                if mode in ["bank-edit", "bank-active", "bank-visibility", "bank-deferred"]:
                     command.append(target)
                 result = run(command)
                 output = json.loads(result.stdout)
                 assert all(output[key] == value for key, value in expected.items()), output
                 assert output["sst_temp_bytes"] == 0
-                assert output["materialized_cells"] == (0 if mode in ["bank-active", "bank-visibility"] else expected["cells"])
-                if mode in ["bank-edit", "bank-active", "bank-visibility"]:
+                assert output["materialized_cells"] == (0 if mode in ["bank-active", "bank-visibility", "bank-deferred"] else expected["cells"])
+                if mode in ["bank-edit", "bank-active", "bank-visibility", "bank-deferred"]:
                     assert output["verified_edit"] and output["output_bytes"] == target.stat().st_size
                     assert not list(path.parent.glob("crabxl-save-*"))
                     target.unlink()

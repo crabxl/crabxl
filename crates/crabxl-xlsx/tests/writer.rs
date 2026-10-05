@@ -698,6 +698,17 @@ fn owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values(
     let reader = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
     assert_eq!(reader.sheets()[0].visibility(), VeryHidden);
     assert_eq!(reader.active_index(), Some(1));
+    for (requested, after, output_index) in [(-3, 1, 1), (-1, -1, 1), (0, 1, 1), (10, 10, 0)] {
+        let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+        writer.write_workbook(&book).unwrap();
+        writer.set_active_view_index(requested).unwrap();
+        assert_eq!(
+            writer.active_view_selection().unwrap().requested_index,
+            after
+        );
+        let reader = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+        assert_eq!(reader.active_index(), Some(output_index));
+    }
     let mut invalid = WorkbookWriter::new(WriteOptions {
         active_sheet: 3,
         ..WriteOptions::default()

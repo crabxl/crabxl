@@ -136,9 +136,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 kind: sheet.kind(),
             });
         }
-        if let Some(index) = reader.active_index() {
-            bank.set_active_sheet(sheets[index].id)?;
-        }
+        bank.set_active_view_index(reader.active_view_index());
         // Original declarations can select a hidden sheet; preserve their read
         // state while explicit future selection still requires a visible target.
         for (source, info) in sheets.iter().zip(reader.sheets()) {
@@ -187,6 +185,18 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.editor.commit_active(index, planned);
         self.rebalance()
     }
+    /// Select a deferred display view without loading worksheet cells.
+    pub fn set_active_view_index(&mut self, index: i64) -> Result<()> {
+        let planned = self.editor.prepare_active_view(index)?;
+        self.reserve_workbook_patch(planned)?;
+        self.bank.set_active_view_index(index);
+        self.editor.commit_active_view(index, planned);
+        self.rebalance()
+    }
+    /// Current signed view, including an unselected or relative request.
+    pub fn active_view_index(&self) -> i64 {
+        self.editor.active_view_index()
+    }
     /// Change original catalog visibility without materializing worksheet cells.
     /// All-hidden intermediate states are allowed; saving requires a visible sheet.
     /// Validation and joint allowance checks precede model and overlay changes.
@@ -204,6 +214,27 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.reserve_workbook_patch(planned)?;
         self.bank.set_sheet_visibility(id, visibility)?;
         self.editor.commit_visibility(index, visibility, planned);
+        self.rebalance()
+    }
+    /// Atomically update visibility and a deferred view for a UI holding both
+    /// controls. All validation/resource reservation precedes either change.
+    pub fn set_sheet_visibility_and_active_view(
+        &mut self,
+        id: SheetId,
+        visibility: crabxl_core::SheetVisibility,
+        view_index: i64,
+    ) -> Result<()> {
+        let index = self
+            .sheets
+            .iter()
+            .position(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        let planned = self.editor.prepare_visibility(index)?;
+        self.reserve_workbook_patch(planned)?;
+        self.bank.set_sheet_visibility(id, visibility)?;
+        self.bank.set_active_view_index(view_index);
+        self.editor.commit_visibility(index, visibility, planned);
+        self.editor.commit_active_view(view_index, planned);
         self.rebalance()
     }
     fn reserve_workbook_patch(&mut self, planned: usize) -> Result<()> {
@@ -517,12 +548,8 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             ));
         }
         let result = self.editor.save(output, options)?;
-        if let Some(index) = self.editor.active_index() {
-            let id = self.sheets[index].id;
-            if self.bank.active_sheet() != Some(id) {
-                self.bank.set_active_sheet(id)?;
-            }
-        }
+        self.bank
+            .set_active_view_index(self.editor.active_view_index());
         Ok(result)
     }
     /// Atomically replace a path after a successful original-package save.

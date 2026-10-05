@@ -72,7 +72,7 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     sheets: Vec<SheetInfo>,
     pub(crate) limits: ResourceLimits,
     date_1904: bool,
-    active_sheet: usize,
+    active_sheet: i64,
     pub(crate) workbook_part: String,
     shared_string_part: Option<String>,
     shared_strings: Option<SharedStrings>,
@@ -647,7 +647,11 @@ impl<R: Read + Seek> WorkbookReader<R> {
     /// First workbook view's active display position, or None if out of range.
     /// Missing view metadata defaults to the first sheet.
     pub fn active_index(&self) -> Option<usize> {
-        (self.active_sheet < self.sheets.len()).then_some(self.active_sheet)
+        crabxl_core::resolve_sheet_index(self.active_sheet, self.sheets.len())
+    }
+    /// Original signed workbook view index, before resolving a relative position.
+    pub const fn active_view_index(&self) -> i64 {
+        self.active_sheet
     }
     /// Whether the workbook uses the 1904 date origin.
     pub fn date_1904(&self) -> bool {
@@ -1089,7 +1093,7 @@ fn read_workbook<R: Read + Seek>(
     rels: &HashMap<String, Relationship>,
     limits: ResourceLimits,
     remaining: &mut u64,
-) -> Result<(Vec<SheetInfo>, bool, usize)> {
+) -> Result<(Vec<SheetInfo>, bool, i64)> {
     let mut xml = metadata_xml(archive, part, limits, remaining)?;
     let mut sheets = Vec::new();
     let mut names = HashSet::new();
@@ -1097,7 +1101,7 @@ fn read_workbook<R: Read + Seek>(
     let mut inside_sheets = false;
     let mut inside_views = false;
     let mut view_seen = false;
-    let mut active_sheet = 0usize;
+    let mut active_sheet = 0i64;
     loop {
         let frame = xml.next()?;
         match frame.event {
@@ -1145,7 +1149,7 @@ fn read_workbook<R: Read + Seek>(
             {
                 active_sheet = attribute(&e, b"activeTab")?
                     .map(|value| {
-                        value.parse::<usize>().map_err(|error| {
+                        value.parse::<i64>().map_err(|error| {
                             Error::caused_by(
                                 ErrorKind::InvalidData,
                                 "Invalid active sheet index",

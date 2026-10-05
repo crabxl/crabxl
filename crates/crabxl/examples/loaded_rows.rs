@@ -7,7 +7,7 @@ use std::{fs::File, time::Instant};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let path = args.next().ok_or(
-        "Usage: loaded_rows <input.xlsx> [bank|standalone|bank-edit|bank-active|bank-visibility] [output.xlsx]",
+        "Usage: loaded_rows <input.xlsx> [bank|standalone|bank-edit|bank-active|bank-visibility|bank-deferred] [output.xlsx]",
     )?;
     let mode = args.next().unwrap_or_else(|| "bank".into());
     let output = args.next();
@@ -29,7 +29,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Ok(())
     };
-    let (managed, temp) = if mode == "bank-active" || mode == "bank-visibility" {
+    let (managed, temp) = if matches!(
+        mode.as_str(),
+        "bank-active" | "bank-visibility" | "bank-deferred"
+    ) {
         let mut workbook = LoadedWorkbook::with_options(File::open(path)?, LoadOptions::default())?;
         let id = workbook
             .model()
@@ -40,6 +43,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if mode == "bank-visibility" {
             let first = workbook.model().sheets().next().ok_or("No source sheet")?.0;
             workbook.set_sheet_visibility(first, crabxl::SheetVisibility::Hidden)?;
+        } else if mode == "bank-deferred" {
+            workbook.set_active_view_index(-1)?;
         } else {
             workbook.set_active_sheet(id)?;
         }
@@ -185,7 +190,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         (managed, temp)
     } else {
         return Err(
-            "Mode must be bank, standalone, bank-edit, bank-active or bank-visibility".into(),
+            "Mode must be bank, standalone, bank-edit, bank-active, bank-visibility or bank-deferred".into(),
         );
     };
     println!(

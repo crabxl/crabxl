@@ -19,6 +19,8 @@ pub enum ErrorKind {
     Unsupported,
     /// A configured resource budget was exceeded.
     LimitExceeded,
+    /// No visible sheet is available for workbook serialization.
+    NoVisibleSheet,
     /// Managed operation allocations exceeded the selected memory allowance.
     MemoryBudgetExceeded,
     /// The requested worksheet does not exist.

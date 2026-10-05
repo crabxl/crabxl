@@ -152,6 +152,7 @@ struct ActiveSheet {
 /// workbook. Caller-owned sinks can be passed to finish as &mut W.
 pub struct WorkbookWriter {
     options: WriteOptions,
+    view_index: Option<i64>,
     sheets: Vec<StoredSheet>,
     styles: Option<StyleRegistry>,
     date_styles: DateStyleIds,
@@ -290,6 +291,7 @@ impl WorkbookWriter {
             aborted: false,
             poisoned: false,
             cleanup_paths: Vec::new(),
+            view_index: None,
         };
         if writer.style_bytes() > writer.options.max_metadata_bytes {
             return Err(limit("Writer metadata budget exceeded"));
@@ -940,7 +942,43 @@ impl WorkbookWriter {
     pub fn set_active_sheet(&mut self, index: usize) -> Result<()> {
         self.ensure_open()?;
         self.options.active_sheet = index;
+        self.view_index = None;
         Ok(())
+    }
+    /// Request a relative, hidden or out-of-range view for compatible output.
+    /// This does not change which temporary worksheet receives new rows.
+    pub fn set_active_view_index(&mut self, index: i64) -> Result<()> {
+        self.ensure_open()?;
+        self.view_index = Some(index);
+        Ok(())
+    }
+    /// Preflight a deferred view against stored, paused and active sheet states.
+    /// No temporary files are packaged and no output sink is touched.
+    pub fn active_view_selection(&self) -> Result<crabxl_core::ActiveViewSelection> {
+        self.ensure_open()?;
+        crabxl_core::normalize_active_view(
+            self.view_index.unwrap_or(self.options.active_sheet as i64),
+            self.next_sheet,
+            |index| {
+                self.sheets
+                    .iter()
+                    .find(|sheet| sheet.id == index)
+                    .map(|sheet| sheet.visibility)
+                    .or_else(|| {
+                        self.paused
+                            .iter()
+                            .find(|sheet| sheet.id == index)
+                            .map(|sheet| sheet.visibility)
+                    })
+                    .or_else(|| {
+                        self.active
+                            .as_ref()
+                            .filter(|sheet| sheet.id == index)
+                            .map(|sheet| sheet.visibility)
+                    })
+                    .unwrap_or(crabxl_core::SheetVisibility::Visible)
+            },
+        )
     }
     /// Set temporal storage before any rows are committed. Already serialized
     /// values cannot be reinterpreted by changing the epoch or ISO policy.
@@ -1026,7 +1064,12 @@ impl WorkbookWriter {
         if self.sheets.is_empty() {
             return Err(state("A workbook requires at least one worksheet"));
         }
-        if self.options.active_sheet >= self.sheets.len() {
+        let active_view = if self.view_index.is_some() {
+            Some(self.active_view_selection()?)
+        } else {
+            None
+        };
+        if active_view.is_none() && self.options.active_sheet >= self.sheets.len() {
             return Err(state("Active sheet index is outside the completed catalog"));
         }
         let first_visible = self
@@ -1034,8 +1077,9 @@ impl WorkbookWriter {
             .iter()
             .position(|sheet| sheet.visibility == crabxl_core::SheetVisibility::Visible)
             .ok_or_else(|| state("A workbook requires at least one visible sheet"))?;
-        if self.sheets[self.options.active_sheet].visibility
-            != crabxl_core::SheetVisibility::Visible
+        if active_view.is_none()
+            && self.sheets[self.options.active_sheet].visibility
+                != crabxl_core::SheetVisibility::Visible
         {
             self.options.active_sheet = self
                 .sheets
@@ -1082,6 +1126,7 @@ impl WorkbookWriter {
                 .catalog(),
             &self.options,
             options,
+            active_view,
         )?;
         let mut output = zip
             .finish()
@@ -1215,6 +1260,7 @@ fn package_metadata<W: Write + Seek>(
     styles: &StyleCatalog,
     configuration: &WriteOptions,
     options: SimpleFileOptions,
+    active_view: Option<crabxl_core::ActiveViewSelection>,
 ) -> Result<()> {
     let date_1904 = configuration.date_1904;
     let active_sheet = configuration.active_sheet;
@@ -1267,7 +1313,13 @@ fn package_metadata<W: Write + Seek>(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?><workbook xmlns=\"{MAIN}\" xmlns:r=\"{REL}\"><workbookPr date1904=\"{}\"/>",
             u8::from(date_1904)
         )?;
-        if active_sheet != 0 {
+        if let Some(view) = active_view {
+            zip.write_all(b"<bookViews><workbookView")?;
+            if let Some(index) = view.serialized_index {
+                write!(zip, " activeTab=\"{index}\"")?;
+            }
+            zip.write_all(b"/></bookViews>")?;
+        } else if active_sheet != 0 {
             write!(
                 zip,
                 "<bookViews><workbookView activeTab=\"{active_sheet}\"/></bookViews>"
