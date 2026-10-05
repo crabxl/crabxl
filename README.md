@@ -4,7 +4,10 @@ A Rust spreadsheet library focused on fast, memory-efficient XLSX processing and
 
 M1 provides bounded sparse XLSX row streaming and explicit owned sheet materialization. M2 adds exact integers, plain inline/shared/value text, booleans/errors, bounded shared-string storage, explicit typed rich text, shared style catalogs, numeric dates/time/durations and owned-payload budgets. M3 sequential writer acceptance is complete: scalars, dates/time/duration, normal formulas/caches and basic styles use shared core types and selected rust_xlsxwriter codecs. Complete theme/style editing, advanced formulas, complete editing/preservation, full Python compatibility and other language bindings remain staged.
 
-Rust 1.99.0 or later is required. Run the example against an unstyled numeric worksheet:
+Development and the next release support Rust 1.88.0 or later. The already
+published `0.1.0-alpha.1` requires Rust 1.99.0. Formatting, Clippy and the pinned
+development toolchain use Rust 1.99.0; CI also tests the minimum 1.88.0 toolchain.
+Run the example against an unstyled numeric worksheet:
 
 ```sh
 cargo run --release -p crabxl --example sum -- numbers.xlsx Sheet

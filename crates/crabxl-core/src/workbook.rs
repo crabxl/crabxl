@@ -76,8 +76,10 @@ impl Workbook {
         {
             return Err(budget());
         }
+        // Keep the Rust 1.88-compatible name; newer compilers call it try_update.
+        #[allow(deprecated)]
         let owner = NEXT_OWNER
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
                 value.checked_add(1)
             })
             .map_err(|_| {
