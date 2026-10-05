@@ -1,0 +1,1512 @@
+{
+  "scope": "Two sheets sharing one SST, each read through an independent native reader. One warmup and three rotating serial samples. Serial executes two scans sequentially with concurrent_operations=1; parallel uses two threads and concurrent_operations=2. Same complete values/order are verified. Availability is a controlled caller override, not live host probing. Per-reader catalogs/SSTs are duplicated; no global reservation or hard RSS cap.",
+  "binary_sha256": "f35a6b72ecd4780b5343ee49d970dce7eff38b40aaffda5a93c1895e2b4dbec2",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "sheets": 2,
+      "cardinality": "repeated",
+      "available_mib": 64,
+      "mode": "serial",
+      "source_sha256": "293ddcd78201d69cc388be0be1d1f88dde542824472e6ef5d6bcffaed10026cb",
+      "samples": [
+        {
+          "seconds": 0.165681952,
+          "cpu_seconds": 0.165536,
+          "peak_rss_kib": 2108,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.162942744,
+          "cpu_seconds": 0.162624,
+          "peak_rss_kib": 2096,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.16745472,
+          "cpu_seconds": 0.167079,
+          "peak_rss_kib": 2004,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 0.165681952,
+        "peak_rss_kib": 2096,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 10000,
+      "sheets": 2,
+      "cardinality": "repeated",
+      "available_mib": 64,
+      "mode": "parallel",
+      "source_sha256": "293ddcd78201d69cc388be0be1d1f88dde542824472e6ef5d6bcffaed10026cb",
+      "samples": [
+        {
+          "seconds": 0.083930097,
+          "cpu_seconds": 0.160741,
+          "peak_rss_kib": 2228,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.088899791,
+          "cpu_seconds": 0.172165,
+          "peak_rss_kib": 2076,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.090777772,
+          "cpu_seconds": 0.168221,
+          "peak_rss_kib": 2264,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 0.088899791,
+        "peak_rss_kib": 2228,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 10000,
+      "sheets": 2,
+      "cardinality": "repeated",
+      "available_mib": 1024,
+      "mode": "serial",
+      "source_sha256": "293ddcd78201d69cc388be0be1d1f88dde542824472e6ef5d6bcffaed10026cb",
+      "samples": [
+        {
+          "seconds": 0.169707138,
+          "cpu_seconds": 0.169557,
+          "peak_rss_kib": 2008,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.171508454,
+          "cpu_seconds": 0.17124,
+          "peak_rss_kib": 1984,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.171650998,
+          "cpu_seconds": 0.171237,
+          "peak_rss_kib": 2096,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 0.171508454,
+        "peak_rss_kib": 2008,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 10000,
+      "sheets": 2,
+      "cardinality": "repeated",
+      "available_mib": 1024,
+      "mode": "parallel",
+      "source_sha256": "293ddcd78201d69cc388be0be1d1f88dde542824472e6ef5d6bcffaed10026cb",
+      "samples": [
+        {
+          "seconds": 0.08540394,
+          "cpu_seconds": 0.16432,
+          "peak_rss_kib": 2236,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.086471194,
+          "cpu_seconds": 0.163606,
+          "peak_rss_kib": 2104,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.087495106,
+          "cpu_seconds": 0.168464,
+          "peak_rss_kib": 2220,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 0.086471194,
+        "peak_rss_kib": 2220,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 10000,
+      "sheets": 2,
+      "cardinality": "unique",
+      "available_mib": 64,
+      "mode": "serial",
+      "source_sha256": "9aab76290bf071baaa79dea113cc410b04e0e3d5c5baf317096050a2688a9c63",
+      "samples": [
+        {
+          "seconds": 0.318652854,
+          "cpu_seconds": 0.318163,
+          "peak_rss_kib": 16084,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.318689565,
+          "cpu_seconds": 0.318173,
+          "peak_rss_kib": 16064,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.301290367,
+          "cpu_seconds": 0.301155,
+          "peak_rss_kib": 16096,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 0.318652854,
+        "peak_rss_kib": 16084,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 10000,
+      "sheets": 2,
+      "cardinality": "unique",
+      "available_mib": 64,
+      "mode": "parallel",
+      "source_sha256": "9aab76290bf071baaa79dea113cc410b04e0e3d5c5baf317096050a2688a9c63",
+      "samples": [
+        {
+          "seconds": 0.224322632,
+          "cpu_seconds": 0.438862,
+          "peak_rss_kib": 17228,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 25200000
+        },
+        {
+          "seconds": 0.234782827,
+          "cpu_seconds": 0.445271,
+          "peak_rss_kib": 17256,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 25200000
+        },
+        {
+          "seconds": 0.252725556,
+          "cpu_seconds": 0.459819,
+          "peak_rss_kib": 17184,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 12600000,
+              "cache_hits": 0,
+              "disk_reads": 100000
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 25200000
+        }
+      ],
+      "median": {
+        "seconds": 0.234782827,
+        "peak_rss_kib": 17228,
+        "logical_temp_upper_bound_bytes": 25200000
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 10000,
+      "sheets": 2,
+      "cardinality": "unique",
+      "available_mib": 1024,
+      "mode": "serial",
+      "source_sha256": "9aab76290bf071baaa79dea113cc410b04e0e3d5c5baf317096050a2688a9c63",
+      "samples": [
+        {
+          "seconds": 0.304070237,
+          "cpu_seconds": 0.303548,
+          "peak_rss_kib": 16088,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.30794344,
+          "cpu_seconds": 0.307736,
+          "peak_rss_kib": 16116,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.31314359,
+          "cpu_seconds": 0.312859,
+          "peak_rss_kib": 16072,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 0.30794344,
+        "peak_rss_kib": 16088,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 10000,
+      "sheets": 2,
+      "cardinality": "unique",
+      "available_mib": 1024,
+      "mode": "parallel",
+      "source_sha256": "9aab76290bf071baaa79dea113cc410b04e0e3d5c5baf317096050a2688a9c63",
+      "samples": [
+        {
+          "seconds": 0.159836604,
+          "cpu_seconds": 0.308189,
+          "peak_rss_kib": 30104,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.156764499,
+          "cpu_seconds": 0.308005,
+          "peak_rss_kib": 30312,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.159112486,
+          "cpu_seconds": 0.309227,
+          "peak_rss_kib": 30372,
+          "readers": [
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 100000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 13097152,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 0.159112486,
+        "peak_rss_kib": 30312,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 100000,
+      "sheets": 2,
+      "cardinality": "repeated",
+      "available_mib": 64,
+      "mode": "serial",
+      "source_sha256": "b4e17ab7b88d8bcc50daccf2e11541aea8472f0fb041b343cb66509f3c624cf6",
+      "samples": [
+        {
+          "seconds": 1.58291511,
+          "cpu_seconds": 1.582599,
+          "peak_rss_kib": 2108,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 1.618196536,
+          "cpu_seconds": 1.617694,
+          "peak_rss_kib": 2096,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 1.594430075,
+          "cpu_seconds": 1.594119,
+          "peak_rss_kib": 2012,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 1.594430075,
+        "peak_rss_kib": 2096,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 100000,
+      "sheets": 2,
+      "cardinality": "repeated",
+      "available_mib": 64,
+      "mode": "parallel",
+      "source_sha256": "b4e17ab7b88d8bcc50daccf2e11541aea8472f0fb041b343cb66509f3c624cf6",
+      "samples": [
+        {
+          "seconds": 0.833707753,
+          "cpu_seconds": 1.653434,
+          "peak_rss_kib": 2076,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.86240353,
+          "cpu_seconds": 1.660957,
+          "peak_rss_kib": 2160,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.847144533,
+          "cpu_seconds": 1.659707,
+          "peak_rss_kib": 2120,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 0.847144533,
+        "peak_rss_kib": 2120,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 100000,
+      "sheets": 2,
+      "cardinality": "repeated",
+      "available_mib": 1024,
+      "mode": "serial",
+      "source_sha256": "b4e17ab7b88d8bcc50daccf2e11541aea8472f0fb041b343cb66509f3c624cf6",
+      "samples": [
+        {
+          "seconds": 1.581204786,
+          "cpu_seconds": 1.579622,
+          "peak_rss_kib": 2036,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 1.680204186,
+          "cpu_seconds": 1.679849,
+          "peak_rss_kib": 2036,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 1.58053066,
+          "cpu_seconds": 1.579728,
+          "peak_rss_kib": 2016,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 1.581204786,
+        "peak_rss_kib": 2036,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 100000,
+      "sheets": 2,
+      "cardinality": "repeated",
+      "available_mib": 1024,
+      "mode": "parallel",
+      "source_sha256": "b4e17ab7b88d8bcc50daccf2e11541aea8472f0fb041b343cb66509f3c624cf6",
+      "samples": [
+        {
+          "seconds": 0.812289553,
+          "cpu_seconds": 1.603875,
+          "peak_rss_kib": 2228,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.842944612,
+          "cpu_seconds": 1.670085,
+          "peak_rss_kib": 2220,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 0.843414488,
+          "cpu_seconds": 1.668672,
+          "peak_rss_kib": 2088,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 16128,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 0.842944612,
+        "peak_rss_kib": 2220,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 100000,
+      "sheets": 2,
+      "cardinality": "unique",
+      "available_mib": 64,
+      "mode": "serial",
+      "source_sha256": "4e49c49e963f6d569eca600a7b5cec66407f902d2cd4f9b49b721844a7a75208",
+      "samples": [
+        {
+          "seconds": 4.286590949,
+          "cpu_seconds": 4.283418,
+          "peak_rss_kib": 19044,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 126000000
+        },
+        {
+          "seconds": 4.325671224,
+          "cpu_seconds": 4.323398,
+          "peak_rss_kib": 18960,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 126000000
+        },
+        {
+          "seconds": 4.076402696,
+          "cpu_seconds": 4.072703,
+          "peak_rss_kib": 19036,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 16777216,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 126000000
+        }
+      ],
+      "median": {
+        "seconds": 4.286590949,
+        "peak_rss_kib": 19036,
+        "logical_temp_upper_bound_bytes": 126000000
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 100000,
+      "sheets": 2,
+      "cardinality": "unique",
+      "available_mib": 64,
+      "mode": "parallel",
+      "source_sha256": "4e49c49e963f6d569eca600a7b5cec66407f902d2cd4f9b49b721844a7a75208",
+      "samples": [
+        {
+          "seconds": 2.196188694,
+          "cpu_seconds": 4.374815,
+          "peak_rss_kib": 17316,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 252000000
+        },
+        {
+          "seconds": 2.166730499,
+          "cpu_seconds": 4.290309,
+          "peak_rss_kib": 17224,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 252000000
+        },
+        {
+          "seconds": 2.126213589,
+          "cpu_seconds": 4.227657,
+          "peak_rss_kib": 17292,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 8388608,
+              "disk_backed": true,
+              "managed_bytes": 581632,
+              "temp_bytes": 126000000,
+              "cache_hits": 0,
+              "disk_reads": 1000000
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 252000000
+        }
+      ],
+      "median": {
+        "seconds": 2.166730499,
+        "peak_rss_kib": 17292,
+        "logical_temp_upper_bound_bytes": 252000000
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 100000,
+      "sheets": 2,
+      "cardinality": "unique",
+      "available_mib": 1024,
+      "mode": "serial",
+      "source_sha256": "4e49c49e963f6d569eca600a7b5cec66407f902d2cd4f9b49b721844a7a75208",
+      "samples": [
+        {
+          "seconds": 3.14925142,
+          "cpu_seconds": 3.14573,
+          "peak_rss_kib": 142672,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 3.276834453,
+          "cpu_seconds": 3.274115,
+          "peak_rss_kib": 143356,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 3.206601934,
+          "cpu_seconds": 3.206177,
+          "peak_rss_kib": 143320,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 268435456,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 3.206601934,
+        "peak_rss_kib": 143320,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    },
+    {
+      "rows_per_sheet": 100000,
+      "sheets": 2,
+      "cardinality": "unique",
+      "available_mib": 1024,
+      "mode": "parallel",
+      "source_sha256": "4e49c49e963f6d569eca600a7b5cec66407f902d2cd4f9b49b721844a7a75208",
+      "samples": [
+        {
+          "seconds": 1.639809283,
+          "cpu_seconds": 3.25619,
+          "peak_rss_kib": 283224,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 1.626414644,
+          "cpu_seconds": 3.220596,
+          "peak_rss_kib": 283444,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        },
+        {
+          "seconds": 1.646744232,
+          "cpu_seconds": 3.260219,
+          "peak_rss_kib": 283368,
+          "readers": [
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            },
+            {
+              "cells": 1000000,
+              "budget_bytes": 134217728,
+              "disk_backed": false,
+              "managed_bytes": 126777216,
+              "temp_bytes": 0,
+              "cache_hits": 0,
+              "disk_reads": 0
+            }
+          ],
+          "logical_temp_upper_bound_bytes": 0
+        }
+      ],
+      "median": {
+        "seconds": 1.639809283,
+        "peak_rss_kib": 283368,
+        "logical_temp_upper_bound_bytes": 0
+      },
+      "cleanup_verified": true
+    }
+  ]
+}

@@ -1371,6 +1371,7 @@ fn shared_string_auto_availability_and_strict_namespaces() {
             headroom_bytes: 0,
             fraction_per_mille: 500,
             maximum_bytes: None,
+            concurrent_operations: 1,
         }),
         ..SharedStringOptions::default()
     });

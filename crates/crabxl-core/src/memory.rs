@@ -20,6 +20,10 @@ pub struct AutoMemory {
     /// Effective availability supplied by the caller instead of platform probing.
     /// Include container/process constraints when providing this override.
     pub available_bytes: Option<u64>,
+    /// Anticipated simultaneous managed operations, at least one. Divide the
+    /// automatically derived allowance among them; this does not spawn workers
+    /// or reserve memory globally. Explicit Budget policies are unchanged.
+    pub concurrent_operations: u16,
 }
 impl Default for AutoMemory {
     fn default() -> Self {
@@ -28,6 +32,7 @@ impl Default for AutoMemory {
             headroom_bytes: 256 * 1024 * 1024,
             maximum_bytes: None,
             available_bytes: None,
+            concurrent_operations: 1,
         }
     }
 }

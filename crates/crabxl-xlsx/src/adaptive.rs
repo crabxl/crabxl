@@ -191,13 +191,20 @@ pub fn memory_allowance(
                     "Automatic memory fraction must be 1 through 1000",
                 ));
             }
+            if auto.concurrent_operations == 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Automatic concurrent operation count must be positive",
+                ));
+            }
             let (available, source) = auto
                 .available_bytes
                 .map(|bytes| (bytes, MemorySource::CallerAvailability))
                 .unwrap_or_else(detect_available);
             let headroom = auto.headroom_bytes.min(available / 2);
-            let budget =
-                u128::from(available - headroom) * u128::from(auto.fraction_per_mille) / 1000;
+            let budget = u128::from(available - headroom) * u128::from(auto.fraction_per_mille)
+                / 1000
+                / u128::from(auto.concurrent_operations);
             let budget = usize::try_from(budget)
                 .unwrap_or(usize::MAX)
                 .min(auto.maximum_bytes.unwrap_or(usize::MAX));
@@ -522,6 +529,21 @@ mod tests {
         let decision = memory_decision(MemoryPolicy::Auto(options), ResourceLimits::default())
             .expect("Small host");
         assert_eq!(decision.budget_bytes, 16 * 1024 * 1024);
+        for concurrent_operations in [1, 2, 4] {
+            let options = AutoMemory {
+                available_bytes: Some(128 * 1024 * 1024),
+                headroom_bytes: 0,
+                concurrent_operations,
+                ..Default::default()
+            };
+            let allowance =
+                memory_allowance(MemoryPolicy::Auto(options), ResourceLimits::default())
+                    .expect("Valid concurrent policy");
+            assert_eq!(
+                allowance.budget_bytes,
+                32 * 1024 * 1024 / usize::from(concurrent_operations)
+            );
+        }
     }
     #[test]
     fn invalid_and_too_small_budgets_are_errors() {
@@ -535,6 +557,16 @@ mod tests {
                 memory_decision(MemoryPolicy::Auto(options), ResourceLimits::default()).is_err()
             );
         }
+        assert!(
+            memory_decision(
+                MemoryPolicy::Auto(AutoMemory {
+                    concurrent_operations: 0,
+                    ..Default::default()
+                }),
+                ResourceLimits::default()
+            )
+            .is_err()
+        );
     }
     #[test]
     fn linux_fields_and_process_limits_are_parsed_without_overflow() {
