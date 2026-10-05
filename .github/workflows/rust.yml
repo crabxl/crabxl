@@ -8,6 +8,12 @@ permissions:
   contents: read
 
 jobs:
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - run: cargo test --workspace --locked
   check:
     runs-on: ubuntu-latest
     steps:
