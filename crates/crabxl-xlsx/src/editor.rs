@@ -793,9 +793,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .tempfile_in(parent)
             .map_err(|error| io_error("Cannot create adjacent output temporary file", error))?;
         let (_, stats) = self.save(&mut temporary, options)?;
-        temporary
-            .persist(path)
-            .map_err(|error| io_error("Cannot replace edited workbook target", error.error))?;
+        // std::fs::rename supports Windows replacement with a live source handle.
+        // Keep the temporary path guarded so failures still remove the output.
+        let temporary = temporary.into_temp_path();
+        std::fs::rename(&temporary, path)
+            .map_err(|error| io_error("Cannot replace edited workbook target", error))?;
         Ok(stats)
     }
     /// Release this editor and return its original owned source.
