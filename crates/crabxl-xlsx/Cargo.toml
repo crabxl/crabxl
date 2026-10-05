@@ -20,5 +20,8 @@ fast-float2.workspace = true
 percent-encoding.workspace = true
 tempfile.workspace = true
 
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+sysinfo = { version = "0.38.4", default-features = false, features = ["system"] }
+
 [lints]
 workspace = true

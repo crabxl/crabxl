@@ -406,11 +406,33 @@ fn mounted_cgroup_available(membership: &str, mounts: &str) -> Option<u64> {
     observed.then_some(available)
 }
 
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+fn detect_non_linux() -> (u64, MemorySource) {
+    // Refresh RAM only: no process enumeration, CPU sampling or retained cache.
+    let mut system = sysinfo::System::new();
+    system.refresh_memory_specifics(sysinfo::MemoryRefreshKind::nothing().with_ram());
+    native_host_availability(system.total_memory(), system.available_memory())
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn detect_non_linux() -> (u64, MemorySource) {
+    (256 * 1024 * 1024, MemorySource::ConservativeFallback)
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
+fn native_host_availability(total: u64, available: u64) -> (u64, MemorySource) {
+    if total == 0 || available > total {
+        (256 * 1024 * 1024, MemorySource::ConservativeFallback)
+    } else {
+        // Zero is a valid observation under pressure, not a failed probe.
+        (available, MemorySource::NativeHost)
+    }
+}
+
 fn detect_available() -> (u64, MemorySource) {
-    // Other OS probes remain staged; caller overrides are portable.
     const FALLBACK: u64 = 256 * 1024 * 1024;
     if !cfg!(target_os = "linux") {
-        return (FALLBACK, MemorySource::ConservativeFallback);
+        return detect_non_linux();
     }
     let host = fs::read_to_string("/proc/meminfo")
         .ok()
@@ -453,6 +475,34 @@ mod tests {
     #![allow(clippy::expect_used)]
     use super::*;
     use crabxl_core::AutoMemory;
+
+    #[test]
+    fn native_host_probe_distinguishes_failure_from_memory_pressure() {
+        assert_eq!(
+            native_host_availability(1024, 512),
+            (512, MemorySource::NativeHost)
+        );
+        assert_eq!(
+            native_host_availability(1024, 0),
+            (0, MemorySource::NativeHost)
+        );
+        for observation in [(0, 0), (1024, 1025)] {
+            assert_eq!(
+                native_host_availability(observation.0, observation.1),
+                (256 * 1024 * 1024, MemorySource::ConservativeFallback)
+            );
+        }
+    }
+
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[test]
+    fn native_memory_probe_runs_on_supported_desktop_hosts() {
+        let (available, source) = detect_available();
+        assert_eq!(source, MemorySource::NativeHost);
+        let mut system = sysinfo::System::new();
+        system.refresh_memory_specifics(sysinfo::MemoryRefreshKind::nothing().with_ram());
+        assert!(available <= system.total_memory());
+    }
 
     #[test]
     fn automatic_budget_obeys_availability_headroom_fraction_and_ceiling() {

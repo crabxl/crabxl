@@ -65,6 +65,9 @@ pub enum MemorySource {
     CallerAvailability,
     /// Linux host, mounted cgroup v1/v2 visible hierarchies, and process limits were examined.
     Linux,
+    /// Native Windows/macOS host availability; private process/job constraints
+    /// are not discovered. Supply effective availability for constrained hosts.
+    NativeHost,
     /// Constraint discovery was unavailable; a conservative fallback was used.
     ConservativeFallback,
 }
