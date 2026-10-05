@@ -93,6 +93,10 @@ M2 acceptance: all assigned value/string/date/formula read cases pass in streami
 
 ## M4.1: Loaded workbook ownership
 
+Checkpoint: loaded models and preserving scalar overlays now share one original
+package coordinator, joint reservations and repeatable saves (ADR 0057). Typed
+date/style edits, sheet/structural mutation and Python migration remain open.
+
 Checkpoint: source-backed lazy bank loading transfers source style payloads and
 coordinates committed/incoming models with source SST/cache storage under one
 managed cap (ADR 0056). The public checkpoint exposes read-only models; preserving

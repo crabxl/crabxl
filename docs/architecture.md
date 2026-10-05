@@ -169,5 +169,6 @@ Serializers borrow non-Copy color records. See ADR 0054.
 
 Lazy source-backed `LoadedWorkbook` now moves source styles into the canonical
 bank and commits full-sheet models behind stable identities, with joint source/
-model/SST accounting (ADR 0056). This initial API exposes read-only loaded models;
-original-package mutation integration and Python handles remain in progress.
+model/SST accounting (ADR 0056). The same source coordinator now integrates
+preserving value overlays with lazy or cached models and repeatable original-part
+saves (ADR 0057). Source graph mutations and Python handles remain in progress.

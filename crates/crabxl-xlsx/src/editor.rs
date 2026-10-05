@@ -29,6 +29,12 @@ struct Patch {
     insert_missing: bool,
 }
 type Patches = BTreeMap<(u32, u32), Patch>;
+pub(crate) struct PatchPlan {
+    sheet: usize,
+    address: CellAddress,
+    pub(crate) bytes: usize,
+    cells: usize,
+}
 
 /// Owned original-part inventory; content is not loaded into RAM.
 #[derive(Clone, Debug)]
@@ -118,7 +124,7 @@ pub struct SaveStats {
 /// worksheet formula caches and request recalculation. Pure display/printing edits
 /// retain caches/chains and rewrite only their selected worksheets.
 pub struct WorkbookEditor<R: Read + Seek = File> {
-    book: WorkbookReader<R>,
+    pub(crate) book: WorkbookReader<R>,
     parts: Vec<PartInfo>,
     patches: BTreeMap<String, Patches>,
     view_patches: BTreeMap<String, Box<crabxl_core::SheetViews>>,
@@ -301,6 +307,72 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// Conservative managed patch allowance currently used.
     pub fn patch_bytes(&self) -> usize {
         self.patch_bytes
+    }
+    pub(crate) fn retained_package_bytes(&self) -> usize {
+        self.book
+            .retained_source_bytes()
+            .saturating_add(size_of::<Self>())
+            .saturating_add(self.parts.capacity().saturating_mul(size_of::<PartInfo>()))
+            .saturating_add(self.parts.iter().map(|part| part.name.len()).sum::<usize>())
+            .saturating_add(self.workbook_relationships.capacity())
+            .saturating_add(
+                [
+                    &self.calc_chain_parts,
+                    &self.chain_removals,
+                    &self.shared_string_parts,
+                ]
+                .into_iter()
+                .map(|parts| {
+                    parts
+                        .capacity()
+                        .saturating_mul(128)
+                        .saturating_add(parts.iter().map(String::capacity).sum::<usize>())
+                })
+                .sum::<usize>(),
+            )
+            .saturating_add(self.patch_bytes)
+    }
+    pub(crate) fn apply_pending_model(
+        &mut self,
+        name: &str,
+        incoming: &mut crabxl_core::Worksheet,
+        retained: usize,
+        maximum: usize,
+    ) -> Result<()> {
+        let part = self
+            .book
+            .sheets()
+            .iter()
+            .find(|sheet| sheet.name() == name)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Source worksheet not found"))?
+            .part()
+            .to_owned();
+        if let Some(patches) = self.patches.get(&part) {
+            for patch in patches.values() {
+                // Reserve incoming cloned payload and a conservative new cell
+                // node before transferring an overlay into the cached model.
+                let desired = retained
+                    .saturating_add(incoming.charged_bytes())
+                    .saturating_add(PATCH_BYTES)
+                    .saturating_add(patch.cell.value.heap_bytes());
+                self.book.rebalance_strings_for_retained(desired, maximum)?;
+                if desired.saturating_add(self.book.retained_source_bytes()) > maximum {
+                    return Err(Error::new(
+                        ErrorKind::MemoryBudgetExceeded,
+                        "Loaded overlay/model allowance exceeded",
+                    ));
+                }
+                let mut cell = patch.cell.clone();
+                cell.style = incoming
+                    .get(cell.address)
+                    .map_or(StyleId::new(0), |original| original.style);
+                incoming.set(cell)?;
+            }
+        }
+        self.book.rebalance_strings_for_retained(
+            retained.saturating_add(incoming.charged_bytes()),
+            maximum,
+        )
     }
     /// Read original canonical view metadata. Pending replacements can be borrowed
     /// separately without cloning their payloads.
@@ -521,6 +593,16 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         value: CellValue,
         insert_missing: bool,
     ) -> Result<()> {
+        let plan = self.prepare_value(sheet, address, &value)?;
+        self.commit_value(plan, value, insert_missing);
+        Ok(())
+    }
+    pub(crate) fn prepare_value(
+        &self,
+        sheet: &str,
+        address: CellAddress,
+        value: &CellValue,
+    ) -> Result<PatchPlan> {
         if self.signed {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -536,26 +618,27 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 "Calculation-chain edits are rejected by policy or unsupported incoming relationships",
             ));
         }
-        let info = self
+        let sheet = self
             .book
             .sheets()
             .iter()
-            .find(|info| info.name() == sheet)
+            .position(|info| info.name() == sheet)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet does not exist"))?;
+        let info = &self.book.sheets()[sheet];
         if info.kind() != SheetKind::Worksheet {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Selected sheet is not a cell worksheet",
             ));
         }
-        if contains_date(&value) {
+        if contains_date(value) {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Editing dates requires an existing style/date catalog",
             )
             .with_cell(address));
         }
-        if matches!(&value, CellValue::RichText(v) if v.phonetic_properties.is_some()) {
+        if matches!(value, CellValue::RichText(v) if v.phonetic_properties.is_some()) {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Editing phonetic font references requires the imported font catalog",
@@ -567,9 +650,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         } else {
             DateEpoch::Windows1900
         };
-        crate::encode::validate_non_finite(&value, self.options.non_finite)
+        crate::encode::validate_non_finite(value, self.options.non_finite)
             .map_err(|error| error.with_cell(address))?;
-        validate_value(&value, self.options.resources.max_cell_bytes, epoch)
+        validate_value(value, self.options.resources.max_cell_bytes, epoch)
             .map_err(|error| error.with_cell(address))?;
         let key = (address.row.get(), address.column.get());
         let old = self
@@ -598,20 +681,29 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             )
             .with_cell(address));
         }
-        self.patches.entry(info.part().into()).or_default().insert(
+        Ok(PatchPlan {
+            sheet,
+            address,
+            bytes,
+            cells,
+        })
+    }
+    pub(crate) fn commit_value(&mut self, plan: PatchPlan, value: CellValue, insert_missing: bool) {
+        let part = self.book.sheets()[plan.sheet].part();
+        let key = (plan.address.row.get(), plan.address.column.get());
+        self.patches.entry(part.into()).or_default().insert(
             key,
             Patch {
                 cell: Cell {
-                    address,
+                    address: plan.address,
                     value,
                     style: StyleId::new(0),
                 },
                 insert_missing,
             },
         );
-        self.patch_bytes = bytes;
-        self.patch_cells = cells;
-        Ok(())
+        self.patch_bytes = plan.bytes;
+        self.patch_cells = plan.cells;
     }
     /// Inspect only a pending replacement, without decoding the original cell.
     pub fn pending_value(&self, sheet: &str, address: CellAddress) -> Option<&CellValue> {
