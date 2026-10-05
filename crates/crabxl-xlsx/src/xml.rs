@@ -7,7 +7,7 @@ use crabxl_core::{Error, ErrorKind, ResourceLimits, Result};
 use quick_xml::{
     Reader,
     events::{BytesStart, Event},
-    name::{NamespaceResolver, QName, ResolveResult},
+    name::{NamespaceError, NamespaceResolver, QName, ResolveResult},
 };
 use std::{
     fmt,
@@ -65,6 +65,7 @@ struct StreamNamespaces {
     default: DefaultScope,
     snapshots: Vec<NamespaceSnapshot>,
     pending_pop: bool,
+    element_level: u16,
 }
 impl StreamNamespaces {
     fn new() -> Self {
@@ -73,6 +74,7 @@ impl StreamNamespaces {
             default: DefaultScope::OTHER,
             snapshots: Vec::new(),
             pending_pop: false,
+            element_level: 0,
         }
     }
     fn before_event(&mut self) {
@@ -80,20 +82,28 @@ impl StreamNamespaces {
             if self
                 .snapshots
                 .last()
-                .is_some_and(|v| v.level == self.resolver.level())
+                .is_some_and(|v| v.level == self.element_level)
             {
                 self.default = self
                     .snapshots
                     .pop()
                     .map_or(DefaultScope::OTHER, |v| v.previous);
+                self.resolver.pop();
             }
-            self.resolver.pop();
+            self.element_level = self.element_level.saturating_sub(1);
             self.pending_pop = false;
         }
     }
     fn event(&mut self, event: &Event<'_>) -> Result<DefaultScope> {
         let name = match event {
             Event::Start(start) | Event::Empty(start) => {
+                self.element_level = self.element_level.checked_add(1).ok_or_else(|| {
+                    Error::caused_by(
+                        ErrorKind::Xml,
+                        "Invalid XML namespace nesting",
+                        NamespaceError::TooDeeplyNested(u16::MAX as usize),
+                    )
+                })?;
                 let mut declaration = false;
                 if start.attributes_raw().as_bytes().contains(&b'x') {
                     for attribute in start.attributes().with_checks(false) {
@@ -118,15 +128,9 @@ impl StreamNamespaces {
                     })?;
                     self.default = namespace_scope(self.resolver.resolve_element(QName("n")).0)?;
                     self.snapshots.push(NamespaceSnapshot {
-                        level: self.resolver.level(),
+                        level: self.element_level,
                         previous,
                     });
-                } else {
-                    // Advance the authoritative nesting level without reparsing
-                    // ordinary coordinates/types/styles as namespace declarations.
-                    self.resolver.push(&BytesStart::new("n")).map_err(|cause| {
-                        Error::caused_by(ErrorKind::Xml, "Invalid XML namespace nesting", cause)
-                    })?;
                 }
                 self.pending_pop = matches!(event, Event::Empty(_));
                 start.name()

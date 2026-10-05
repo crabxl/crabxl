@@ -16,6 +16,10 @@ and owned storage for ordinary row streams; see
 [ADR 0065](decisions/0065-mode-aware-shared-text.md). Adaptive sampling uses the
 ownership strategy of materialization to preserve its aggregate budget plan.
 
+Namespace resolver updates occur only at declaration-bearing elements while
+checked element nesting remains separate; see
+[ADR 0066](decisions/0066-declaration-only-namespace-stack.md).
+
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).
