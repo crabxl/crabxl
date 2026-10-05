@@ -5,10 +5,7 @@ use crate::xml::{Scope, XmlStream, attribute};
 use crabxl_core::{
     Color, ColorKind, Error, ErrorKind, Font, FontScheme, Result, TextVerticalAlignment, Underline,
 };
-use quick_xml::{
-    encoding::Decoder,
-    events::{BytesStart, Event},
-};
+use quick_xml::events::{BytesStart, Event};
 use std::io::{self, BufRead, Write};
 #[derive(Clone, Copy)]
 pub(crate) enum FontContext {
@@ -42,7 +39,7 @@ pub(crate) fn read_font<B: BufRead>(
         match frame.event {
             Event::Start(e) if frame.scope == Scope::Spreadsheet && frame.depth == depth + 1 => {
                 let key = e.local_name();
-                let key = key.as_ref();
+                let key = key.as_ref().as_bytes();
                 let number = match key {
                     key if key == context.name() => 0,
                     b"sz" => 1,
@@ -78,7 +75,7 @@ pub(crate) fn read_font<B: BufRead>(
                         &[b"val"]
                     },
                 )?;
-                let val = attribute(&e, b"val", frame.decoder)?;
+                let val = attribute(&e, b"val")?;
                 match key {
                     key if key == context.name() => {
                         font.name = Some(
@@ -140,7 +137,7 @@ pub(crate) fn read_font<B: BufRead>(
                             _ => return Err(invalid("Invalid font scheme")),
                         })
                     }
-                    b"color" => font.color = Some(read_color(&e, frame.decoder)?),
+                    b"color" => font.color = Some(read_color(&e)?),
                     _ => {}
                 }
                 if size_of::<Font>() + font.name.as_ref().map_or(0, |s| s.len()) > maximum {
@@ -151,7 +148,7 @@ pub(crate) fn read_font<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth + 1 == depth
-                    && e.local_name().as_ref() == context.container().as_bytes() =>
+                    && e.local_name().as_ref().as_bytes() == context.container().as_bytes() =>
             {
                 validate_font(&font)?;
                 return Ok(font);
@@ -162,7 +159,7 @@ pub(crate) fn read_font<B: BufRead>(
                     "Unknown rich-text namespace or subtree",
                 ));
             }
-            Event::Text(t) if t.iter().all(u8::is_ascii_whitespace) => {}
+            Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
             _ => return Err(invalid("Invalid run font content")),
         }
@@ -179,7 +176,7 @@ pub(crate) fn consume_property<B: BufRead>(xml: &mut XmlStream<B>, depth: usize)
                     "Unknown rich-text namespace or subtree",
                 ));
             }
-            Event::Text(t) if t.iter().all(u8::is_ascii_whitespace) => {}
+            Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
             _ => return Err(invalid("Font or phonetic property must be empty")),
         }
@@ -192,14 +189,14 @@ pub(crate) fn boolean(value: Option<&str>) -> Result<bool> {
         _ => Err(invalid("Invalid rich-text boolean")),
     }
 }
-pub(crate) fn read_color(e: &BytesStart<'_>, decoder: Decoder) -> Result<Color> {
+pub(crate) fn read_color(e: &BytesStart<'_>) -> Result<Color> {
     check_attributes(e, &[b"rgb", b"theme", b"indexed", b"auto", b"tint"])?;
     // Decode all known attributes for XML validity, then select public constructor priority.
     // Unselected color identities do not impose their own scalar/hex validation.
-    let indexed = attribute(e, b"indexed", decoder)?;
-    let theme = attribute(e, b"theme", decoder)?;
-    let automatic = attribute(e, b"auto", decoder)?;
-    let rgb = attribute(e, b"rgb", decoder)?;
+    let indexed = attribute(e, b"indexed")?;
+    let theme = attribute(e, b"theme")?;
+    let automatic = attribute(e, b"auto")?;
+    let rgb = attribute(e, b"rgb")?;
     let kind = if let Some(value) = indexed {
         ColorKind::Indexed(
             value
@@ -221,7 +218,7 @@ pub(crate) fn read_color(e: &BytesStart<'_>, decoder: Decoder) -> Result<Color> 
     } else {
         ColorKind::Unspecified
     };
-    let tint = attribute(e, b"tint", decoder)?
+    let tint = attribute(e, b"tint")?
         .map(|s| s.parse().map_err(|_| invalid("Invalid color tint")))
         .transpose()?;
     let color = Color { kind, tint };
@@ -309,7 +306,7 @@ pub(crate) fn check_attributes(e: &BytesStart<'_>, allowed: &[&[u8]]) -> Result<
     for attr in e.attributes() {
         let attr =
             attr.map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid rich-text attribute", e))?;
-        let key = attr.key.as_ref();
+        let key = attr.key.as_ref().as_bytes();
         if key == b"xmlns" || key.starts_with(b"xmlns:") {
             continue;
         }

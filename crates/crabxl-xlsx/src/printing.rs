@@ -237,7 +237,9 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
         let frame = xml.next()?;
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {
-                if frame.scope != Scope::Spreadsheet || e.local_name().as_ref() != b"worksheet" {
+                if frame.scope != Scope::Spreadsheet
+                    || e.local_name().as_ref().as_bytes() != b"worksheet"
+                {
                     return Err(invalid("Print source is not a worksheet"));
                 }
                 root = true;
@@ -246,18 +248,20 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"sheetPr" =>
+                    && e.local_name().as_ref().as_bytes() == b"sheetPr" =>
             {
                 sheet_pr = true
             }
-            Event::End(e) if frame.depth == 1 && e.local_name().as_ref() == b"sheetPr" => {
+            Event::End(e)
+                if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"sheetPr" =>
+            {
                 sheet_pr = false
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && ((frame.depth == 2
                         && matches!(
-                            e.local_name().as_ref(),
+                            e.local_name().as_ref().as_bytes(),
                             b"printOptions"
                                 | b"pageMargins"
                                 | b"pageSetup"
@@ -266,10 +270,10 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
                         ))
                         || (sheet_pr
                             && frame.depth == 3
-                            && e.local_name().as_ref() == b"pageSetUpPr")) =>
+                            && e.local_name().as_ref().as_bytes() == b"pageSetUpPr")) =>
             {
                 let name = e.local_name();
-                let index = match name.as_ref() {
+                let index = match name.as_ref().as_bytes() {
                     b"printOptions" => 0,
                     b"pageMargins" => 1,
                     b"pageSetup" => 2,
@@ -281,7 +285,7 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
                     return Err(invalid("Duplicate printing metadata element"));
                 }
                 seen[index] = true;
-                attributes(&e, frame.decoder, |name, value| {
+                attributes(&e, |name, value| {
                     match index {
                         0 => match name {
                             b"horizontalCentered" => {
@@ -391,12 +395,12 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
             Event::Start(e) if break_container.is_some() => {
                 if frame.scope != Scope::Spreadsheet
                     || frame.depth != 3
-                    || e.local_name().as_ref() != b"brk"
+                    || e.local_name().as_ref().as_bytes() != b"brk"
                 {
                     return Err(unsupported());
                 }
                 let mut entry = PageBreak::default();
-                attributes(&e, frame.decoder, |name, value| {
+                attributes(&e, |name, value| {
                     match name {
                         b"id" => entry.id = Some(integer(value)?),
                         b"min" => entry.minimum = Some(integer(value)?),
@@ -437,12 +441,15 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
             }
             Event::End(e)
                 if frame.depth == 1
-                    && matches!(e.local_name().as_ref(), b"rowBreaks" | b"colBreaks") =>
+                    && matches!(
+                        e.local_name().as_ref().as_bytes(),
+                        b"rowBreaks" | b"colBreaks"
+                    ) =>
             {
                 break_container = None
             }
             Event::Text(e) if leaf_depth.is_some() || break_container.is_some() => {
-                if !e.iter().all(u8::is_ascii_whitespace) {
+                if !e.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) {
                     return Err(invalid("Unexpected printing metadata text"));
                 }
             }

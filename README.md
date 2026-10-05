@@ -199,9 +199,8 @@ Finite style size/gradient-edge domains, empty format strings and imported color
 `StyleCatalog` includes typed sparse differential overrides and table/pivot defaults/definitions with all 28 region tokens, optional count/size properties and validated differential references. Source-owned boxes/vectors transfer without full catalog snapshots. Extension payloads and worksheet rule/table graphs remain staged. See [ADR 0033](docs/decisions/0033-differential-table-style-catalogs.md) and [public metadata readback/measurements](benchmarks/m2-style-extras.md).
 
 Dependency policy: prefer current stable toolchains and dependencies after validation.
-The XML codec currently remains on quick-xml 0.41: 0.42 changes the byte-oriented
-XML API and requires a separate parser migration with correctness and performance
-verification. Python 3.15 release-candidate validation is the explicit prerelease
+The XML codec uses quick-xml 0.42 with validated UTF-8 string events,
+XML 1.0 text/attribute normalization and resolved namespace checks. Python 3.15 release-candidate validation is the explicit prerelease
 exception while waiting for the final release.
 
 Manual alpha numbering and the crates.io/GitHub release workflow are documented

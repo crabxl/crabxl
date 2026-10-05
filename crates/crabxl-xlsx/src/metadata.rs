@@ -1,6 +1,6 @@
 //! Shared bounded XML attribute decoding for worksheet metadata codecs.
 use crabxl_core::{Error, ErrorKind, Result};
-use quick_xml::{encoding::Decoder, events::BytesStart};
+use quick_xml::events::BytesStart;
 fn invalid(message: &str) -> Error {
     Error::new(ErrorKind::InvalidData, message)
 }
@@ -18,7 +18,6 @@ pub(crate) fn integer(value: &str) -> Result<i64> {
 }
 pub(crate) fn attributes(
     e: &BytesStart<'_>,
-    decoder: Decoder,
     mut apply: impl FnMut(&[u8], &str) -> Result<()>,
 ) -> Result<()> {
     for attribute in e.attributes() {
@@ -29,12 +28,12 @@ pub(crate) fn attributes(
                 error,
             )
         })?;
-        let name = attribute.key.as_ref();
+        let name = attribute.key.as_ref().as_bytes();
         if name == b"xmlns" || name.starts_with(b"xmlns:") {
             continue;
         }
         let value = attribute
-            .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
             .map_err(|error| {
                 Error::caused_by(
                     ErrorKind::Xml,

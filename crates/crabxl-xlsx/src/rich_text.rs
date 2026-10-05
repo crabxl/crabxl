@@ -8,10 +8,7 @@ use crabxl_core::{
     CellValue, Error, ErrorKind, PhoneticProperties, PhoneticRun, Result, RichText, RichTextRun,
     RunFont,
 };
-use quick_xml::{
-    encoding::Decoder,
-    events::{BytesStart, Event},
-};
+use quick_xml::events::{BytesStart, Event};
 use std::io::{self, BufRead, Write};
 
 pub(crate) enum ParsedText {
@@ -66,7 +63,7 @@ pub(crate) fn read_container<B: BufRead>(
         let frame = xml.next()?;
         match frame.event {
             Event::Start(e) if frame.scope == Scope::Spreadsheet && frame.depth == depth + 1 => {
-                match e.local_name().as_ref() {
+                match e.local_name().as_ref().as_bytes() {
                     b"t" => {
                         if plain || !value.runs.is_empty() {
                             return Err(invalid("Duplicate or mixed plain rich-text content"));
@@ -97,8 +94,8 @@ pub(crate) fn read_container<B: BufRead>(
                     }
                     b"rPh" => {
                         formatted = true;
-                        let start = integer(&e, b"sb", frame.decoder)?;
-                        let end = integer(&e, b"eb", frame.decoder)?;
+                        let start = integer(&e, b"sb")?;
+                        let end = integer(&e, b"eb")?;
                         if start > end {
                             return Err(invalid("Reversed phonetic source range"));
                         }
@@ -118,11 +115,9 @@ pub(crate) fn read_container<B: BufRead>(
                         }
                         formatted = true;
                         let properties = PhoneticProperties {
-                            font_id: integer(&e, b"fontId", frame.decoder)?,
-                            kind: attribute(&e, b"type", frame.decoder)?
-                                .map(String::into_boxed_str),
-                            alignment: attribute(&e, b"alignment", frame.decoder)?
-                                .map(String::into_boxed_str),
+                            font_id: integer(&e, b"fontId")?,
+                            kind: attribute(&e, b"type")?.map(String::into_boxed_str),
+                            alignment: attribute(&e, b"alignment")?.map(String::into_boxed_str),
                         };
                         validate_phonetic(&properties)?;
                         payload = payload
@@ -152,7 +147,7 @@ pub(crate) fn read_container<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth + 1 == depth
-                    && e.local_name().as_ref() == closing =>
+                    && e.local_name().as_ref().as_bytes() == closing =>
             {
                 if let Some(text) = plain_text {
                     if !formatted {
@@ -180,7 +175,7 @@ pub(crate) fn read_container<B: BufRead>(
                     "Unknown rich-text namespace or subtree",
                 ));
             }
-            Event::Text(t) if t.iter().all(u8::is_ascii_whitespace) => {}
+            Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
             _ => return Err(invalid("Invalid rich-text container content")),
         }
@@ -230,7 +225,7 @@ fn read_run<B: BufRead>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == depth + 1
-                    && e.local_name().as_ref() == b"rPr" =>
+                    && e.local_name().as_ref().as_bytes() == b"rPr" =>
             {
                 if font.is_some() || text.is_some() {
                     return Err(invalid("Invalid run property order or duplicate"));
@@ -245,7 +240,7 @@ fn read_run<B: BufRead>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == depth + 1
-                    && e.local_name().as_ref() == b"t" =>
+                    && e.local_name().as_ref().as_bytes() == b"t" =>
             {
                 if text.is_some() {
                     return Err(invalid("Duplicate run text"));
@@ -255,7 +250,7 @@ fn read_run<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth + 1 == depth
-                    && e.local_name().as_ref() == b"r" =>
+                    && e.local_name().as_ref().as_bytes() == b"r" =>
             {
                 return Ok(RichTextRun {
                     text: text.unwrap_or_default(),
@@ -268,7 +263,7 @@ fn read_run<B: BufRead>(
                     "Unknown rich-text namespace or subtree",
                 ));
             }
-            Event::Text(t) if t.iter().all(u8::is_ascii_whitespace) => {}
+            Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
             _ => return Err(invalid("Invalid display run content")),
         }
@@ -286,7 +281,7 @@ fn read_phonetic<B: BufRead>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == depth + 1
-                    && e.local_name().as_ref() == b"t" =>
+                    && e.local_name().as_ref().as_bytes() == b"t" =>
             {
                 if text.is_some() {
                     return Err(invalid("Duplicate phonetic text"));
@@ -296,7 +291,7 @@ fn read_phonetic<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth + 1 == depth
-                    && e.local_name().as_ref() == b"rPh" =>
+                    && e.local_name().as_ref().as_bytes() == b"rPh" =>
             {
                 return Ok(text.unwrap_or_default());
             }
@@ -306,14 +301,14 @@ fn read_phonetic<B: BufRead>(
                     "Unknown rich-text namespace or subtree",
                 ));
             }
-            Event::Text(t) if t.iter().all(u8::is_ascii_whitespace) => {}
+            Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
             _ => return Err(invalid("Invalid phonetic run content")),
         }
     }
 }
-fn integer(e: &BytesStart<'_>, key: &[u8], decoder: Decoder) -> Result<u32> {
-    required_attribute(e, key, decoder)?
+fn integer(e: &BytesStart<'_>, key: &[u8]) -> Result<u32> {
+    required_attribute(e, key)?
         .parse()
         .map_err(|_| invalid("Invalid rich-text integer attribute"))
 }
@@ -410,7 +405,7 @@ fn read_plain_container<B: BufRead>(
         let frame = xml.next()?;
         match frame.event {
             Event::Start(e) if frame.scope == Scope::Spreadsheet && frame.depth == depth + 1 => {
-                match e.local_name().as_ref() {
+                match e.local_name().as_ref().as_bytes() {
                     b"t" => {
                         if plain || runs {
                             return Err(invalid("Duplicate or mixed plain rich-text content"));
@@ -437,7 +432,7 @@ fn read_plain_container<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth + 1 == depth
-                    && e.local_name().as_ref() == closing =>
+                    && e.local_name().as_ref().as_bytes() == closing =>
             {
                 crate::encode::validate_xml_text(&text)?;
                 return Ok(ParsedText::Plain(text.into_boxed_str()));
@@ -448,7 +443,7 @@ fn read_plain_container<B: BufRead>(
                     "Unknown rich-text namespace or subtree",
                 ));
             }
-            Event::Text(t) if t.iter().all(u8::is_ascii_whitespace) => {}
+            Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
             _ => return Err(invalid("Invalid rich-text container content")),
         }
@@ -466,7 +461,7 @@ fn append_plain_run<B: BufRead>(
         let frame = xml.next()?;
         match frame.event {
             Event::Start(e) if frame.scope == Scope::Spreadsheet && frame.depth == depth + 1 => {
-                match e.local_name().as_ref() {
+                match e.local_name().as_ref().as_bytes() {
                     b"t" => {
                         if seen_text {
                             return Err(invalid("Duplicate run text"));
@@ -487,7 +482,7 @@ fn append_plain_run<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth + 1 == depth
-                    && e.local_name().as_ref() == b"r" =>
+                    && e.local_name().as_ref().as_bytes() == b"r" =>
             {
                 return Ok(());
             }
@@ -497,7 +492,7 @@ fn append_plain_run<B: BufRead>(
                     "Unknown rich-text namespace or subtree",
                 ));
             }
-            Event::Text(t) if t.iter().all(u8::is_ascii_whitespace) => {}
+            Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
             _ => return Err(invalid("Invalid display run content")),
         }
@@ -520,7 +515,7 @@ fn append_text_element<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth + 1 == depth
-                    && e.local_name().as_ref() == b"t" =>
+                    && e.local_name().as_ref().as_bytes() == b"t" =>
             {
                 return Ok(());
             }

@@ -217,16 +217,15 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             let frame = xml.next()?;
             match frame.event {
                 Event::Start(e) if frame.scope == Scope::ContentTypes && frame.depth == 2 => {
-                    if let Some(kind) = attribute(&e, b"ContentType", frame.decoder)? {
+                    if let Some(kind) = attribute(&e, b"ContentType")? {
                         signed |= kind.contains("digital-signature");
-                        if e.local_name().as_ref() == b"Override"
+                        if e.local_name().as_ref().as_bytes() == b"Override"
                             && (kind.ends_with("sharedStrings+xml")
                                 || kind.ends_with("calcChain+xml"))
                         {
-                            let name =
-                                attribute(&e, b"PartName", frame.decoder)?.ok_or_else(|| {
-                                    invalid("Cataloged content type override has no part name")
-                                })?;
+                            let name = attribute(&e, b"PartName")?.ok_or_else(|| {
+                                invalid("Cataloged content type override has no part name")
+                            })?;
                             bytes = bytes.saturating_add(name.len()).saturating_add(128);
                             if bytes as u128 > u128::from(options.resources.max_metadata_bytes) {
                                 return Err(limit(
@@ -871,7 +870,7 @@ fn check_declaration(event: &Event<'_>) -> Result<()> {
         let encoding = encoding.map_err(|error| {
             Error::caused_by(ErrorKind::Xml, "Invalid XML encoding declaration", error)
         })?;
-        if !encoding.eq_ignore_ascii_case(b"UTF-8") {
+        if !encoding.eq_ignore_ascii_case("UTF-8") {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Rewriting non-UTF-8 XML is not supported",
@@ -880,19 +879,18 @@ fn check_declaration(event: &Event<'_>) -> Result<()> {
     }
     Ok(())
 }
-fn unsigned_attribute(
-    e: &BytesStart<'_>,
-    name: &[u8],
-    decoder: quick_xml::encoding::Decoder,
-) -> Result<Option<u32>> {
+fn unsigned_attribute(e: &BytesStart<'_>, name: &[u8]) -> Result<Option<u32>> {
     let Some(attribute) = e
-        .try_get_attribute(name)
+        .try_get_attribute(
+            std::str::from_utf8(name)
+                .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid attribute name", e))?,
+        )
         .map_err(|error| Error::caused_by(ErrorKind::Xml, "Invalid position attribute", error))?
     else {
         return Ok(None);
     };
     let value = attribute
-        .decoded_and_normalized_value(quick_xml::XmlVersion::Implicit1_0, decoder)
+        .normalized_value(quick_xml::XmlVersion::Implicit1_0)
         .map_err(|error| Error::caused_by(ErrorKind::Xml, "Invalid position value", error))?;
     value.parse().map(Some).map_err(|error| {
         Error::caused_by(ErrorKind::InvalidData, "Invalid position integer", error)
@@ -904,7 +902,10 @@ fn patched_start(e: &BytesStart<'_>, uri: &str, value: &CellValue) -> Result<Byt
     for attribute in e.attributes() {
         let attribute = attribute
             .map_err(|error| Error::caused_by(ErrorKind::Xml, "Invalid cell attribute", error))?;
-        if !matches!(attribute.key.as_ref(), b"t" | b"xmlns" | b"cm" | b"vm") {
+        if !matches!(
+            attribute.key.as_ref().as_bytes(),
+            b"t" | b"xmlns" | b"cm" | b"vm"
+        ) {
             start.push_attribute(attribute);
         }
     }
@@ -1021,20 +1022,18 @@ fn positioned_start(
         let attribute = attribute.map_err(|error| {
             Error::caused_by(ErrorKind::Xml, "Invalid coordinate attribute", error)
         })?;
-        if attribute.key.as_ref() != b"r" && !(omit_spans && attribute.key.as_ref() == b"spans") {
+        if attribute.key.as_ref().as_bytes() != b"r"
+            && !(omit_spans && attribute.key.as_ref().as_bytes() == b"spans")
+        {
             start.push_attribute(attribute);
         }
     }
     start.push_attribute(("r", position));
     Ok(start)
 }
-fn expanded_dimension(
-    e: &BytesStart<'_>,
-    decoder: quick_xml::encoding::Decoder,
-    patches: &Patches,
-) -> Result<BytesStart<'static>> {
-    let reference = attribute(e, b"ref", decoder)?
-        .ok_or_else(|| invalid("Worksheet dimension has no reference"))?;
+fn expanded_dimension(e: &BytesStart<'_>, patches: &Patches) -> Result<BytesStart<'static>> {
+    let reference =
+        attribute(e, b"ref")?.ok_or_else(|| invalid("Worksheet dimension has no reference"))?;
     let (first, last) = reference
         .split_once(':')
         .unwrap_or((&reference, &reference));
@@ -1063,7 +1062,7 @@ fn expanded_dimension(
         let attribute = attribute.map_err(|error| {
             Error::caused_by(ErrorKind::Xml, "Invalid dimension attribute", error)
         })?;
-        if attribute.key.as_ref() != b"ref" {
+        if attribute.key.as_ref().as_bytes() != b"ref" {
             start.push_attribute(attribute);
         }
     }
@@ -1127,7 +1126,8 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
-        if matches!(&frame.event,Event::Start(e) if e.local_name().as_ref()==b"AlternateContent") {
+        if matches!(&frame.event,Event::Start(e) if e.local_name().as_ref().as_bytes()==b"AlternateContent")
+        {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Editing markup-compatibility alternatives requires typed branch handling",
@@ -1141,7 +1141,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     let skip = rewrite
                         .before_start(
                             writer.get_mut(),
-                            e.local_name().as_ref(),
+                            e.local_name().as_ref().as_bytes(),
                             frame.depth,
                             frame.spreadsheet_uri,
                         )
@@ -1155,7 +1155,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 Event::End(e) => rewrite
                     .before_end(
                         writer.get_mut(),
-                        e.local_name().as_ref(),
+                        e.local_name().as_ref().as_bytes(),
                         frame.depth,
                         frame.spreadsheet_uri,
                     )
@@ -1169,19 +1169,19 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
             && frame.scope == Scope::Spreadsheet
         {
             let name = e.local_name();
-            if !views_written && !matches!(name.as_ref(), b"sheetPr" | b"dimension") {
+            if !views_written && !matches!(name.as_ref().as_bytes(), b"sheetPr" | b"dimension") {
                 crate::worksheet_view::write_views(writer.get_mut(), views, frame.spreadsheet_uri)
                     .map_err(|error| io_error("Cannot write worksheet views", error))?;
                 views_written = true;
             }
-            if name.as_ref() == b"sheetViews" {
+            if name.as_ref().as_bytes() == b"sheetViews" {
                 if skipped_views {
                     return Err(invalid("Duplicate worksheet views container"));
                 }
                 skipped_views = true;
                 loop {
                     let old = xml.next()?;
-                    if matches!(&old.event, Event::End(e) if old.depth == 1 && e.local_name().as_ref() == b"sheetViews")
+                    if matches!(&old.event, Event::End(e) if old.depth == 1 && e.local_name().as_ref().as_bytes() == b"sheetViews")
                     {
                         break;
                     }
@@ -1194,7 +1194,9 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
         }
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {
-                if frame.scope != Scope::Spreadsheet || e.local_name().as_ref() != b"worksheet" {
+                if frame.scope != Scope::Spreadsheet
+                    || e.local_name().as_ref().as_bytes() != b"worksheet"
+                {
                     return Err(invalid("Affected part is not a worksheet"));
                 }
                 emit(&mut writer, Event::Start(e))?;
@@ -1202,23 +1204,20 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"dimension"
+                    && e.local_name().as_ref().as_bytes() == b"dimension"
                     && patches.is_some() =>
             {
-                let start = expanded_dimension(
-                    &e,
-                    frame.decoder,
-                    patches.ok_or_else(|| invalid("Missing overlays"))?,
-                )?;
+                let start =
+                    expanded_dimension(&e, patches.ok_or_else(|| invalid("Missing overlays"))?)?;
                 emit(&mut writer, Event::Start(start))?;
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 3
-                    && e.local_name().as_ref() == b"mergeCell"
+                    && e.local_name().as_ref().as_bytes() == b"mergeCell"
                     && patches.is_some() =>
             {
-                let reference = attribute(&e, b"ref", frame.decoder)?
+                let reference = attribute(&e, b"ref")?
                     .ok_or_else(|| invalid("Merged range has no reference"))?;
                 let (first, last) = reference
                     .split_once(':')
@@ -1244,7 +1243,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"sheetData" =>
+                    && e.local_name().as_ref().as_bytes() == b"sheetData" =>
             {
                 if seen_data {
                     return Err(invalid("Duplicate sheetData in affected worksheet"));
@@ -1258,10 +1257,10 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 if in_data
                     && frame.scope == Scope::Spreadsheet
                     && frame.depth == 3
-                    && e.local_name().as_ref() == b"row" =>
+                    && e.local_name().as_ref().as_bytes() == b"row" =>
             {
                 in_row = true;
-                row = unsigned_attribute(&e, b"r", frame.decoder)?
+                row = unsigned_attribute(&e, b"r")?
                     .map(|value| {
                         value
                             .checked_sub(1)
@@ -1326,7 +1325,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 if in_row
                     && frame.scope == Scope::Spreadsheet
                     && frame.depth == 4
-                    && e.local_name().as_ref() == b"extLst" =>
+                    && e.local_name().as_ref().as_bytes() == b"extLst" =>
             {
                 row_tail = true;
                 while pending
@@ -1353,7 +1352,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 if in_row
                     && frame.scope == Scope::Spreadsheet
                     && frame.depth == 4
-                    && e.local_name().as_ref() == b"c" =>
+                    && e.local_name().as_ref().as_bytes() == b"c" =>
             {
                 if row_tail {
                     return Err(invalid("Cell follows row extension list"));
@@ -1362,7 +1361,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 formula = false;
                 seen_v = false;
                 let replacement = if selected_row {
-                    let address = attribute(&e, b"r", frame.decoder)?
+                    let address = attribute(&e, b"r")?
                         .map(|value| value.parse::<CellAddress>())
                         .transpose()?
                         .unwrap_or(CellAddress::new(row, next_column)?);
@@ -1409,20 +1408,21 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     let positioned = positioned_start(&e, &cell.address.to_string(), false)?;
                     let start = patched_start(&positioned, uri, &cell.value)
                         .map_err(|error| error.with_cell(cell.address))?;
-                    let name = start.name().as_ref().to_vec();
+                    let name = start.name().as_ref().as_bytes().to_vec();
                     // Validate the old cell before replacing its body.
                     loop {
                         let old = xml.next()?;
                         match &old.event {
                             Event::End(end)
-                                if old.depth == 3 && end.local_name().as_ref() == b"c" =>
+                                if old.depth == 3
+                                    && end.local_name().as_ref().as_bytes() == b"c" =>
                             {
                                 break;
                             }
                             Event::Start(child)
                                 if old.scope == Scope::Spreadsheet
                                     && old.depth == 5
-                                    && child.local_name().as_ref() == b"is" =>
+                                    && child.local_name().as_ref().as_bytes() == b"is" =>
                             {
                                 crate::rich_text::read_container(
                                     &mut xml,
@@ -1436,16 +1436,15 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                             Event::Start(child) => {
                                 if old.scope != Scope::Spreadsheet
                                     || !matches!(
-                                        child.local_name().as_ref(),
+                                        child.local_name().as_ref().as_bytes(),
                                         b"v" | b"is" | b"t" | b"f"
                                     )
                                 {
                                     return Err(Error::new(ErrorKind::Unsupported,"Replacing unknown or rich cell content requires typed support").with_cell(cell.address));
                                 }
-                                if child.local_name().as_ref() == b"f" {
+                                if child.local_name().as_ref().as_bytes() == b"f" {
                                     let metadata = crate::formula_codec::header(
                                         child,
-                                        old.decoder,
                                         limits.max_cell_bytes,
                                         crate::formula_codec::HeaderPolicy::KnownRecords,
                                     )
@@ -1485,7 +1484,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 if in_cell
                     && frame.scope == Scope::Spreadsheet
                     && frame.depth == 5
-                    && e.local_name().as_ref() == b"f" =>
+                    && e.local_name().as_ref().as_bytes() == b"f" =>
             {
                 if seen_v {
                     return Err(invalid("Formula follows its cached value"));
@@ -1497,13 +1496,13 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 if in_cell
                     && frame.scope == Scope::Spreadsheet
                     && frame.depth == 5
-                    && e.local_name().as_ref() == b"v" =>
+                    && e.local_name().as_ref().as_bytes() == b"v" =>
             {
                 seen_v = true;
                 if formula && invalidate_caches {
                     loop {
                         let frame = xml.next()?;
-                        if matches!(&frame.event,Event::End(end) if frame.depth==4 && end.local_name().as_ref()==b"v")
+                        if matches!(&frame.event,Event::End(end) if frame.depth==4 && end.local_name().as_ref().as_bytes()==b"v")
                         {
                             break;
                         }
@@ -1519,7 +1518,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 if in_cell
                     && frame.scope == Scope::Spreadsheet
                     && frame.depth == 3
-                    && e.local_name().as_ref() == b"c" =>
+                    && e.local_name().as_ref().as_bytes() == b"c" =>
             {
                 in_cell = false;
                 emit(&mut writer, Event::End(e))?;
@@ -1528,7 +1527,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 if in_row
                     && frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"row" =>
+                    && e.local_name().as_ref().as_bytes() == b"row" =>
             {
                 while pending
                     .peek()
@@ -1555,7 +1554,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 if in_data
                     && frame.scope == Scope::Spreadsheet
                     && frame.depth == 1
-                    && e.local_name().as_ref() == b"sheetData" =>
+                    && e.local_name().as_ref().as_bytes() == b"sheetData" =>
             {
                 while let Some(patch) = pending.peek() {
                     let inserted_row = patch.cell.address.row.get();
@@ -1622,7 +1621,8 @@ fn patch_workbook<R: Read + Seek, W: Write>(
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
-        if matches!(&frame.event,Event::Start(e) if e.local_name().as_ref()==b"AlternateContent") {
+        if matches!(&frame.event,Event::Start(e) if e.local_name().as_ref().as_bytes()==b"AlternateContent")
+        {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Editing markup-compatibility alternatives requires typed branch handling",
@@ -1630,7 +1630,9 @@ fn patch_workbook<R: Read + Seek, W: Write>(
         }
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {
-                if frame.scope != Scope::Spreadsheet || e.local_name().as_ref() != b"workbook" {
+                if frame.scope != Scope::Spreadsheet
+                    || e.local_name().as_ref().as_bytes() != b"workbook"
+                {
                     return Err(invalid("Affected part is not a workbook"));
                 }
                 uri = frame.spreadsheet_uri;
@@ -1639,7 +1641,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"calcPr" =>
+                    && e.local_name().as_ref().as_bytes() == b"calcPr" =>
             {
                 if seen {
                     return Err(invalid("Duplicate calculation properties"));
@@ -1652,7 +1654,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                         Error::caused_by(ErrorKind::Xml, "Invalid calculation attribute", error)
                     })?;
                     if !matches!(
-                        attribute.key.as_ref(),
+                        attribute.key.as_ref().as_bytes(),
                         b"calcMode" | b"fullCalcOnLoad" | b"forceFullCalc"
                     ) {
                         start.push_attribute(attribute);
@@ -1667,7 +1669,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
                     && matches!(
-                        e.local_name().as_ref(),
+                        e.local_name().as_ref().as_bytes(),
                         b"oleSize"
                             | b"customWorkbookViews"
                             | b"pivotCaches"
@@ -1688,7 +1690,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 0
-                    && e.local_name().as_ref() == b"workbook" =>
+                    && e.local_name().as_ref().as_bytes() == b"workbook" =>
             {
                 if !seen {
                     emit_calculation(&mut writer, uri)?;
@@ -1736,7 +1738,8 @@ fn patch_shared_strings<R: Read + Seek, W: Write>(
         check_declaration(&frame.event)?;
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {
-                if frame.scope != Scope::Spreadsheet || e.local_name().as_ref() != b"sst" {
+                if frame.scope != Scope::Spreadsheet || e.local_name().as_ref().as_bytes() != b"sst"
+                {
                     return Err(invalid("Shared string part has an invalid root"));
                 }
                 let mut start = e.to_owned();
@@ -1745,7 +1748,7 @@ fn patch_shared_strings<R: Read + Seek, W: Write>(
                     let attribute = attribute.map_err(|error| {
                         Error::caused_by(ErrorKind::Xml, "Invalid shared string attribute", error)
                     })?;
-                    if attribute.key.as_ref() != b"count" {
+                    if attribute.key.as_ref().as_bytes() != b"count" {
                         start.push_attribute(attribute);
                     }
                 }
@@ -1818,14 +1821,14 @@ fn catalog_chain_removal<R: Read + Seek>(
         loop {
             let frame = xml.next()?;
             if !chains.is_empty()
-                && matches!(&frame.event, Event::Start(e) if e.local_name().as_ref()==b"AlternateContent")
+                && matches!(&frame.event, Event::Start(e) if e.local_name().as_ref().as_bytes()==b"AlternateContent")
             {
                 safe = false;
             }
             match frame.event {
                 Event::Start(e) if frame.depth == 1 => {
                     if frame.scope != Scope::Relationships
-                        || e.local_name().as_ref() != b"Relationships"
+                        || e.local_name().as_ref().as_bytes() != b"Relationships"
                     {
                         safe = false;
                     }
@@ -1833,13 +1836,13 @@ fn catalog_chain_removal<R: Read + Seek>(
                 Event::Start(e)
                     if frame.depth == 2
                         && frame.scope == Scope::Relationships
-                        && e.local_name().as_ref() == b"Relationship" =>
+                        && e.local_name().as_ref().as_bytes() == b"Relationship" =>
                 {
-                    let kind = attribute(&e, b"Type", frame.decoder)?
+                    let kind = attribute(&e, b"Type")?
                         .ok_or_else(|| invalid("Relationship has no type"))?;
-                    let target = attribute(&e, b"Target", frame.decoder)?
+                    let target = attribute(&e, b"Target")?
                         .ok_or_else(|| invalid("Relationship has no target"))?;
-                    if attribute(&e, b"TargetMode", frame.decoder)?.as_deref() == Some("External") {
+                    if attribute(&e, b"TargetMode")?.as_deref() == Some("External") {
                         if crate::package::relationship_is(&kind, "calcChain") {
                             safe = false;
                         }
@@ -1904,10 +1907,11 @@ fn patch_chain_metadata<R: Read + Seek, W: Write>(
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {
                 let valid = if types {
-                    frame.scope == Scope::ContentTypes && e.local_name().as_ref() == b"Types"
+                    frame.scope == Scope::ContentTypes
+                        && e.local_name().as_ref().as_bytes() == b"Types"
                 } else {
                     frame.scope == Scope::Relationships
-                        && e.local_name().as_ref() == b"Relationships"
+                        && e.local_name().as_ref().as_bytes() == b"Relationships"
                 };
                 if !valid {
                     return Err(invalid("Invalid calculation-chain package metadata root"));
@@ -1918,9 +1922,9 @@ fn patch_chain_metadata<R: Read + Seek, W: Write>(
                 if frame.depth == 2
                     && types
                     && frame.scope == Scope::ContentTypes
-                    && e.local_name().as_ref() == b"Override" =>
+                    && e.local_name().as_ref().as_bytes() == b"Override" =>
             {
-                let name = attribute(&e, b"PartName", frame.decoder)?
+                let name = attribute(&e, b"PartName")?
                     .ok_or_else(|| invalid("Content override has no part name"))?;
                 if chains.contains(&crate::package::resolve_part("", &name)?) {
                     skip = Some(frame.depth);
@@ -1932,10 +1936,10 @@ fn patch_chain_metadata<R: Read + Seek, W: Write>(
                 if frame.depth == 2
                     && !types
                     && frame.scope == Scope::Relationships
-                    && e.local_name().as_ref() == b"Relationship" =>
+                    && e.local_name().as_ref().as_bytes() == b"Relationship" =>
             {
-                let kind = attribute(&e, b"Type", frame.decoder)?
-                    .ok_or_else(|| invalid("Relationship has no type"))?;
+                let kind =
+                    attribute(&e, b"Type")?.ok_or_else(|| invalid("Relationship has no type"))?;
                 if crate::package::relationship_is(&kind, "calcChain") {
                     skip = Some(frame.depth);
                 } else {

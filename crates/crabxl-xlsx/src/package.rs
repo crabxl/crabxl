@@ -121,16 +121,14 @@ impl<R: Read + Seek> WorkbookReader<R> {
             match frame.event {
                 Event::Start(element)
                     if frame.scope == Scope::Spreadsheet
-                        && element.local_name().as_ref() == b"dimension"
+                        && element.local_name().as_ref().as_bytes() == b"dimension"
                         && frame.depth == 2 =>
                 {
-                    return required_attribute(&element, b"ref", frame.decoder)?
-                        .parse()
-                        .map(Some);
+                    return required_attribute(&element, b"ref")?.parse().map(Some);
                 }
                 Event::Start(element)
                     if frame.scope == Scope::Spreadsheet
-                        && element.local_name().as_ref() == b"sheetData"
+                        && element.local_name().as_ref().as_bytes() == b"sheetData"
                         && frame.depth == 2 =>
                 {
                     return Ok(None);
@@ -911,7 +909,7 @@ fn read_relationships<R: Read + Seek>(
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {
                 valid_root = frame.scope == Scope::Relationships
-                    && e.local_name().as_ref() == b"Relationships";
+                    && e.local_name().as_ref().as_bytes() == b"Relationships";
                 if !valid_root {
                     return Err(invalid("Invalid relationships root").with_part(part));
                 }
@@ -919,15 +917,15 @@ fn read_relationships<R: Read + Seek>(
             Event::Start(e)
                 if frame.scope == Scope::Relationships
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"Relationship" =>
+                    && e.local_name().as_ref().as_bytes() == b"Relationship" =>
             {
                 if relationships.len() >= limits.max_archive_entries {
                     return Err(limit("Relationship count limit exceeded").with_part(part));
                 }
-                let id = required_attribute(&e, b"Id", frame.decoder)?;
-                let kind = required_attribute(&e, b"Type", frame.decoder)?;
-                let target = required_attribute(&e, b"Target", frame.decoder)?;
-                let mode = attribute(&e, b"TargetMode", frame.decoder)?;
+                let id = required_attribute(&e, b"Id")?;
+                let kind = required_attribute(&e, b"Type")?;
+                let target = required_attribute(&e, b"Target")?;
+                let mode = attribute(&e, b"TargetMode")?;
                 if mode
                     .as_deref()
                     .is_some_and(|m| m != "Internal" && m != "External")
@@ -974,20 +972,20 @@ fn read_content_types<R: Read + Seek>(
             Event::Start(e)
                 if frame.depth == 1
                     && (frame.scope != Scope::ContentTypes
-                        || e.local_name().as_ref() != b"Types") =>
+                        || e.local_name().as_ref().as_bytes() != b"Types") =>
             {
                 return Err(invalid("Invalid content types root").with_part(part));
             }
             Event::Start(e)
                 if frame.scope == Scope::ContentTypes
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"Override" =>
+                    && e.local_name().as_ref().as_bytes() == b"Override" =>
             {
                 if types.len() >= limits.max_archive_entries {
                     return Err(limit("Content type count limit exceeded").with_part(part));
                 }
-                let name = required_attribute(&e, b"PartName", frame.decoder)?;
-                let content_type = required_attribute(&e, b"ContentType", frame.decoder)?;
+                let name = required_attribute(&e, b"PartName")?;
+                let content_type = required_attribute(&e, b"ContentType")?;
                 let name = resolve_part("", &name)?;
                 if types.insert(name, content_type).is_some() {
                     return Err(invalid("Duplicate content type override").with_part(part));
@@ -1020,35 +1018,35 @@ fn read_workbook<R: Read + Seek>(
             Event::Start(e)
                 if frame.depth == 1
                     && (frame.scope != Scope::Spreadsheet
-                        || e.local_name().as_ref() != b"workbook") =>
+                        || e.local_name().as_ref().as_bytes() != b"workbook") =>
             {
                 return Err(invalid("Invalid workbook root").with_part(part));
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"sheets" =>
+                    && e.local_name().as_ref().as_bytes() == b"sheets" =>
             {
                 inside_sheets = true;
             }
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 1
-                    && e.local_name().as_ref() == b"sheets" =>
+                    && e.local_name().as_ref().as_bytes() == b"sheets" =>
             {
                 inside_sheets = false;
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"bookViews" =>
+                    && e.local_name().as_ref().as_bytes() == b"bookViews" =>
             {
                 inside_views = true;
             }
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 1
-                    && e.local_name().as_ref() == b"bookViews" =>
+                    && e.local_name().as_ref().as_bytes() == b"bookViews" =>
             {
                 inside_views = false;
             }
@@ -1057,9 +1055,9 @@ fn read_workbook<R: Read + Seek>(
                     && !view_seen
                     && frame.scope == Scope::Spreadsheet
                     && frame.depth == 3
-                    && e.local_name().as_ref() == b"workbookView" =>
+                    && e.local_name().as_ref().as_bytes() == b"workbookView" =>
             {
-                active_sheet = attribute(&e, b"activeTab", frame.decoder)?
+                active_sheet = attribute(&e, b"activeTab")?
                     .map(|value| {
                         value.parse::<usize>().map_err(|error| {
                             Error::caused_by(
@@ -1077,9 +1075,9 @@ fn read_workbook<R: Read + Seek>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"workbookPr" =>
+                    && e.local_name().as_ref().as_bytes() == b"workbookPr" =>
             {
-                date_1904 = match attribute(&e, b"date1904", frame.decoder)?.as_deref() {
+                date_1904 = match attribute(&e, b"date1904")?.as_deref() {
                     None | Some("0" | "false") => false,
                     Some("1" | "true") => true,
                     _ => return Err(invalid("Invalid date1904 flag").with_part(part)),
@@ -1089,12 +1087,12 @@ fn read_workbook<R: Read + Seek>(
                 if frame.scope == Scope::Spreadsheet
                     && inside_sheets
                     && frame.depth == 3
-                    && e.local_name().as_ref() == b"sheet" =>
+                    && e.local_name().as_ref().as_bytes() == b"sheet" =>
             {
                 if sheets.len() >= limits.max_sheets {
                     return Err(limit("Worksheet catalog limit exceeded").with_part(part));
                 }
-                let name = required_attribute(&e, b"name", frame.decoder)?;
+                let name = required_attribute(&e, b"name")?;
                 if name.is_empty() || !names.insert(name.clone()) {
                     return Err(invalid("Empty or duplicate sheet name").with_part(part));
                 }

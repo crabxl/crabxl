@@ -7,10 +7,7 @@ use crabxl_core::{
     DifferentialStyle, Error, ErrorKind, NumberFormat, Result, StyleCatalog, TableStyle,
     TableStyleCatalog, TableStyleElement, TableStyleRegion,
 };
-use quick_xml::{
-    encoding::Decoder,
-    events::{BytesStart, Event},
-};
+use quick_xml::events::{BytesStart, Event};
 use std::io::{BufRead, Write};
 fn invalid(message: &str) -> Error {
     Error::new(ErrorKind::InvalidData, message)
@@ -40,7 +37,7 @@ pub(crate) fn read_differentials<B: BufRead>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 3
-                    && e.local_name().as_ref() == b"dxf" =>
+                    && e.local_name().as_ref().as_bytes() == b"dxf" =>
             {
                 crate::formatting::check_attributes(&e, &[])?;
                 let value = read_differential(xml, budget.remaining())?;
@@ -50,7 +47,7 @@ pub(crate) fn read_differentials<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 1
-                    && e.local_name().as_ref() == b"dxfs" =>
+                    && e.local_name().as_ref().as_bytes() == b"dxfs" =>
             {
                 return Ok(());
             }
@@ -69,7 +66,7 @@ fn read_differential<B: BufRead>(
         let frame = xml.next()?;
         match frame.event {
             Event::Start(e) if frame.scope == Scope::Spreadsheet && frame.depth == 4 => {
-                let index = match e.local_name().as_ref() {
+                let index = match e.local_name().as_ref().as_bytes() {
                     b"font" => 0,
                     b"numFmt" => 1,
                     b"fill" => 2,
@@ -100,10 +97,10 @@ fn read_differential<B: BufRead>(
                     }
                     1 => {
                         crate::formatting::check_attributes(&e, &[b"numFmtId", b"formatCode"])?;
-                        let id = integer(&e, b"numFmtId", frame.decoder)?.ok_or_else(|| {
+                        let id = integer(&e, b"numFmtId")?.ok_or_else(|| {
                             invalid("Differential number format identity missing")
                         })?;
-                        let code = required_attribute(&e, b"formatCode", frame.decoder)?;
+                        let code = required_attribute(&e, b"formatCode")?;
                         crate::encode::validate_xml_text(&code)?;
                         if code.len() > remaining {
                             return Err(limit());
@@ -127,7 +124,7 @@ fn read_differential<B: BufRead>(
                         if remaining < size_of::<crabxl_core::Alignment>() {
                             return Err(limit());
                         }
-                        let alignment = crate::style_codec::read_alignment(&e, frame.decoder)?;
+                        let alignment = crate::style_codec::read_alignment(&e)?;
                         crate::formatting::consume_property(xml, 4)?;
                         value.alignment = Some(Box::new(alignment));
                     }
@@ -135,13 +132,12 @@ fn read_differential<B: BufRead>(
                         if remaining < size_of::<crabxl_core::Border>() {
                             return Err(limit());
                         }
-                        let header = crate::style_codec::read_border_header(&e, frame.decoder)?;
+                        let header = crate::style_codec::read_border_header(&e)?;
                         value.border =
                             Some(Box::new(crate::style_codec::read_border(xml, 4, header)?));
                     }
                     5 => {
-                        value.protection =
-                            Some(crate::style_codec::read_protection(&e, frame.decoder)?);
+                        value.protection = Some(crate::style_codec::read_protection(&e)?);
                         crate::formatting::consume_property(xml, 4)?;
                     }
                     _ => {
@@ -156,7 +152,7 @@ fn read_differential<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
-                    && e.local_name().as_ref() == b"dxf" =>
+                    && e.local_name().as_ref().as_bytes() == b"dxf" =>
             {
                 return Ok(value);
             }
@@ -165,17 +161,15 @@ fn read_differential<B: BufRead>(
         }
     }
 }
-pub(crate) fn table_header(header: &BytesStart<'_>, decoder: Decoder) -> Result<TableStyleCatalog> {
+pub(crate) fn table_header(header: &BytesStart<'_>) -> Result<TableStyleCatalog> {
     crate::formatting::check_attributes(
         header,
         &[b"count", b"defaultTableStyle", b"defaultPivotStyle"],
     )?;
-    attribute(header, b"count", decoder)?;
+    attribute(header, b"count")?;
     let value = TableStyleCatalog {
-        default_table_style: attribute(header, b"defaultTableStyle", decoder)?
-            .map(String::into_boxed_str),
-        default_pivot_style: attribute(header, b"defaultPivotStyle", decoder)?
-            .map(String::into_boxed_str),
+        default_table_style: attribute(header, b"defaultTableStyle")?.map(String::into_boxed_str),
+        default_pivot_style: attribute(header, b"defaultPivotStyle")?.map(String::into_boxed_str),
         ..Default::default()
     };
     for name in [&value.default_table_style, &value.default_pivot_style]
@@ -199,14 +193,14 @@ pub(crate) fn read_tables<B: BufRead>(
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 3
-                    && e.local_name().as_ref() == b"tableStyle" =>
+                    && e.local_name().as_ref().as_bytes() == b"tableStyle" =>
             {
                 crate::formatting::check_attributes(&e, &[b"name", b"pivot", b"table", b"count"])?;
                 let mut style = TableStyle {
-                    name: required_attribute(&e, b"name", frame.decoder)?.into_boxed_str(),
-                    pivot: boolean(&e, b"pivot", frame.decoder)?,
-                    table: boolean(&e, b"table", frame.decoder)?,
-                    count: integer(&e, b"count", frame.decoder)?,
+                    name: required_attribute(&e, b"name")?.into_boxed_str(),
+                    pivot: boolean(&e, b"pivot")?,
+                    table: boolean(&e, b"table")?,
+                    count: integer(&e, b"count")?,
                     elements: Vec::new(),
                 };
                 crate::encode::validate_xml_text(&style.name)?;
@@ -224,17 +218,13 @@ pub(crate) fn read_tables<B: BufRead>(
                         Event::Start(e)
                             if child.scope == Scope::Spreadsheet
                                 && child.depth == 4
-                                && e.local_name().as_ref() == b"tableStyleElement" =>
+                                && e.local_name().as_ref().as_bytes() == b"tableStyleElement" =>
                         {
                             crate::formatting::check_attributes(&e, &[b"type", b"size", b"dxfId"])?;
                             let element = TableStyleElement {
-                                region: TableStyleRegion::parse(&required_attribute(
-                                    &e,
-                                    b"type",
-                                    child.decoder,
-                                )?)?,
-                                size: integer(&e, b"size", child.decoder)?,
-                                differential_style_id: integer(&e, b"dxfId", child.decoder)?,
+                                region: TableStyleRegion::parse(&required_attribute(&e, b"type")?)?,
+                                size: integer(&e, b"size")?,
+                                differential_style_id: integer(&e, b"dxfId")?,
                             };
                             crate::formatting::consume_property(xml, 4)?;
                             local.push(&mut style.elements, element, 0)?;
@@ -242,7 +232,7 @@ pub(crate) fn read_tables<B: BufRead>(
                         Event::End(e)
                             if child.scope == Scope::Spreadsheet
                                 && child.depth == 2
-                                && e.local_name().as_ref() == b"tableStyle" =>
+                                && e.local_name().as_ref().as_bytes() == b"tableStyle" =>
                         {
                             break;
                         }
@@ -256,7 +246,7 @@ pub(crate) fn read_tables<B: BufRead>(
             Event::End(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 1
-                    && e.local_name().as_ref() == b"tableStyles" =>
+                    && e.local_name().as_ref().as_bytes() == b"tableStyles" =>
             {
                 catalog.table_styles = Some(Box::new(value));
                 return Ok(());

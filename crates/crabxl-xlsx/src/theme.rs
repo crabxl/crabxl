@@ -55,7 +55,9 @@ pub(crate) fn validate(bytes: &[u8], part: &str, limits: ResourceLimits) -> Resu
         match frame.event {
             Event::Start(ref element) => {
                 if !root {
-                    if frame.scope != Scope::Drawing || element.local_name().as_ref() != b"theme" {
+                    if frame.scope != Scope::Drawing
+                        || element.local_name().as_ref().as_bytes() != b"theme"
+                    {
                         return Err(Error::new(
                             ErrorKind::InvalidData,
                             "Theme root or namespace is invalid",
@@ -70,10 +72,7 @@ pub(crate) fn validate(bytes: &[u8], part: &str, limits: ResourceLimits) -> Resu
                             Error::caused_by(ErrorKind::Xml, "Invalid theme attribute", error)
                                 .with_part(part)
                         })?
-                        .decoded_and_normalized_value(
-                            quick_xml::XmlVersion::Implicit1_0,
-                            frame.decoder,
-                        )
+                        .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                         .map_err(|error| {
                             Error::caused_by(ErrorKind::Xml, "Invalid theme attribute value", error)
                                 .with_part(part)
