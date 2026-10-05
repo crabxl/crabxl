@@ -20,6 +20,10 @@ Namespace resolver updates occur only at declaration-bearing elements while
 checked element nesting remains separate; see
 [ADR 0066](decisions/0066-declaration-only-namespace-stack.md).
 
+Failure context is indirectly owned so successful Result paths do not carry its
+full inline size; public error categories, diagnostics and source chains remain
+unchanged. See [ADR 0067](decisions/0067-compact-error-context.md).
+
 ## Reference scope
 
 The initial openpyxl architecture review used directory/module names and documentation only, without reading implementation or reconstructing internal call graphs. The user later authorized narrowly reviewing important pending merge-request diffs and necessary surrounding code. Findings are in [the MR review](openpyxl-mr-review.md).

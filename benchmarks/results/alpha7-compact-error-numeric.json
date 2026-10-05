@@ -1,0 +1,457 @@
+{
+  "core_revision": "5add0057e2ff8a32ac5a441d57c16c4af5d42c55",
+  "versions": {
+    "umya-spreadsheet": "3.1.0",
+    "calamine": "0.36.1",
+    "rust_xlsxwriter": "0.99.1",
+    "rust": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "binary_sha256": "a37793859607c578096c5c863c9f205b1d2532e1e93405e2f5979ecbaef21ee9",
+  "baseline_binary_sha256": "14ab5a6d6860ecd67cef2f9770c1ab15eb39da4525cee490795c1a098a273ce8",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592",
+  "method": "one warmup per mode and scale; rotating serial release samples; native wait4; generation/build/output verification excluded; no baseline subtraction",
+  "boundaries": "Read: two numeric sheets, sum all cells, complete model modes versus noneditable calamine ranges and streams separately. Lazy modes initialize only and do not read cells. Edit: both engines materialize and sum all sheets then replace first A1 with 42 and save. Write: one numeric sheet built from zero, ordinary owned model versus sequential writer modes separately. Different preservation, rich styles, formulas and unsupported features are not compared.",
+  "temporary_sampling": "10ms lower-bound sum of unique process fds under isolated TMPDIR/output directory, including spools and adjacent/final ZIP during write; completed output bytes recorded separately; no exact managed-memory comparison",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "columns": 10,
+      "read_sheets": 2,
+      "source_bytes": 606757,
+      "source_sha256": "3e7c6e539fa5a6b1f83d1117429f780ff02975d7d938e30e123b5575a6b4d55f",
+      "samples": {
+        "crabxl-model": [
+          {
+            "seconds": 0.131486278,
+            "cpu_seconds": 0.131354,
+            "peak_rss_kib": 11332,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.129765267,
+            "cpu_seconds": 0.129654,
+            "peak_rss_kib": 11460,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.124932594,
+            "cpu_seconds": 0.124751,
+            "peak_rss_kib": 11524,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "calamine-stream": [
+          {
+            "seconds": 0.044103338,
+            "cpu_seconds": 0.043931,
+            "peak_rss_kib": 4740,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.052457397,
+            "cpu_seconds": 0.052354,
+            "peak_rss_kib": 4740,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.043185079,
+            "cpu_seconds": 0.043101,
+            "peak_rss_kib": 4548,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "calamine-model": [
+          {
+            "seconds": 0.052842555,
+            "cpu_seconds": 0.052521,
+            "peak_rss_kib": 14644,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.051665162,
+            "cpu_seconds": 0.051576,
+            "peak_rss_kib": 14644,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.052909651,
+            "cpu_seconds": 0.052653,
+            "peak_rss_kib": 14644,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-stream": [
+          {
+            "seconds": 0.104894103,
+            "cpu_seconds": 0.104781,
+            "peak_rss_kib": 5056,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.10280429,
+            "cpu_seconds": 0.102683,
+            "peak_rss_kib": 5184,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.109683988,
+            "cpu_seconds": 0.109545,
+            "peak_rss_kib": 5056,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-model": [
+          {
+            "seconds": 0.126106617,
+            "cpu_seconds": 0.125784,
+            "peak_rss_kib": 11456,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.130932417,
+            "cpu_seconds": 0.130685,
+            "peak_rss_kib": 11712,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.125936587,
+            "cpu_seconds": 0.125633,
+            "peak_rss_kib": 11712,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-stream": [
+          {
+            "seconds": 0.042845234,
+            "cpu_seconds": 0.042713,
+            "peak_rss_kib": 4672,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.042273389,
+            "cpu_seconds": 0.042199,
+            "peak_rss_kib": 4416,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.04200705,
+            "cpu_seconds": 0.041911,
+            "peak_rss_kib": 4544,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-model": [
+          {
+            "seconds": 0.05239945,
+            "cpu_seconds": 0.05226,
+            "peak_rss_kib": 14764,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.049777671,
+            "cpu_seconds": 0.049663,
+            "peak_rss_kib": 14636,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.052423943,
+            "cpu_seconds": 0.052216,
+            "peak_rss_kib": 14636,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "crabxl-stream": [
+          {
+            "seconds": 0.112384129,
+            "cpu_seconds": 0.112264,
+            "peak_rss_kib": 5124,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.114652261,
+            "cpu_seconds": 0.114091,
+            "peak_rss_kib": 5124,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.152101414,
+            "cpu_seconds": 0.149576,
+            "peak_rss_kib": 4996,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "crabxl-model": {
+          "seconds": 0.129765267,
+          "cpu_seconds": 0.129654,
+          "peak_rss_kib": 11460,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "calamine-stream": {
+          "seconds": 0.044103338,
+          "cpu_seconds": 0.043931,
+          "peak_rss_kib": 4740,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "calamine-model": {
+          "seconds": 0.052842555,
+          "cpu_seconds": 0.052521,
+          "peak_rss_kib": 14644,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-stream": {
+          "seconds": 0.104894103,
+          "cpu_seconds": 0.104781,
+          "peak_rss_kib": 5056,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-model": {
+          "seconds": 0.126106617,
+          "cpu_seconds": 0.125784,
+          "peak_rss_kib": 11712,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-stream": {
+          "seconds": 0.042273389,
+          "cpu_seconds": 0.042199,
+          "peak_rss_kib": 4544,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-model": {
+          "seconds": 0.05239945,
+          "cpu_seconds": 0.052216,
+          "peak_rss_kib": 14636,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "crabxl-stream": {
+          "seconds": 0.114652261,
+          "cpu_seconds": 0.114091,
+          "peak_rss_kib": 5124,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows_per_sheet": 100000,
+      "columns": 10,
+      "read_sheets": 2,
+      "source_bytes": 5882341,
+      "source_sha256": "7c9a4471c3d743011320d3eefeb2540eb6b67cdc3081ad72d889735a87d1c0e1",
+      "samples": {
+        "crabxl-model": [
+          {
+            "seconds": 1.327663499,
+            "cpu_seconds": 1.326375,
+            "peak_rss_kib": 68676,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.265676823,
+            "cpu_seconds": 1.265289,
+            "peak_rss_kib": 68868,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.316381272,
+            "cpu_seconds": 1.315411,
+            "peak_rss_kib": 68804,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "calamine-stream": [
+          {
+            "seconds": 0.436022588,
+            "cpu_seconds": 0.435573,
+            "peak_rss_kib": 4548,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.42503885,
+            "cpu_seconds": 0.424858,
+            "peak_rss_kib": 4548,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.413571355,
+            "cpu_seconds": 0.413406,
+            "peak_rss_kib": 4740,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "calamine-model": [
+          {
+            "seconds": 0.531348073,
+            "cpu_seconds": 0.530855,
+            "peak_rss_kib": 105968,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.511706506,
+            "cpu_seconds": 0.511182,
+            "peak_rss_kib": 106320,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.5097105,
+            "cpu_seconds": 0.509246,
+            "peak_rss_kib": 106004,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-stream": [
+          {
+            "seconds": 1.1914676,
+            "cpu_seconds": 1.190214,
+            "peak_rss_kib": 5184,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.097890764,
+            "cpu_seconds": 1.097197,
+            "peak_rss_kib": 5184,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.075779226,
+            "cpu_seconds": 1.07521,
+            "peak_rss_kib": 5312,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-model": [
+          {
+            "seconds": 1.41096815,
+            "cpu_seconds": 1.399748,
+            "peak_rss_kib": 69184,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.329633023,
+            "cpu_seconds": 1.328684,
+            "peak_rss_kib": 69056,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.2666128,
+            "cpu_seconds": 1.265656,
+            "peak_rss_kib": 69184,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-stream": [
+          {
+            "seconds": 0.417322032,
+            "cpu_seconds": 0.416473,
+            "peak_rss_kib": 4672,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.492967237,
+            "cpu_seconds": 0.492403,
+            "peak_rss_kib": 4672,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.435755038,
+            "cpu_seconds": 0.435582,
+            "peak_rss_kib": 4416,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-model": [
+          {
+            "seconds": 0.589284315,
+            "cpu_seconds": 0.589035,
+            "peak_rss_kib": 105852,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.559706529,
+            "cpu_seconds": 0.559225,
+            "peak_rss_kib": 105992,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.497372634,
+            "cpu_seconds": 0.496859,
+            "peak_rss_kib": 106124,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "crabxl-stream": [
+          {
+            "seconds": 1.28393889,
+            "cpu_seconds": 1.281708,
+            "peak_rss_kib": 4996,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.158764508,
+            "cpu_seconds": 1.157357,
+            "peak_rss_kib": 4804,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.125168506,
+            "cpu_seconds": 1.12312,
+            "peak_rss_kib": 4996,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "crabxl-model": {
+          "seconds": 1.316381272,
+          "cpu_seconds": 1.315411,
+          "peak_rss_kib": 68804,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "calamine-stream": {
+          "seconds": 0.42503885,
+          "cpu_seconds": 0.424858,
+          "peak_rss_kib": 4548,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "calamine-model": {
+          "seconds": 0.511706506,
+          "cpu_seconds": 0.511182,
+          "peak_rss_kib": 106004,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-stream": {
+          "seconds": 1.097890764,
+          "cpu_seconds": 1.097197,
+          "peak_rss_kib": 5184,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-model": {
+          "seconds": 1.329633023,
+          "cpu_seconds": 1.328684,
+          "peak_rss_kib": 69184,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-stream": {
+          "seconds": 0.435755038,
+          "cpu_seconds": 0.435582,
+          "peak_rss_kib": 4672,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-model": {
+          "seconds": 0.559706529,
+          "cpu_seconds": 0.559225,
+          "peak_rss_kib": 105992,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "crabxl-stream": {
+          "seconds": 1.158764508,
+          "cpu_seconds": 1.157357,
+          "peak_rss_kib": 4996,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    }
+  ]
+}

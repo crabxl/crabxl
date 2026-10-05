@@ -566,10 +566,13 @@ fn malformed_numeric_values_and_coordinates_fail() {
         "<c><v>1</v><v>2</v></c>",
     ] {
         let mut book = open(&format!("<row>{content}</row>"));
-        assert_eq!(
-            book.rows("A & B").unwrap().next_row().unwrap_err().kind(),
-            ErrorKind::InvalidData
-        );
+        let error = book.rows("A & B").unwrap().next_row().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        assert_eq!(error.part(), Some("data/values.xml"));
+        if content.contains("broken") {
+            assert_eq!(error.cell().unwrap().to_string(), "A1");
+            assert!(std::error::Error::source(&error).is_some());
+        }
     }
 }
 #[test]
