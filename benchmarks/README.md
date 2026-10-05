@@ -85,3 +85,5 @@ M5 A1 translation: [same-call Translator evidence and writer regression](m5-form
 Worksheet viewport metadata: [M5 worksheet views](m5-worksheet-views.md) records the selected rust_xlsxwriter port, public read/create/edit interoperability, model/overlay memory, temporary storage and unconfigured numeric regression. Workbook/chartsheet/custom views and the remaining M5 feature families stay open.
 
 Printing metadata: [M5 printing](m5-printing.md) records the selected rust_xlsxwriter port, public margins/options/setup/page-property/break verification, full-source bounded reading, retained printer identity, footer/overlay memory, temporary storage and unconfigured numeric regression. Views/printing share the serial worksheet-feature harness; earlier evidence retains its recorded revision and samples.
+
+Mounted Linux controller discovery: [M2 cgroup checkpoint](m2-cgroup-discovery.md) verifies v1/v2/hybrid mount resolution and records numeric Auto current/prior modes, counts, checksums, RSS, temporary bytes and public reference overlap. Non-Linux native probes and complete M2 acceptance remain open.

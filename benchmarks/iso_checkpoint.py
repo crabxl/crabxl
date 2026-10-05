@@ -33,6 +33,9 @@ def measure(command, directory):
     sample = json.loads(errors.split("MEASURE ")[-1])
     sample["sampled_temp_peak_bytes"] = peak
     for line in errors.splitlines():
+        if line.startswith("DECISION "):
+            sample["decision"] = line.removeprefix("DECISION ")
+    for line in errors.splitlines():
         if line.startswith("TEMP_BYTES "):
             sample["logical_temp_peak_bytes"] = int(line.split()[1])
     if list(directory.iterdir()):

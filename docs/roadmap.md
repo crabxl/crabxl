@@ -64,7 +64,7 @@ Acceptance: correct counts/checksums, raw timing/RSS results, numeric streaming 
 
 ## M2: Complete value semantics and large strings
 
-- Extend the initial numeric Auto policy to strings/styles/caches and measured concurrent strategies; add native probes beyond Linux cgroup v2 while preserving the portable caller-availability override. Account for effective availability, headroom, workload, and measured benefits. Retain managed-allocation diagnostics and do not claim a hard global RSS limit without enforcing all dependency allocations.
+- Extend the initial numeric Auto policy to strings/styles/caches and measured concurrent strategies; mounted Linux cgroup v1/v2 discovery is implemented (ADR 0044), while non-Linux native probes remain open; preserve the portable caller-availability override. Account for effective availability, headroom, workload, and measured benefits. Retain managed-allocation diagnostics and do not claim a hard global RSS limit without enforcing all dependency allocations.
 - Extend raw M1 `f64` numbers to preserve the baseline's integer/float distinctions and exact integer literals where required; document representation and overflow behavior without silent precision loss.
 - Port inline/shared strings, booleans, errors, rich text, dates/number formats, formula text, and cached values into the common representation.
 - Test both date systems, absent cached results, shared/array formula metadata, whitespace-only text, and empty runs.

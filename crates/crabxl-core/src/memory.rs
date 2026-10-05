@@ -63,7 +63,7 @@ pub enum MemorySource {
     ExplicitBudget,
     /// The caller supplied effective availability.
     CallerAvailability,
-    /// Linux host, cgroup v2 hierarchy, and finite address/data limits were examined.
+    /// Linux host, mounted cgroup v1/v2 visible hierarchies, and process limits were examined.
     Linux,
     /// Constraint discovery was unavailable; a conservative fallback was used.
     ConservativeFallback,
