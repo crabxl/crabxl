@@ -72,7 +72,9 @@ mod style_registry;
 pub use style_registry::{StyleLimits, StyleRegistry, TemporalStyleIds};
 
 mod theme;
-pub use theme::Theme;
+pub use theme::{
+    Theme, ThemeCatalog, ThemeColor, ThemeFontCollection, ThemeScriptFont, ThemeTypeface,
+};
 
 mod style_extras;
 pub use style_components::TableStyleRegion;

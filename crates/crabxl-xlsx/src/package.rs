@@ -428,6 +428,24 @@ impl<R: Read + Seek> WorkbookReader<R> {
         }
         Ok(self.theme.as_ref())
     }
+    /// Decode a caller-owned palette/font catalog on explicit request. Opaque
+    /// theme access remains unchanged. The returned catalog is not cached and
+    /// caller retention is outside subsequent reader accounting. Parsing obeys
+    /// the remaining aggregate metadata and theme payload allowances.
+    pub fn read_theme_catalog(&mut self) -> Result<Option<crabxl_core::ThemeCatalog>> {
+        self.theme()?;
+        match (&self.theme, &self.theme_part) {
+            (Some(theme), Some(part)) => {
+                let maximum = self
+                    .limits
+                    .max_theme_bytes
+                    .saturating_sub(theme.memory_bytes())
+                    .min(usize::try_from(self.style_metadata_remaining).unwrap_or(usize::MAX));
+                crate::theme::catalog(theme.bytes(), part, self.limits, maximum).map(Some)
+            }
+            _ => Ok(None),
+        }
+    }
     /// Explicitly validate a prepared theme as bounded DrawingML XML.
     /// Ordinary theme access retains opaque bytes, matching the public baseline.
     pub fn validate_theme(&mut self) -> Result<()> {

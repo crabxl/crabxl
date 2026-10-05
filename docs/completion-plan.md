@@ -31,7 +31,7 @@ Documentation, failure checks, interoperability tests, provenance and relevant b
 
 Acceptance: both inline and shared fixtures preserve intended text and whitespace; literal/protected escapes, multiple runs, phonetics, empty values and malformed input have explicit tests. Selected public reference cases retain original assertions and licensed provenance.
 
-Checkpoint: Auto resolves mounted Linux cgroup v1/v2 visible hierarchies, including hybrid and namespace mount roots, and retains portable explicit/caller overrides (ADR 0044). Windows/macOS host RAM probes now use native APIs through sysinfo (ADR 0050); private process/job constraints, native CI acceptance and complete Auto/concurrent strategy tuning remain open. Serial numeric decisions and regression evidence are recorded separately; this does not close M2.
+Checkpoint: Auto resolves mounted Linux cgroup v1/v2 visible hierarchies, including hybrid and namespace mount roots, and retains portable explicit/caller overrides (ADR 0044). Windows/macOS host RAM probes now use native APIs through sysinfo (ADR 0050); native Linux/Windows/macOS Rust 1.88 CI passed in run 37283497734. Private process/job constraints and complete Auto/concurrent strategy tuning remain open. Serial numeric decisions and regression evidence are recorded separately; this does not close M2.
 
 ## M2.2: Large shared-string storage
 
@@ -45,6 +45,8 @@ Checkpoint: Auto resolves mounted Linux cgroup v1/v2 visible hierarchies, includ
 Acceptance: repeated-string and high-cardinality tables work under small managed RAM budgets via disk storage. Invalid IDs, missing parts, corrupt ZIP/XML, low disk allowance and cleanup failures are tested. Compare in-memory and disk policies using the same verified outputs, measuring wall/CPU, RSS, temporary bytes and cache diagnostics.
 
 ## M2.3: Read-side styles and dates
+
+Checkpoint: explicit caller-owned theme palettes/font schemes retain source identities and bounded script mappings (ADR 0051). Unsupported color transforms and complete theme mutation remain staged; opaque preservation is unchanged.
 
 Checkpoint: indexed palette entries share ArgbLiteral, preserving mixed case and six-digit alpha normalization through source adoption and export with actual-capacity accounting (ADR 0039). The additional four bytes per palette slot are disclosed and measured; complete style mutation remains open.
 

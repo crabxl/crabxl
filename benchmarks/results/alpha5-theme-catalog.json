@@ -1,0 +1,120 @@
+{
+  "scope": "Linux native release read of caller-owned theme catalogs; no worksheet cells are decoded. One warmup and three rotating serial samples. Fixture generation and builds/tests are excluded; no comparative speed claim.",
+  "binary_sha256": "91e672077dabf70a23f9d695dbf869246a3a3450ae7e9c3138034aa7dfa8fc33",
+  "cases": [
+    {
+      "supplemental_fonts": 0,
+      "theme_xml_bytes": 191,
+      "theme_sha256": "a5fe293446b4f09a07521484f3ba1b1508b950ee34a3eb930d5064f786576443",
+      "temporary_store_bytes": 0,
+      "samples": [
+        {
+          "seconds": 0.001208535,
+          "cpu_seconds": 0.001041,
+          "peak_rss_kib": 1488,
+          "fonts": 0,
+          "catalog_bytes": 729,
+          "opaque_bytes": 223
+        },
+        {
+          "seconds": 0.001042005,
+          "cpu_seconds": 0.000895,
+          "peak_rss_kib": 1476,
+          "fonts": 0,
+          "catalog_bytes": 729,
+          "opaque_bytes": 223
+        },
+        {
+          "seconds": 0.00114217,
+          "cpu_seconds": 0.000985,
+          "peak_rss_kib": 1520,
+          "fonts": 0,
+          "catalog_bytes": 729,
+          "opaque_bytes": 223
+        }
+      ],
+      "median": {
+        "seconds": 0.00114217,
+        "peak_rss_kib": 1488,
+        "catalog_bytes": 729,
+        "opaque_bytes": 223
+      }
+    },
+    {
+      "supplemental_fonts": 1000,
+      "theme_xml_bytes": 41971,
+      "theme_sha256": "873b32bbdea7155d28a4c430bfc2f642b56faaa5a4df4b0509b2e3925941ab47",
+      "temporary_store_bytes": 0,
+      "samples": [
+        {
+          "seconds": 0.001923819,
+          "cpu_seconds": 0.001826,
+          "peak_rss_kib": 1616,
+          "fonts": 1000,
+          "catalog_bytes": 44277,
+          "opaque_bytes": 42003
+        },
+        {
+          "seconds": 0.001768385,
+          "cpu_seconds": 0.001691,
+          "peak_rss_kib": 1660,
+          "fonts": 1000,
+          "catalog_bytes": 44277,
+          "opaque_bytes": 42003
+        },
+        {
+          "seconds": 0.001909498,
+          "cpu_seconds": 0.001823,
+          "peak_rss_kib": 1516,
+          "fonts": 1000,
+          "catalog_bytes": 44277,
+          "opaque_bytes": 42003
+        }
+      ],
+      "median": {
+        "seconds": 0.001909498,
+        "peak_rss_kib": 1616,
+        "catalog_bytes": 44277,
+        "opaque_bytes": 42003
+      }
+    },
+    {
+      "supplemental_fonts": 100000,
+      "theme_xml_bytes": 4577971,
+      "theme_sha256": "94a5fc41fa93c9491e347a85cc3f2dc68e9c309a472f060b617b137911b4d42a",
+      "temporary_store_bytes": 0,
+      "samples": [
+        {
+          "seconds": 0.093665897,
+          "cpu_seconds": 0.093472,
+          "peak_rss_kib": 15208,
+          "fonts": 100000,
+          "catalog_bytes": 4678509,
+          "opaque_bytes": 4578003
+        },
+        {
+          "seconds": 0.093979203,
+          "cpu_seconds": 0.093722,
+          "peak_rss_kib": 15292,
+          "fonts": 100000,
+          "catalog_bytes": 4678509,
+          "opaque_bytes": 4578003
+        },
+        {
+          "seconds": 0.093218741,
+          "cpu_seconds": 0.093059,
+          "peak_rss_kib": 15260,
+          "fonts": 100000,
+          "catalog_bytes": 4678509,
+          "opaque_bytes": 4578003
+        }
+      ],
+      "median": {
+        "seconds": 0.093665897,
+        "peak_rss_kib": 15260,
+        "catalog_bytes": 4678509,
+        "opaque_bytes": 4578003
+      }
+    }
+  ]
+}
