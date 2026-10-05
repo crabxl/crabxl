@@ -1,0 +1,5 @@
+{
+  "version": "0.1.0-alpha.1",
+  "usable_feature": true,
+  "feature_notes": "First installable alpha of the canonical Rust spreadsheet engine.\n\nNewly available as crates.io packages: bounded sparse XLSX streaming, exact scalar and shared/rich string values, numeric/ISO dates, style catalogs, formula/cache metadata, sequential creation, sparse owned models, guarded original-package cell edits, worksheet views and printing settings.\n\nThis release does not claim complete openpyxl feature coverage. M2 and M4 remain in progress; complete structural editing, advanced feature graphs and full adapter compatibility remain staged. Resource allowances constrain managed storage, not total process RSS.\n\nRust 1.99 is required. See docs/roadmap.md and docs/milestones.md for capability boundaries and benchmark evidence."
+}
