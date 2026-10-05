@@ -56,8 +56,12 @@ loaded model access, atomic loading failures and RAM/Auto/disk policies are veri
 in ADR 0056 and [ownership measurements](../benchmarks/alpha6-loaded-bank.md).
 Preserving value overlays now share the same source and budget as lazy/cached
 models, with repeated saves and opaque chartsheet preservation (ADR 0057).
-Source graph mutations and Python handles remain open; M4 and the A6 stage are
-not complete. The earlier results below are historical checkpoints.
+Python loaded handles now share the canonical source-backed bank (adapter ADR
+0017), with 545 locally passing compatibility cases and measured ordinary-mode
+ownership costs. Lazy active selection preserves formula caches/chains and
+rejects affected unsupported metadata before mutation (ADR 0058). Other source
+graph mutations remain open; M4 and the A6 stage are not complete. The earlier
+results below are historical checkpoints.
 
 - Sparse core worksheets support budgeted random access, append, finite row/column insertion/deletion and overlapping range copy/move with atomic validation. Borrowed output reuses the sequential writer. Formula/reference translation and existing-file structural surgery are not claimed.
 - Lazy editor inventories original parts and keeps only pending cell values. Unchanged payloads, images, VBA, templates, relationships and unknown parts survive repeat saves. Existing-cell edits retain styles/attributes and unrelated worksheet content; old formula caches are invalidated globally and recalculation requested.

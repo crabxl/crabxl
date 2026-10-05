@@ -6,13 +6,14 @@ use crabxl::{
 use std::{fs::File, time::Instant};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
-    let path = args
-        .next()
-        .ok_or("Usage: loaded_rows <input.xlsx> [bank|standalone|bank-edit] [output.xlsx]")?;
+    let path = args.next().ok_or(
+        "Usage: loaded_rows <input.xlsx> [bank|standalone|bank-edit|bank-active] [output.xlsx]",
+    )?;
     let mode = args.next().unwrap_or_else(|| "bank".into());
     let output = args.next();
     let mut output_bytes = 0u64;
     let mut verified_edit = false;
+    let materialized_cells;
     let begin = Instant::now();
     let mut count = 0usize;
     let mut checksum = 0i64;
@@ -28,7 +29,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Ok(())
     };
-    let (managed, temp) = if mode == "bank" || mode == "bank-edit" {
+    let (managed, temp) = if mode == "bank-active" {
+        let mut workbook = LoadedWorkbook::with_options(File::open(path)?, LoadOptions::default())?;
+        let id = workbook
+            .model()
+            .sheets()
+            .nth(1)
+            .ok_or("Active mode requires two sheets")?
+            .0;
+        workbook.set_active_sheet(id)?;
+        let target = output.as_ref().ok_or("Active mode requires output path")?;
+        workbook.save_path(target, crabxl::SaveOptions::default())?;
+        output_bytes = std::fs::metadata(target)?.len();
+        materialized_cells = workbook.model().cell_count();
+        if materialized_cells != 0 {
+            return Err("Active selection eagerly materialized cells".into());
+        }
+        let mut saved = WorkbookReader::open(target)?;
+        if saved.active_index() != Some(1) {
+            return Err("Saved active selection mismatch".into());
+        }
+        let names = saved
+            .sheets()
+            .iter()
+            .map(|sheet| sheet.name().to_owned())
+            .collect::<Vec<_>>();
+        for name in names {
+            let mut rows = saved.rows(&name)?;
+            while let Some(row) = rows.next_row()? {
+                for cell in row.cells {
+                    let CellValue::Integer(value) = cell.value else {
+                        return Err("Expected saved integer".into());
+                    };
+                    count += 1;
+                    checksum = checksum
+                        .checked_add(value)
+                        .ok_or("Saved checksum overflow")?;
+                }
+            }
+        }
+        verified_edit = true;
+        (
+            workbook.managed_retained_bytes(),
+            workbook
+                .shared_string_stats()
+                .map_or(0, |stats| stats.temp_bytes),
+        )
+    } else if mode == "bank" || mode == "bank-edit" {
         let mut workbook = LoadedWorkbook::with_options(
             File::open(path)?,
             LoadOptions {
@@ -87,6 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             verified_edit = true;
         }
         let managed = workbook.managed_retained_bytes();
+        materialized_cells = workbook.model().cell_count();
         let temp = workbook
             .shared_string_stats()
             .map_or(0, |stats| stats.temp_bytes);
@@ -117,15 +165,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             + workbook
                 .shared_string_stats()
                 .map_or(0, |stats| stats.managed_bytes);
+        materialized_cells = models.iter().map(Worksheet::len).sum();
         let temp = workbook
             .shared_string_stats()
             .map_or(0, |stats| stats.temp_bytes);
         (managed, temp)
     } else {
-        return Err("Mode must be bank, standalone or bank-edit".into());
+        return Err("Mode must be bank, standalone, bank-edit or bank-active".into());
     };
     println!(
-        "{{\"mode\":\"{mode}\",\"cells\":{count},\"checksum\":{checksum},\"managed_bytes\":{managed},\"sst_temp_bytes\":{temp},\"output_bytes\":{output_bytes},\"verified_edit\":{verified_edit},\"seconds\":{}}}",
+        "{{\"mode\":\"{mode}\",\"cells\":{count},\"checksum\":{checksum},\"materialized_cells\":{materialized_cells},\"managed_bytes\":{managed},\"sst_temp_bytes\":{temp},\"output_bytes\":{output_bytes},\"verified_edit\":{verified_edit},\"seconds\":{}}}",
         begin.elapsed().as_secs_f64()
     );
     Ok(())

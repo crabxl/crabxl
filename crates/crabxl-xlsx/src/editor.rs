@@ -129,6 +129,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     patches: BTreeMap<String, Patches>,
     view_patches: BTreeMap<String, Box<crabxl_core::SheetViews>>,
     print_patches: BTreeMap<String, Box<crabxl_core::PrintSettings>>,
+    active_patch: Option<usize>,
     options: EditorOptions,
     patch_bytes: usize,
     patch_cells: usize,
@@ -271,6 +272,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             patches: BTreeMap::new(),
             view_patches: BTreeMap::new(),
             print_patches: BTreeMap::new(),
+            active_patch: None,
             options,
             patch_bytes: 0,
             patch_cells: 0,
@@ -293,7 +295,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     }
     /// Whether pending overlays are present. Saving does not discard overlays.
     pub fn is_dirty(&self) -> bool {
-        self.patch_cells != 0 || !self.view_patches.is_empty() || !self.print_patches.is_empty()
+        self.patch_cells != 0
+            || !self.view_patches.is_empty()
+            || !self.print_patches.is_empty()
+            || self.active_patch.is_some()
     }
     /// Shared automatic/explicit operation allowance computed at construction.
     /// Original ZIP/catalog/inventory allocations are additional.
@@ -307,6 +312,96 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// Conservative managed patch allowance currently used.
     pub fn patch_bytes(&self) -> usize {
         self.patch_bytes
+    }
+    /// Select a visible original worksheet/chartsheet without decoding its cells.
+    /// Only workbook view metadata changes; formula caches/chains stay intact.
+    pub fn set_active_sheet(&mut self, name: &str) -> Result<()> {
+        let index = self
+            .book
+            .sheets()
+            .iter()
+            .position(|sheet| sheet.name() == name)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Active sheet does not exist"))?;
+        let bytes = self.prepare_active(index)?;
+        self.commit_active(index, bytes);
+        Ok(())
+    }
+    pub(crate) fn prepare_active(&mut self, index: usize) -> Result<usize> {
+        let count = self.book.sheets().len();
+        if index >= count {
+            return Err(Error::new(
+                ErrorKind::SheetNotFound,
+                "Active sheet does not exist",
+            ));
+        }
+        if self.signed {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Editing signed packages is unsupported",
+            ));
+        }
+        let bytes = self
+            .patch_bytes
+            .saturating_add(if self.active_patch.is_none() {
+                PATCH_BYTES
+            } else {
+                0
+            });
+        if bytes > self.options.max_patch_bytes {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Active sheet patch allowance exceeded",
+            ));
+        }
+        let part = self.book.workbook_part.clone();
+        let input = self
+            .book
+            .archive
+            .by_name(&part)
+            .map_err(|error| zip_error("Cannot inspect active sheet metadata", error))?;
+        let limits = self.options.resources;
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(limits.input_buffer_bytes, input),
+            part.clone(),
+            limits.max_metadata_bytes.min(limits.max_part_bytes),
+            limits,
+        );
+        let mut sheet_index = 0usize;
+        loop {
+            let frame = xml.next()?;
+            check_declaration(&frame.event)?;
+            match frame.event {
+                Event::Start(e) if e.local_name().as_ref().as_bytes() == b"AlternateContent" => {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Editing markup-compatibility alternatives requires typed branch handling",
+                    )
+                    .with_part(&part));
+                }
+                Event::Start(e)
+                    if frame.scope == Scope::Spreadsheet
+                        && frame.depth == 3
+                        && e.local_name().as_ref().as_bytes() == b"sheet" =>
+                {
+                    if sheet_index == index
+                        && attribute(&e, b"state")?.is_some_and(|state| state != "visible")
+                    {
+                        return Err(invalid("Active sheet must be visible").with_part(&part));
+                    }
+                    sheet_index += 1;
+                }
+                Event::Eof => break,
+                _ => {}
+            }
+        }
+        if sheet_index != count {
+            return Err(invalid("Original sheet catalog changed").with_part(&part));
+        }
+        Ok(bytes)
+    }
+    pub(crate) fn commit_active(&mut self, index: usize, bytes: usize) {
+        self.active_patch = Some(index);
+        self.patch_bytes = bytes;
     }
     pub(crate) fn retained_package_bytes(&self) -> usize {
         self.book
@@ -738,6 +833,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.patches = BTreeMap::new();
         self.view_patches = BTreeMap::new();
         self.print_patches = BTreeMap::new();
+        self.active_patch = None;
         self.patch_bytes = 0;
         self.patch_cells = 0;
     }
@@ -779,7 +875,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 && self.book.sheets().iter().any(|sheet| {
                     sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
                 });
-            let workbook = dirty && part.name.as_ref() == self.book.workbook_part;
+            let workbook = (dirty || self.active_patch.is_some())
+                && part.name.as_ref() == self.book.workbook_part;
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
             if worksheet || workbook || shared_strings || chain_metadata {
                 let file = self.book.archive.by_index(index).map_err(|error| {
@@ -816,7 +913,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         },
                     )
                 } else if workbook {
-                    patch_workbook(file, budget, &part.name, self.options.resources)
+                    patch_workbook(
+                        file,
+                        budget,
+                        &part.name,
+                        self.options.resources,
+                        dirty,
+                        self.active_patch,
+                    )
                 } else if shared_strings {
                     patch_shared_strings(file, budget, &part.name, self.options.resources)
                 } else {
@@ -1710,6 +1814,8 @@ fn patch_workbook<R: Read + Seek, W: Write>(
     output: PartOutput<W>,
     part: &str,
     limits: ResourceLimits,
+    invalidate_caches: bool,
+    active: Option<usize>,
 ) -> Result<u64> {
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -1720,6 +1826,9 @@ fn patch_workbook<R: Read + Seek, W: Write>(
     let mut writer = Writer::new(output);
     let mut seen = false;
     let mut uri = None;
+    let mut views_seen = false;
+    let mut views_open = false;
+    let mut active_written = false;
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
@@ -1742,6 +1851,75 @@ fn patch_workbook<R: Read + Seek, W: Write>(
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
+                    && frame.depth == 2
+                    && e.local_name().as_ref().as_bytes() == b"bookViews" =>
+            {
+                views_seen = true;
+                views_open = true;
+                emit(&mut writer, Event::Start(e))?;
+            }
+            Event::Start(e)
+                if active.is_some()
+                    && views_open
+                    && !active_written
+                    && frame.scope == Scope::Spreadsheet
+                    && frame.depth == 3
+                    && e.local_name().as_ref().as_bytes() == b"workbookView" =>
+            {
+                let mut start = e.to_owned();
+                start.clear_attributes();
+                for attribute in e.attributes() {
+                    let attribute = attribute.map_err(|error| {
+                        Error::caused_by(ErrorKind::Xml, "Invalid workbook view attribute", error)
+                    })?;
+                    if attribute.key.as_ref().as_bytes() != b"activeTab" {
+                        start.push_attribute(attribute);
+                    }
+                }
+                let value = active
+                    .ok_or_else(|| invalid("Active index is missing"))?
+                    .to_string();
+                start.push_attribute(("activeTab", value.as_str()));
+                emit(&mut writer, Event::Start(start))?;
+                active_written = true;
+            }
+            Event::End(e)
+                if frame.scope == Scope::Spreadsheet
+                    && frame.depth == 1
+                    && e.local_name().as_ref().as_bytes() == b"bookViews" =>
+            {
+                if active.is_some() && !active_written {
+                    emit_active_view(&mut writer, uri, active)?;
+                    active_written = true;
+                }
+                views_open = false;
+                emit(&mut writer, Event::End(e))?;
+            }
+            Event::Start(e)
+                if active.is_some()
+                    && !views_seen
+                    && frame.scope == Scope::Spreadsheet
+                    && frame.depth == 2
+                    && e.local_name().as_ref().as_bytes() == b"sheets" =>
+            {
+                let mut start = BytesStart::new("bookViews");
+                start.push_attribute((
+                    "xmlns",
+                    uri.ok_or_else(|| invalid("Workbook namespace is missing"))?,
+                ));
+                emit(&mut writer, Event::Start(start))?;
+                emit_active_view(&mut writer, uri, active)?;
+                emit(
+                    &mut writer,
+                    Event::End(quick_xml::events::BytesEnd::new("bookViews")),
+                )?;
+                views_seen = true;
+                active_written = true;
+                emit(&mut writer, Event::Start(e))?;
+            }
+            Event::Start(e)
+                if invalidate_caches
+                    && frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
                     && e.local_name().as_ref().as_bytes() == b"calcPr" =>
             {
@@ -1768,7 +1946,8 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                 emit(&mut writer, Event::Start(start))?;
             }
             Event::Start(e)
-                if frame.scope == Scope::Spreadsheet
+                if invalidate_caches
+                    && frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
                     && matches!(
                         e.local_name().as_ref().as_bytes(),
@@ -1794,7 +1973,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                     && frame.depth == 0
                     && e.local_name().as_ref().as_bytes() == b"workbook" =>
             {
-                if !seen {
+                if invalidate_caches && !seen {
                     emit_calculation(&mut writer, uri)?;
                     seen = true;
                 }
@@ -1804,14 +1983,33 @@ fn patch_workbook<R: Read + Seek, W: Write>(
             event => emit(&mut writer, event)?,
         }
     }
-    if !seen {
+    if invalidate_caches && !seen {
         return Err(invalid("Workbook calculation properties were not written"));
+    }
+    if active.is_some() && !active_written {
+        return Err(invalid("Workbook active view was not written"));
     }
     let mut output = writer.into_inner();
     output
         .flush()
         .map_err(|error| io_error("Cannot flush rewritten XML part", error))?;
     Ok(output.bytes)
+}
+fn emit_active_view<W: Write>(
+    writer: &mut Writer<PartOutput<W>>,
+    uri: Option<&str>,
+    active: Option<usize>,
+) -> Result<()> {
+    let mut start = BytesStart::new("workbookView");
+    start.push_attribute((
+        "xmlns",
+        uri.ok_or_else(|| invalid("Workbook namespace is missing"))?,
+    ));
+    let value = active
+        .ok_or_else(|| invalid("Active index is missing"))?
+        .to_string();
+    start.push_attribute(("activeTab", value.as_str()));
+    emit(writer, Event::Empty(start))
 }
 fn emit_calculation<W: Write>(writer: &mut Writer<PartOutput<W>>, uri: Option<&str>) -> Result<()> {
     let mut start = BytesStart::new("calcPr");

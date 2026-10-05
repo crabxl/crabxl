@@ -1,0 +1,310 @@
+{
+  "checkpoint": "A6 lazy active selection and preserving view rewrite; not M4 completion",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "binary_sha256": "09f00d8b0a41728e31cc55a8cd3158d47c3f9b120eb1a742bf8064fcc88334de",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592",
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "method": "one warmup, three rotating serial release runs; native wait4 wall/CPU/peak RSS; build and generation excluded",
+  "comparison": "same current decoder and owned sparse cell type; bank transfers source styles and enforces joint resource accounting; standalone reproduces prior per-sheet native materialization; not Python or streaming performance",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 200000,
+      "checksum": 9999900000,
+      "file_bytes": 606757,
+      "sha256": "3e7c6e539fa5a6b1f83d1117429f780ff02975d7d938e30e123b5575a6b4d55f",
+      "samples": {
+        "bank": [
+          {
+            "seconds": 0.198611839,
+            "cpu_seconds": 0.198308,
+            "peak_rss_kib": 18004,
+            "managed_bytes": 51213547,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.1864957,
+            "cpu_seconds": 0.186311,
+            "peak_rss_kib": 17964,
+            "managed_bytes": 51213547,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.184157047,
+            "cpu_seconds": 0.184042,
+            "peak_rss_kib": 18008,
+            "managed_bytes": 51213547,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "standalone": [
+          {
+            "seconds": 0.199748845,
+            "cpu_seconds": 0.199471,
+            "peak_rss_kib": 17964,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.186223652,
+            "cpu_seconds": 0.185839,
+            "peak_rss_kib": 17836,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 0.178273622,
+            "cpu_seconds": 0.178012,
+            "peak_rss_kib": 17964,
+            "managed_bytes": 51205605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "bank-edit": [
+          {
+            "seconds": 0.649464845,
+            "cpu_seconds": 0.649145,
+            "peak_rss_kib": 18480,
+            "managed_bytes": 51214083,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606976
+          },
+          {
+            "seconds": 0.588511195,
+            "cpu_seconds": 0.588162,
+            "peak_rss_kib": 18524,
+            "managed_bytes": 51214083,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606976
+          },
+          {
+            "seconds": 0.573912687,
+            "cpu_seconds": 0.573588,
+            "peak_rss_kib": 18520,
+            "managed_bytes": 51214083,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606976
+          }
+        ],
+        "bank-active": [
+          {
+            "seconds": 0.16612241,
+            "cpu_seconds": 0.165826,
+            "peak_rss_kib": 2864,
+            "managed_bytes": 13803,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606772
+          },
+          {
+            "seconds": 0.133112476,
+            "cpu_seconds": 0.132719,
+            "peak_rss_kib": 2864,
+            "managed_bytes": 13803,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606772
+          },
+          {
+            "seconds": 0.142726105,
+            "cpu_seconds": 0.142567,
+            "peak_rss_kib": 2864,
+            "managed_bytes": 13803,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 606772
+          }
+        ]
+      },
+      "medians": {
+        "bank": {
+          "seconds": 0.1864957,
+          "cpu_seconds": 0.186311,
+          "peak_rss_kib": 18004,
+          "managed_bytes": 51213547,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "standalone": {
+          "seconds": 0.186223652,
+          "cpu_seconds": 0.185839,
+          "peak_rss_kib": 17964,
+          "managed_bytes": 51205605,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "bank-edit": {
+          "seconds": 0.588511195,
+          "cpu_seconds": 0.588162,
+          "peak_rss_kib": 18520,
+          "managed_bytes": 51214083,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 606976
+        },
+        "bank-active": {
+          "seconds": 0.142726105,
+          "cpu_seconds": 0.142567,
+          "peak_rss_kib": 2864,
+          "managed_bytes": 13803,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 606772
+        }
+      }
+    },
+    {
+      "rows_per_sheet": 100000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 2000000,
+      "checksum": 999999000000,
+      "file_bytes": 5882341,
+      "sha256": "7c9a4471c3d743011320d3eefeb2540eb6b67cdc3081ad72d889735a87d1c0e1",
+      "samples": {
+        "bank": [
+          {
+            "seconds": 1.847009115,
+            "cpu_seconds": 1.844631,
+            "peak_rss_kib": 157996,
+            "managed_bytes": 512013547,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.786110645,
+            "cpu_seconds": 1.785066,
+            "peak_rss_kib": 157996,
+            "managed_bytes": 512013547,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.930071205,
+            "cpu_seconds": 1.928661,
+            "peak_rss_kib": 158036,
+            "managed_bytes": 512013547,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "standalone": [
+          {
+            "seconds": 1.729481168,
+            "cpu_seconds": 1.72699,
+            "peak_rss_kib": 157868,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.709207239,
+            "cpu_seconds": 1.708323,
+            "peak_rss_kib": 157932,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          },
+          {
+            "seconds": 1.856828969,
+            "cpu_seconds": 1.853611,
+            "peak_rss_kib": 157996,
+            "managed_bytes": 512005605,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 0
+          }
+        ],
+        "bank-edit": [
+          {
+            "seconds": 6.141119811,
+            "cpu_seconds": 6.139124,
+            "peak_rss_kib": 158548,
+            "managed_bytes": 512014083,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5887308
+          },
+          {
+            "seconds": 5.938345786,
+            "cpu_seconds": 5.935496,
+            "peak_rss_kib": 158568,
+            "managed_bytes": 512014083,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5887308
+          },
+          {
+            "seconds": 5.985707774,
+            "cpu_seconds": 5.984751,
+            "peak_rss_kib": 158508,
+            "managed_bytes": 512014083,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5887308
+          }
+        ],
+        "bank-active": [
+          {
+            "seconds": 1.343380769,
+            "cpu_seconds": 1.342876,
+            "peak_rss_kib": 2992,
+            "managed_bytes": 13803,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5882356
+          },
+          {
+            "seconds": 1.483147203,
+            "cpu_seconds": 1.482207,
+            "peak_rss_kib": 2864,
+            "managed_bytes": 13803,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5882356
+          },
+          {
+            "seconds": 1.326745219,
+            "cpu_seconds": 1.326515,
+            "peak_rss_kib": 2864,
+            "managed_bytes": 13803,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 5882356
+          }
+        ]
+      },
+      "medians": {
+        "bank": {
+          "seconds": 1.847009115,
+          "cpu_seconds": 1.844631,
+          "peak_rss_kib": 157996,
+          "managed_bytes": 512013547,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "standalone": {
+          "seconds": 1.729481168,
+          "cpu_seconds": 1.72699,
+          "peak_rss_kib": 157932,
+          "managed_bytes": 512005605,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 0
+        },
+        "bank-edit": {
+          "seconds": 5.985707774,
+          "cpu_seconds": 5.984751,
+          "peak_rss_kib": 158548,
+          "managed_bytes": 512014083,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 5887308
+        },
+        "bank-active": {
+          "seconds": 1.343380769,
+          "cpu_seconds": 1.342876,
+          "peak_rss_kib": 2864,
+          "managed_bytes": 13803,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 5882356
+        }
+      }
+    }
+  ]
+}

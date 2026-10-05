@@ -14,6 +14,26 @@ use std::{
 };
 use zip::{ZipArchive, ZipWriter, write::SimpleFileOptions};
 
+fn parts(bytes: Vec<u8>) -> BTreeMap<String, Vec<u8>> {
+    let mut archive = ZipArchive::new(Cursor::new(bytes)).unwrap();
+    (0..archive.len())
+        .map(|index| {
+            let mut file = archive.by_index(index).unwrap();
+            let mut data = Vec::new();
+            file.read_to_end(&mut data).unwrap();
+            (file.name().to_owned(), data)
+        })
+        .collect()
+}
+fn package(parts: BTreeMap<String, Vec<u8>>) -> Vec<u8> {
+    let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+    for (name, bytes) in parts {
+        zip.start_file(name, SimpleFileOptions::default()).unwrap();
+        zip.write_all(&bytes).unwrap();
+    }
+    zip.finish().unwrap().into_inner()
+}
+
 fn source(count: u32, sst: bool) -> Vec<u8> {
     let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
     let style = writer
@@ -191,6 +211,8 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
         workbook.sheet(chart_id).err().unwrap().kind(),
         ErrorKind::Unsupported
     );
+    workbook.set_active_sheet(chart_id).unwrap();
+    assert_eq!(workbook.model().active_sheet(), Some(chart_id));
     workbook.sheet(first).unwrap();
     workbook
         .set_value(
@@ -210,6 +232,190 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
         .read_to_end(&mut data)
         .unwrap();
     assert_eq!(data, chart);
+}
+
+#[test]
+fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_mutation() {
+    let mut original = parts(source(3, false));
+    let xml = String::from_utf8(original.remove("xl/workbook.xml").unwrap()).unwrap();
+    original.insert(
+        "xl/workbook.xml".into(),
+        xml.replace(
+            "<sheets>",
+            "<bookViews><workbookView activeTab=\"0\"/></bookViews><sheets>",
+        )
+        .into_bytes(),
+    );
+    let sheet = String::from_utf8(original.remove("xl/worksheets/sheet1.xml").unwrap()).unwrap();
+    assert!(sheet.contains("<v>0</v>"));
+    original.insert(
+        "xl/worksheets/sheet1.xml".into(),
+        sheet
+            .replacen("<v>0</v>", "<f>A2+1</f><v>37</v>", 1)
+            .into_bytes(),
+    );
+    original.insert("xl/calcChain.xml".into(), b"<calcChain xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><c r=\"A1\" i=\"1\"/></calcChain>".to_vec());
+    let rels = String::from_utf8(original.remove("xl/_rels/workbook.xml.rels").unwrap()).unwrap();
+    original.insert("xl/_rels/workbook.xml.rels".into(), rels.replace("</Relationships>", "<Relationship Id=\"calcActive\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain\" Target=\"calcChain.xml\"/></Relationships>").into_bytes());
+    let types = String::from_utf8(original.remove("[Content_Types].xml").unwrap()).unwrap();
+    original.insert("[Content_Types].xml".into(), types.replace("</Types>", "<Override PartName=\"/xl/calcChain.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml\"/></Types>").into_bytes());
+    for mode in [
+        "original",
+        "missing",
+        "empty",
+        "multiple",
+        "strict",
+        "custom-part",
+    ] {
+        let mut input = original.clone();
+        let book = String::from_utf8(input["xl/workbook.xml"].clone()).unwrap();
+        let views = "<bookViews><workbookView activeTab=\"0\"/></bookViews>";
+        assert!(book.contains(views));
+        let book = match mode {
+            "missing" => book.replace(views, ""),
+            "empty" => book.replace(views, "<bookViews/>"),
+            "multiple" => book.replace(views, "<bookViews><workbookView activeTab=\"0\" showHorizontalScroll=\"0\"/><workbookView activeTab=\"0\" windowWidth=\"123\"/></bookViews>"),
+            _ => book,
+        };
+        input.insert("xl/workbook.xml".into(), book.into_bytes());
+        if mode == "strict" {
+            for bytes in input.values_mut() {
+                let xml = String::from_utf8(bytes.clone()).unwrap();
+                *bytes = xml
+                    .replace(
+                        "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+                        "http://purl.oclc.org/ooxml/spreadsheetml/main",
+                    )
+                    .replace(
+                        "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+                        "http://purl.oclc.org/ooxml/officeDocument/relationships",
+                    )
+                    .into_bytes();
+            }
+        }
+        let workbook_part = if mode == "custom-part" {
+            for name in ["_rels/.rels", "[Content_Types].xml"] {
+                let xml = String::from_utf8(input.remove(name).unwrap()).unwrap();
+                input.insert(
+                    name.into(),
+                    xml.replace("xl/workbook.xml", "xl/custom-book.xml")
+                        .into_bytes(),
+                );
+            }
+            let xml = input.remove("xl/workbook.xml").unwrap();
+            input.insert("xl/custom-book.xml".into(), xml);
+            let rels = input.remove("xl/_rels/workbook.xml.rels").unwrap();
+            input.insert("xl/_rels/custom-book.xml.rels".into(), rels);
+            "xl/custom-book.xml"
+        } else {
+            "xl/workbook.xml"
+        };
+        let mut workbook = LoadedWorkbook::with_options(
+            Cursor::new(package(input.clone())),
+            LoadOptions::default(),
+        )
+        .unwrap();
+        let first = workbook.sheet_id("First").unwrap();
+        let second = workbook.sheet_id("Second").unwrap();
+        workbook.set_active_sheet(second).unwrap();
+        assert_eq!(workbook.model().active_sheet(), Some(second));
+        assert!(!workbook.is_materialized(first));
+        assert!(!workbook.is_materialized(second));
+        for _ in 0..2 {
+            let (output, stats) = workbook
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap();
+            assert_eq!(stats.rewritten_parts, 1);
+            let saved = parts(output.into_inner());
+            for (name, bytes) in &input {
+                if name != workbook_part {
+                    assert_eq!(&saved[name], bytes, "{mode}: {name}");
+                }
+            }
+            assert!(
+                !String::from_utf8(saved[workbook_part].clone())
+                    .unwrap()
+                    .contains("forceFullCalc")
+            );
+            if mode == "multiple" {
+                let xml = String::from_utf8(saved[workbook_part].clone()).unwrap();
+                assert!(xml.contains("showHorizontalScroll=\"0\" activeTab=\"1\""));
+                assert!(xml.contains("activeTab=\"0\" windowWidth=\"123\""));
+            }
+            let reader = crabxl_xlsx::WorkbookReader::with_limits(
+                Cursor::new(package(saved)),
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(reader.active_index(), Some(1));
+        }
+        workbook.set_active_sheet(first).unwrap();
+        let (output, _) = workbook
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        assert_eq!(
+            crabxl_xlsx::WorkbookReader::with_limits(output, Default::default())
+                .unwrap()
+                .active_index(),
+            Some(0)
+        );
+    }
+    for mode in ["hidden", "signed", "alternative", "patch-cap"] {
+        let mut input = original.clone();
+        let options = if mode == "patch-cap" {
+            LoadOptions {
+                editor: crabxl_xlsx::EditorOptions {
+                    max_patch_bytes: 1,
+                    ..Default::default()
+                },
+                ..Default::default()
+            }
+        } else {
+            LoadOptions::default()
+        };
+        if mode == "signed" {
+            input.insert("_xmlsignatures/sig1.xml".into(), b"<signature/>".to_vec());
+        } else if mode == "hidden" {
+            let xml = String::from_utf8(input.remove("xl/workbook.xml").unwrap()).unwrap();
+            input.insert(
+                "xl/workbook.xml".into(),
+                xml.replace("name=\"Second\"", "name=\"Second\" state=\"hidden\"")
+                    .into_bytes(),
+            );
+        } else if mode == "alternative" {
+            let xml = String::from_utf8(input.remove("xl/workbook.xml").unwrap()).unwrap();
+            input.insert("xl/workbook.xml".into(), xml.replace("</workbook>", "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Fallback/></mc:AlternateContent></workbook>").into_bytes());
+        }
+        let mut workbook =
+            LoadedWorkbook::with_options(Cursor::new(package(input)), options).unwrap();
+        let first = workbook.sheet_id("First").unwrap();
+        let second = workbook.sheet_id("Second").unwrap();
+        let before = workbook.managed_retained_bytes();
+        let error = workbook.set_active_sheet(second).unwrap_err();
+        assert_eq!(
+            error.kind(),
+            match mode {
+                "hidden" => ErrorKind::InvalidData,
+                "patch-cap" => ErrorKind::MemoryBudgetExceeded,
+                _ => ErrorKind::Unsupported,
+            }
+        );
+        assert_eq!(workbook.model().active_sheet(), Some(first));
+        assert_eq!(workbook.patch_bytes(), 0);
+        assert_eq!(workbook.managed_retained_bytes(), before);
+    }
+    let mut editor =
+        crabxl_xlsx::WorkbookEditor::new(Cursor::new(package(original.clone()))).unwrap();
+    editor.set_active_sheet("Second").unwrap();
+    assert!(editor.is_dirty());
+    editor.clear_edits();
+    assert!(!editor.is_dirty());
+    assert_eq!(editor.patch_bytes(), 0);
+    let (output, stats) = editor
+        .save(Cursor::new(Vec::new()), Default::default())
+        .unwrap();
+    assert_eq!(stats.rewritten_parts, 0);
+    assert_eq!(parts(output.into_inner()), original);
 }
 
 #[test]
