@@ -422,6 +422,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     fn read_cells(&mut self, row: &mut Row) -> Result<()> {
         let mut next_column = 0;
         loop {
+            if let Some(cell) = self.buffered_scalar(row.index, next_column)? {
+                next_column = cell.address.column.get() + 1;
+                self.push_cell(row, cell)?;
+                continue;
+            }
             let frame = self.xml.next()?;
             match frame.event {
                 Event::Start(e)
@@ -543,6 +548,90 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 _ => {}
             }
         }
+    }
+
+    fn buffered_scalar(&mut self, row: RowIndex, column: u32) -> Result<Option<Cell>> {
+        let styles = self.styles;
+        let options = &self.options;
+        let decoded = &mut self.decoded_cells;
+        let parsed = self
+            .xml
+            .buffered_scalar(|content, value| {
+                let start = BytesStart::from_content(content, 1);
+                let Some(header) = CellHeader::buffered(&start, row, column)? else {
+                    return Ok(None);
+                };
+                if !matches!(
+                    header.kind,
+                    ScalarKind::Numeric | ScalarKind::Boolean | ScalarKind::SharedText
+                ) || !options.includes(header.address)
+                {
+                    return Ok(None);
+                }
+                let address = header.address;
+                if address.row != row || address.column.get() < column {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Cell coordinates do not follow their row order",
+                    )
+                    .with_cell(address));
+                }
+                let kind = match styles {
+                    Some(styles) => styles.kind(header.style),
+                    None if header.style.get() == 0 => Ok(None),
+                    None => Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Cell has a style ID without a style catalog",
+                    )),
+                }
+                .map_err(|error| error.with_cell(address))?;
+                *decoded += 1;
+                let value = match header.kind {
+                    ScalarKind::Numeric => {
+                        numeric_value(value.trim_ascii()).map(BufferedValue::Direct)
+                    }
+                    ScalarKind::Boolean => {
+                        boolean_value(value.trim_ascii()).map(BufferedValue::Direct)
+                    }
+                    ScalarKind::SharedText => {
+                        shared_string_id(value.trim_ascii()).map(BufferedValue::SharedText)
+                    }
+                    _ => return Ok(None),
+                }
+                .map_err(|error| error.with_cell(address))?;
+                Ok(Some((header, value, kind)))
+            })
+            .map_err(|error| error.with_part(self.xml.part()))?;
+        parsed
+            .map(|(header, value, kind)| {
+                let decoded = match value {
+                    BufferedValue::Direct(value) => Ok(value),
+                    BufferedValue::SharedText(id) => self.shared_string_value(id),
+                }
+                .map_err(|error| error.with_part(self.xml.part()).with_cell(header.address))?;
+                let value = self
+                    .interpret_date(decoded, kind)
+                    .map_err(|error| error.with_part(self.xml.part()).with_cell(header.address))?;
+                Ok(Cell {
+                    address: header.address,
+                    value,
+                    style: header.style,
+                })
+            })
+            .transpose()
+    }
+
+    fn shared_string_value(&mut self, id: u64) -> Result<CellValue> {
+        self.limit_string_cache()?;
+        self.shared_strings
+            .as_mut()
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    "Cell refers to a missing shared-string table",
+                )
+            })?
+            .get(id, self.options.rich_text)
     }
 
     fn push_cell(&mut self, row: &mut Row, cell: Cell) -> Result<()> {
@@ -775,20 +864,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             });
         }
         if matches!(kind, ScalarKind::SharedText) {
-            let id = self.value_buffer.trim_ascii().parse::<u64>().map_err(|e| {
-                Error::caused_by(ErrorKind::InvalidData, "Invalid shared-string ID", e)
-            })?;
-            self.limit_string_cache()?;
-            return self
-                .shared_strings
-                .as_mut()
-                .ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::InvalidData,
-                        "Cell refers to a missing shared-string table",
-                    )
-                })?
-                .get(id, self.options.rich_text);
+            return self.shared_string_value(shared_string_id(self.value_buffer.trim_ascii())?);
         }
         if matches!(kind, ScalarKind::IsoDate) {
             return Ok(crabxl_core::parse_iso8601(&self.value_buffer)?
@@ -799,23 +875,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             return Ok(CellValue::Empty);
         }
         if BOOLEAN {
-            let digits = value.strip_prefix(['+', '-']).unwrap_or(value);
-            if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
-                return Err(self.invalid("Invalid boolean cell value"));
-            }
-            return Ok(CellValue::Boolean(digits.bytes().any(|byte| byte != b'0')));
+            return boolean_value(value);
         }
-        if !value.bytes().any(|byte| matches!(byte, b'.' | b'e' | b'E')) {
-            return Ok(match value.parse::<i64>() {
-                Ok(integer) => CellValue::Integer(integer),
-                Err(_) => CellValue::BigInteger(Box::new(ExactInteger::parse(value)?)),
-            });
-        }
-        let number = fast_float2::parse::<f64, _>(value.as_bytes()).map_err(|e| {
-            Error::caused_by(ErrorKind::InvalidData, "Invalid numeric cell value", e)
-                .with_part(self.xml.part())
-        })?;
-        Ok(CellValue::Number(number))
+        numeric_value(value)
     }
 
     fn interpret_date(
@@ -1007,6 +1069,11 @@ enum ScalarKind {
     Unsupported,
 }
 
+enum BufferedValue {
+    Direct(CellValue),
+    SharedText(u64),
+}
+
 struct CellHeader {
     address: CellAddress,
     kind: ScalarKind,
@@ -1015,13 +1082,50 @@ struct CellHeader {
 }
 impl CellHeader {
     fn read(e: &BytesStart<'_>, row: RowIndex, column: u32) -> Result<Self> {
+        Self::read_attributes(
+            e.attributes().map(|attribute| {
+                attribute.map_err(|error| {
+                    Error::caused_by(ErrorKind::Xml, "Invalid cell attribute", error)
+                })
+            }),
+            row,
+            column,
+        )
+    }
+    fn buffered(e: &BytesStart<'_>, row: RowIndex, column: u32) -> Result<Option<Self>> {
+        // Three distinct supported fields need no duplicate-check allocation.
+        // Unknown, malformed and duplicate attributes retain the event path.
+        let mut fields = [None, None, None];
+        let mut seen = 0u8;
+        for (count, attribute) in e.attributes().with_checks(false).enumerate() {
+            let Ok(attribute) = attribute else {
+                return Ok(None);
+            };
+            let bit = match attribute.key.as_ref().as_bytes() {
+                b"r" => 1,
+                b"s" => 2,
+                b"t" => 4,
+                _ => return Ok(None),
+            };
+            if seen & bit != 0 {
+                return Ok(None);
+            }
+            seen |= bit;
+            fields[count] = Some(attribute);
+        }
+        Self::read_attributes(fields.into_iter().flatten().map(Ok), row, column).map(Some)
+    }
+    fn read_attributes<'a>(
+        attributes: impl Iterator<Item = Result<quick_xml::events::attributes::Attribute<'a>>>,
+        row: RowIndex,
+        column: u32,
+    ) -> Result<Self> {
         let mut address = None;
         let mut kind = ScalarKind::Numeric;
         let mut style = crabxl_core::StyleId::new(0);
         let mut metadata = false;
-        for attribute in e.attributes() {
-            let attribute = attribute
-                .map_err(|e| Error::caused_by(ErrorKind::Xml, "Invalid cell attribute", e))?;
+        for attribute in attributes {
+            let attribute = attribute?;
             match attribute.key.as_ref().as_bytes() {
                 b"r" => {
                     address = Some(
@@ -1074,4 +1178,39 @@ impl CellHeader {
             metadata,
         })
     }
+}
+
+fn numeric_value(value: &str) -> Result<CellValue> {
+    if value.is_empty() {
+        return Ok(CellValue::Empty);
+    }
+    if !value.bytes().any(|byte| matches!(byte, b'.' | b'e' | b'E')) {
+        return Ok(match value.parse::<i64>() {
+            Ok(integer) => CellValue::Integer(integer),
+            Err(_) => CellValue::BigInteger(Box::new(ExactInteger::parse(value)?)),
+        });
+    }
+    let number = fast_float2::parse::<f64, _>(value.as_bytes()).map_err(|error| {
+        Error::caused_by(ErrorKind::InvalidData, "Invalid numeric cell value", error)
+    })?;
+    Ok(CellValue::Number(number))
+}
+
+fn shared_string_id(value: &str) -> Result<u64> {
+    value.parse::<u64>().map_err(|error| {
+        Error::caused_by(ErrorKind::InvalidData, "Invalid shared-string ID", error)
+    })
+}
+fn boolean_value(value: &str) -> Result<CellValue> {
+    if value.is_empty() {
+        return Ok(CellValue::Empty);
+    }
+    let digits = value.strip_prefix(['+', '-']).unwrap_or(value);
+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "Invalid boolean cell value",
+        ));
+    }
+    Ok(CellValue::Boolean(digits.bytes().any(|byte| byte != b'0')))
 }

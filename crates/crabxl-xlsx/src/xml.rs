@@ -292,6 +292,53 @@ impl<B: BufRead> XmlStream<B> {
         self.byte_limit - self.reader.get_ref().part_remaining
     }
 
+    /// Decode a complete balanced scalar cell already present in the input
+    /// buffer. Unrecognized XML remains untouched for the normal event reader.
+    pub(crate) fn buffered_scalar<T>(
+        &mut self,
+        decode: impl FnOnce(&str, &str) -> Result<Option<T>>,
+    ) -> Result<Option<T>> {
+        self.namespaces.before_event();
+        // quick-xml retains the lexical empty start token in read_event_into's
+        // buffer while its expanded end event is pending. Never bypass that end.
+        if self.depth != 3
+            || self.namespaces.default.scope() != Scope::Spreadsheet
+            || self.buffer.ends_with(b"/>")
+            || self.limits.max_xml_depth < 5
+        {
+            return Ok(None);
+        }
+        let maximum = self.limits.max_xml_event_bytes;
+        self.reader.get_mut().event_remaining = maximum.saturating_mul(5).min(1024);
+        let bytes = self.reader.get_mut().fill_buf().map_err(|cause| {
+            let limited = cause
+                .get_ref()
+                .is_some_and(|source| source.is::<BudgetExceeded>());
+            Error::caused_by(
+                if limited {
+                    ErrorKind::LimitExceeded
+                } else {
+                    ErrorKind::Xml
+                },
+                "Cannot inspect buffered XML cell",
+                cause,
+            )
+            .with_part(self.part.clone())
+        })?;
+        let Some((header, value, consumed)) =
+            scalar_value_token(bytes, maximum, self.limits.max_cell_bytes)
+        else {
+            return Ok(None);
+        };
+        let value = decode(header, value)?;
+        if value.is_some() {
+            // Reader::stream preserves quick-xml offsets. The recognized c/v
+            // pair is balanced, unprefixed and carries no namespace declaration.
+            self.reader.stream().consume(consumed);
+        }
+        Ok(value)
+    }
+
     #[inline(always)]
     pub fn next(&mut self) -> Result<Frame<'_>> {
         self.buffer.clear();
@@ -392,6 +439,44 @@ impl<B: BufRead> XmlStream<B> {
             depth: self.depth,
         })
     }
+}
+
+fn scalar_value_token(
+    bytes: &[u8],
+    maximum: usize,
+    cell_maximum: usize,
+) -> Option<(&str, &str, usize)> {
+    if maximum < 4 || !(bytes.starts_with(b"<c ") || bytes.starts_with(b"<c>")) {
+        return None;
+    }
+    let end = bytes.iter().position(|byte| *byte == b'>')?;
+    if end + 1 > maximum || !bytes.get(end + 1..)?.starts_with(b"<v>") {
+        return None;
+    }
+    let start = end + 4;
+    let length = bytes.get(start..)?.iter().position(|byte| *byte == b'<')?;
+    if length.saturating_add(1) > maximum
+        || length > cell_maximum
+        || !bytes.get(start + length..)?.starts_with(b"</v></c>")
+    {
+        return None;
+    }
+    let header = bytes.get(1..end)?;
+    let value = bytes.get(start..start + length)?;
+    if !header.is_ascii()
+        || !value.iter().all(|byte| {
+            byte.is_ascii_digit()
+                || byte.is_ascii_whitespace()
+                || matches!(byte, b'+' | b'-' | b'.' | b'e' | b'E')
+        })
+    {
+        return None;
+    }
+    Some((
+        std::str::from_utf8(header).ok()?,
+        std::str::from_utf8(value).ok()?,
+        start + length + 8,
+    ))
 }
 
 pub(crate) fn attribute(e: &BytesStart<'_>, name: &[u8]) -> Result<Option<String>> {

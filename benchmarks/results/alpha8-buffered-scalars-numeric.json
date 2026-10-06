@@ -1,0 +1,580 @@
+{
+  "core_revision": "15bf0baefcfe67ae265ca918ab4030f17f6120ce",
+  "versions": {
+    "umya-spreadsheet": "3.1.0",
+    "calamine": "0.36.1",
+    "rust_xlsxwriter": "0.99.1",
+    "rust": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "binary_sha256": "9f38f0ddd46cdd02cc58f10542bbf0bd97e153971a7c01b019ecc21e7aa005df",
+  "baseline_binary_sha256": "c44ff430b72f6fd3ddfff7209b732cf832d663dac363d9a90605d17b11475e37",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592",
+  "method": "one warmup per mode and scale; rotating serial release samples; native wait4; generation/build/output verification excluded; no baseline subtraction",
+  "boundaries": "Read: two numeric sheets, sum all cells, complete model modes versus noneditable calamine ranges and streams separately. Lazy modes initialize only and do not read cells. Edit: both engines materialize and sum all sheets then replace first A1 with 42 and save. Write: one numeric sheet built from zero, ordinary owned model versus sequential writer modes separately. Different preservation, rich styles, formulas and unsupported features are not compared.",
+  "temporary_sampling": "10ms lower-bound sum of unique process fds under isolated TMPDIR/output directory, including spools and adjacent/final ZIP during write; completed output bytes recorded separately; no exact managed-memory comparison",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "columns": 10,
+      "read_sheets": 2,
+      "source_bytes": 606757,
+      "source_sha256": "3e7c6e539fa5a6b1f83d1117429f780ff02975d7d938e30e123b5575a6b4d55f",
+      "samples": {
+        "calamine-stream": [
+          {
+            "seconds": 0.045302634,
+            "cpu_seconds": 0.04509,
+            "peak_rss_kib": 4636,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.0419254,
+            "cpu_seconds": 0.041826,
+            "peak_rss_kib": 4508,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.044492727,
+            "cpu_seconds": 0.044356,
+            "peak_rss_kib": 4572,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "crabxl-model": [
+          {
+            "seconds": 0.049505547,
+            "cpu_seconds": 0.049218,
+            "peak_rss_kib": 11676,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.047127279,
+            "cpu_seconds": 0.046968,
+            "peak_rss_kib": 11676,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.046818281,
+            "cpu_seconds": 0.046725,
+            "peak_rss_kib": 11932,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "calamine-model": [
+          {
+            "seconds": 0.050456546,
+            "cpu_seconds": 0.050373,
+            "peak_rss_kib": 14604,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.050598999,
+            "cpu_seconds": 0.050493,
+            "peak_rss_kib": 14728,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.049942284,
+            "cpu_seconds": 0.049832,
+            "peak_rss_kib": 14732,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "crabxl-edit": [
+          {
+            "seconds": 0.270051095,
+            "cpu_seconds": 0.269888,
+            "peak_rss_kib": 12456,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.266254774,
+            "cpu_seconds": 0.26614,
+            "peak_rss_kib": 12580,
+            "sampled_peak_working_file_bytes": 592841,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.264754027,
+            "cpu_seconds": 0.264505,
+            "peak_rss_kib": 12516,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          }
+        ],
+        "before:crabxl-stream": [
+          {
+            "seconds": 0.095738589,
+            "cpu_seconds": 0.095372,
+            "peak_rss_kib": 5060,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.099805959,
+            "cpu_seconds": 0.09962,
+            "peak_rss_kib": 5188,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.092017289,
+            "cpu_seconds": 0.091767,
+            "peak_rss_kib": 5188,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-stream": [
+          {
+            "seconds": 0.043142339,
+            "cpu_seconds": 0.043049,
+            "peak_rss_kib": 4676,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.042825382,
+            "cpu_seconds": 0.042729,
+            "peak_rss_kib": 4548,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.043713166,
+            "cpu_seconds": 0.043519,
+            "peak_rss_kib": 4804,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-model": [
+          {
+            "seconds": 0.104066197,
+            "cpu_seconds": 0.103932,
+            "peak_rss_kib": 11716,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.10691486,
+            "cpu_seconds": 0.106667,
+            "peak_rss_kib": 11972,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.105835276,
+            "cpu_seconds": 0.105725,
+            "peak_rss_kib": 11972,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-model": [
+          {
+            "seconds": 0.050680221,
+            "cpu_seconds": 0.050567,
+            "peak_rss_kib": 14524,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.050596496,
+            "cpu_seconds": 0.050475,
+            "peak_rss_kib": 14648,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.052760858,
+            "cpu_seconds": 0.052468,
+            "peak_rss_kib": 14776,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-edit": [
+          {
+            "seconds": 0.333020995,
+            "cpu_seconds": 0.332255,
+            "peak_rss_kib": 12616,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.330816607,
+            "cpu_seconds": 0.330597,
+            "peak_rss_kib": 12616,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.353893269,
+            "cpu_seconds": 0.353415,
+            "peak_rss_kib": 12612,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          }
+        ],
+        "crabxl-stream": [
+          {
+            "seconds": 0.035888679,
+            "cpu_seconds": 0.035352,
+            "peak_rss_kib": 5276,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.041116917,
+            "cpu_seconds": 0.040977,
+            "peak_rss_kib": 5276,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.037695897,
+            "cpu_seconds": 0.037599,
+            "peak_rss_kib": 5148,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "calamine-stream": {
+          "seconds": 0.044492727,
+          "cpu_seconds": 0.044356,
+          "peak_rss_kib": 4572,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "crabxl-model": {
+          "seconds": 0.047127279,
+          "cpu_seconds": 0.046968,
+          "peak_rss_kib": 11676,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "calamine-model": {
+          "seconds": 0.050456546,
+          "cpu_seconds": 0.050373,
+          "peak_rss_kib": 14728,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "crabxl-edit": {
+          "seconds": 0.266254774,
+          "cpu_seconds": 0.26614,
+          "peak_rss_kib": 12516,
+          "sampled_peak_working_file_bytes": 570501,
+          "output_bytes": 607096
+        },
+        "before:crabxl-stream": {
+          "seconds": 0.095738589,
+          "cpu_seconds": 0.095372,
+          "peak_rss_kib": 5188,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-stream": {
+          "seconds": 0.043142339,
+          "cpu_seconds": 0.043049,
+          "peak_rss_kib": 4676,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-model": {
+          "seconds": 0.105835276,
+          "cpu_seconds": 0.105725,
+          "peak_rss_kib": 11972,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-model": {
+          "seconds": 0.050680221,
+          "cpu_seconds": 0.050567,
+          "peak_rss_kib": 14648,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-edit": {
+          "seconds": 0.333020995,
+          "cpu_seconds": 0.332255,
+          "peak_rss_kib": 12616,
+          "sampled_peak_working_file_bytes": 570501,
+          "output_bytes": 607096
+        },
+        "crabxl-stream": {
+          "seconds": 0.037695897,
+          "cpu_seconds": 0.037599,
+          "peak_rss_kib": 5276,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows_per_sheet": 100000,
+      "columns": 10,
+      "read_sheets": 2,
+      "source_bytes": 5882341,
+      "source_sha256": "7c9a4471c3d743011320d3eefeb2540eb6b67cdc3081ad72d889735a87d1c0e1",
+      "samples": {
+        "calamine-stream": [
+          {
+            "seconds": 0.42845185,
+            "cpu_seconds": 0.428144,
+            "peak_rss_kib": 4636,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.424088231,
+            "cpu_seconds": 0.423821,
+            "peak_rss_kib": 4764,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.430490196,
+            "cpu_seconds": 0.430307,
+            "peak_rss_kib": 4636,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "crabxl-model": [
+          {
+            "seconds": 0.472126387,
+            "cpu_seconds": 0.471951,
+            "peak_rss_kib": 69276,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.480808451,
+            "cpu_seconds": 0.480623,
+            "peak_rss_kib": 69084,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.489015697,
+            "cpu_seconds": 0.488501,
+            "peak_rss_kib": 69148,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "calamine-model": [
+          {
+            "seconds": 0.524423787,
+            "cpu_seconds": 0.523995,
+            "peak_rss_kib": 105960,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.489392379,
+            "cpu_seconds": 0.489173,
+            "peak_rss_kib": 106216,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.534079762,
+            "cpu_seconds": 0.533417,
+            "peak_rss_kib": 105960,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "crabxl-edit": [
+          {
+            "seconds": 2.932849602,
+            "cpu_seconds": 2.932456,
+            "peak_rss_kib": 69960,
+            "sampled_peak_working_file_bytes": 5871387,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 2.822166762,
+            "cpu_seconds": 2.821877,
+            "peak_rss_kib": 70104,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 2.900160944,
+            "cpu_seconds": 2.899275,
+            "peak_rss_kib": 70088,
+            "sampled_peak_working_file_bytes": 5871387,
+            "output_bytes": 5887428
+          }
+        ],
+        "before:crabxl-stream": [
+          {
+            "seconds": 0.933477375,
+            "cpu_seconds": 0.932896,
+            "peak_rss_kib": 5188,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.920155145,
+            "cpu_seconds": 0.919631,
+            "peak_rss_kib": 5188,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.982511891,
+            "cpu_seconds": 0.981371,
+            "peak_rss_kib": 5188,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-stream": [
+          {
+            "seconds": 0.413791853,
+            "cpu_seconds": 0.413654,
+            "peak_rss_kib": 4676,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.427147738,
+            "cpu_seconds": 0.42676,
+            "peak_rss_kib": 4804,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.457290138,
+            "cpu_seconds": 0.456765,
+            "peak_rss_kib": 4676,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-model": [
+          {
+            "seconds": 1.090165025,
+            "cpu_seconds": 1.089889,
+            "peak_rss_kib": 69444,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.113346835,
+            "cpu_seconds": 1.112728,
+            "peak_rss_kib": 69188,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.092915099,
+            "cpu_seconds": 1.092601,
+            "peak_rss_kib": 69316,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-model": [
+          {
+            "seconds": 0.495416224,
+            "cpu_seconds": 0.495037,
+            "peak_rss_kib": 106132,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.52721284,
+            "cpu_seconds": 0.526891,
+            "peak_rss_kib": 106228,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.547223359,
+            "cpu_seconds": 0.54655,
+            "peak_rss_kib": 106264,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-edit": [
+          {
+            "seconds": 3.419320255,
+            "cpu_seconds": 3.418929,
+            "peak_rss_kib": 69996,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 3.64019342,
+            "cpu_seconds": 3.639721,
+            "peak_rss_kib": 69996,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 3.695199292,
+            "cpu_seconds": 3.69434,
+            "peak_rss_kib": 69808,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          }
+        ],
+        "crabxl-stream": [
+          {
+            "seconds": 0.356917521,
+            "cpu_seconds": 0.356615,
+            "peak_rss_kib": 5148,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.341869917,
+            "cpu_seconds": 0.341297,
+            "peak_rss_kib": 5148,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.34855979,
+            "cpu_seconds": 0.348186,
+            "peak_rss_kib": 5148,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "calamine-stream": {
+          "seconds": 0.42845185,
+          "cpu_seconds": 0.428144,
+          "peak_rss_kib": 4636,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "crabxl-model": {
+          "seconds": 0.480808451,
+          "cpu_seconds": 0.480623,
+          "peak_rss_kib": 69148,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "calamine-model": {
+          "seconds": 0.524423787,
+          "cpu_seconds": 0.523995,
+          "peak_rss_kib": 105960,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "crabxl-edit": {
+          "seconds": 2.900160944,
+          "cpu_seconds": 2.899275,
+          "peak_rss_kib": 70088,
+          "sampled_peak_working_file_bytes": 5871387,
+          "output_bytes": 5887428
+        },
+        "before:crabxl-stream": {
+          "seconds": 0.933477375,
+          "cpu_seconds": 0.932896,
+          "peak_rss_kib": 5188,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-stream": {
+          "seconds": 0.427147738,
+          "cpu_seconds": 0.42676,
+          "peak_rss_kib": 4676,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-model": {
+          "seconds": 1.092915099,
+          "cpu_seconds": 1.092601,
+          "peak_rss_kib": 69316,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-model": {
+          "seconds": 0.52721284,
+          "cpu_seconds": 0.526891,
+          "peak_rss_kib": 106228,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-edit": {
+          "seconds": 3.64019342,
+          "cpu_seconds": 3.639721,
+          "peak_rss_kib": 69996,
+          "sampled_peak_working_file_bytes": 5849781,
+          "output_bytes": 5887428
+        },
+        "crabxl-stream": {
+          "seconds": 0.34855979,
+          "cpu_seconds": 0.348186,
+          "peak_rss_kib": 5148,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    }
+  ],
+  "candidate_patch": "diff --git a/crates/crabxl-xlsx/src/reader.rs b/crates/crabxl-xlsx/src/reader.rs\nindex 03a13bc..e620d07 100644\n--- a/crates/crabxl-xlsx/src/reader.rs\n+++ b/crates/crabxl-xlsx/src/reader.rs\n@@ -422,6 +422,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n     fn read_cells(&mut self, row: &mut Row) -> Result<()> {\n         let mut next_column = 0;\n         loop {\n+            if let Some(cell) = self.buffered_scalar(row.index, next_column)? {\n+                next_column = cell.address.column.get() + 1;\n+                self.push_cell(row, cell)?;\n+                continue;\n+            }\n             let frame = self.xml.next()?;\n             match frame.event {\n                 Event::Start(e)\n@@ -545,6 +550,90 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n         }\n     }\n \n+    fn buffered_scalar(&mut self, row: RowIndex, column: u32) -> Result<Option<Cell>> {\n+        let styles = self.styles;\n+        let options = &self.options;\n+        let decoded = &mut self.decoded_cells;\n+        let parsed = self\n+            .xml\n+            .buffered_scalar(|content, value| {\n+                let start = BytesStart::from_content(content, 1);\n+                let Some(header) = CellHeader::buffered(&start, row, column)? else {\n+                    return Ok(None);\n+                };\n+                if !matches!(\n+                    header.kind,\n+                    ScalarKind::Numeric | ScalarKind::Boolean | ScalarKind::SharedText\n+                ) || !options.includes(header.address)\n+                {\n+                    return Ok(None);\n+                }\n+                let address = header.address;\n+                if address.row != row || address.column.get() < column {\n+                    return Err(Error::new(\n+                        ErrorKind::InvalidData,\n+                        \"Cell coordinates do not follow their row order\",\n+                    )\n+                    .with_cell(address));\n+                }\n+                let kind = match styles {\n+                    Some(styles) => styles.kind(header.style),\n+                    None if header.style.get() == 0 => Ok(None),\n+                    None => Err(Error::new(\n+                        ErrorKind::InvalidData,\n+                        \"Cell has a style ID without a style catalog\",\n+                    )),\n+                }\n+                .map_err(|error| error.with_cell(address))?;\n+                *decoded += 1;\n+                let value = match header.kind {\n+                    ScalarKind::Numeric => {\n+                        numeric_value(value.trim_ascii()).map(BufferedValue::Direct)\n+                    }\n+                    ScalarKind::Boolean => {\n+                        boolean_value(value.trim_ascii()).map(BufferedValue::Direct)\n+                    }\n+                    ScalarKind::SharedText => {\n+                        shared_string_id(value.trim_ascii()).map(BufferedValue::SharedText)\n+                    }\n+                    _ => return Ok(None),\n+                }\n+                .map_err(|error| error.with_cell(address))?;\n+                Ok(Some((header, value, kind)))\n+            })\n+            .map_err(|error| error.with_part(self.xml.part()))?;\n+        parsed\n+            .map(|(header, value, kind)| {\n+                let decoded = match value {\n+                    BufferedValue::Direct(value) => Ok(value),\n+                    BufferedValue::SharedText(id) => self.shared_string_value(id),\n+                }\n+                .map_err(|error| error.with_part(self.xml.part()).with_cell(header.address))?;\n+                let value = self\n+                    .interpret_date(decoded, kind)\n+                    .map_err(|error| error.with_part(self.xml.part()).with_cell(header.address))?;\n+                Ok(Cell {\n+                    address: header.address,\n+                    value,\n+                    style: header.style,\n+                })\n+            })\n+            .transpose()\n+    }\n+\n+    fn shared_string_value(&mut self, id: u64) -> Result<CellValue> {\n+        self.limit_string_cache()?;\n+        self.shared_strings\n+            .as_mut()\n+            .ok_or_else(|| {\n+                Error::new(\n+                    ErrorKind::InvalidData,\n+                    \"Cell refers to a missing shared-string table\",\n+                )\n+            })?\n+            .get(id, self.options.rich_text)\n+    }\n+\n     fn push_cell(&mut self, row: &mut Row, cell: Cell) -> Result<()> {\n         if row.cells.len() >= self.limits.max_row_cells {\n             return Err(self\n@@ -775,20 +864,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n             });\n         }\n         if matches!(kind, ScalarKind::SharedText) {\n-            let id = self.value_buffer.trim_ascii().parse::<u64>().map_err(|e| {\n-                Error::caused_by(ErrorKind::InvalidData, \"Invalid shared-string ID\", e)\n-            })?;\n-            self.limit_string_cache()?;\n-            return self\n-                .shared_strings\n-                .as_mut()\n-                .ok_or_else(|| {\n-                    Error::new(\n-                        ErrorKind::InvalidData,\n-                        \"Cell refers to a missing shared-string table\",\n-                    )\n-                })?\n-                .get(id, self.options.rich_text);\n+            return self.shared_string_value(shared_string_id(self.value_buffer.trim_ascii())?);\n         }\n         if matches!(kind, ScalarKind::IsoDate) {\n             return Ok(crabxl_core::parse_iso8601(&self.value_buffer)?\n@@ -799,23 +875,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n             return Ok(CellValue::Empty);\n         }\n         if BOOLEAN {\n-            let digits = value.strip_prefix(['+', '-']).unwrap_or(value);\n-            if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {\n-                return Err(self.invalid(\"Invalid boolean cell value\"));\n-            }\n-            return Ok(CellValue::Boolean(digits.bytes().any(|byte| byte != b'0')));\n-        }\n-        if !value.bytes().any(|byte| matches!(byte, b'.' | b'e' | b'E')) {\n-            return Ok(match value.parse::<i64>() {\n-                Ok(integer) => CellValue::Integer(integer),\n-                Err(_) => CellValue::BigInteger(Box::new(ExactInteger::parse(value)?)),\n-            });\n+            return boolean_value(value);\n         }\n-        let number = fast_float2::parse::<f64, _>(value.as_bytes()).map_err(|e| {\n-            Error::caused_by(ErrorKind::InvalidData, \"Invalid numeric cell value\", e)\n-                .with_part(self.xml.part())\n-        })?;\n-        Ok(CellValue::Number(number))\n+        numeric_value(value)\n     }\n \n     fn interpret_date(\n@@ -1007,6 +1069,11 @@ enum ScalarKind {\n     Unsupported,\n }\n \n+enum BufferedValue {\n+    Direct(CellValue),\n+    SharedText(u64),\n+}\n+\n struct CellHeader {\n     address: CellAddress,\n     kind: ScalarKind,\n@@ -1015,13 +1082,50 @@ struct CellHeader {\n }\n impl CellHeader {\n     fn read(e: &BytesStart<'_>, row: RowIndex, column: u32) -> Result<Self> {\n+        Self::read_attributes(\n+            e.attributes().map(|attribute| {\n+                attribute.map_err(|error| {\n+                    Error::caused_by(ErrorKind::Xml, \"Invalid cell attribute\", error)\n+                })\n+            }),\n+            row,\n+            column,\n+        )\n+    }\n+    fn buffered(e: &BytesStart<'_>, row: RowIndex, column: u32) -> Result<Option<Self>> {\n+        // Three distinct supported fields need no duplicate-check allocation.\n+        // Unknown, malformed and duplicate attributes retain the event path.\n+        let mut fields = [None, None, None];\n+        let mut seen = 0u8;\n+        for (count, attribute) in e.attributes().with_checks(false).enumerate() {\n+            let Ok(attribute) = attribute else {\n+                return Ok(None);\n+            };\n+            let bit = match attribute.key.as_ref().as_bytes() {\n+                b\"r\" => 1,\n+                b\"s\" => 2,\n+                b\"t\" => 4,\n+                _ => return Ok(None),\n+            };\n+            if seen & bit != 0 {\n+                return Ok(None);\n+            }\n+            seen |= bit;\n+            fields[count] = Some(attribute);\n+        }\n+        Self::read_attributes(fields.into_iter().flatten().map(Ok), row, column).map(Some)\n+    }\n+    fn read_attributes<'a>(\n+        attributes: impl Iterator<Item = Result<quick_xml::events::attributes::Attribute<'a>>>,\n+        row: RowIndex,\n+        column: u32,\n+    ) -> Result<Self> {\n         let mut address = None;\n         let mut kind = ScalarKind::Numeric;\n         let mut style = crabxl_core::StyleId::new(0);\n         let mut metadata = false;\n-        for attribute in e.attributes() {\n-            let attribute = attribute\n-                .map_err(|e| Error::caused_by(ErrorKind::Xml, \"Invalid cell attribute\", e))?;\n+        for attribute in attributes {\n+            let attribute = attribute?;\n             match attribute.key.as_ref().as_bytes() {\n                 b\"r\" => {\n                     address = Some(\n@@ -1075,3 +1179,38 @@ impl CellHeader {\n         })\n     }\n }\n+\n+fn numeric_value(value: &str) -> Result<CellValue> {\n+    if value.is_empty() {\n+        return Ok(CellValue::Empty);\n+    }\n+    if !value.bytes().any(|byte| matches!(byte, b'.' | b'e' | b'E')) {\n+        return Ok(match value.parse::<i64>() {\n+            Ok(integer) => CellValue::Integer(integer),\n+            Err(_) => CellValue::BigInteger(Box::new(ExactInteger::parse(value)?)),\n+        });\n+    }\n+    let number = fast_float2::parse::<f64, _>(value.as_bytes()).map_err(|error| {\n+        Error::caused_by(ErrorKind::InvalidData, \"Invalid numeric cell value\", error)\n+    })?;\n+    Ok(CellValue::Number(number))\n+}\n+\n+fn shared_string_id(value: &str) -> Result<u64> {\n+    value.parse::<u64>().map_err(|error| {\n+        Error::caused_by(ErrorKind::InvalidData, \"Invalid shared-string ID\", error)\n+    })\n+}\n+fn boolean_value(value: &str) -> Result<CellValue> {\n+    if value.is_empty() {\n+        return Ok(CellValue::Empty);\n+    }\n+    let digits = value.strip_prefix(['+', '-']).unwrap_or(value);\n+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {\n+        return Err(Error::new(\n+            ErrorKind::InvalidData,\n+            \"Invalid boolean cell value\",\n+        ));\n+    }\n+    Ok(CellValue::Boolean(digits.bytes().any(|byte| byte != b'0')))\n+}\ndiff --git a/crates/crabxl-xlsx/src/xml.rs b/crates/crabxl-xlsx/src/xml.rs\nindex ac4e3a1..d918096 100644\n--- a/crates/crabxl-xlsx/src/xml.rs\n+++ b/crates/crabxl-xlsx/src/xml.rs\n@@ -292,6 +292,53 @@ impl<B: BufRead> XmlStream<B> {\n         self.byte_limit - self.reader.get_ref().part_remaining\n     }\n \n+    /// Decode a complete balanced scalar cell already present in the input\n+    /// buffer. Unrecognized XML remains untouched for the normal event reader.\n+    pub(crate) fn buffered_scalar<T>(\n+        &mut self,\n+        decode: impl FnOnce(&str, &str) -> Result<Option<T>>,\n+    ) -> Result<Option<T>> {\n+        self.namespaces.before_event();\n+        // quick-xml retains the lexical empty start token in read_event_into's\n+        // buffer while its expanded end event is pending. Never bypass that end.\n+        if self.depth != 3\n+            || self.namespaces.default.scope() != Scope::Spreadsheet\n+            || self.buffer.ends_with(b\"/>\")\n+            || self.limits.max_xml_depth < 5\n+        {\n+            return Ok(None);\n+        }\n+        let maximum = self.limits.max_xml_event_bytes;\n+        self.reader.get_mut().event_remaining = maximum.saturating_mul(5).min(1024);\n+        let bytes = self.reader.get_mut().fill_buf().map_err(|cause| {\n+            let limited = cause\n+                .get_ref()\n+                .is_some_and(|source| source.is::<BudgetExceeded>());\n+            Error::caused_by(\n+                if limited {\n+                    ErrorKind::LimitExceeded\n+                } else {\n+                    ErrorKind::Xml\n+                },\n+                \"Cannot inspect buffered XML cell\",\n+                cause,\n+            )\n+            .with_part(self.part.clone())\n+        })?;\n+        let Some((header, value, consumed)) =\n+            scalar_value_token(bytes, maximum, self.limits.max_cell_bytes)\n+        else {\n+            return Ok(None);\n+        };\n+        let value = decode(header, value)?;\n+        if value.is_some() {\n+            // Reader::stream preserves quick-xml offsets. The recognized c/v\n+            // pair is balanced, unprefixed and carries no namespace declaration.\n+            self.reader.stream().consume(consumed);\n+        }\n+        Ok(value)\n+    }\n+\n     #[inline(always)]\n     pub fn next(&mut self) -> Result<Frame<'_>> {\n         self.buffer.clear();\n@@ -394,6 +441,44 @@ impl<B: BufRead> XmlStream<B> {\n     }\n }\n \n+fn scalar_value_token(\n+    bytes: &[u8],\n+    maximum: usize,\n+    cell_maximum: usize,\n+) -> Option<(&str, &str, usize)> {\n+    if maximum < 4 || !(bytes.starts_with(b\"<c \") || bytes.starts_with(b\"<c>\")) {\n+        return None;\n+    }\n+    let end = bytes.iter().position(|byte| *byte == b'>')?;\n+    if end + 1 > maximum || !bytes.get(end + 1..)?.starts_with(b\"<v>\") {\n+        return None;\n+    }\n+    let start = end + 4;\n+    let length = bytes.get(start..)?.iter().position(|byte| *byte == b'<')?;\n+    if length.saturating_add(1) > maximum\n+        || length > cell_maximum\n+        || !bytes.get(start + length..)?.starts_with(b\"</v></c>\")\n+    {\n+        return None;\n+    }\n+    let header = bytes.get(1..end)?;\n+    let value = bytes.get(start..start + length)?;\n+    if !header.is_ascii()\n+        || !value.iter().all(|byte| {\n+            byte.is_ascii_digit()\n+                || byte.is_ascii_whitespace()\n+                || matches!(byte, b'+' | b'-' | b'.' | b'e' | b'E')\n+        })\n+    {\n+        return None;\n+    }\n+    Some((\n+        std::str::from_utf8(header).ok()?,\n+        std::str::from_utf8(value).ok()?,\n+        start + length + 8,\n+    ))\n+}\n+\n pub(crate) fn attribute(e: &BytesStart<'_>, name: &[u8]) -> Result<Option<String>> {\n     let value = e\n         .try_get_attribute(\n",
+  "candidate_base_revision": "15bf0baefcfe67ae265ca918ab4030f17f6120ce",
+  "baseline_revision": "ea04f692fffd8a52f838f44e9f7c36f48af55255"
+}

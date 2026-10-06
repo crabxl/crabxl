@@ -1,0 +1,691 @@
+{
+  "method": "One warmup and 3 rotating serial release samples. Complete retained model plus every-value/coordinate verification inside each native worker; import/build/generation excluded. Identical worker source/lockfile/toolchain, prior core ea04f692fffd8a52f838f44e9f7c36f48af55255 versus candidate; hashes identify binaries. Calamine returns retained noneditable text ranges; CrabXL retains editable models plus source catalogs.",
+  "binary_sha256": {
+    "before": "c44ff430b72f6fd3ddfff7209b732cf832d663dac363d9a90605d17b11475e37",
+    "after": "9f38f0ddd46cdd02cc58f10542bbf0bd97e153971a7c01b019ecc21e7aa005df"
+  },
+  "resource_settings": "CrabXL 1 GiB joint/model allowances, 256 MiB SST allowance, 1 MiB decoded disk cache; explicit RAM/disk policy. These are managed allowances, not an RSS limit. Calamine uses its defaults.",
+  "cases": [
+    {
+      "rows": 10000,
+      "kind": "repeated-text",
+      "source_sha256": "68e79fc55564057d72dcc1322cf68eb7678fa83d2177aed9bacdc24b99dd1d17",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.041241129,
+            "cpu_seconds": 0.04107,
+            "peak_rss_kib": 11568,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.049572606,
+            "cpu_seconds": 0.049408,
+            "peak_rss_kib": 11932,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.041043853,
+            "cpu_seconds": 0.04086,
+            "peak_rss_kib": 11676,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.077995803,
+            "cpu_seconds": 0.077867,
+            "peak_rss_kib": 11844,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.074104071,
+            "cpu_seconds": 0.073943,
+            "peak_rss_kib": 12100,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.08478697,
+            "cpu_seconds": 0.084634,
+            "peak_rss_kib": 12100,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.038225339,
+            "cpu_seconds": 0.038053,
+            "peak_rss_kib": 11932,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.045491324,
+            "cpu_seconds": 0.045174,
+            "peak_rss_kib": 11932,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.043933904,
+            "cpu_seconds": 0.043572,
+            "peak_rss_kib": 11804,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.046835905,
+            "cpu_seconds": 0.046675,
+            "peak_rss_kib": 19916,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.044714913,
+            "cpu_seconds": 0.044574,
+            "peak_rss_kib": 19788,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.042666911,
+            "cpu_seconds": 0.042542,
+            "peak_rss_kib": 19916,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.075904146,
+            "cpu_seconds": 0.07576,
+            "peak_rss_kib": 11844,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.073657797,
+            "cpu_seconds": 0.073496,
+            "peak_rss_kib": 11972,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.079608711,
+            "cpu_seconds": 0.079434,
+            "peak_rss_kib": 11844,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.041241129,
+          "cpu_seconds": 0.04107,
+          "peak_rss_kib": 11676,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.077995803,
+          "cpu_seconds": 0.077867,
+          "peak_rss_kib": 12100,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "after:disk": {
+          "seconds": 0.043933904,
+          "cpu_seconds": 0.043572,
+          "peak_rss_kib": 11932,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "calamine:memory": {
+          "seconds": 0.044714913,
+          "cpu_seconds": 0.044574,
+          "peak_rss_kib": 19916,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.075904146,
+          "cpu_seconds": 0.07576,
+          "peak_rss_kib": 11844,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 10000,
+      "kind": "unique-text",
+      "source_sha256": "a940e6e1013e3346467e2efcd34c97734a40161b17949fc119f2d305cce619e3",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.10100792,
+            "cpu_seconds": 0.100889,
+            "peak_rss_kib": 27292,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.094629758,
+            "cpu_seconds": 0.094384,
+            "peak_rss_kib": 27524,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.091785128,
+            "cpu_seconds": 0.091621,
+            "peak_rss_kib": 27548,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.205748128,
+            "cpu_seconds": 0.205612,
+            "peak_rss_kib": 25924,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.199396005,
+            "cpu_seconds": 0.199078,
+            "peak_rss_kib": 25924,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.184691068,
+            "cpu_seconds": 0.184553,
+            "peak_rss_kib": 26052,
+            "sampled_peak_working_file_bytes": 12600000
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.148137666,
+            "cpu_seconds": 0.147816,
+            "peak_rss_kib": 26012,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.161859041,
+            "cpu_seconds": 0.161518,
+            "peak_rss_kib": 26012,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.156726213,
+            "cpu_seconds": 0.156573,
+            "peak_rss_kib": 25884,
+            "sampled_peak_working_file_bytes": 12600000
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.076181583,
+            "cpu_seconds": 0.074507,
+            "peak_rss_kib": 34620,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.077272181,
+            "cpu_seconds": 0.077169,
+            "peak_rss_kib": 34620,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.077016312,
+            "cpu_seconds": 0.076833,
+            "peak_rss_kib": 34616,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.130433158,
+            "cpu_seconds": 0.130242,
+            "peak_rss_kib": 27332,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.133925454,
+            "cpu_seconds": 0.133583,
+            "peak_rss_kib": 27332,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.126876111,
+            "cpu_seconds": 0.126668,
+            "peak_rss_kib": 27204,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.094629758,
+          "cpu_seconds": 0.094384,
+          "peak_rss_kib": 27524,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.199396005,
+          "cpu_seconds": 0.199078,
+          "peak_rss_kib": 25924,
+          "sampled_peak_working_file_bytes": 12600000
+        },
+        "after:disk": {
+          "seconds": 0.156726213,
+          "cpu_seconds": 0.156573,
+          "peak_rss_kib": 26012,
+          "sampled_peak_working_file_bytes": 12600000
+        },
+        "calamine:memory": {
+          "seconds": 0.077016312,
+          "cpu_seconds": 0.076833,
+          "peak_rss_kib": 34620,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.130433158,
+          "cpu_seconds": 0.130242,
+          "peak_rss_kib": 27332,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 10000,
+      "kind": "styled",
+      "source_sha256": "dec541403890ff4bc08f2f26e7a1385a099e53dfaa17b33d0615097bca192190",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.050299285,
+            "cpu_seconds": 0.050205,
+            "peak_rss_kib": 11744,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.050976742,
+            "cpu_seconds": 0.050806,
+            "peak_rss_kib": 11804,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.050089289,
+            "cpu_seconds": 0.049946,
+            "peak_rss_kib": 11804,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.069159402,
+            "cpu_seconds": 0.06892,
+            "peak_rss_kib": 11948,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.070520407,
+            "cpu_seconds": 0.070416,
+            "peak_rss_kib": 11716,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.06995722,
+            "cpu_seconds": 0.069813,
+            "peak_rss_kib": 11972,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.050299285,
+          "cpu_seconds": 0.050205,
+          "peak_rss_kib": 11804,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.06995722,
+          "cpu_seconds": 0.069813,
+          "peak_rss_kib": 11948,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "repeated-text",
+      "source_sha256": "c9429b840f61d4fbfc7fe4375239f83f2f35c083195165754dac18ec09e06b2c",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.385563194,
+            "cpu_seconds": 0.385401,
+            "peak_rss_kib": 68764,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.364778676,
+            "cpu_seconds": 0.364516,
+            "peak_rss_kib": 68700,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.365582722,
+            "cpu_seconds": 0.365382,
+            "peak_rss_kib": 69020,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.707988331,
+            "cpu_seconds": 0.707655,
+            "peak_rss_kib": 69188,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.713724492,
+            "cpu_seconds": 0.71338,
+            "peak_rss_kib": 68932,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.745188973,
+            "cpu_seconds": 0.744798,
+            "peak_rss_kib": 69188,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.378507647,
+            "cpu_seconds": 0.378243,
+            "peak_rss_kib": 69020,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.439169107,
+            "cpu_seconds": 0.439034,
+            "peak_rss_kib": 69084,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.384378679,
+            "cpu_seconds": 0.384063,
+            "peak_rss_kib": 69020,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.458337716,
+            "cpu_seconds": 0.45821,
+            "peak_rss_kib": 160424,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.404311573,
+            "cpu_seconds": 0.403984,
+            "peak_rss_kib": 160720,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.419004523,
+            "cpu_seconds": 0.418546,
+            "peak_rss_kib": 160360,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.760856506,
+            "cpu_seconds": 0.760583,
+            "peak_rss_kib": 68804,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.679035137,
+            "cpu_seconds": 0.67886,
+            "peak_rss_kib": 69060,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.695349666,
+            "cpu_seconds": 0.694896,
+            "peak_rss_kib": 68900,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.365582722,
+          "cpu_seconds": 0.365382,
+          "peak_rss_kib": 68764,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.713724492,
+          "cpu_seconds": 0.71338,
+          "peak_rss_kib": 69188,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "after:disk": {
+          "seconds": 0.384378679,
+          "cpu_seconds": 0.384063,
+          "peak_rss_kib": 69020,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "calamine:memory": {
+          "seconds": 0.419004523,
+          "cpu_seconds": 0.418546,
+          "peak_rss_kib": 160424,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.695349666,
+          "cpu_seconds": 0.694896,
+          "peak_rss_kib": 68900,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "unique-text",
+      "source_sha256": "3b3cbcf625c5085968c7d7837bb972227eced2cc322a96089cc2a07c285aea71",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.99232532,
+            "cpu_seconds": 0.991892,
+            "peak_rss_kib": 224924,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.952388219,
+            "cpu_seconds": 0.95103,
+            "peak_rss_kib": 225180,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.975127407,
+            "cpu_seconds": 0.973959,
+            "peak_rss_kib": 224988,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 1.913771625,
+            "cpu_seconds": 1.910335,
+            "peak_rss_kib": 209348,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.860481263,
+            "cpu_seconds": 1.859472,
+            "peak_rss_kib": 209348,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.905548952,
+            "cpu_seconds": 1.905242,
+            "peak_rss_kib": 209372,
+            "sampled_peak_working_file_bytes": 126000000
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 1.490788954,
+            "cpu_seconds": 1.489125,
+            "peak_rss_kib": 209324,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.664839207,
+            "cpu_seconds": 1.664521,
+            "peak_rss_kib": 209564,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.51165577,
+            "cpu_seconds": 1.510043,
+            "peak_rss_kib": 209564,
+            "sampled_peak_working_file_bytes": 126000000
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.742022875,
+            "cpu_seconds": 0.74107,
+            "peak_rss_kib": 308960,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.76489337,
+            "cpu_seconds": 0.764221,
+            "peak_rss_kib": 309060,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.731210181,
+            "cpu_seconds": 0.730306,
+            "peak_rss_kib": 308864,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 1.287779252,
+            "cpu_seconds": 1.286653,
+            "peak_rss_kib": 225220,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.324171177,
+            "cpu_seconds": 1.323766,
+            "peak_rss_kib": 224964,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.359267986,
+            "cpu_seconds": 1.35858,
+            "peak_rss_kib": 225092,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.975127407,
+          "cpu_seconds": 0.973959,
+          "peak_rss_kib": 224988,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 1.905548952,
+          "cpu_seconds": 1.905242,
+          "peak_rss_kib": 209348,
+          "sampled_peak_working_file_bytes": 126000000
+        },
+        "after:disk": {
+          "seconds": 1.51165577,
+          "cpu_seconds": 1.510043,
+          "peak_rss_kib": 209564,
+          "sampled_peak_working_file_bytes": 126000000
+        },
+        "calamine:memory": {
+          "seconds": 0.742022875,
+          "cpu_seconds": 0.74107,
+          "peak_rss_kib": 308960,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 1.324171177,
+          "cpu_seconds": 1.323766,
+          "peak_rss_kib": 225092,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "styled",
+      "source_sha256": "d07750234f68a6041909b53f19abbda50bca4b33c417dcdf62046fd26046f0a0",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.526795279,
+            "cpu_seconds": 0.526658,
+            "peak_rss_kib": 68572,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.520937275,
+            "cpu_seconds": 0.520782,
+            "peak_rss_kib": 68636,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.552764739,
+            "cpu_seconds": 0.552309,
+            "peak_rss_kib": 68572,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.695566113,
+            "cpu_seconds": 0.695205,
+            "peak_rss_kib": 68804,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.752531973,
+            "cpu_seconds": 0.752175,
+            "peak_rss_kib": 68548,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.736432731,
+            "cpu_seconds": 0.736228,
+            "peak_rss_kib": 68804,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.526795279,
+          "cpu_seconds": 0.526658,
+          "peak_rss_kib": 68572,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.736432731,
+          "cpu_seconds": 0.736228,
+          "peak_rss_kib": 68804,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    }
+  ],
+  "candidate_patch": "diff --git a/crates/crabxl-xlsx/src/reader.rs b/crates/crabxl-xlsx/src/reader.rs\nindex 03a13bc..e620d07 100644\n--- a/crates/crabxl-xlsx/src/reader.rs\n+++ b/crates/crabxl-xlsx/src/reader.rs\n@@ -422,6 +422,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n     fn read_cells(&mut self, row: &mut Row) -> Result<()> {\n         let mut next_column = 0;\n         loop {\n+            if let Some(cell) = self.buffered_scalar(row.index, next_column)? {\n+                next_column = cell.address.column.get() + 1;\n+                self.push_cell(row, cell)?;\n+                continue;\n+            }\n             let frame = self.xml.next()?;\n             match frame.event {\n                 Event::Start(e)\n@@ -545,6 +550,90 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n         }\n     }\n \n+    fn buffered_scalar(&mut self, row: RowIndex, column: u32) -> Result<Option<Cell>> {\n+        let styles = self.styles;\n+        let options = &self.options;\n+        let decoded = &mut self.decoded_cells;\n+        let parsed = self\n+            .xml\n+            .buffered_scalar(|content, value| {\n+                let start = BytesStart::from_content(content, 1);\n+                let Some(header) = CellHeader::buffered(&start, row, column)? else {\n+                    return Ok(None);\n+                };\n+                if !matches!(\n+                    header.kind,\n+                    ScalarKind::Numeric | ScalarKind::Boolean | ScalarKind::SharedText\n+                ) || !options.includes(header.address)\n+                {\n+                    return Ok(None);\n+                }\n+                let address = header.address;\n+                if address.row != row || address.column.get() < column {\n+                    return Err(Error::new(\n+                        ErrorKind::InvalidData,\n+                        \"Cell coordinates do not follow their row order\",\n+                    )\n+                    .with_cell(address));\n+                }\n+                let kind = match styles {\n+                    Some(styles) => styles.kind(header.style),\n+                    None if header.style.get() == 0 => Ok(None),\n+                    None => Err(Error::new(\n+                        ErrorKind::InvalidData,\n+                        \"Cell has a style ID without a style catalog\",\n+                    )),\n+                }\n+                .map_err(|error| error.with_cell(address))?;\n+                *decoded += 1;\n+                let value = match header.kind {\n+                    ScalarKind::Numeric => {\n+                        numeric_value(value.trim_ascii()).map(BufferedValue::Direct)\n+                    }\n+                    ScalarKind::Boolean => {\n+                        boolean_value(value.trim_ascii()).map(BufferedValue::Direct)\n+                    }\n+                    ScalarKind::SharedText => {\n+                        shared_string_id(value.trim_ascii()).map(BufferedValue::SharedText)\n+                    }\n+                    _ => return Ok(None),\n+                }\n+                .map_err(|error| error.with_cell(address))?;\n+                Ok(Some((header, value, kind)))\n+            })\n+            .map_err(|error| error.with_part(self.xml.part()))?;\n+        parsed\n+            .map(|(header, value, kind)| {\n+                let decoded = match value {\n+                    BufferedValue::Direct(value) => Ok(value),\n+                    BufferedValue::SharedText(id) => self.shared_string_value(id),\n+                }\n+                .map_err(|error| error.with_part(self.xml.part()).with_cell(header.address))?;\n+                let value = self\n+                    .interpret_date(decoded, kind)\n+                    .map_err(|error| error.with_part(self.xml.part()).with_cell(header.address))?;\n+                Ok(Cell {\n+                    address: header.address,\n+                    value,\n+                    style: header.style,\n+                })\n+            })\n+            .transpose()\n+    }\n+\n+    fn shared_string_value(&mut self, id: u64) -> Result<CellValue> {\n+        self.limit_string_cache()?;\n+        self.shared_strings\n+            .as_mut()\n+            .ok_or_else(|| {\n+                Error::new(\n+                    ErrorKind::InvalidData,\n+                    \"Cell refers to a missing shared-string table\",\n+                )\n+            })?\n+            .get(id, self.options.rich_text)\n+    }\n+\n     fn push_cell(&mut self, row: &mut Row, cell: Cell) -> Result<()> {\n         if row.cells.len() >= self.limits.max_row_cells {\n             return Err(self\n@@ -775,20 +864,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n             });\n         }\n         if matches!(kind, ScalarKind::SharedText) {\n-            let id = self.value_buffer.trim_ascii().parse::<u64>().map_err(|e| {\n-                Error::caused_by(ErrorKind::InvalidData, \"Invalid shared-string ID\", e)\n-            })?;\n-            self.limit_string_cache()?;\n-            return self\n-                .shared_strings\n-                .as_mut()\n-                .ok_or_else(|| {\n-                    Error::new(\n-                        ErrorKind::InvalidData,\n-                        \"Cell refers to a missing shared-string table\",\n-                    )\n-                })?\n-                .get(id, self.options.rich_text);\n+            return self.shared_string_value(shared_string_id(self.value_buffer.trim_ascii())?);\n         }\n         if matches!(kind, ScalarKind::IsoDate) {\n             return Ok(crabxl_core::parse_iso8601(&self.value_buffer)?\n@@ -799,23 +875,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n             return Ok(CellValue::Empty);\n         }\n         if BOOLEAN {\n-            let digits = value.strip_prefix(['+', '-']).unwrap_or(value);\n-            if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {\n-                return Err(self.invalid(\"Invalid boolean cell value\"));\n-            }\n-            return Ok(CellValue::Boolean(digits.bytes().any(|byte| byte != b'0')));\n-        }\n-        if !value.bytes().any(|byte| matches!(byte, b'.' | b'e' | b'E')) {\n-            return Ok(match value.parse::<i64>() {\n-                Ok(integer) => CellValue::Integer(integer),\n-                Err(_) => CellValue::BigInteger(Box::new(ExactInteger::parse(value)?)),\n-            });\n+            return boolean_value(value);\n         }\n-        let number = fast_float2::parse::<f64, _>(value.as_bytes()).map_err(|e| {\n-            Error::caused_by(ErrorKind::InvalidData, \"Invalid numeric cell value\", e)\n-                .with_part(self.xml.part())\n-        })?;\n-        Ok(CellValue::Number(number))\n+        numeric_value(value)\n     }\n \n     fn interpret_date(\n@@ -1007,6 +1069,11 @@ enum ScalarKind {\n     Unsupported,\n }\n \n+enum BufferedValue {\n+    Direct(CellValue),\n+    SharedText(u64),\n+}\n+\n struct CellHeader {\n     address: CellAddress,\n     kind: ScalarKind,\n@@ -1015,13 +1082,50 @@ struct CellHeader {\n }\n impl CellHeader {\n     fn read(e: &BytesStart<'_>, row: RowIndex, column: u32) -> Result<Self> {\n+        Self::read_attributes(\n+            e.attributes().map(|attribute| {\n+                attribute.map_err(|error| {\n+                    Error::caused_by(ErrorKind::Xml, \"Invalid cell attribute\", error)\n+                })\n+            }),\n+            row,\n+            column,\n+        )\n+    }\n+    fn buffered(e: &BytesStart<'_>, row: RowIndex, column: u32) -> Result<Option<Self>> {\n+        // Three distinct supported fields need no duplicate-check allocation.\n+        // Unknown, malformed and duplicate attributes retain the event path.\n+        let mut fields = [None, None, None];\n+        let mut seen = 0u8;\n+        for (count, attribute) in e.attributes().with_checks(false).enumerate() {\n+            let Ok(attribute) = attribute else {\n+                return Ok(None);\n+            };\n+            let bit = match attribute.key.as_ref().as_bytes() {\n+                b\"r\" => 1,\n+                b\"s\" => 2,\n+                b\"t\" => 4,\n+                _ => return Ok(None),\n+            };\n+            if seen & bit != 0 {\n+                return Ok(None);\n+            }\n+            seen |= bit;\n+            fields[count] = Some(attribute);\n+        }\n+        Self::read_attributes(fields.into_iter().flatten().map(Ok), row, column).map(Some)\n+    }\n+    fn read_attributes<'a>(\n+        attributes: impl Iterator<Item = Result<quick_xml::events::attributes::Attribute<'a>>>,\n+        row: RowIndex,\n+        column: u32,\n+    ) -> Result<Self> {\n         let mut address = None;\n         let mut kind = ScalarKind::Numeric;\n         let mut style = crabxl_core::StyleId::new(0);\n         let mut metadata = false;\n-        for attribute in e.attributes() {\n-            let attribute = attribute\n-                .map_err(|e| Error::caused_by(ErrorKind::Xml, \"Invalid cell attribute\", e))?;\n+        for attribute in attributes {\n+            let attribute = attribute?;\n             match attribute.key.as_ref().as_bytes() {\n                 b\"r\" => {\n                     address = Some(\n@@ -1075,3 +1179,38 @@ impl CellHeader {\n         })\n     }\n }\n+\n+fn numeric_value(value: &str) -> Result<CellValue> {\n+    if value.is_empty() {\n+        return Ok(CellValue::Empty);\n+    }\n+    if !value.bytes().any(|byte| matches!(byte, b'.' | b'e' | b'E')) {\n+        return Ok(match value.parse::<i64>() {\n+            Ok(integer) => CellValue::Integer(integer),\n+            Err(_) => CellValue::BigInteger(Box::new(ExactInteger::parse(value)?)),\n+        });\n+    }\n+    let number = fast_float2::parse::<f64, _>(value.as_bytes()).map_err(|error| {\n+        Error::caused_by(ErrorKind::InvalidData, \"Invalid numeric cell value\", error)\n+    })?;\n+    Ok(CellValue::Number(number))\n+}\n+\n+fn shared_string_id(value: &str) -> Result<u64> {\n+    value.parse::<u64>().map_err(|error| {\n+        Error::caused_by(ErrorKind::InvalidData, \"Invalid shared-string ID\", error)\n+    })\n+}\n+fn boolean_value(value: &str) -> Result<CellValue> {\n+    if value.is_empty() {\n+        return Ok(CellValue::Empty);\n+    }\n+    let digits = value.strip_prefix(['+', '-']).unwrap_or(value);\n+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {\n+        return Err(Error::new(\n+            ErrorKind::InvalidData,\n+            \"Invalid boolean cell value\",\n+        ));\n+    }\n+    Ok(CellValue::Boolean(digits.bytes().any(|byte| byte != b'0')))\n+}\ndiff --git a/crates/crabxl-xlsx/src/xml.rs b/crates/crabxl-xlsx/src/xml.rs\nindex ac4e3a1..d918096 100644\n--- a/crates/crabxl-xlsx/src/xml.rs\n+++ b/crates/crabxl-xlsx/src/xml.rs\n@@ -292,6 +292,53 @@ impl<B: BufRead> XmlStream<B> {\n         self.byte_limit - self.reader.get_ref().part_remaining\n     }\n \n+    /// Decode a complete balanced scalar cell already present in the input\n+    /// buffer. Unrecognized XML remains untouched for the normal event reader.\n+    pub(crate) fn buffered_scalar<T>(\n+        &mut self,\n+        decode: impl FnOnce(&str, &str) -> Result<Option<T>>,\n+    ) -> Result<Option<T>> {\n+        self.namespaces.before_event();\n+        // quick-xml retains the lexical empty start token in read_event_into's\n+        // buffer while its expanded end event is pending. Never bypass that end.\n+        if self.depth != 3\n+            || self.namespaces.default.scope() != Scope::Spreadsheet\n+            || self.buffer.ends_with(b\"/>\")\n+            || self.limits.max_xml_depth < 5\n+        {\n+            return Ok(None);\n+        }\n+        let maximum = self.limits.max_xml_event_bytes;\n+        self.reader.get_mut().event_remaining = maximum.saturating_mul(5).min(1024);\n+        let bytes = self.reader.get_mut().fill_buf().map_err(|cause| {\n+            let limited = cause\n+                .get_ref()\n+                .is_some_and(|source| source.is::<BudgetExceeded>());\n+            Error::caused_by(\n+                if limited {\n+                    ErrorKind::LimitExceeded\n+                } else {\n+                    ErrorKind::Xml\n+                },\n+                \"Cannot inspect buffered XML cell\",\n+                cause,\n+            )\n+            .with_part(self.part.clone())\n+        })?;\n+        let Some((header, value, consumed)) =\n+            scalar_value_token(bytes, maximum, self.limits.max_cell_bytes)\n+        else {\n+            return Ok(None);\n+        };\n+        let value = decode(header, value)?;\n+        if value.is_some() {\n+            // Reader::stream preserves quick-xml offsets. The recognized c/v\n+            // pair is balanced, unprefixed and carries no namespace declaration.\n+            self.reader.stream().consume(consumed);\n+        }\n+        Ok(value)\n+    }\n+\n     #[inline(always)]\n     pub fn next(&mut self) -> Result<Frame<'_>> {\n         self.buffer.clear();\n@@ -394,6 +441,44 @@ impl<B: BufRead> XmlStream<B> {\n     }\n }\n \n+fn scalar_value_token(\n+    bytes: &[u8],\n+    maximum: usize,\n+    cell_maximum: usize,\n+) -> Option<(&str, &str, usize)> {\n+    if maximum < 4 || !(bytes.starts_with(b\"<c \") || bytes.starts_with(b\"<c>\")) {\n+        return None;\n+    }\n+    let end = bytes.iter().position(|byte| *byte == b'>')?;\n+    if end + 1 > maximum || !bytes.get(end + 1..)?.starts_with(b\"<v>\") {\n+        return None;\n+    }\n+    let start = end + 4;\n+    let length = bytes.get(start..)?.iter().position(|byte| *byte == b'<')?;\n+    if length.saturating_add(1) > maximum\n+        || length > cell_maximum\n+        || !bytes.get(start + length..)?.starts_with(b\"</v></c>\")\n+    {\n+        return None;\n+    }\n+    let header = bytes.get(1..end)?;\n+    let value = bytes.get(start..start + length)?;\n+    if !header.is_ascii()\n+        || !value.iter().all(|byte| {\n+            byte.is_ascii_digit()\n+                || byte.is_ascii_whitespace()\n+                || matches!(byte, b'+' | b'-' | b'.' | b'e' | b'E')\n+        })\n+    {\n+        return None;\n+    }\n+    Some((\n+        std::str::from_utf8(header).ok()?,\n+        std::str::from_utf8(value).ok()?,\n+        start + length + 8,\n+    ))\n+}\n+\n pub(crate) fn attribute(e: &BytesStart<'_>, name: &[u8]) -> Result<Option<String>> {\n     let value = e\n         .try_get_attribute(\n",
+  "candidate_base_revision": "15bf0baefcfe67ae265ca918ab4030f17f6120ce",
+  "baseline_revision": "ea04f692fffd8a52f838f44e9f7c36f48af55255"
+}
