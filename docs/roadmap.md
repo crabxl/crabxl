@@ -156,4 +156,6 @@ transfer and repeat saves (ADRs 0073-0075). Unknown/shared owners, local-name sc
 linked VBA projects and unmodeled workbook identity graphs retain explicit M5/M6
 rejection and follow-up tracking. Source-backed physical-cell deletion now uses
 the same guarded model coordinator and leaves missing-cell removals unchanged.
-Final staged A7 acceptance remains open; these checkpoints do not close deferred M4 graph interactions.
+The staged acceptance matrix is recorded in
+[the A7 audit](validation/alpha7-m4-stage-acceptance.md). Release verification
+remains pending; these checkpoints do not close deferred M4 graph interactions.
