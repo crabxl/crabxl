@@ -64,6 +64,7 @@ fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
         expected.insert(coordinate, i64::from(index));
     }
     assert_eq!(sheet.cells().count(), 653);
+    assert!(sheet.charged_bytes() < sheet.len() * 64);
     assert_eq!(sheet.row_cells(RowIndex::new(60).unwrap()).count(), 13);
     let mut reversed = Worksheet::new("Reverse", EditLimits::default()).unwrap();
     for index in (0..653u32).rev() {
@@ -76,6 +77,16 @@ fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
     }
     assert_eq!(values(&reversed), values(&sheet));
     assert_eq!(reversed.row_cells(RowIndex::new(60).unwrap()).count(), 13);
+    let dense_bytes = reversed.charged_bytes();
+    for index in 1..653u32 {
+        if index % 128 != 0 {
+            reversed
+                .remove(address(index / 32 * 3, index % 32 * 2))
+                .unwrap();
+        }
+    }
+    assert!(reversed.charged_bytes() < dense_bytes / 2);
+    assert_eq!(reversed.len(), 6);
     for index in (0..640u32).rev() {
         let coordinate = (index / 32 * 3, index % 32 * 2 + 1);
         set(
@@ -203,6 +214,37 @@ fn overlapping_moves_and_copies_clear_destination_holes_without_dense_cells() {
 }
 #[test]
 fn bounds_and_data_work_limits_fail_without_partial_mutation() {
+    // A buffer expansion can exceed the operation allowance even when its
+    // eventual retained size would fit. Both set and append stay atomic.
+    let mut growing = Worksheet::new(
+        "Growth",
+        EditLimits {
+            max_bytes: 650,
+            max_cells: 10,
+        },
+    )
+    .unwrap();
+    set(&mut growing, 0, 0, Value::Integer(1));
+    growing.mark_clean();
+    let retained = growing.charged_bytes();
+    assert!(
+        growing
+            .set(Cell {
+                address: address(0, 1),
+                value: Value::Integer(2),
+                style: StyleId::new(0),
+            })
+            .is_err()
+    );
+    assert!(growing.append(vec![Value::Integer(2)]).is_err());
+    assert_eq!(growing.len(), 1);
+    assert_eq!(growing.charged_bytes(), retained);
+    assert_eq!(growing.row_extent(), 1);
+    assert!(!growing.is_dirty());
+    growing.remove(address(0, 0)).unwrap();
+    assert_eq!(growing.charged_bytes(), "Growth".len());
+    growing.append(vec![Value::Integer(3)]).unwrap();
+
     let mut sheet = Worksheet::new(
         "Sheet",
         EditLimits {
@@ -256,7 +298,7 @@ fn model_rename_obeys_budget_and_preserves_cells_on_failure() {
     let mut sheet = Worksheet::new(
         "A",
         EditLimits {
-            max_bytes: 300,
+            max_bytes: 600,
             max_cells: 1,
         },
     )

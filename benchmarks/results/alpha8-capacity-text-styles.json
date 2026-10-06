@@ -1,0 +1,838 @@
+{
+  "method": "One warmup and 3 rotating serial release samples. Complete retained model plus every-value/coordinate verification inside each native worker; import/build/generation excluded. Identical worker source/lockfile/toolchain, prior core 7160f140fa6ed9ed66d0f47d087b6e3ea3c1d061 versus candidate; hashes identify binaries. Calamine returns retained noneditable text ranges; CrabXL retains editable models plus source catalogs.",
+  "binary_sha256": {
+    "before": "f042c5d890bdefbdea60a633b664092a221612d7c7ab760e1d0d16355f164154",
+    "after": "459cc08e8ace3005db9c5dec29602de8338d677e06a2af99b080ccdb225dd2b3"
+  },
+  "resource_settings": "CrabXL 1 GiB joint/model allowances, 256 MiB SST allowance, 1 MiB decoded disk cache; explicit RAM/disk policy. These are managed allowances, not an RSS limit. Calamine uses its defaults.",
+  "cases": [
+    {
+      "rows": 10000,
+      "kind": "repeated-text",
+      "source_sha256": "68e79fc55564057d72dcc1322cf68eb7678fa83d2177aed9bacdc24b99dd1d17",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.037677731,
+            "cpu_seconds": 0.037359,
+            "peak_rss_kib": 11828,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.03844911,
+            "cpu_seconds": 0.038338,
+            "peak_rss_kib": 11828,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.042630949,
+            "cpu_seconds": 0.042501,
+            "peak_rss_kib": 11828,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.037602398,
+            "cpu_seconds": 0.037456,
+            "peak_rss_kib": 11996,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.041932511,
+            "cpu_seconds": 0.04165,
+            "peak_rss_kib": 11868,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.051480543,
+            "cpu_seconds": 0.051297,
+            "peak_rss_kib": 11868,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.038147647,
+            "cpu_seconds": 0.038033,
+            "peak_rss_kib": 11956,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.040514762,
+            "cpu_seconds": 0.040407,
+            "peak_rss_kib": 11956,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.038640207,
+            "cpu_seconds": 0.038522,
+            "peak_rss_kib": 12276,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.048801176,
+            "cpu_seconds": 0.048651,
+            "peak_rss_kib": 20072,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.044064061,
+            "cpu_seconds": 0.043919,
+            "peak_rss_kib": 19816,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.042987835,
+            "cpu_seconds": 0.042665,
+            "peak_rss_kib": 19948,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.042783618,
+            "cpu_seconds": 0.042659,
+            "peak_rss_kib": 11868,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.042925161,
+            "cpu_seconds": 0.042818,
+            "peak_rss_kib": 11740,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.040366203,
+            "cpu_seconds": 0.040244,
+            "peak_rss_kib": 11740,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.03844911,
+          "cpu_seconds": 0.038338,
+          "peak_rss_kib": 11828,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.041932511,
+          "cpu_seconds": 0.04165,
+          "peak_rss_kib": 11868,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "after:disk": {
+          "seconds": 0.038640207,
+          "cpu_seconds": 0.038522,
+          "peak_rss_kib": 11956,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "calamine:memory": {
+          "seconds": 0.044064061,
+          "cpu_seconds": 0.043919,
+          "peak_rss_kib": 19948,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.042783618,
+          "cpu_seconds": 0.042659,
+          "peak_rss_kib": 11740,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 10000,
+      "kind": "unique-text",
+      "source_sha256": "a940e6e1013e3346467e2efcd34c97734a40161b17949fc119f2d305cce619e3",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.07625957,
+            "cpu_seconds": 0.076158,
+            "peak_rss_kib": 27444,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.075150685,
+            "cpu_seconds": 0.074986,
+            "peak_rss_kib": 27444,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.076521192,
+            "cpu_seconds": 0.076416,
+            "peak_rss_kib": 27316,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.130812237,
+            "cpu_seconds": 0.130603,
+            "peak_rss_kib": 26076,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.128634432,
+            "cpu_seconds": 0.128446,
+            "peak_rss_kib": 26076,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.128858028,
+            "cpu_seconds": 0.128722,
+            "peak_rss_kib": 26076,
+            "sampled_peak_working_file_bytes": 12600000
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.142759824,
+            "cpu_seconds": 0.142624,
+            "peak_rss_kib": 26036,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.130174571,
+            "cpu_seconds": 0.129977,
+            "peak_rss_kib": 26100,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.131861809,
+            "cpu_seconds": 0.13174,
+            "peak_rss_kib": 26100,
+            "sampled_peak_working_file_bytes": 12600000
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.076640162,
+            "cpu_seconds": 0.076511,
+            "peak_rss_kib": 34648,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.080892698,
+            "cpu_seconds": 0.080776,
+            "peak_rss_kib": 34844,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.077439141,
+            "cpu_seconds": 0.077232,
+            "peak_rss_kib": 34648,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.077690393,
+            "cpu_seconds": 0.07757,
+            "peak_rss_kib": 27356,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.075775904,
+            "cpu_seconds": 0.075568,
+            "peak_rss_kib": 27484,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.072868408,
+            "cpu_seconds": 0.072726,
+            "peak_rss_kib": 27228,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.07625957,
+          "cpu_seconds": 0.076158,
+          "peak_rss_kib": 27444,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.128858028,
+          "cpu_seconds": 0.128722,
+          "peak_rss_kib": 26076,
+          "sampled_peak_working_file_bytes": 12600000
+        },
+        "after:disk": {
+          "seconds": 0.131861809,
+          "cpu_seconds": 0.13174,
+          "peak_rss_kib": 26100,
+          "sampled_peak_working_file_bytes": 12600000
+        },
+        "calamine:memory": {
+          "seconds": 0.077439141,
+          "cpu_seconds": 0.077232,
+          "peak_rss_kib": 34648,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.075775904,
+          "cpu_seconds": 0.075568,
+          "peak_rss_kib": 27356,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 10000,
+      "kind": "styled",
+      "source_sha256": "dec541403890ff4bc08f2f26e7a1385a099e53dfaa17b33d0615097bca192190",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.052066945,
+            "cpu_seconds": 0.051952,
+            "peak_rss_kib": 11828,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.049699009,
+            "cpu_seconds": 0.049527,
+            "peak_rss_kib": 11892,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.052256855,
+            "cpu_seconds": 0.052155,
+            "peak_rss_kib": 11828,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.050308699,
+            "cpu_seconds": 0.050035,
+            "peak_rss_kib": 11996,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.048001965,
+            "cpu_seconds": 0.04783,
+            "peak_rss_kib": 11740,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.050010512,
+            "cpu_seconds": 0.049906,
+            "peak_rss_kib": 11740,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.052066945,
+          "cpu_seconds": 0.051952,
+          "peak_rss_kib": 11828,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.050010512,
+          "cpu_seconds": 0.049906,
+          "peak_rss_kib": 11740,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "repeated-text",
+      "source_sha256": "c9429b840f61d4fbfc7fe4375239f83f2f35c083195165754dac18ec09e06b2c",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.375268406,
+            "cpu_seconds": 0.374968,
+            "peak_rss_kib": 68916,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.367977431,
+            "cpu_seconds": 0.367515,
+            "peak_rss_kib": 68916,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.366190509,
+            "cpu_seconds": 0.365905,
+            "peak_rss_kib": 68916,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.373723531,
+            "cpu_seconds": 0.373549,
+            "peak_rss_kib": 69084,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.373798733,
+            "cpu_seconds": 0.373481,
+            "peak_rss_kib": 68956,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.374140467,
+            "cpu_seconds": 0.373859,
+            "peak_rss_kib": 69084,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.38251306,
+            "cpu_seconds": 0.382217,
+            "peak_rss_kib": 69108,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.418771008,
+            "cpu_seconds": 0.418611,
+            "peak_rss_kib": 68916,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.372780664,
+            "cpu_seconds": 0.372572,
+            "peak_rss_kib": 69044,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.411434656,
+            "cpu_seconds": 0.411241,
+            "peak_rss_kib": 160648,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.440513299,
+            "cpu_seconds": 0.440049,
+            "peak_rss_kib": 160452,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.418171948,
+            "cpu_seconds": 0.417731,
+            "peak_rss_kib": 160708,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.39125614,
+            "cpu_seconds": 0.390799,
+            "peak_rss_kib": 68828,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.41297914,
+            "cpu_seconds": 0.412786,
+            "peak_rss_kib": 68828,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.371942837,
+            "cpu_seconds": 0.371757,
+            "peak_rss_kib": 68956,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.367977431,
+          "cpu_seconds": 0.367515,
+          "peak_rss_kib": 68916,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.373798733,
+          "cpu_seconds": 0.373549,
+          "peak_rss_kib": 69084,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "after:disk": {
+          "seconds": 0.38251306,
+          "cpu_seconds": 0.382217,
+          "peak_rss_kib": 69044,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "calamine:memory": {
+          "seconds": 0.418171948,
+          "cpu_seconds": 0.417731,
+          "peak_rss_kib": 160648,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.39125614,
+          "cpu_seconds": 0.390799,
+          "peak_rss_kib": 68828,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "unique-text",
+      "source_sha256": "3b3cbcf625c5085968c7d7837bb972227eced2cc322a96089cc2a07c285aea71",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.758781625,
+            "cpu_seconds": 0.758455,
+            "peak_rss_kib": 225204,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.706344566,
+            "cpu_seconds": 0.706075,
+            "peak_rss_kib": 225204,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.720357762,
+            "cpu_seconds": 0.720126,
+            "peak_rss_kib": 225268,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 1.270943262,
+            "cpu_seconds": 1.268011,
+            "peak_rss_kib": 209384,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.282020533,
+            "cpu_seconds": 1.280763,
+            "peak_rss_kib": 209500,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.313701596,
+            "cpu_seconds": 1.312614,
+            "peak_rss_kib": 209500,
+            "sampled_peak_working_file_bytes": 126000000
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 1.281650384,
+            "cpu_seconds": 1.281074,
+            "peak_rss_kib": 209460,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.273781289,
+            "cpu_seconds": 1.272445,
+            "peak_rss_kib": 209524,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.327356135,
+            "cpu_seconds": 1.326425,
+            "peak_rss_kib": 209524,
+            "sampled_peak_working_file_bytes": 126000000
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.746086323,
+            "cpu_seconds": 0.745506,
+            "peak_rss_kib": 309220,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.76983465,
+            "cpu_seconds": 0.769524,
+            "peak_rss_kib": 308956,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.724861808,
+            "cpu_seconds": 0.72405,
+            "peak_rss_kib": 308964,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.755692609,
+            "cpu_seconds": 0.754847,
+            "peak_rss_kib": 225224,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.777244693,
+            "cpu_seconds": 0.77677,
+            "peak_rss_kib": 225116,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.72207405,
+            "cpu_seconds": 0.721573,
+            "peak_rss_kib": 225244,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.720357762,
+          "cpu_seconds": 0.720126,
+          "peak_rss_kib": 225204,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 1.282020533,
+          "cpu_seconds": 1.280763,
+          "peak_rss_kib": 209500,
+          "sampled_peak_working_file_bytes": 126000000
+        },
+        "after:disk": {
+          "seconds": 1.281650384,
+          "cpu_seconds": 1.281074,
+          "peak_rss_kib": 209524,
+          "sampled_peak_working_file_bytes": 126000000
+        },
+        "calamine:memory": {
+          "seconds": 0.746086323,
+          "cpu_seconds": 0.745506,
+          "peak_rss_kib": 308964,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.755692609,
+          "cpu_seconds": 0.754847,
+          "peak_rss_kib": 225224,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "styled",
+      "source_sha256": "d07750234f68a6041909b53f19abbda50bca4b33c417dcdf62046fd26046f0a0",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.513102384,
+            "cpu_seconds": 0.512875,
+            "peak_rss_kib": 68852,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.497221385,
+            "cpu_seconds": 0.496762,
+            "peak_rss_kib": 68724,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.546569477,
+            "cpu_seconds": 0.546321,
+            "peak_rss_kib": 68852,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.508704961,
+            "cpu_seconds": 0.508379,
+            "peak_rss_kib": 68700,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.516646266,
+            "cpu_seconds": 0.516502,
+            "peak_rss_kib": 68572,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.518683126,
+            "cpu_seconds": 0.51832,
+            "peak_rss_kib": 68700,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.513102384,
+          "cpu_seconds": 0.512875,
+          "peak_rss_kib": 68852,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.516646266,
+          "cpu_seconds": 0.516502,
+          "peak_rss_kib": 68700,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    }
+  ],
+  "baseline_core_revision": "7160f140fa6ed9ed66d0f47d087b6e3ea3c1d061",
+  "candidate_patch": "diff --git a/crates/crabxl-core/src/cell_store.rs b/crates/crabxl-core/src/cell_store.rs\nindex be8ba72..fdd091c 100644\n--- a/crates/crabxl-core/src/cell_store.rs\n+++ b/crates/crabxl-core/src/cell_store.rs\n@@ -8,12 +8,17 @@ use std::{\n \n type Key = (u32, u32);\n const BLOCK_CELLS: usize = 128;\n+const BLOCK_BYTES: usize = 512;\n \n #[derive(Default)]\n pub(crate) struct CellStore {\n     blocks: BTreeMap<Key, Vec<Cell>>,\n     len: usize,\n     last: Option<Key>,\n+    slots: usize,\n+    tail_len: usize,\n+    tail_capacity: usize,\n+    tail_first: Option<Key>,\n }\n fn key(cell: &Cell) -> Key {\n     (cell.address.row.get(), cell.address.column.get())\n@@ -28,6 +33,62 @@ impl CellStore {\n     pub(crate) fn is_empty(&self) -> bool {\n         self.len == 0\n     }\n+    pub(crate) fn storage_bytes(&self) -> usize {\n+        self.slots\n+            .saturating_mul(size_of::<Cell>())\n+            .saturating_add(self.blocks.len().saturating_mul(BLOCK_BYTES))\n+    }\n+    #[inline(always)]\n+    pub(crate) fn insertion_growth(&self, target: Key) -> (usize, usize) {\n+        if self.last.is_none_or(|last| target > last) {\n+            return growth(self.tail_len, self.tail_capacity);\n+        }\n+        let Some((_, block)) = self.blocks.range(..=target).next_back() else {\n+            return self\n+                .blocks\n+                .first_key_value()\n+                .map_or(growth(0, 0), |(_, block)| {\n+                    growth(block.len(), block.capacity())\n+                });\n+        };\n+        match block.binary_search_by_key(&target, key) {\n+            Ok(_) => (0, 0),\n+            Err(index) if block.len() == BLOCK_CELLS => {\n+                if index == block.len() {\n+                    growth(0, 0)\n+                } else {\n+                    let capacity = if index < BLOCK_CELLS / 2 {\n+                        BLOCK_CELLS / 2\n+                    } else {\n+                        BLOCK_CELLS\n+                    };\n+                    let bytes = capacity * size_of::<Cell>();\n+                    (bytes + BLOCK_BYTES, bytes + BLOCK_BYTES)\n+                }\n+            }\n+            Err(_) => growth(block.len(), block.capacity()),\n+        }\n+    }\n+    pub(crate) fn append_growth(&self, count: usize) -> (usize, usize) {\n+        let (mut len, mut capacity) = (self.tail_len, self.tail_capacity);\n+        let mut retained = 0usize;\n+        let mut peak = 0usize;\n+        for _ in 0..count {\n+            let (delta, work) = growth(len, capacity);\n+            peak = peak.max(retained.saturating_add(work));\n+            retained = retained.saturating_add(delta);\n+            if len == 0 || len == BLOCK_CELLS {\n+                len = 1;\n+                capacity = 1;\n+            } else {\n+                if len == capacity {\n+                    capacity = next_capacity(capacity);\n+                }\n+                len += 1;\n+            }\n+        }\n+        (retained, peak)\n+    }\n     pub(crate) fn values(&self) -> impl DoubleEndedIterator<Item = &Cell> + Clone {\n         self.blocks.values().flat_map(|block| block.iter())\n     }\n@@ -73,14 +134,35 @@ impl CellStore {\n             .map(|index| &mut block[index])\n     }\n     pub(crate) fn insert(&mut self, target: Key, cell: Cell) -> Option<Cell> {\n+        if self.last.is_none_or(|last| target > last) {\n+            return self.insert_inner(target, cell);\n+        }\n+        let refresh_tail =\n+            self.blocks.len() == 1 || self.tail_first.is_none_or(|first| target >= first);\n+        let result = self.insert_inner(target, cell);\n+        if refresh_tail && let Some((first, block)) = self.blocks.last_key_value() {\n+            self.tail_first = Some(*first);\n+            self.tail_len = block.len();\n+            self.tail_capacity = block.capacity();\n+        }\n+        result\n+    }\n+    fn insert_inner(&mut self, target: Key, cell: Cell) -> Option<Cell> {\n         debug_assert_eq!(target, key(&cell));\n         if self.last.is_none_or(|last| target > last) {\n             if let Some(mut last) = self.blocks.last_entry()\n                 && last.get().len() < BLOCK_CELLS\n             {\n+                self.slots += reserve_growth(last.get_mut());\n                 last.get_mut().push(cell);\n+                self.tail_len = last.get().len();\n+                self.tail_capacity = last.get().capacity();\n             } else {\n                 self.blocks.insert(target, vec![cell]);\n+                self.slots += 1;\n+                self.tail_first = Some(target);\n+                self.tail_len = 1;\n+                self.tail_capacity = 1;\n             }\n             self.last = Some(target);\n             self.len += 1;\n@@ -96,10 +178,12 @@ impl CellStore {\n                 && first.get().len() < BLOCK_CELLS\n             {\n                 let (_, mut block) = first.remove_entry();\n+                self.slots += reserve_growth(&mut block);\n                 block.insert(0, cell);\n                 self.blocks.insert(target, block);\n             } else {\n                 self.blocks.insert(target, vec![cell]);\n+                self.slots += 1;\n             }\n             self.len += 1;\n             return None;\n@@ -114,37 +198,53 @@ impl CellStore {\n                 // Monotonic loading fills each block; do not split a complete\n                 // block into half-empty blocks merely to append its successor.\n                 self.blocks.insert(target, vec![cell]);\n+                self.slots += 1;\n             } else {\n-                let mut right = block.split_off(BLOCK_CELLS / 2);\n+                let capacity = if index < BLOCK_CELLS / 2 {\n+                    BLOCK_CELLS / 2\n+                } else {\n+                    BLOCK_CELLS\n+                };\n+                let mut right = Vec::with_capacity(capacity);\n+                right.extend(block.drain(BLOCK_CELLS / 2..));\n                 if index < BLOCK_CELLS / 2 {\n                     block.insert(index, cell);\n                 } else {\n                     right.insert(index - BLOCK_CELLS / 2, cell);\n                 }\n                 let right_key = key(&right[0]);\n+                self.slots += right.capacity();\n                 self.blocks.insert(right_key, right);\n             }\n         } else {\n+            self.slots += reserve_growth(block);\n             block.insert(index, cell);\n         }\n         self.len += 1;\n         None\n     }\n-    pub(crate) fn remove(&mut self, target: &Key) -> Option<Cell> {\n+    pub(crate) fn remove(&mut self, target: &Key, work_available: usize) -> Option<Cell> {\n         let first = self\n             .blocks\n             .range(..=*target)\n             .next_back()\n             .map(|(first, _)| *first)?;\n         let block = self.blocks.get_mut(&first)?;\n+        let old_capacity = block.capacity();\n         let index = block.binary_search_by_key(target, key).ok()?;\n         let removed = block.remove(index);\n         self.len -= 1;\n         if block.is_empty() {\n             self.blocks.remove(&first);\n+            self.slots -= old_capacity;\n         } else {\n-            if block.capacity() > block.len().saturating_mul(2) {\n+            // Shrink only when the old/new buffer overlap fits the caller's\n+            // existing operation headroom; removal itself never needs to fail.\n+            if block.capacity() > block.len().saturating_mul(2)\n+                && block.len().saturating_mul(size_of::<Cell>()) <= work_available\n+            {\n                 block.shrink_to_fit();\n+                self.slots -= old_capacity - block.capacity();\n             }\n             if index == 0 {\n                 let new_first = key(&block[0]);\n@@ -160,6 +260,15 @@ impl CellStore {\n                 .and_then(|(_, block)| block.last())\n                 .map(key);\n         }\n+        if let Some((first, block)) = self.blocks.last_key_value() {\n+            self.tail_first = Some(*first);\n+            self.tail_len = block.len();\n+            self.tail_capacity = block.capacity();\n+        } else {\n+            self.tail_first = None;\n+            self.tail_len = 0;\n+            self.tail_capacity = 0;\n+        }\n         Some(removed)\n     }\n     pub(crate) fn retain(&mut self, mut predicate: impl FnMut(&Key, &mut Cell) -> bool) {\n@@ -173,6 +282,30 @@ impl CellStore {\n         *self = retained;\n     }\n }\n+fn next_capacity(capacity: usize) -> usize {\n+    capacity.saturating_mul(2).clamp(4, BLOCK_CELLS)\n+}\n+fn growth(len: usize, capacity: usize) -> (usize, usize) {\n+    if len == 0 || len == BLOCK_CELLS {\n+        let bytes = size_of::<Cell>() + BLOCK_BYTES;\n+        (bytes, bytes)\n+    } else if len == capacity {\n+        let next = next_capacity(capacity);\n+        (\n+            (next - capacity) * size_of::<Cell>(),\n+            next * size_of::<Cell>(),\n+        )\n+    } else {\n+        (0, 0)\n+    }\n+}\n+fn reserve_growth(block: &mut Vec<Cell>) -> usize {\n+    let old = block.capacity();\n+    if block.len() == old {\n+        block.reserve_exact(next_capacity(old) - block.len());\n+    }\n+    block.capacity() - old\n+}\n pub(crate) struct IntoCells {\n     blocks: btree_map::IntoValues<Key, Vec<Cell>>,\n     current: vec::IntoIter<Cell>,\ndiff --git a/crates/crabxl-core/src/worksheet.rs b/crates/crabxl-core/src/worksheet.rs\nindex 9ba82db..665b101 100644\n--- a/crates/crabxl-core/src/worksheet.rs\n+++ b/crates/crabxl-core/src/worksheet.rs\n@@ -6,8 +6,10 @@ use crate::{\n };\n use std::collections::BTreeMap;\n \n-// Conservative node allowance, not a claim about std's private BTreeMap layout.\n+// Conservative structural staging allowance; retained blocks are charged\n+// separately. This is not a claim about std's private BTreeMap layout.\n const ENTRY_BYTES: usize = 256;\n+const STRUCTURAL_ROOT_BYTES: usize = 1024;\n \n /// Limits for one explicitly materialized editable sheet.\n #[derive(Clone, Copy, Debug)]\n@@ -287,7 +289,7 @@ impl Worksheet {\n             .range((index.get(), 0)..=(index.get(), u32::MAX))\n             .map(|(_, cell)| cell)\n     }\n-    /// Conservative charged bytes (256 per cell plus owned value/name payload).\n+    /// Conservative retained block capacity, tree allowances and value/name payload.\n     pub fn charged_bytes(&self) -> usize {\n         self.charged\n     }\n@@ -309,27 +311,48 @@ impl Worksheet {\n     }\n     /// Set one cell; budget failures leave the previous value unchanged.\n     pub fn set(&mut self, cell: Cell) -> Result<()> {\n-        let bytes = self.preflight_set(&cell)?;\n+        let (bytes, _) = self.plan_set(&cell)?;\n+        let storage = self.cells.storage_bytes();\n         self.append_cursor = self.append_cursor.max(cell.address.row.get() + 1);\n         self.cells.insert(key(cell.address), cell);\n-        self.charged = bytes;\n+        self.charged = bytes\n+            .saturating_sub(storage)\n+            .saturating_add(self.cells.storage_bytes());\n         self.dirty = true;\n         Ok(())\n     }\n     pub(crate) fn preflight_set(&self, cell: &Cell) -> Result<usize> {\n-        let old = self.get(cell.address).map_or(0, charge);\n+        self.plan_set(cell).map(|(_, peak)| peak)\n+    }\n+    #[inline(always)]\n+    fn plan_set(&self, cell: &Cell) -> Result<(usize, usize)> {\n+        let previous = self.get(cell.address);\n+        let old = previous.map_or(0, charge);\n+        let present = previous.is_some();\n+        let (growth, work) = self.cells.insertion_growth(key(cell.address));\n         let bytes = self\n             .charged\n             .saturating_sub(old)\n             .saturating_add(charge(cell));\n-        self.check(bytes, self.len().saturating_add(usize::from(old == 0)))?;\n-        Ok(bytes)\n+        let count = self.len().saturating_add(usize::from(!present));\n+        self.check(bytes.saturating_add(growth), count)?;\n+        let peak = bytes.saturating_add(work);\n+        self.check(peak, count)?;\n+        Ok((bytes, peak))\n     }\n     /// Remove a physical cell; existing append position is retained.\n     pub fn remove(&mut self, address: CellAddress) -> Option<Cell> {\n-        let cell = self.cells.remove(&key(address));\n+        let storage = self.cells.storage_bytes();\n+        let cell = self.cells.remove(\n+            &key(address),\n+            self.limits.max_bytes.saturating_sub(self.charged),\n+        );\n         if let Some(cell) = &cell {\n-            self.charged -= charge(cell);\n+            self.charged = self\n+                .charged\n+                .saturating_sub(charge(cell))\n+                .saturating_sub(storage)\n+                .saturating_add(self.cells.storage_bytes());\n             self.dirty = true;\n         }\n         cell\n@@ -349,17 +372,24 @@ impl Worksheet {\n         }\n         let bytes = values\n             .iter()\n-            .map(|value| ENTRY_BYTES.saturating_add(value.heap_bytes()))\n+            .map(CellValue::heap_bytes)\n             .fold(self.charged, usize::saturating_add);\n-        self.check(bytes, self.len().saturating_add(values.len()))?;\n-        Ok(bytes)\n+        let (growth, work) = self.cells.append_growth(values.len());\n+        let count = self.len().saturating_add(values.len());\n+        self.check(bytes.saturating_add(work), count)?;\n+        Ok(bytes.saturating_add(growth))\n     }\n     pub(crate) fn append_with_styles(\n         &mut self,\n         values: Vec<CellValue>,\n         style: impl Fn(&CellValue) -> StyleId,\n     ) -> Result<RowIndex> {\n-        let bytes = self.preflight_append(&values)?;\n+        self.preflight_append(&values)?;\n+        let payload = values\n+            .iter()\n+            .map(CellValue::heap_bytes)\n+            .fold(0usize, usize::saturating_add);\n+        let storage = self.cells.storage_bytes();\n         let index = RowIndex::new(self.append_cursor)?;\n         for (column, value) in values.into_iter().enumerate() {\n             let style = style(&value);\n@@ -370,7 +400,11 @@ impl Worksheet {\n             };\n             self.cells.insert(key(cell.address), cell);\n         }\n-        self.charged = bytes;\n+        self.charged = self\n+            .charged\n+            .saturating_sub(storage)\n+            .saturating_add(self.cells.storage_bytes())\n+            .saturating_add(payload);\n         self.append_cursor += 1;\n         self.dirty = true;\n         Ok(index)\n@@ -455,7 +489,7 @@ impl Worksheet {\n         })?;\n         let base = self\n             .charged\n-            .saturating_add(self.len().saturating_mul(ENTRY_BYTES))\n+            .saturating_add(self.cell_work_bytes())\n             .saturating_add(\n                 translated\n                     .capacity()\n@@ -530,7 +564,7 @@ impl Worksheet {\n             .filter(|cell| range.contains(cell.address));\n         let extra = selected\n             .clone()\n-            .map(charge)\n+            .map(|cell| ENTRY_BYTES.saturating_add(charge(cell)))\n             .fold(0usize, usize::saturating_add);\n         let count = selected.clone().count();\n         let removed = self\n@@ -645,16 +679,26 @@ impl Worksheet {\n         self.charged = self.name.len()\n             + self.view_bytes()\n             + self.print_bytes()\n+            + self.cells.storage_bytes()\n             + self.cells.values().map(charge).sum::<usize>();\n     }\n     fn work_allowance(&self, extra: usize) -> Result<()> {\n         self.check(\n             self.charged\n-                .saturating_add(self.len().saturating_mul(ENTRY_BYTES))\n+                .saturating_add(self.cell_work_bytes())\n                 .saturating_add(extra),\n             self.len(),\n         )\n     }\n+    fn cell_work_bytes(&self) -> usize {\n+        self.len()\n+            .saturating_mul(ENTRY_BYTES)\n+            .saturating_add(if self.is_empty() {\n+                0\n+            } else {\n+                STRUCTURAL_ROOT_BYTES\n+            })\n+    }\n     fn check(&self, bytes: usize, cells: usize) -> Result<()> {\n         if bytes > self.limits.max_bytes || cells > self.limits.max_cells {\n             return Err(budget());\n@@ -666,7 +710,7 @@ fn key(address: CellAddress) -> (u32, u32) {\n     (address.row.get(), address.column.get())\n }\n fn charge(cell: &Cell) -> usize {\n-    ENTRY_BYTES.saturating_add(cell.value.heap_bytes())\n+    cell.value.heap_bytes()\n }\n fn offset(address: CellAddress, rows: i32, columns: i32) -> Result<CellAddress> {\n     let row = i64::from(address.row.get()) + i64::from(rows);\n",
+  "comparison_worker_source": "//! Public-API comparison of editable Rust models and numeric cell streams.\nuse crabxl::{CellAddress, CellValue, LoadOptions, LoadedWorkbook, MemoryPolicy, WorkbookReader};\nuse std::{fs::File, path::Path, time::Instant};\n\nfn verify_text(text: &str, index: usize, unique: usize) -> Result<i64, Box<dyn std::error::Error>> {\n    if unique == 0 || text != format!(\"item-{:08}-{}\", index % unique, \"x\".repeat(96)) {\n        return Err(\"Text model value/order mismatch\".into());\n    }\n    Ok(text.len() as i64)\n}\n\nfn verify_styled(cell: &crabxl::Cell, index: usize) -> Result<(), Box<dyn std::error::Error>> {\n    let row = index / 10;\n    let column = index % 10;\n    if cell.address.row.get() as usize != row || cell.address.column.get() as usize != column {\n        return Err(\"Styled model coordinate mismatch\".into());\n    }\n    let expected_style = match column {\n        1 | 2 | 4 | 7 => 1,\n        3 => 2,\n        _ => 0,\n    };\n    if cell.style.get() != expected_style {\n        return Err(\"Styled model identity mismatch\".into());\n    }\n    let valid = match (column, &cell.value) {\n        (0 | 9, CellValue::Number(value)) => *value == 1.25,\n        (1 | 7, CellValue::DateTime(value)) => {\n            value.kind() == crabxl::DateKind::DateTime\n                && value.serial() == 45292.25 + (row % 365) as f64\n        }\n        (2, CellValue::DateTime(value)) => {\n            value.kind() == crabxl::DateKind::Time && value.serial() == 0.5\n        }\n        (3, CellValue::DateTime(value)) => {\n            value.kind() == crabxl::DateKind::Duration && value.serial() == (row % 101) as f64 / 4.0\n        }\n        (4, CellValue::Boolean(value)) => *value == !row.is_multiple_of(2),\n        (5, CellValue::Text(value)) => value.as_str() == format!(\"styled-{row:08}\"),\n        (6, CellValue::Error(value)) => value.as_str() == \"#DIV/0!\",\n        (8, CellValue::Integer(value)) => *value == row as i64,\n        _ => false,\n    };\n    if !valid {\n        return Err(\"Styled model value mismatch\".into());\n    }\n    Ok(())\n}\n\nfn main() -> Result<(), Box<dyn std::error::Error>> {\n    let args: Vec<String> = std::env::args().collect();\n    let input = Path::new(args.get(1).ok_or(\"Missing input path\")?);\n    let mode = args.get(2).ok_or(\"Missing comparison mode\")?;\n    let target = args.get(3).map(Path::new);\n    let start = Instant::now();\n    let mut count = 0usize;\n    let mut checksum = 0i64;\n    let mut sheets = 0usize;\n    let mut output_bytes = 0u64;\n    let mut sum = |value: i64| {\n        count += 1;\n        checksum = checksum\n            .checked_add(value)\n            .expect(\"Generated checksum fits i64\");\n    };\n    if mode.starts_with(\"write-text-\") {\n        let rows = args\n            .get(4)\n            .ok_or(\"Missing text row count\")?\n            .parse::<u32>()?;\n        let output = target.ok_or(\"Missing text output path\")?;\n        let value = |row: u32, column: u32| {\n            format!(\"{row}:{column}:\")\n                + &\"plain \\u{6587}\\u{5b57} caf\\u{e9} &<> \\\"'\\t\\r\\n \".repeat(4)\n        };\n        if mode == \"write-text-crabxl-stream\" {\n            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;\n            writer.start_sheet(\"Sheet\")?;\n            let mut cells = crabxl::Row::new(crabxl::RowIndex::new(0)?);\n            for row in 0..rows {\n                cells.index = crabxl::RowIndex::new(row)?;\n                cells.cells.clear();\n                for column in 0..10 {\n                    let text = value(row, column);\n                    sum(text.len() as i64);\n                    cells.cells.push(crabxl::Cell {\n                        address: CellAddress::new(row, column)?,\n                        value: CellValue::text(text.into_boxed_str()),\n                        style: crabxl::StyleId::new(0),\n                    });\n                }\n                writer.write_row(&cells)?;\n            }\n            writer.finish(File::create(output)?)?;\n        } else if mode == \"write-text-crabxl-model\" {\n            let mut book = crabxl::Workbook::new(crabxl::WorkbookLimits {\n                max_bytes: 1024 * 1024 * 1024,\n                sheet: crabxl::EditLimits {\n                    max_bytes: 1024 * 1024 * 1024,\n                    ..Default::default()\n                },\n                ..Default::default()\n            })?;\n            let id = book.create_sheet(\"Sheet\")?;\n            {\n                let mut sheet = book.sheet_mut(id)?;\n                for row in 0..rows {\n                    for column in 0..10 {\n                        let text = value(row, column);\n                        sum(text.len() as i64);\n                        sheet.set(crabxl::Cell {\n                            address: CellAddress::new(row, column)?,\n                            value: CellValue::text(text.into_boxed_str()),\n                            style: crabxl::StyleId::new(0),\n                        })?;\n                    }\n                }\n            }\n            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;\n            writer.write_workbook(&book)?;\n            writer.finish(File::create(output)?)?;\n        } else if matches!(\n            mode.as_str(),\n            \"write-text-rust_xlsxwriter-normal\" | \"write-text-rust_xlsxwriter-constant\"\n        ) {\n            let mut book = rust_xlsxwriter::Workbook::new();\n            let sheet = if mode.ends_with(\"constant\") {\n                book.add_worksheet_with_constant_memory()\n            } else {\n                book.add_worksheet()\n            };\n            sheet.set_name(\"Sheet\")?;\n            for row in 0..rows {\n                for column in 0..10 {\n                    let text = value(row, column);\n                    sum(text.len() as i64);\n                    sheet.write_string(row, column as u16, text)?;\n                }\n            }\n            book.save(output)?;\n        } else {\n            return Err(\"Unknown text write mode\".into());\n        }\n        sheets = 1;\n        output_bytes = std::fs::metadata(output)?.len();\n    } else if mode.starts_with(\"write-\") {\n        let rows = args\n            .get(4)\n            .ok_or(\"Write mode requires row count\")?\n            .parse::<u32>()?;\n        let output = target.ok_or(\"Write mode requires output\")?;\n        if matches!(\n            mode.as_str(),\n            \"write-rust_xlsxwriter-normal\" | \"write-rust_xlsxwriter-constant\"\n        ) {\n            let mut book = rust_xlsxwriter::Workbook::new();\n            let sheet = if mode.ends_with(\"constant\") {\n                book.add_worksheet_with_constant_memory()\n            } else {\n                book.add_worksheet()\n            };\n            sheet.set_name(\"Sheet\")?;\n            for row in 0..rows {\n                for column in 0..10u16 {\n                    sheet.write_number(row, column, f64::from(row) * 10.0 + f64::from(column))?;\n                }\n            }\n            book.save(output)?;\n        } else if mode == \"write-crabxl-stream\" {\n            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;\n            writer.start_sheet(\"Sheet\")?;\n            let mut cells = crabxl::Row::new(crabxl::RowIndex::new(0)?);\n            for row in 0..rows {\n                cells.index = crabxl::RowIndex::new(row)?;\n                cells.cells.clear();\n                for column in 0..10 {\n                    cells.cells.push(crabxl::Cell {\n                        address: CellAddress::new(row, column)?,\n                        value: CellValue::Integer(i64::from(row) * 10 + i64::from(column)),\n                        style: crabxl::StyleId::new(0),\n                    });\n                }\n                writer.write_row(&cells)?;\n            }\n            writer.finish(File::create(output)?)?;\n        } else if matches!(\n            mode.as_str(),\n            \"write-crabxl-model\" | \"write-crabxl-reverse-model\"\n        ) {\n            let mut book = crabxl::Workbook::new(crabxl::WorkbookLimits {\n                max_bytes: 1024 * 1024 * 1024,\n                sheet: crabxl::EditLimits {\n                    max_bytes: 1024 * 1024 * 1024,\n                    ..Default::default()\n                },\n                ..Default::default()\n            })?;\n            let id = book.create_sheet(\"Sheet\")?;\n            {\n                let mut sheet = book.sheet_mut(id)?;\n                for row_offset in 0..rows {\n                    let row = if mode == \"write-crabxl-reverse-model\" {\n                        rows - row_offset - 1\n                    } else {\n                        row_offset\n                    };\n                    for column_offset in 0..10 {\n                        let column = if mode == \"write-crabxl-reverse-model\" {\n                            9 - column_offset\n                        } else {\n                            column_offset\n                        };\n                        sheet.set(crabxl::Cell {\n                            address: CellAddress::new(row, column)?,\n                            value: CellValue::Integer(i64::from(row) * 10 + i64::from(column)),\n                            style: crabxl::StyleId::new(0),\n                        })?;\n                    }\n                }\n            }\n            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;\n            writer.write_workbook(&book)?;\n            writer.finish(File::create(output)?)?;\n        } else if mode == \"write-umya-model\" {\n            let mut book = umya_spreadsheet::new_file();\n            book.sheet_mut(0)?.set_name(\"Sheet\");\n            let sheet = book.sheet_mut(0)?;\n            for row in 0..rows {\n                for column in 0..10 {\n                    sheet\n                        .cell_mut((column + 1, row + 1))\n                        .set_value_number(f64::from(row) * 10.0 + f64::from(column));\n                }\n            }\n            umya_spreadsheet::writer::xlsx::write(&book, output)?;\n        } else {\n            return Err(\"Unknown write comparison mode\".into());\n        }\n        count = rows as usize * 10;\n        checksum = (count as i64) * (count as i64 - 1) / 2;\n        sheets = 1;\n        output_bytes = std::fs::metadata(output)?.len();\n    } else if mode == \"calamine-text-model\" {\n        use calamine::{Data, Reader};\n        let unique: usize = args.get(4).ok_or(\"Missing unique count\")?.parse()?;\n        let mut book: calamine::Xlsx<_> = calamine::open_workbook(input)?;\n        let mut ranges = Vec::new();\n        for name in book.sheet_names() {\n            let range = book.worksheet_range(&name)?;\n            for (_, _, value) in range.used_cells() {\n                let Data::String(text) = value else {\n                    return Err(\"Expected text\".into());\n                };\n                checksum += verify_text(text, count, unique)?;\n                count += 1;\n            }\n            sheets += 1;\n            ranges.push(range);\n        }\n        std::hint::black_box(&ranges);\n    } else if mode.starts_with(\"calamine-\") {\n        use calamine::{Data, DataRef, Reader};\n        let mut book: calamine::Xlsx<_> = calamine::open_workbook(input)?;\n        let names = book.sheet_names();\n        sheets = names.len();\n        let mut retained_ranges = Vec::new();\n        for name in names {\n            if mode == \"calamine-stream\" {\n                let mut cells = book.worksheet_cells_reader(&name)?;\n                while let Some(cell) = cells.next_cell()? {\n                    let value = match cell.get_value() {\n                        DataRef::Int(value) => *value,\n                        DataRef::Float(value) if value.fract() == 0.0 => *value as i64,\n                        _ => return Err(\"Expected numeric input\".into()),\n                    };\n                    sum(value);\n                }\n            } else if mode == \"calamine-range\" || mode == \"calamine-model\" {\n                let range = book.worksheet_range(&name)?;\n                for cell in range.used_cells() {\n                    let value = match cell.2 {\n                        Data::Int(value) => *value,\n                        Data::Float(value) if value.fract() == 0.0 => *value as i64,\n                        _ => return Err(\"Expected numeric input\".into()),\n                    };\n                    sum(value);\n                }\n                if mode == \"calamine-model\" {\n                    retained_ranges.push(range);\n                }\n            } else {\n                return Err(\"Unknown calamine mode\".into());\n            }\n        }\n        // Explicitly keep all returned ranges alive through complete traversal.\n        std::hint::black_box(&retained_ranges);\n    } else if mode.starts_with(\"umya-\") {\n        if mode == \"umya-stream\" {\n            // These are the two declarations emitted by workbook_demo.\n            for name in [\"Copy\", \"Renamed\"] {\n                umya_spreadsheet::reader::xlsx::read_sheet_by_name_stream(input, name, |cell| {\n                    let value = cell.value_number().expect(\"Generated numeric input\");\n                    assert_eq!(value.fract(), 0.0);\n                    sum(value as i64);\n                })?;\n                sheets += 1;\n            }\n        } else {\n            let mut book = if mode.starts_with(\"umya-lazy\") {\n                umya_spreadsheet::reader::xlsx::lazy_read(input)?\n            } else {\n                umya_spreadsheet::reader::xlsx::read(input)?\n            };\n            sheets = book.sheet_count();\n            if mode != \"umya-lazy\" {\n                book.read_sheet_collection();\n                for sheet in book.sheet_collection() {\n                    // Use the supported unordered public collection API.\n                    for cell in sheet.cells() {\n                        let value = cell.value_number().ok_or(\"Expected numeric input\")?;\n                        if value.fract() != 0.0 {\n                            return Err(\"Expected integer values\".into());\n                        }\n                        sum(value as i64);\n                    }\n                }\n                if mode.ends_with(\"edit\") {\n                    book.sheet_mut(0)?.cell_mut(\"A1\").set_value_number(42);\n                    let target = target.ok_or(\"Edit mode requires output\")?;\n                    umya_spreadsheet::writer::xlsx::write(&book, target)?;\n                    output_bytes = std::fs::metadata(target)?.len();\n                }\n            }\n        }\n    } else if mode == \"crabxl-text-model\" || mode == \"crabxl-styled-model\" {\n        let unique: usize = args.get(4).ok_or(\"Missing unique count\")?.parse()?;\n        let storage = match args.get(5).map(String::as_str).unwrap_or(\"memory\") {\n            \"memory\" => crabxl::SharedStringStorage::Memory,\n            \"disk\" => crabxl::SharedStringStorage::Disk,\n            _ => return Err(\"Invalid SST policy\".into()),\n        };\n        let maximum = 1024 * 1024 * 1024;\n        let mut book = LoadedWorkbook::with_options(\n            File::open(input)?,\n            LoadOptions {\n                memory_policy: MemoryPolicy::Budget(maximum),\n                resources: crabxl::ResourceLimits {\n                    max_materialized_bytes: maximum,\n                    ..Default::default()\n                },\n                workbook: crabxl::WorkbookLimits {\n                    max_bytes: maximum,\n                    sheet: crabxl::EditLimits {\n                        max_bytes: maximum,\n                        ..Default::default()\n                    },\n                    ..Default::default()\n                },\n                read: crabxl::ReadOptions {\n                    data_only: true,\n                    ..Default::default()\n                },\n                shared_strings: crabxl::SharedStringOptions {\n                    storage,\n                    memory_policy: MemoryPolicy::Budget(256 * 1024 * 1024),\n                    cache_bytes: 1024 * 1024,\n                    temp_directory: target.and_then(Path::parent).map(Path::to_owned),\n                    ..Default::default()\n                },\n                ..Default::default()\n            },\n        )?;\n        let ids = book.model().sheets().map(|(id, _)| id).collect::<Vec<_>>();\n        for id in ids {\n            for cell in book.sheet(id)?.cells() {\n                if mode == \"crabxl-text-model\" {\n                    let CellValue::Text(text) = &cell.value else {\n                        return Err(\"Expected text\".into());\n                    };\n                    checksum += verify_text(text.as_str(), count, unique)?;\n                } else {\n                    verify_styled(cell, count)?;\n                    checksum += 1;\n                }\n                count += 1;\n            }\n            sheets += 1;\n        }\n    } else if mode == \"crabxl-stream\" {\n        let mut reader = WorkbookReader::open(input)?;\n        let names: Vec<_> = reader\n            .sheets()\n            .iter()\n            .map(|s| s.name().to_owned())\n            .collect();\n        for name in names {\n            let mut rows = reader.rows(&name)?;\n            let mut row = crabxl::Row::new(crabxl::RowIndex::new(0)?);\n            while rows.read_row_into(&mut row)? {\n                for cell in &row.cells {\n                    let CellValue::Integer(value) = cell.value else {\n                        return Err(\"Expected numeric input\".into());\n                    };\n                    sum(value);\n                }\n            }\n            sheets += 1;\n        }\n    } else if matches!(\n        mode.as_str(),\n        \"crabxl-model\" | \"crabxl-edit\" | \"crabxl-lazy\"\n    ) {\n        let mut book = LoadedWorkbook::with_options(\n            File::open(input)?,\n            LoadOptions {\n                memory_policy: MemoryPolicy::Budget(1024 * 1024 * 1024),\n                workbook: crabxl::WorkbookLimits {\n                    max_bytes: 1024 * 1024 * 1024,\n                    sheet: crabxl::EditLimits {\n                        max_bytes: 512 * 1024 * 1024,\n                        ..Default::default()\n                    },\n                    ..Default::default()\n                },\n                ..LoadOptions::default()\n            },\n        )?;\n        let ids: Vec<_> = book.model().sheets().map(|(id, _)| id).collect();\n        sheets = ids.len();\n        if mode != \"crabxl-lazy\" {\n            for id in ids.iter().copied() {\n                for cell in book.sheet(id)?.cells() {\n                    let CellValue::Integer(value) = cell.value else {\n                        return Err(\"Expected numeric input\".into());\n                    };\n                    sum(value);\n                }\n            }\n            if mode == \"crabxl-edit\" {\n                book.set_value(ids[0], CellAddress::new(0, 0)?, CellValue::Integer(42))?;\n                let target = target.ok_or(\"Edit mode requires output\")?;\n                book.save_path(target, crabxl::SaveOptions::default())?;\n                output_bytes = std::fs::metadata(target)?.len();\n            }\n        }\n    } else {\n        return Err(\"Unknown comparison mode\".into());\n    }\n    println!(\n        \"{{\\\"cells\\\":{count},\\\"checksum\\\":{checksum},\\\"sheets\\\":{sheets},\\\"output_bytes\\\":{output_bytes},\\\"operation_seconds\\\":{}}}\",\n        start.elapsed().as_secs_f64()\n    );\n    Ok(())\n}\n",
+  "comparison_worker_sha256": "e9f09fcdcec3a0d054748f794e0cad04994c2d61df014dc7daa982d67bab4fe0",
+  "decision": "ACCEPTED resource improvement: large read cost preserved, about 4-5 percent per-cell model creation overhead; small timings mixed, no physical RSS reduction claimed",
+  "refinement": {
+    "initial_numeric_medians": {
+      "write-crabxl-reverse-model": {
+        "seconds": 1.161050312,
+        "cpu_seconds": 1.16035,
+        "peak_rss_kib": 37084,
+        "sampled_peak_working_file_bytes": 35773024,
+        "output_bytes": 2942935
+      },
+      "crabxl-model": {
+        "seconds": 0.484706764,
+        "cpu_seconds": 0.48399,
+        "peak_rss_kib": 69300,
+        "sampled_peak_working_file_bytes": 0
+      },
+      "calamine-model": {
+        "seconds": 0.492731522,
+        "cpu_seconds": 0.492448,
+        "peak_rss_kib": 106248,
+        "sampled_peak_working_file_bytes": 0
+      },
+      "crabxl-edit": {
+        "seconds": 2.89202872,
+        "cpu_seconds": 2.890451,
+        "peak_rss_kib": 69984,
+        "sampled_peak_working_file_bytes": 5849781,
+        "output_bytes": 5887428
+      },
+      "before:write-crabxl-model": {
+        "seconds": 0.944737728,
+        "cpu_seconds": 0.942216,
+        "peak_rss_kib": 37120,
+        "sampled_peak_working_file_bytes": 35773024,
+        "output_bytes": 2942935
+      },
+      "before:write-crabxl-reverse-model": {
+        "seconds": 1.102579087,
+        "cpu_seconds": 1.101032,
+        "peak_rss_kib": 37120,
+        "sampled_peak_working_file_bytes": 35794633,
+        "output_bytes": 2942935
+      },
+      "before:crabxl-model": {
+        "seconds": 0.4820984,
+        "cpu_seconds": 0.481323,
+        "peak_rss_kib": 69212,
+        "sampled_peak_working_file_bytes": 0
+      },
+      "before:calamine-model": {
+        "seconds": 0.506468606,
+        "cpu_seconds": 0.506202,
+        "peak_rss_kib": 106164,
+        "sampled_peak_working_file_bytes": 0
+      },
+      "before:crabxl-edit": {
+        "seconds": 2.969781028,
+        "cpu_seconds": 2.967651,
+        "peak_rss_kib": 70020,
+        "sampled_peak_working_file_bytes": 5871387,
+        "output_bytes": 5887428
+      },
+      "write-crabxl-model": {
+        "seconds": 0.954888263,
+        "cpu_seconds": 0.954705,
+        "peak_rss_kib": 37076,
+        "sampled_peak_working_file_bytes": 35773024,
+        "output_bytes": 2942935
+      }
+    },
+    "cache_numeric_medians": {
+      "write-crabxl-reverse-model": {
+        "seconds": 1.179189395,
+        "cpu_seconds": 1.177774,
+        "peak_rss_kib": 37144,
+        "sampled_peak_working_file_bytes": 35773024,
+        "output_bytes": 2942935
+      },
+      "crabxl-model": {
+        "seconds": 0.514637407,
+        "cpu_seconds": 0.514084,
+        "peak_rss_kib": 69300,
+        "sampled_peak_working_file_bytes": 0
+      },
+      "calamine-model": {
+        "seconds": 0.505206283,
+        "cpu_seconds": 0.504984,
+        "peak_rss_kib": 106072,
+        "sampled_peak_working_file_bytes": 0
+      },
+      "crabxl-edit": {
+        "seconds": 3.057858484,
+        "cpu_seconds": 3.057523,
+        "peak_rss_kib": 69988,
+        "sampled_peak_working_file_bytes": 5849781,
+        "output_bytes": 5887428
+      },
+      "before:write-crabxl-model": {
+        "seconds": 0.958438917,
+        "cpu_seconds": 0.958315,
+        "peak_rss_kib": 37120,
+        "sampled_peak_working_file_bytes": 35773024,
+        "output_bytes": 2942935
+      },
+      "before:write-crabxl-reverse-model": {
+        "seconds": 1.125553398,
+        "cpu_seconds": 1.124137,
+        "peak_rss_kib": 37120,
+        "sampled_peak_working_file_bytes": 35773024,
+        "output_bytes": 2942935
+      },
+      "before:crabxl-model": {
+        "seconds": 0.491184825,
+        "cpu_seconds": 0.490459,
+        "peak_rss_kib": 69212,
+        "sampled_peak_working_file_bytes": 0
+      },
+      "before:calamine-model": {
+        "seconds": 0.517764925,
+        "cpu_seconds": 0.517597,
+        "peak_rss_kib": 106036,
+        "sampled_peak_working_file_bytes": 0
+      },
+      "before:crabxl-edit": {
+        "seconds": 2.999795427,
+        "cpu_seconds": 2.997938,
+        "peak_rss_kib": 69960,
+        "sampled_peak_working_file_bytes": 5871387,
+        "output_bytes": 5887428
+      },
+      "write-crabxl-model": {
+        "seconds": 0.990977985,
+        "cpu_seconds": 0.990754,
+        "peak_rss_kib": 37084,
+        "sampled_peak_working_file_bytes": 35773024,
+        "output_bytes": 2942935
+      }
+    },
+    "initial_profile_observed_samples": 299,
+    "initial_profile_text": "Using local file benchmarks/umya/target/release/editable-core-comparison.\nUsing local file /tmp/crabxl-a8-capacity-profile/reverse.profile.\nTotal: 299 samples\n     167  55.9%  55.9%      167  55.9% zlib_rs::deflate::longest_match::longest_match\n      21   7.0%  62.9%      192  64.2% zlib_rs::deflate::algorithm::medium::deflate_medium\n      12   4.0%  66.9%       12   4.0% ::find_leaf_edges_spanning_range::\n      10   3.3%  70.2%       10   3.3% 0x00007fdaf28b2687\n       8   2.7%  72.9%      202  67.6% ::write\n       8   2.7%  75.6%       31  10.4% crabxl_xlsx::encode::encode_cells::\n       6   2.0%  77.6%       41  13.7% ::insert\n       4   1.3%  78.9%        4   1.3% 0x00007fdaf299eaf2\n       4   1.3%  80.3%        4   1.3% 0x00007fdaf299eb59\n       4   1.3%  81.6%       11   3.7% ::remove_leaf_kv::\n       3   1.0%  82.6%        3   1.0% 0x00007fdaf28c5724\n       3   1.0%  83.6%       11   3.7% ::fmt\n       3   1.0%  84.6%        6   2.0% ::get\n       3   1.0%  85.6%        4   1.3% ::pad_integral\n       3   1.0%  86.6%       16   5.4% core::fmt::write\n       3   1.0%  87.6%        3   1.0% zlib_rs::deflate::flush_block_only\n       2   0.7%  88.3%        2   0.7% 0x00007fdaf299eaea\n       2   0.7%  89.0%        2   0.7% 0x00007fdaf299eb61\n       2   0.7%  89.6%        2   0.7% 0x00007fdaf299ed62\n       2   0.7%  90.3%        2   0.7% ::fold::\n       2   0.7%  91.0%       13   4.3% ::remove_kv\n       2   0.7%  91.6%       57  19.1% ::set\n       2   0.7%  92.3%        2   0.7% core::ptr::drop_glue::@48f030\n       2   0.7%  93.0%        2   0.7% crabxl_xlsx::encode::validate_value\n       1   0.3%  93.3%        1   0.3% 0x00007fdaf28c50f8\n       1   0.3%  93.6%        1   0.3% 0x00007fdaf299eac3\n       1   0.3%  94.0%        1   0.3% 0x00007fdaf299eacf\n       1   0.3%  94.3%        1   0.3% 0x00007fdaf299eb4b\n       1   0.3%  94.6%        1   0.3% 0x00007fdaf299eb98\n       1   0.3%  95.0%        1   0.3% 0x00007fdaf299ed69\n       1   0.3%  95.3%        1   0.3% 0x00007fdaf299ed6f\n       1   0.3%  95.7%        1   0.3% 0x00007fdaf299ed84\n       1   0.3%  96.0%        1   0.3% 0x00007fdaf299ed8b\n       1   0.3%  96.3%        1   0.3% 0x00007fdaf299ed91\n       1   0.3%  96.7%        1   0.3% 0x00007fdaf299eda3\n       1   0.3%  97.0%        7   2.3% ::insertion_growth\n       1   0.3%  97.3%        1   0.3% ::merge_tracking_child_edge::\n       1   0.3%  97.7%        1   0.3% ::pad_integral::write_prefix\n       1   0.3%  98.0%       13   4.3% ::preflight_set\n       1   0.3%  98.3%        1   0.3% ::resolved_style\n       1   0.3%  98.7%        6   2.0% ::write_str\n       1   0.3%  99.0%       40  13.4% ::write_worksheet\n       1   0.3%  99.3%       16   5.4% core::io::write::default_write_fmt::\n       1   0.3%  99.7%        1   0.3% crc32fast::specialized::pclmulqdq::calculate_avx512\n       1   0.3% 100.0%      299 100.0% editable_core_comparison::main\n       0   0.0% 100.0%      299 100.0% 0x00007fdaf284cca7\n       0   0.0% 100.0%      299 100.0% 0x00007fdaf284cd64\n       0   0.0% 100.0%       10   3.3% 0x00007fdaf28b26ac\n       0   0.0% 100.0%        1   0.3% 0x00007fdaf28c5469\n       0   0.0% 100.0%        4   1.3% 0x00007fdaf28c6825\n       0   0.0% 100.0%        5   1.7% 0x00007fdaf2926ee5\n       0   0.0% 100.0%        5   1.7% 0x00007fdaf2927975\n       0   0.0% 100.0%      192  64.2% ::compress_uninit\n       0   0.0% 100.0%      199  66.6% ::copy_to::\n       0   0.0% 100.0%        2   0.7% ::drop\n       0   0.0% 100.0%      199  66.6% ::finish::\n       0   0.0% 100.0%        4   1.3% ::finish_grow\n       0   0.0% 100.0%        4   1.3% ::flush_buf\n       0   0.0% 100.0%        9   3.0% ::insert_recursing::\n       0   0.0% 100.0%        1   0.3% ::range\n       0   0.0% 100.0%       11   3.7% ::remove_kv_tracking::\n       0   0.0% 100.0%        1   0.3% ::row_cells\n       0   0.0% 100.0%      194  64.9% ::write_all\n       0   0.0% 100.0%        4   1.3% ::write_all_cold\n       0   0.0% 100.0%      193  64.5% ::write_with_status\n       0   0.0% 100.0%       40  13.4% ::write_workbook\n       0   0.0% 100.0%      299 100.0% _start\n       0   0.0% 100.0%        1   0.3% alloc::fmt::format::format_inner\n       0   0.0% 100.0%        2   0.7% core::ptr::drop_glue::@448be0\n       0   0.0% 100.0%        2   0.7% core::ptr::drop_glue::@48f140\n       0   0.0% 100.0%      299 100.0% core::result::Result>\n       0   0.0% 100.0%      299 100.0% main\n       0   0.0% 100.0%      299 100.0% std::rt::lang_start::::{closure#0}\n       0   0.0% 100.0%      299 100.0% std::rt::lang_start_internal\n       0   0.0% 100.0%      192  64.2% zlib_rs::deflate::deflate\n       0   0.0% 100.0%        1   0.3% zlib_rs::deflate::fill_window\n       0   0.0% 100.0%        1   0.3% zlib_rs::deflate::read_buf_window\n",
+    "cache_helper_symbol_bytes": {
+      "plan_set": 270,
+      "insertion_growth": 799
+    },
+    "changes": "Reuse cell plan and relevant tail metadata; inline both checked plan helpers; retain per-cell structural staging with a bounded root reservation; shrink only within operation headroom."
+  }
+}
