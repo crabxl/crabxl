@@ -154,5 +154,6 @@ The source-backed bank now supports worksheet creation, copy and removal with
 synchronized package identities, requested model duplication, detached ownership
 transfer and repeat saves (ADRs 0073-0075). Unknown/shared owners, local-name scopes,
 linked VBA projects and unmodeled workbook identity graphs retain explicit M5/M6
-rejection and follow-up tracking. Python removal and final staged A7 acceptance
-remain open; these checkpoints do not close deferred M4 graph interactions.
+rejection and follow-up tracking. Source-backed physical-cell deletion now uses
+the same guarded model coordinator and leaves missing-cell removals unchanged.
+Final staged A7 acceptance remains open; these checkpoints do not close deferred M4 graph interactions.
