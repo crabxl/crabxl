@@ -155,6 +155,7 @@ pub struct WorkbookWriter {
     view_index: Option<i64>,
     sheets: Vec<StoredSheet>,
     styles: Option<StyleRegistry>,
+    canonical_styles: bool,
     date_styles: DateStyleIds,
     active: Option<ActiveSheet>,
     paused: Vec<ActiveSheet>,
@@ -203,13 +204,16 @@ impl WorkbookWriter {
                 crate::ThemeWritePolicy::Custom(theme)
             };
         }
+        let canonical_styles = parts.styles.is_some();
         let source = parts
             .styles
             .map_or(StyleSource::Default, StyleSource::Registry);
         let mut writer = Self::new_with_styles(options, source)?;
+        writer.canonical_styles = canonical_styles;
         for sheet in parts.sheets {
             writer.write_worksheet(&sheet)?;
         }
+        writer.canonical_styles = false;
         Ok(writer)
     }
     fn new_with_styles(options: WriteOptions, source: StyleSource) -> Result<Self> {
@@ -281,6 +285,7 @@ impl WorkbookWriter {
             options,
             sheets: Vec::new(),
             styles: Some(styles),
+            canonical_styles: false,
             date_styles,
             active: None,
             paused: Vec::new(),
@@ -820,10 +825,16 @@ impl WorkbookWriter {
         self.options.active_sheet = workbook
             .active_index()
             .ok_or_else(|| state("Workbook has no active sheet"))?;
-        for (_, sheet) in workbook.sheets() {
-            self.write_worksheet(sheet)?;
-        }
-        Ok(())
+        let original = self.canonical_styles;
+        self.canonical_styles = workbook.style_catalog().is_some();
+        let result = (|| {
+            for (_, sheet) in workbook.sheets() {
+                self.write_worksheet(sheet)?;
+            }
+            Ok(())
+        })();
+        self.canonical_styles = original;
+        result
     }
     fn write_cells<'a>(
         &mut self,
@@ -843,19 +854,25 @@ impl WorkbookWriter {
             .options
             .max_metadata_bytes
             .saturating_sub(self.catalog_bytes());
+        let styles = self
+            .styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?;
+        let context = if self.canonical_styles {
+            StyleContext::Canonical(styles.catalog())
+        } else {
+            StyleContext::Registry {
+                registry: styles,
+                maximum: style_allowance,
+            }
+        };
         encode_cells(
             &mut self.row_buffer,
             index,
             cells.clone(),
             self.options.max_cell_bytes,
             self.options.max_row_cells,
-            StyleContext::Registry {
-                registry: self
-                    .styles
-                    .as_mut()
-                    .ok_or_else(|| state("Writer style catalog is released"))?,
-                maximum: style_allowance,
-            },
+            context,
             ValueEncoding {
                 epoch: if self.options.date_1904 {
                     DateEpoch::Mac1904

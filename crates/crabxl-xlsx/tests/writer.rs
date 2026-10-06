@@ -2376,6 +2376,32 @@ fn default_owned_temporal_catalog_supports_repeated_borrowed_saves_without_reint
         .unwrap();
     book.sheet_mut(sheet)
         .unwrap()
+        .set_style("A1".parse().unwrap(), crabxl_core::StyleId::new(0))
+        .unwrap();
+    book.sheet_mut(sheet)
+        .unwrap()
+        .set_style("B1".parse().unwrap(), custom)
+        .unwrap();
+    for _ in 0..2 {
+        let mut writer = WorkbookWriter::from_style_catalog(
+            WriteOptions::default(),
+            book.style_catalog().unwrap().clone(),
+        )
+        .unwrap();
+        writer.write_workbook(&book).unwrap();
+        let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+        let mut reader = WorkbookReader::new(output).unwrap();
+        let loaded = reader.read_sheet("Sheet").unwrap();
+        assert_eq!(loaded.rows[0].cells[0].style, crabxl_core::StyleId::new(0));
+        assert_eq!(loaded.rows[0].cells[0].value, CellValue::Integer(45293));
+        assert_eq!(loaded.rows[0].cells[1].style, custom);
+        assert!(matches!(
+            loaded.rows[0].cells[1].value,
+            CellValue::Number(_)
+        ));
+    }
+    book.sheet_mut(sheet)
+        .unwrap()
         .set(Cell {
             address: "A2".parse().unwrap(),
             value: CellValue::Number(1.25),
@@ -2385,6 +2411,12 @@ fn default_owned_temporal_catalog_supports_repeated_borrowed_saves_without_reint
     let mut mismatched = WorkbookWriter::new(WriteOptions::default()).unwrap();
     assert!(mismatched.write_workbook(&book).is_err());
     assert_eq!(mismatched.temporary_bytes(), 0);
+    let writer = WorkbookWriter::from_workbook(WriteOptions::default(), book).unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    let loaded = reader.read_sheet("Sheet").unwrap();
+    assert_eq!(loaded.rows[0].cells[0].value, CellValue::Integer(45293));
+    assert_eq!(loaded.rows[0].cells[1].style, custom);
 }
 
 #[test]

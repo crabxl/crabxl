@@ -22,6 +22,9 @@ pub(crate) enum StyleContext<'a> {
     },
     Appearance(&'a [crabxl_core::CellStyle]),
     Catalog(Option<&'a crabxl_core::StyleCatalog>),
+    // Owned-bank mutations have already resolved automatic temporal styles.
+    // Explicit later assignments, including General, must remain authoritative.
+    Canonical(&'a crabxl_core::StyleCatalog),
 }
 impl StyleContext<'_> {
     fn len(&self) -> usize {
@@ -29,6 +32,7 @@ impl StyleContext<'_> {
             Self::Registry { registry, .. } => registry.catalog().cell_formats.len(),
             Self::Appearance(styles) => styles.len(),
             Self::Catalog(catalog) => catalog.map_or(1, |catalog| catalog.cell_formats.len()),
+            Self::Canonical(catalog) => catalog.cell_formats.len(),
         }
     }
     fn fonts(&self) -> usize {
@@ -36,6 +40,7 @@ impl StyleContext<'_> {
             Self::Registry { registry, .. } => registry.catalog().fonts.len(),
             Self::Appearance(styles) => styles.len(),
             Self::Catalog(catalog) => catalog.map_or(0, |catalog| catalog.fonts.len()),
+            Self::Canonical(catalog) => catalog.fonts.len(),
         }
     }
     fn number_format(&self, id: u32) -> Option<&str> {
@@ -49,6 +54,9 @@ impl StyleContext<'_> {
                     .cell_format(crabxl_core::StyleId::new(id))
                     .and_then(|format| catalog.number_format(format.number_format_id))
             }),
+            Self::Canonical(catalog) => catalog
+                .cell_format(crabxl_core::StyleId::new(id))
+                .and_then(|format| catalog.number_format(format.number_format_id)),
             Self::Appearance(styles) => styles
                 .get(id as usize)
                 .map(|style| style.number_format.as_ref()),
@@ -69,6 +77,9 @@ impl StyleContext<'_> {
         id: u32,
         date: &crabxl_core::ExcelDateTime,
     ) -> Result<()> {
+        if matches!(self, Self::Canonical(_)) {
+            return Ok(());
+        }
         if matches!(self, Self::Catalog(_))
             && date.kind() == crabxl_core::DateKind::Duration
             && self
@@ -99,6 +110,7 @@ impl StyleContext<'_> {
                 Ok(())
             }
             Self::Catalog(_) => Ok(()),
+            Self::Canonical(_) => Ok(()),
             Self::Appearance(_) => Err(Error::new(
                 ErrorKind::InvalidData,
                 "Date requires an explicit date/time number format",
@@ -107,7 +119,7 @@ impl StyleContext<'_> {
     }
     fn resolved_style(&self, cell: &crabxl_core::Cell, dates: DateStyleIds) -> Result<u32> {
         let id = cell.style.get();
-        if matches!(self, Self::Catalog(_)) {
+        if matches!(self, Self::Catalog(_) | Self::Canonical(_)) {
             return Ok(id);
         }
         let Some(date) = date_value(&cell.value) else {
@@ -139,7 +151,7 @@ impl StyleContext<'_> {
                         Error::new(ErrorKind::InvalidState, "Date format was not prepared")
                     })
             }
-            Self::Appearance(_) | Self::Catalog(_) => Ok(id),
+            Self::Appearance(_) | Self::Catalog(_) | Self::Canonical(_) => Ok(id),
         }
     }
 }
@@ -358,11 +370,12 @@ pub(crate) fn encode_cells<'a>(
                                     value.to_iso8601().map_err(io::Error::other)?.as_bytes(),
                                 )?;
                             } else {
-                                write!(
-                                    buffer,
-                                    "{:?}",
-                                    value.serial_in(epoch).map_err(io::Error::other)?
-                                )?;
+                                let serial = value.serial_in(epoch).map_err(io::Error::other)?;
+                                if serial.fract() == 0.0 {
+                                    write!(buffer, "{serial:.0}")?;
+                                } else {
+                                    write!(buffer, "{serial:?}")?;
+                                }
                             }
                         }
                         _ => {

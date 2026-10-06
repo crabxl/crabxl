@@ -725,6 +725,69 @@ fn raw_standalone_sheet_retains_caller_style_and_source_zero_date_is_preserved()
         book.sheet(sheet).unwrap().cells().next().unwrap().style,
         StyleId::new(0)
     );
+    let general = book
+        .register_style(crabxl_core::CellStyle::default())
+        .unwrap();
+    let address = CellAddress::new(0, 0).unwrap();
+    let original = book
+        .sheet(sheet)
+        .unwrap()
+        .get(address)
+        .unwrap()
+        .value
+        .clone();
+    let charged = book.charged_bytes();
+    book.sheet_mut(sheet)
+        .unwrap()
+        .set_style(address, general)
+        .unwrap();
+    assert_eq!(
+        book.sheet(sheet).unwrap().get(address).unwrap().value,
+        original
+    );
+    assert_eq!(
+        book.sheet(sheet).unwrap().get(address).unwrap().style,
+        general
+    );
+    assert_eq!(book.charged_bytes(), charged);
+    assert_eq!(
+        book.style_catalog()
+            .unwrap()
+            .cell_style(general)
+            .unwrap()
+            .number_format,
+        Some("General")
+    );
+    assert_eq!(
+        book.sheet_mut(sheet)
+            .unwrap()
+            .set_style(address, StyleId::new(u32::MAX))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+    assert_eq!(
+        book.sheet(sheet).unwrap().get(address).unwrap().style,
+        general
+    );
+    let missing = CellAddress::new(5, 3).unwrap();
+    assert_eq!(
+        book.sheet_mut(sheet)
+            .unwrap()
+            .set_style(missing, StyleId::new(u32::MAX))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+    assert!(book.sheet(sheet).unwrap().get(missing).is_none());
+    book.sheet_mut(sheet)
+        .unwrap()
+        .set_style(missing, general)
+        .unwrap();
+    assert_eq!(
+        book.sheet(sheet).unwrap().get(missing).unwrap().value,
+        CellValue::Empty
+    );
 }
 
 #[test]

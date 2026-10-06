@@ -1,0 +1,97 @@
+{
+  "status": "Unreleased native style-assignment checkpoint; not a completed M5 or Alpha 9 release",
+  "parent_commit": "263c45b5cc6fdfe7339eabfb7dc2520c1a48f2d0",
+  "runtime_diff_sha256": "22ab47b6a379bafc55ef869fa52fe59a42ff7b571c3a66047e0f57766ecdc693",
+  "binary_sha256": "ca926a532deaa2d18dab5a5e9039b080766dacabe0e8a65c31f1ab0402dc6371",
+  "measurement": "One warm-up per mode, three alternating fresh-process samples. Mutation timing excludes setup and validation. Export timing includes creation, style assignment and ZIP finalization; excludes read-back. Per-process peak RSS from wait4 includes setup and validation. Replacement is an alternative implementation, not a published-version baseline. No temporary-disk measurement.",
+  "probe_source": "use crabxl::{Cell, CellAddress, CellValue, EditLimits, StyleId, Worksheet};\nuse std::{io::Cursor, time::Instant};\nfn main() -> Result<(), Box<dyn std::error::Error>> {\n    let mode = std::env::args().nth(1).ok_or(\"Missing mode\")?;\n    if mode == \"export\" {\n        let start = Instant::now();\n        let mut book = crabxl::Workbook::new(crabxl::WorkbookLimits::default())?;\n        let id = book.create_sheet(\"Sheet\")?;\n        for index in 0..100_000u32 {\n            let address = CellAddress::new(index / 10, index % 10)?;\n            let value = if index % 10 == 0 { CellValue::DateTime(Box::new(crabxl::ExcelDateTime::from_ymd(2024, 1, 2)?)) } else { CellValue::Integer(index.into()) };\n            book.sheet_mut(id)?.set(Cell { address, value, style: StyleId::new(0) })?;\n            if index % 10 == 0 { book.sheet_mut(id)?.set_style(address, StyleId::new(0))?; }\n        }\n        let writer = crabxl::WorkbookWriter::from_workbook(crabxl::WriteOptions::default(), book)?;\n        let output = writer.finish(Cursor::new(Vec::new()))?;\n        let seconds = start.elapsed().as_secs_f64();\n        let bytes = output.get_ref().len();\n        let mut reader = crabxl::WorkbookReader::new(output)?;\n        let data = reader.read_sheet(\"Sheet\")?;\n        let mut count = 0usize;\n        let mut checksum = 0i64;\n        for row in data.rows { for cell in row.cells {\n            let index = cell.address.row.get() * 10 + cell.address.column.get();\n            let expected = if index % 10 == 0 { 45293 } else { i64::from(index) };\n            if cell.value != CellValue::Integer(expected) { return Err(\"Export value/style mismatch\".into()); }\n            if cell.style.get() != 0 { return Err(\"Explicit General was replaced\".into()); }\n            count += 1; checksum += expected;\n        }}\n        if count != 100_000 { return Err(\"Export count mismatch\".into()); }\n        println!(\"{{\\\"mode\\\":\\\"export\\\",\\\"seconds\\\":{},\\\"cells\\\":{},\\\"checksum\\\":{},\\\"output_bytes\\\":{}}}\", seconds, count, checksum, bytes);\n        return Ok(());\n    }\n    let mut sheet = Worksheet::new(\"Sheet\", EditLimits { max_bytes: 1024 * 1024 * 1024, ..Default::default() })?;\n    for index in 0..1_000_000u32 {\n        let address = CellAddress::new(index / 10, index % 10)?;\n        sheet.set(Cell { address, value: CellValue::Integer(index.into()), style: StyleId::new(0) })?;\n    }\n    let charged = sheet.charged_bytes();\n    let start = Instant::now();\n    for index in 0..1_000_000u32 {\n        let address = CellAddress::new(index / 10, index % 10)?;\n        if mode == \"direct\" { sheet.set_style(address, StyleId::new(1))?; }\n        else if mode == \"replace\" {\n            let mut cell = sheet.get(address).ok_or(\"Missing cell\")?.clone();\n            cell.style = StyleId::new(1); sheet.set(cell)?;\n        } else { return Err(\"Unknown mode\".into()); }\n    }\n    let seconds = start.elapsed().as_secs_f64();\n    let mut checksum = 0i64;\n    for cell in sheet.cells() {\n        let index = cell.address.row.get() * 10 + cell.address.column.get();\n        if cell.style.get() != 1 || cell.value != CellValue::Integer(index.into()) { return Err(\"Style/value mismatch\".into()); }\n        checksum += i64::from(index);\n    }\n    if checksum != 499_999_500_000 || sheet.charged_bytes() != charged { return Err(\"Storage changed\".into()); }\n    println!(\"{{\\\"mode\\\":\\\"{}\\\",\\\"seconds\\\":{},\\\"cells\\\":1000000,\\\"checksum\\\":{},\\\"charged_bytes\\\":{}}}\", mode, seconds, checksum, charged);\n    Ok(())\n}\n",
+  "probe_manifest": "[package]\nname=\"style-checkpoint-probe\"\nversion=\"0.1.0\"\nedition=\"2024\"\nrust-version=\"1.88\"\n[dependencies]\ncrabxl={path=\"/workspace/crabxl/crates/crabxl\"}\n[profile.release]\nlto=\"thin\"\n",
+  "samples": [
+    {
+      "mode": "replace",
+      "seconds": 0.231533394,
+      "cells": 1000000,
+      "checksum": 499999500000,
+      "charged_bytes": 36000261,
+      "peak_rss_kib": 33436
+    },
+    {
+      "mode": "direct",
+      "seconds": 0.062815863,
+      "cells": 1000000,
+      "checksum": 499999500000,
+      "charged_bytes": 36000261,
+      "peak_rss_kib": 33440
+    },
+    {
+      "mode": "export",
+      "seconds": 0.097799176,
+      "cells": 100000,
+      "checksum": 4952930000,
+      "output_bytes": 298769,
+      "peak_rss_kib": 8444
+    },
+    {
+      "mode": "direct",
+      "seconds": 0.060039472,
+      "cells": 1000000,
+      "checksum": 499999500000,
+      "charged_bytes": 36000261,
+      "peak_rss_kib": 33436
+    },
+    {
+      "mode": "replace",
+      "seconds": 0.218304221,
+      "cells": 1000000,
+      "checksum": 499999500000,
+      "charged_bytes": 36000261,
+      "peak_rss_kib": 33440
+    },
+    {
+      "mode": "export",
+      "seconds": 0.091740274,
+      "cells": 100000,
+      "checksum": 4952930000,
+      "output_bytes": 298769,
+      "peak_rss_kib": 8444
+    },
+    {
+      "mode": "replace",
+      "seconds": 0.222854235,
+      "cells": 1000000,
+      "checksum": 499999500000,
+      "charged_bytes": 36000261,
+      "peak_rss_kib": 33428
+    },
+    {
+      "mode": "direct",
+      "seconds": 0.059588556,
+      "cells": 1000000,
+      "checksum": 499999500000,
+      "charged_bytes": 36000261,
+      "peak_rss_kib": 33444
+    },
+    {
+      "mode": "export",
+      "seconds": 0.107155116,
+      "cells": 100000,
+      "checksum": 4952930000,
+      "output_bytes": 298769,
+      "peak_rss_kib": 8444
+    }
+  ],
+  "summary": {
+    "replace": {
+      "median_seconds": 0.222854235,
+      "median_peak_rss_kib": 33436
+    },
+    "direct": {
+      "median_seconds": 0.060039472,
+      "median_peak_rss_kib": 33440
+    },
+    "export": {
+      "median_seconds": 0.097799176,
+      "median_peak_rss_kib": 8444
+    }
+  }
+}

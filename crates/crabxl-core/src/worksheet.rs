@@ -305,6 +305,24 @@ impl Worksheet {
     pub fn get(&self, address: CellAddress) -> Option<&Cell> {
         self.cells.get(&key(address))
     }
+    /// Replace only a cell's workbook-local style identity without cloning its
+    /// value or invoking automatic temporal formatting. Missing cells become
+    /// physically present empty styled cells under the ordinary allocation cap.
+    /// Standalone callers validate identities against their writer's catalog.
+    pub fn set_style(&mut self, address: CellAddress, style: StyleId) -> Result<()> {
+        if let Some(cell) = self.cells.get_mut(&key(address)) {
+            if cell.style != style {
+                cell.style = style;
+                self.dirty = true;
+            }
+            return Ok(());
+        }
+        self.set(Cell {
+            address,
+            value: CellValue::Empty,
+            style,
+        })
+    }
     /// Iterate physical cells in row-major order; returned references borrow self.
     pub fn cells(&self) -> impl Iterator<Item = &Cell> {
         self.cells.values()

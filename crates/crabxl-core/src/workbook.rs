@@ -656,6 +656,24 @@ impl Worksheet {
     }
 }
 impl WorksheetEditor<'_> {
+    /// Assign an existing shared format without replacing or cloning the value.
+    /// Owned-bank identities are validated before any cell mutation; standalone
+    /// sheets retain the caller-managed catalog contract of raw cell insertion.
+    pub fn set_style(&mut self, address: crate::CellAddress, style: crate::StyleId) -> Result<()> {
+        if let Some(styles) = self.styles.as_deref() {
+            let valid = styles.as_ref().map_or(style.get() == 0, |registry| {
+                registry.catalog().cell_format(style).is_some()
+            });
+            if !valid {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Unknown workbook cell style identity",
+                )
+                .with_cell(address));
+            }
+        }
+        self.sheet.set_style(address, style)
+    }
     /// Replace canonical printing metadata under aggregate/per-sheet limits.
     pub fn set_print_settings(&mut self, settings: Option<crate::PrintSettings>) -> Result<()> {
         self.sheet.set_print_settings(settings)
