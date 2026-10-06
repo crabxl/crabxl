@@ -345,6 +345,24 @@ fn bounds_and_data_work_limits_fail_without_partial_mutation() {
 
 #[test]
 fn model_rename_obeys_budget_and_preserves_cells_on_failure() {
+    let mut styled = Worksheet::new("Styled", EditLimits::default()).unwrap();
+    set(&mut styled, 0, 0, Value::text("x".repeat(2 * 1024 * 1024)));
+    let Value::Text(value) = &styled.get(address(0, 0)).unwrap().value else {
+        panic!("Expected text");
+    };
+    let pointer = value.as_str().as_ptr();
+    let charged = styled.charged_bytes();
+    styled.mark_clean();
+    styled.set_style(address(0, 0), StyleId::new(0)).unwrap();
+    assert!(!styled.is_dirty());
+    styled.set_style(address(0, 0), StyleId::new(7)).unwrap();
+    assert!(styled.is_dirty());
+    let Value::Text(value) = &styled.get(address(0, 0)).unwrap().value else {
+        panic!("Expected text");
+    };
+    assert_eq!(value.as_str().as_ptr(), pointer);
+    assert_eq!(value.as_str().len(), 2 * 1024 * 1024);
+    assert_eq!(styled.charged_bytes(), charged);
     let mut sheet = Worksheet::new(
         "A",
         EditLimits {
