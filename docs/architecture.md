@@ -272,3 +272,9 @@ Source-backed physical-cell removal transfers the removed owned cell through
 structural-edit graph validation and joint resource reservations. A missing cell
 returns `None` without committing a model rewrite or invalidating source formula
 caches; temporary reservations are released through the normal rebalance path.
+
+Linux Auto availability now recognizes clean inactive file cache within visible
+cgroup v1/v2 limits, conservatively excluding dirty/writeback pages and retaining
+parent/host/process and policy constraints; see
+[ADR 0076](decisions/0076-reclaimable-cgroup-cache.md). Missing cache statistics
+retain the earlier raw-headroom estimate. Explicit budgets remain independent.
