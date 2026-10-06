@@ -1,0 +1,691 @@
+{
+  "method": "One warmup and 3 rotating serial release samples. Complete retained model plus every-value/coordinate verification inside each native worker; import/build/generation excluded. Identical worker source/lockfile/toolchain, prior core b5990868623e31b8cc3e47f4ba3bf0f906e54865 versus candidate; hashes identify binaries. Calamine returns retained noneditable text ranges; CrabXL retains editable models plus source catalogs.",
+  "binary_sha256": {
+    "before": "086419c0a209d75144ab56cfd418d959fb5077d99b5fcb583ae11551d48aa4fd",
+    "after": "3ebce0764546ce5449094bcf74f3ab4c357ce07292c7160328611e7283b67862"
+  },
+  "resource_settings": "CrabXL 1 GiB joint/model allowances, 256 MiB SST allowance, 1 MiB decoded disk cache; explicit RAM/disk policy. These are managed allowances, not an RSS limit. Calamine uses its defaults.",
+  "cases": [
+    {
+      "rows": 10000,
+      "kind": "repeated-text",
+      "source_sha256": "68e79fc55564057d72dcc1322cf68eb7678fa83d2177aed9bacdc24b99dd1d17",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.035069512,
+            "cpu_seconds": 0.034935,
+            "peak_rss_kib": 8636,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.035570794,
+            "cpu_seconds": 0.035462,
+            "peak_rss_kib": 8500,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.033172532,
+            "cpu_seconds": 0.033069,
+            "peak_rss_kib": 8636,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.03721846,
+            "cpu_seconds": 0.037081,
+            "peak_rss_kib": 11996,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.038465548,
+            "cpu_seconds": 0.038367,
+            "peak_rss_kib": 11996,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.039642536,
+            "cpu_seconds": 0.039453,
+            "peak_rss_kib": 11996,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.033392998,
+            "cpu_seconds": 0.033272,
+            "peak_rss_kib": 8572,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.036172188,
+            "cpu_seconds": 0.036051,
+            "peak_rss_kib": 8764,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.033354575,
+            "cpu_seconds": 0.033166,
+            "peak_rss_kib": 8572,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.043468488,
+            "cpu_seconds": 0.043328,
+            "peak_rss_kib": 19768,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.043983938,
+            "cpu_seconds": 0.043863,
+            "peak_rss_kib": 19892,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.044186797,
+            "cpu_seconds": 0.044078,
+            "peak_rss_kib": 19892,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.037625441,
+            "cpu_seconds": 0.037521,
+            "peak_rss_kib": 11740,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.038296318,
+            "cpu_seconds": 0.038203,
+            "peak_rss_kib": 11868,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.040394791,
+            "cpu_seconds": 0.04025,
+            "peak_rss_kib": 11740,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.035069512,
+          "cpu_seconds": 0.034935,
+          "peak_rss_kib": 8636,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.038465548,
+          "cpu_seconds": 0.038367,
+          "peak_rss_kib": 11996,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "after:disk": {
+          "seconds": 0.033392998,
+          "cpu_seconds": 0.033272,
+          "peak_rss_kib": 8572,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "calamine:memory": {
+          "seconds": 0.043983938,
+          "cpu_seconds": 0.043863,
+          "peak_rss_kib": 19892,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.038296318,
+          "cpu_seconds": 0.038203,
+          "peak_rss_kib": 11740,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 10000,
+      "kind": "unique-text",
+      "source_sha256": "a940e6e1013e3346467e2efcd34c97734a40161b17949fc119f2d305cce619e3",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.07144818,
+            "cpu_seconds": 0.071244,
+            "peak_rss_kib": 26480,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.075662726,
+            "cpu_seconds": 0.07553,
+            "peak_rss_kib": 26548,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.070547286,
+            "cpu_seconds": 0.070442,
+            "peak_rss_kib": 26424,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.129305463,
+            "cpu_seconds": 0.12914,
+            "peak_rss_kib": 26076,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.123718681,
+            "cpu_seconds": 0.123362,
+            "peak_rss_kib": 26076,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.132160742,
+            "cpu_seconds": 0.132044,
+            "peak_rss_kib": 26204,
+            "sampled_peak_working_file_bytes": 12600000
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.132478835,
+            "cpu_seconds": 0.132216,
+            "peak_rss_kib": 25984,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.135153899,
+            "cpu_seconds": 0.135022,
+            "peak_rss_kib": 25976,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.130593428,
+            "cpu_seconds": 0.130472,
+            "peak_rss_kib": 25980,
+            "sampled_peak_working_file_bytes": 12600000
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.122201942,
+            "cpu_seconds": 0.122079,
+            "peak_rss_kib": 34596,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.078254835,
+            "cpu_seconds": 0.07806,
+            "peak_rss_kib": 34592,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.081092257,
+            "cpu_seconds": 0.080909,
+            "peak_rss_kib": 34540,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.077009524,
+            "cpu_seconds": 0.076882,
+            "peak_rss_kib": 27356,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.074605423,
+            "cpu_seconds": 0.074259,
+            "peak_rss_kib": 27356,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.079964823,
+            "cpu_seconds": 0.079814,
+            "peak_rss_kib": 27356,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.07144818,
+          "cpu_seconds": 0.071244,
+          "peak_rss_kib": 26480,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.129305463,
+          "cpu_seconds": 0.12914,
+          "peak_rss_kib": 26076,
+          "sampled_peak_working_file_bytes": 12600000
+        },
+        "after:disk": {
+          "seconds": 0.132478835,
+          "cpu_seconds": 0.132216,
+          "peak_rss_kib": 25980,
+          "sampled_peak_working_file_bytes": 12600000
+        },
+        "calamine:memory": {
+          "seconds": 0.081092257,
+          "cpu_seconds": 0.080909,
+          "peak_rss_kib": 34592,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.077009524,
+          "cpu_seconds": 0.076882,
+          "peak_rss_kib": 27356,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 10000,
+      "kind": "styled",
+      "source_sha256": "dec541403890ff4bc08f2f26e7a1385a099e53dfaa17b33d0615097bca192190",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.05288946,
+            "cpu_seconds": 0.052706,
+            "peak_rss_kib": 11904,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.051842328,
+            "cpu_seconds": 0.051618,
+            "peak_rss_kib": 11956,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.052210781,
+            "cpu_seconds": 0.052096,
+            "peak_rss_kib": 11856,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.050156105,
+            "cpu_seconds": 0.049972,
+            "peak_rss_kib": 11996,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.0508324,
+            "cpu_seconds": 0.050712,
+            "peak_rss_kib": 11868,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.049861462,
+            "cpu_seconds": 0.049758,
+            "peak_rss_kib": 11868,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.052210781,
+          "cpu_seconds": 0.052096,
+          "peak_rss_kib": 11904,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.050156105,
+          "cpu_seconds": 0.049972,
+          "peak_rss_kib": 11868,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "repeated-text",
+      "source_sha256": "c9429b840f61d4fbfc7fe4375239f83f2f35c083195165754dac18ec09e06b2c",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.332767194,
+            "cpu_seconds": 0.332654,
+            "peak_rss_kib": 37116,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.334680855,
+            "cpu_seconds": 0.334376,
+            "peak_rss_kib": 37200,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.338273041,
+            "cpu_seconds": 0.337397,
+            "peak_rss_kib": 37120,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.364434974,
+            "cpu_seconds": 0.364027,
+            "peak_rss_kib": 69212,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.405650384,
+            "cpu_seconds": 0.405285,
+            "peak_rss_kib": 69084,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.379335534,
+            "cpu_seconds": 0.379092,
+            "peak_rss_kib": 69084,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.341497425,
+            "cpu_seconds": 0.341346,
+            "peak_rss_kib": 37244,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.318420549,
+            "cpu_seconds": 0.318248,
+            "peak_rss_kib": 37240,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.318460528,
+            "cpu_seconds": 0.31828,
+            "peak_rss_kib": 37428,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.446329573,
+            "cpu_seconds": 0.445732,
+            "peak_rss_kib": 160584,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.443567953,
+            "cpu_seconds": 0.44327,
+            "peak_rss_kib": 160476,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.441687579,
+            "cpu_seconds": 0.441324,
+            "peak_rss_kib": 160456,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.382494229,
+            "cpu_seconds": 0.382339,
+            "peak_rss_kib": 68956,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.372846145,
+            "cpu_seconds": 0.372679,
+            "peak_rss_kib": 68828,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.371965323,
+            "cpu_seconds": 0.371712,
+            "peak_rss_kib": 68828,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.334680855,
+          "cpu_seconds": 0.334376,
+          "peak_rss_kib": 37120,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.379335534,
+          "cpu_seconds": 0.379092,
+          "peak_rss_kib": 69084,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "after:disk": {
+          "seconds": 0.318460528,
+          "cpu_seconds": 0.31828,
+          "peak_rss_kib": 37244,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "calamine:memory": {
+          "seconds": 0.443567953,
+          "cpu_seconds": 0.44327,
+          "peak_rss_kib": 160476,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.372846145,
+          "cpu_seconds": 0.372679,
+          "peak_rss_kib": 68828,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "unique-text",
+      "source_sha256": "3b3cbcf625c5085968c7d7837bb972227eced2cc322a96089cc2a07c285aea71",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.680772532,
+            "cpu_seconds": 0.68057,
+            "peak_rss_kib": 216700,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.683532836,
+            "cpu_seconds": 0.683394,
+            "peak_rss_kib": 216828,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.696492549,
+            "cpu_seconds": 0.696315,
+            "peak_rss_kib": 216776,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 1.252547561,
+            "cpu_seconds": 1.252246,
+            "peak_rss_kib": 209500,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.229813003,
+            "cpu_seconds": 1.228864,
+            "peak_rss_kib": 209500,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.261801499,
+            "cpu_seconds": 1.261339,
+            "peak_rss_kib": 209628,
+            "sampled_peak_working_file_bytes": 126000000
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 1.377378161,
+            "cpu_seconds": 1.375712,
+            "peak_rss_kib": 209656,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.238652486,
+            "cpu_seconds": 1.237871,
+            "peak_rss_kib": 209664,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.320443469,
+            "cpu_seconds": 1.319997,
+            "peak_rss_kib": 209716,
+            "sampled_peak_working_file_bytes": 126000000
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.754667719,
+            "cpu_seconds": 0.754181,
+            "peak_rss_kib": 308908,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.741066011,
+            "cpu_seconds": 0.740898,
+            "peak_rss_kib": 308908,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.771895717,
+            "cpu_seconds": 0.771701,
+            "peak_rss_kib": 309120,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.797910295,
+            "cpu_seconds": 0.797681,
+            "peak_rss_kib": 225244,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.750547238,
+            "cpu_seconds": 0.750158,
+            "peak_rss_kib": 225008,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.708927954,
+            "cpu_seconds": 0.70874,
+            "peak_rss_kib": 225244,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.683532836,
+          "cpu_seconds": 0.683394,
+          "peak_rss_kib": 216776,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 1.252547561,
+          "cpu_seconds": 1.252246,
+          "peak_rss_kib": 209500,
+          "sampled_peak_working_file_bytes": 126000000
+        },
+        "after:disk": {
+          "seconds": 1.320443469,
+          "cpu_seconds": 1.319997,
+          "peak_rss_kib": 209664,
+          "sampled_peak_working_file_bytes": 126000000
+        },
+        "calamine:memory": {
+          "seconds": 0.754667719,
+          "cpu_seconds": 0.754181,
+          "peak_rss_kib": 308908,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.750547238,
+          "cpu_seconds": 0.750158,
+          "peak_rss_kib": 225244,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "styled",
+      "source_sha256": "d07750234f68a6041909b53f19abbda50bca4b33c417dcdf62046fd26046f0a0",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.564742595,
+            "cpu_seconds": 0.564563,
+            "peak_rss_kib": 70272,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.515994709,
+            "cpu_seconds": 0.515694,
+            "peak_rss_kib": 70324,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.53726774,
+            "cpu_seconds": 0.537034,
+            "peak_rss_kib": 70212,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.513158538,
+            "cpu_seconds": 0.512983,
+            "peak_rss_kib": 68700,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.515186514,
+            "cpu_seconds": 0.515017,
+            "peak_rss_kib": 68700,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.512464096,
+            "cpu_seconds": 0.512141,
+            "peak_rss_kib": 68572,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.53726774,
+          "cpu_seconds": 0.537034,
+          "peak_rss_kib": 70272,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.513158538,
+          "cpu_seconds": 0.512983,
+          "peak_rss_kib": 68700,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    }
+  ],
+  "candidate_base_revision": "b5990868623e31b8cc3e47f4ba3bf0f906e54865",
+  "candidate_patch": "diff --git a/crates/crabxl-core/src/row.rs b/crates/crabxl-core/src/row.rs\nindex 612cd03..27fc2d0 100644\n--- a/crates/crabxl-core/src/row.rs\n+++ b/crates/crabxl-core/src/row.rs\n@@ -22,7 +22,7 @@ pub enum CellValue {\n     /// An exact decimal integer outside i64; no floating-point conversion.\n     BigInteger(Box<ExactInteger>),\n     /// Owned text with whitespace preserved.\n-    Text(Box<CellText>),\n+    Text(CellText),\n     /// A literal spreadsheet error token.\n     Error(Box<CellError>),\n     /// Rich display runs and optional separate pronunciation annotations.\n@@ -57,11 +57,11 @@ impl CellValue {\n     }\n     /// Construct an owned text value.\n     pub fn text(value: impl Into<Box<str>>) -> Self {\n-        Self::Text(Box::new(CellText::new(value)))\n+        Self::Text(CellText::new(value))\n     }\n     /// Retain immutable shared text without copying its UTF-8 payload.\n     pub fn shared_text(value: std::sync::Arc<str>) -> Self {\n-        Self::Text(Box::new(CellText::from_shared(value)))\n+        Self::Text(CellText::from_shared(value))\n     }\n     /// Construct an owned spreadsheet error value.\n     pub fn error(code: impl Into<Box<str>>) -> Self {\ndiff --git a/crates/crabxl-core/src/scalar.rs b/crates/crabxl-core/src/scalar.rs\nindex 6c3e53a..580cbad 100644\n--- a/crates/crabxl-core/src/scalar.rs\n+++ b/crates/crabxl-core/src/scalar.rs\n@@ -10,18 +10,18 @@ enum TextStorage {\n /// Owned literal text. Indirection keeps common numeric cells compact.\n #[derive(Clone, Debug)]\n pub struct CellText {\n-    value: TextStorage,\n+    value: Arc<TextStorage>,\n }\n impl CellText {\n     /// Own a string without trimming meaningful whitespace.\n     pub fn new(value: impl Into<Box<str>>) -> Self {\n         Self {\n-            value: TextStorage::Owned(value.into()),\n+            value: Arc::new(TextStorage::Owned(value.into())),\n         }\n     }\n     /// Borrow the original text.\n     pub fn as_str(&self) -> &str {\n-        match &self.value {\n+        match self.value.as_ref() {\n             TextStorage::Owned(value) => value,\n             TextStorage::Shared(value) => value,\n         }\n@@ -30,23 +30,24 @@ impl CellText {\n     /// remains independent of the source table/cache lifetime.\n     pub fn from_shared(value: Arc<str>) -> Self {\n         Self {\n-            value: TextStorage::Shared(value),\n+            value: Arc::new(TextStorage::Shared(value)),\n         }\n     }\n     /// Transfer directly owned text without cloning; shared text is copied into\n     /// a detached box because other source/model handles may retain its payload.\n     pub fn into_string(self) -> Box<str> {\n-        match self.value {\n+        match Arc::unwrap_or_clone(self.value) {\n             TextStorage::Owned(value) => value,\n             TextStorage::Shared(value) => value.as_ref().into(),\n         }\n     }\n-    /// Conservative heap charge including the boxed CellValue wrapper. Shared\n+    /// Conservative heap charge including immutable storage ownership. Shared\n     /// payloads and reference-count headers are charged per alias, not deduplicated.\n     pub fn memory_bytes(&self) -> usize {\n-        size_of::<Self>()\n+        size_of::<TextStorage>()\n+            + 2 * size_of::<usize>()\n             + self.as_str().len()\n-            + if matches!(self.value, TextStorage::Shared(_)) {\n+            + if matches!(self.value.as_ref(), TextStorage::Shared(_)) {\n                 2 * size_of::<usize>()\n             } else {\n                 0\ndiff --git a/crates/crabxl-core/tests/workbook.rs b/crates/crabxl-core/tests/workbook.rs\nindex 17e6b2b..87477da 100644\n--- a/crates/crabxl-core/tests/workbook.rs\n+++ b/crates/crabxl-core/tests/workbook.rs\n@@ -164,7 +164,7 @@ fn decoded_models_transfer_without_clones_and_replace_stable_handles_atomically(\n     .unwrap();\n     let placeholder = book.create_sheet(\"Loaded\").unwrap();\n     let mut incoming = crabxl_core::Worksheet::new(\"Loaded\", EditLimits::default()).unwrap();\n-    let value = Box::new(crabxl_core::CellText::new(\"loaded text\"));\n+    let value = crabxl_core::CellText::new(\"loaded text\");\n     let pointer = value.as_str().as_ptr();\n     incoming\n         .set(Cell {\ndiff --git a/crates/crabxl-xlsx/src/reader.rs b/crates/crabxl-xlsx/src/reader.rs\nindex e620d07..7a4a3f9 100644\n--- a/crates/crabxl-xlsx/src/reader.rs\n+++ b/crates/crabxl-xlsx/src/reader.rs\n@@ -965,7 +965,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n \n     fn read_formula_text(&mut self) -> Result<Box<str>> {\n         match self.read_value::<false>(ScalarKind::Text)? {\n-            CellValue::Text(value) => Ok((*value).into_string()),\n+            CellValue::Text(value) => Ok(value.into_string()),\n             CellValue::Empty => Ok(\"\".into()),\n             _ => Err(self.invalid(\"Invalid formula text\")),\n         }\ndiff --git a/crates/crabxl-xlsx/src/strings.rs b/crates/crabxl-xlsx/src/strings.rs\nindex ef07dc8..b296b86 100644\n--- a/crates/crabxl-xlsx/src/strings.rs\n+++ b/crates/crabxl-xlsx/src/strings.rs\n@@ -7,13 +7,12 @@ use crate::{\n     memory_allowance,\n     xml::{Scope, XmlStream},\n };\n-use crabxl_core::{CellValue, Error, ErrorKind, MemoryPolicy, ResourceLimits, Result};\n+use crabxl_core::{CellText, CellValue, Error, ErrorKind, MemoryPolicy, ResourceLimits, Result};\n use quick_xml::events::Event;\n use std::{\n     fs::File,\n     io::{BufRead, BufWriter, Read, Seek, SeekFrom, Write},\n     path::PathBuf,\n-    sync::Arc,\n };\n \n /// Placement of decoded shared strings and their index.\n@@ -84,7 +83,7 @@ pub struct SharedStringStats {\n #[derive(Clone)]\n enum Entry {\n     Text(Box<str>),\n-    SharedText(Arc<str>),\n+    SharedText(CellText),\n     Rich(Box<crabxl_core::RichText>),\n     Unsupported,\n }\n@@ -92,7 +91,7 @@ impl Entry {\n     fn payload_bytes(&self) -> usize {\n         match self {\n             Self::Text(s) => s.len(),\n-            Self::SharedText(s) => s.len().saturating_add(2 * size_of::<usize>()),\n+            Self::SharedText(s) => s.memory_bytes(),\n             Self::Rich(v) => v.memory_bytes(),\n             Self::Unsupported => 0,\n         }\n@@ -100,7 +99,7 @@ impl Entry {\n     fn view(&self) -> EntryView<'_> {\n         match self {\n             Self::Text(v) => EntryView::Text(v),\n-            Self::SharedText(v) => EntryView::Text(v),\n+            Self::SharedText(v) => EntryView::Text(v.as_str()),\n             Self::Rich(v) => EntryView::Rich(v),\n             Self::Unsupported => EntryView::Unsupported,\n         }\n@@ -108,7 +107,7 @@ impl Entry {\n     fn value(&self, preserve: bool) -> Result<CellValue> {\n         match self {\n             Self::Text(s) => Ok(CellValue::text(s.as_ref())),\n-            Self::SharedText(s) => Ok(CellValue::shared_text(Arc::clone(s))),\n+            Self::SharedText(s) => Ok(CellValue::Text(s.clone())),\n             Self::Rich(v) if preserve => {\n                 let mut value = (**v).clone();\n                 for run in &mut value.runs {\n@@ -129,7 +128,7 @@ impl Entry {\n     }\n     fn plain(value: Box<str>, shared: bool) -> Self {\n         if shared {\n-            Self::SharedText(Arc::from(value))\n+            Self::SharedText(CellText::new(value))\n         } else {\n             Self::Text(value)\n         }\n@@ -232,7 +231,7 @@ struct CacheEntry {\n pub(crate) struct SharedStrings {\n     memory: Vec<Entry>,\n     plain_memory: Vec<Option<Box<str>>>,\n-    shared_memory: Vec<Option<Arc<str>>>,\n+    shared_memory: Vec<Option<CellText>>,\n     share_values: bool,\n     disk: Option<Disk>,\n     cache: Vec<Option<CacheEntry>>,\n@@ -302,10 +301,6 @@ impl SharedStrings {\n                 crate::encode::validate_xml_text(text)?;\n                 let entry = if text.contains(\"x005F_\") {\n                     Entry::plain(text.replace(\"x005F_\", \"\").into_boxed_str(), share_values)\n-                } else if share_values {\n-                    // Build canonical shared ownership once, without an\n-                    // intermediate owned text allocation and second copy.\n-                    Entry::SharedText(Arc::from(text))\n                 } else {\n                     let mut owned = String::new();\n                     owned.try_reserve_exact(text.len()).map_err(|cause| {\n@@ -316,7 +311,7 @@ impl SharedStrings {\n                         )\n                     })?;\n                     owned.push_str(text);\n-                    Entry::Text(owned.into_boxed_str())\n+                    Entry::plain(owned.into_boxed_str(), share_values)\n                 };\n                 Ok(Some(entry))\n             })? {\n@@ -385,7 +380,7 @@ impl SharedStrings {\n                 (\n                     self.shared_memory.len(),\n                     self.shared_memory.capacity(),\n-                    size_of::<Option<Arc<str>>>(),\n+                    size_of::<Option<CellText>>(),\n                 )\n             } else {\n                 (\n@@ -419,8 +414,9 @@ impl SharedStrings {\n                 } else if self.share_values {\n                     for old in &self.shared_memory {\n                         disk.push(\n-                            old.as_deref()\n-                                .map_or(EntryView::Unsupported, EntryView::Text),\n+                            old.as_ref().map_or(EntryView::Unsupported, |text| {\n+                                EntryView::Text(text.as_str())\n+                            }),\n                             options.max_temp_bytes,\n                         )?;\n                     }\n@@ -503,10 +499,9 @@ impl SharedStrings {\n             return if self.stats.rich_text_preserved {\n                 self.memory[id as usize].value(preserve)\n             } else if self.share_values {\n-                self.shared_memory[id as usize].as_ref().map_or_else(\n-                    || Err(unsupported()),\n-                    |v| Ok(CellValue::shared_text(Arc::clone(v))),\n-                )\n+                self.shared_memory[id as usize]\n+                    .as_ref()\n+                    .map_or_else(|| Err(unsupported()), |v| Ok(CellValue::Text(v.clone())))\n             } else {\n                 self.plain_memory[id as usize]\n                     .as_ref()\n@@ -667,9 +662,9 @@ impl SharedStrings {\n         } else if self.share_values {\n             for entry in &self.shared_memory {\n                 disk.push(\n-                    entry\n-                        .as_deref()\n-                        .map_or(EntryView::Unsupported, EntryView::Text),\n+                    entry.as_ref().map_or(EntryView::Unsupported, |text| {\n+                        EntryView::Text(text.as_str())\n+                    }),\n                     options.max_temp_bytes,\n                 )?;\n             }\n",
+  "decision": "Rejected: owned text model increases RSS and changes public Rust representation; runtime implementation reverted."
+}
