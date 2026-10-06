@@ -1,0 +1,311 @@
+{
+  "method": "One warmup and rotating serial release samples; complete generation/build/save measured. Independent openpyxl value/order and uncompressed package-part equality verification excluded from timing. No concurrent compilation, tests, profiling or other measurements.",
+  "scope": "Same generated UTF-8 text, XML delimiters, quotes, tabs, carriage returns and newlines. Compare streaming and retained-model creation separately. 1 GiB owned-model allowance, writer defaults and compression backend identical. No reference parity claim.",
+  "baseline_core_revision": "b5990868623e31b8cc3e47f4ba3bf0f906e54865",
+  "openpyxl": "3.1.5",
+  "binary_sha256": {
+    "before": "086419c0a209d75144ab56cfd418d959fb5077d99b5fcb583ae11551d48aa4fd",
+    "after": "3ebce0764546ce5449094bcf74f3ab4c357ce07292c7160328611e7283b67862"
+  },
+  "cases": [
+    {
+      "rows": 10000,
+      "cells": 100000,
+      "samples": {
+        "after:stream": [
+          {
+            "seconds": 0.115695256,
+            "cpu_seconds": 0.115427,
+            "peak_rss_kib": 5280,
+            "sampled_peak_working_file_bytes": 25283932,
+            "output_bytes": 444554
+          },
+          {
+            "seconds": 0.124927603,
+            "cpu_seconds": 0.124689,
+            "peak_rss_kib": 5520,
+            "sampled_peak_working_file_bytes": 25315241,
+            "output_bytes": 444554
+          },
+          {
+            "seconds": 0.117418985,
+            "cpu_seconds": 0.117261,
+            "peak_rss_kib": 5396,
+            "sampled_peak_working_file_bytes": 25283932,
+            "output_bytes": 444554
+          }
+        ],
+        "before:model": [
+          {
+            "seconds": 0.135997529,
+            "cpu_seconds": 0.135855,
+            "peak_rss_kib": 25924,
+            "sampled_peak_working_file_bytes": 25252595,
+            "output_bytes": 444554
+          },
+          {
+            "seconds": 0.159045826,
+            "cpu_seconds": 0.15867,
+            "peak_rss_kib": 25668,
+            "sampled_peak_working_file_bytes": 25221259,
+            "output_bytes": 444554
+          },
+          {
+            "seconds": 0.13558528,
+            "cpu_seconds": 0.135461,
+            "peak_rss_kib": 25540,
+            "sampled_peak_working_file_bytes": 25252595,
+            "output_bytes": 444554
+          }
+        ],
+        "after:model": [
+          {
+            "seconds": 0.143643063,
+            "cpu_seconds": 0.143427,
+            "peak_rss_kib": 27348,
+            "sampled_peak_working_file_bytes": 25283932,
+            "output_bytes": 444554
+          },
+          {
+            "seconds": 0.135014373,
+            "cpu_seconds": 0.134833,
+            "peak_rss_kib": 27456,
+            "sampled_peak_working_file_bytes": 25252595,
+            "output_bytes": 444554
+          },
+          {
+            "seconds": 0.141087874,
+            "cpu_seconds": 0.140662,
+            "peak_rss_kib": 27392,
+            "sampled_peak_working_file_bytes": 25283932,
+            "output_bytes": 444554
+          }
+        ],
+        "before:stream": [
+          {
+            "seconds": 0.116646586,
+            "cpu_seconds": 0.116467,
+            "peak_rss_kib": 5248,
+            "sampled_peak_working_file_bytes": 25283932,
+            "output_bytes": 444554
+          },
+          {
+            "seconds": 0.121908448,
+            "cpu_seconds": 0.121704,
+            "peak_rss_kib": 5236,
+            "sampled_peak_working_file_bytes": 25252595,
+            "output_bytes": 444554
+          },
+          {
+            "seconds": 0.118938943,
+            "cpu_seconds": 0.118765,
+            "peak_rss_kib": 5108,
+            "sampled_peak_working_file_bytes": 25252595,
+            "output_bytes": 444554
+          }
+        ]
+      },
+      "verified_package_part_sha256": {
+        "stream": {
+          "xl/worksheets/sheet1.xml": "6b8feea532fb685f702c9c99fdb24a52fa34f7114bf62b11bf4b223ef7168494",
+          "[Content_Types].xml": "b68331c555b8d60eaba1543c177febe4e39fe017b8b64db1ae556ba4faddb77d",
+          "_rels/.rels": "b2d2291c3daf8f4f0a9cf5a5c34d71a846584595011ff864594cf5b039cfc99a",
+          "xl/_rels/workbook.xml.rels": "37e3bcfcec3b08958433df2bc26745e155509bd9241c3ae0794fc1b15db7c200",
+          "xl/workbook.xml": "b018b3824a2377a6a8b2f34b354e1bcc93d59c066d14c3e44854b339cc766681",
+          "xl/theme/theme1.xml": "d15e8ebf78ef7b9720839d7ae8fdc81a7df5bc24706d8e137df61a5683c358d9",
+          "xl/styles.xml": "86429c0c070fdb94b3283f81ac83da970b6150dbeff3b3b82483133037968f84"
+        },
+        "model": {
+          "xl/worksheets/sheet1.xml": "6b8feea532fb685f702c9c99fdb24a52fa34f7114bf62b11bf4b223ef7168494",
+          "[Content_Types].xml": "b68331c555b8d60eaba1543c177febe4e39fe017b8b64db1ae556ba4faddb77d",
+          "_rels/.rels": "b2d2291c3daf8f4f0a9cf5a5c34d71a846584595011ff864594cf5b039cfc99a",
+          "xl/_rels/workbook.xml.rels": "37e3bcfcec3b08958433df2bc26745e155509bd9241c3ae0794fc1b15db7c200",
+          "xl/workbook.xml": "b018b3824a2377a6a8b2f34b354e1bcc93d59c066d14c3e44854b339cc766681",
+          "xl/theme/theme1.xml": "d15e8ebf78ef7b9720839d7ae8fdc81a7df5bc24706d8e137df61a5683c358d9",
+          "xl/styles.xml": "86429c0c070fdb94b3283f81ac83da970b6150dbeff3b3b82483133037968f84"
+        }
+      },
+      "medians": {
+        "after:stream": {
+          "seconds": 0.117418985,
+          "cpu_seconds": 0.117261,
+          "peak_rss_kib": 5396,
+          "sampled_peak_working_file_bytes": 25283932,
+          "output_bytes": 444554
+        },
+        "before:model": {
+          "seconds": 0.135997529,
+          "cpu_seconds": 0.135855,
+          "peak_rss_kib": 25668,
+          "sampled_peak_working_file_bytes": 25252595,
+          "output_bytes": 444554
+        },
+        "after:model": {
+          "seconds": 0.141087874,
+          "cpu_seconds": 0.140662,
+          "peak_rss_kib": 27392,
+          "sampled_peak_working_file_bytes": 25283932,
+          "output_bytes": 444554
+        },
+        "before:stream": {
+          "seconds": 0.118938943,
+          "cpu_seconds": 0.118765,
+          "peak_rss_kib": 5236,
+          "sampled_peak_working_file_bytes": 25252595,
+          "output_bytes": 444554
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "cells": 1000000,
+      "samples": {
+        "after:stream": [
+          {
+            "seconds": 1.209209223,
+            "cpu_seconds": 1.208433,
+            "peak_rss_kib": 5396,
+            "sampled_peak_working_file_bytes": 255259941,
+            "output_bytes": 4396092
+          },
+          {
+            "seconds": 1.136493865,
+            "cpu_seconds": 1.136158,
+            "peak_rss_kib": 5404,
+            "sampled_peak_working_file_bytes": 255145495,
+            "output_bytes": 4396092
+          },
+          {
+            "seconds": 1.146419903,
+            "cpu_seconds": 1.146038,
+            "peak_rss_kib": 5452,
+            "sampled_peak_working_file_bytes": 255207928,
+            "output_bytes": 4396092
+          }
+        ],
+        "before:model": [
+          {
+            "seconds": 1.536935916,
+            "cpu_seconds": 1.533459,
+            "peak_rss_kib": 209032,
+            "sampled_peak_working_file_bytes": 255207928,
+            "output_bytes": 4396092
+          },
+          {
+            "seconds": 1.311732567,
+            "cpu_seconds": 1.310373,
+            "peak_rss_kib": 209416,
+            "sampled_peak_working_file_bytes": 255207928,
+            "output_bytes": 4396092
+          },
+          {
+            "seconds": 1.314267486,
+            "cpu_seconds": 1.312604,
+            "peak_rss_kib": 209156,
+            "sampled_peak_working_file_bytes": 255176713,
+            "output_bytes": 4396092
+          }
+        ],
+        "after:model": [
+          {
+            "seconds": 1.405000749,
+            "cpu_seconds": 1.403396,
+            "peak_rss_kib": 225336,
+            "sampled_peak_working_file_bytes": 255145495,
+            "output_bytes": 4396092
+          },
+          {
+            "seconds": 1.344118122,
+            "cpu_seconds": 1.34308,
+            "peak_rss_kib": 225264,
+            "sampled_peak_working_file_bytes": 255176713,
+            "output_bytes": 4396092
+          },
+          {
+            "seconds": 1.379920427,
+            "cpu_seconds": 1.379202,
+            "peak_rss_kib": 225200,
+            "sampled_peak_working_file_bytes": 255207928,
+            "output_bytes": 4396092
+          }
+        ],
+        "before:stream": [
+          {
+            "seconds": 1.138661913,
+            "cpu_seconds": 1.138394,
+            "peak_rss_kib": 5232,
+            "sampled_peak_working_file_bytes": 255207928,
+            "output_bytes": 4396092
+          },
+          {
+            "seconds": 1.138798641,
+            "cpu_seconds": 1.138526,
+            "peak_rss_kib": 5488,
+            "sampled_peak_working_file_bytes": 255239145,
+            "output_bytes": 4396092
+          },
+          {
+            "seconds": 1.189586945,
+            "cpu_seconds": 1.189389,
+            "peak_rss_kib": 5364,
+            "sampled_peak_working_file_bytes": 255239145,
+            "output_bytes": 4396092
+          }
+        ]
+      },
+      "verified_package_part_sha256": {
+        "stream": {
+          "xl/worksheets/sheet1.xml": "97354b2b5057da26c9a86bb85a41a81dc7dc76de830d905f2b8883e9076e3a49",
+          "[Content_Types].xml": "b68331c555b8d60eaba1543c177febe4e39fe017b8b64db1ae556ba4faddb77d",
+          "_rels/.rels": "b2d2291c3daf8f4f0a9cf5a5c34d71a846584595011ff864594cf5b039cfc99a",
+          "xl/_rels/workbook.xml.rels": "37e3bcfcec3b08958433df2bc26745e155509bd9241c3ae0794fc1b15db7c200",
+          "xl/workbook.xml": "b018b3824a2377a6a8b2f34b354e1bcc93d59c066d14c3e44854b339cc766681",
+          "xl/theme/theme1.xml": "d15e8ebf78ef7b9720839d7ae8fdc81a7df5bc24706d8e137df61a5683c358d9",
+          "xl/styles.xml": "86429c0c070fdb94b3283f81ac83da970b6150dbeff3b3b82483133037968f84"
+        },
+        "model": {
+          "xl/worksheets/sheet1.xml": "97354b2b5057da26c9a86bb85a41a81dc7dc76de830d905f2b8883e9076e3a49",
+          "[Content_Types].xml": "b68331c555b8d60eaba1543c177febe4e39fe017b8b64db1ae556ba4faddb77d",
+          "_rels/.rels": "b2d2291c3daf8f4f0a9cf5a5c34d71a846584595011ff864594cf5b039cfc99a",
+          "xl/_rels/workbook.xml.rels": "37e3bcfcec3b08958433df2bc26745e155509bd9241c3ae0794fc1b15db7c200",
+          "xl/workbook.xml": "b018b3824a2377a6a8b2f34b354e1bcc93d59c066d14c3e44854b339cc766681",
+          "xl/theme/theme1.xml": "d15e8ebf78ef7b9720839d7ae8fdc81a7df5bc24706d8e137df61a5683c358d9",
+          "xl/styles.xml": "86429c0c070fdb94b3283f81ac83da970b6150dbeff3b3b82483133037968f84"
+        }
+      },
+      "medians": {
+        "after:stream": {
+          "seconds": 1.146419903,
+          "cpu_seconds": 1.146038,
+          "peak_rss_kib": 5404,
+          "sampled_peak_working_file_bytes": 255207928,
+          "output_bytes": 4396092
+        },
+        "before:model": {
+          "seconds": 1.314267486,
+          "cpu_seconds": 1.312604,
+          "peak_rss_kib": 209156,
+          "sampled_peak_working_file_bytes": 255207928,
+          "output_bytes": 4396092
+        },
+        "after:model": {
+          "seconds": 1.379920427,
+          "cpu_seconds": 1.379202,
+          "peak_rss_kib": 225264,
+          "sampled_peak_working_file_bytes": 255176713,
+          "output_bytes": 4396092
+        },
+        "before:stream": {
+          "seconds": 1.138798641,
+          "cpu_seconds": 1.138526,
+          "peak_rss_kib": 5364,
+          "sampled_peak_working_file_bytes": 255239145,
+          "output_bytes": 4396092
+        }
+      }
+    }
+  ],
+  "candidate_base_revision": "b5990868623e31b8cc3e47f4ba3bf0f906e54865",
+  "candidate_patch": "diff --git a/crates/crabxl-core/src/row.rs b/crates/crabxl-core/src/row.rs\nindex 612cd03..27fc2d0 100644\n--- a/crates/crabxl-core/src/row.rs\n+++ b/crates/crabxl-core/src/row.rs\n@@ -22,7 +22,7 @@ pub enum CellValue {\n     /// An exact decimal integer outside i64; no floating-point conversion.\n     BigInteger(Box<ExactInteger>),\n     /// Owned text with whitespace preserved.\n-    Text(Box<CellText>),\n+    Text(CellText),\n     /// A literal spreadsheet error token.\n     Error(Box<CellError>),\n     /// Rich display runs and optional separate pronunciation annotations.\n@@ -57,11 +57,11 @@ impl CellValue {\n     }\n     /// Construct an owned text value.\n     pub fn text(value: impl Into<Box<str>>) -> Self {\n-        Self::Text(Box::new(CellText::new(value)))\n+        Self::Text(CellText::new(value))\n     }\n     /// Retain immutable shared text without copying its UTF-8 payload.\n     pub fn shared_text(value: std::sync::Arc<str>) -> Self {\n-        Self::Text(Box::new(CellText::from_shared(value)))\n+        Self::Text(CellText::from_shared(value))\n     }\n     /// Construct an owned spreadsheet error value.\n     pub fn error(code: impl Into<Box<str>>) -> Self {\ndiff --git a/crates/crabxl-core/src/scalar.rs b/crates/crabxl-core/src/scalar.rs\nindex 6c3e53a..580cbad 100644\n--- a/crates/crabxl-core/src/scalar.rs\n+++ b/crates/crabxl-core/src/scalar.rs\n@@ -10,18 +10,18 @@ enum TextStorage {\n /// Owned literal text. Indirection keeps common numeric cells compact.\n #[derive(Clone, Debug)]\n pub struct CellText {\n-    value: TextStorage,\n+    value: Arc<TextStorage>,\n }\n impl CellText {\n     /// Own a string without trimming meaningful whitespace.\n     pub fn new(value: impl Into<Box<str>>) -> Self {\n         Self {\n-            value: TextStorage::Owned(value.into()),\n+            value: Arc::new(TextStorage::Owned(value.into())),\n         }\n     }\n     /// Borrow the original text.\n     pub fn as_str(&self) -> &str {\n-        match &self.value {\n+        match self.value.as_ref() {\n             TextStorage::Owned(value) => value,\n             TextStorage::Shared(value) => value,\n         }\n@@ -30,23 +30,24 @@ impl CellText {\n     /// remains independent of the source table/cache lifetime.\n     pub fn from_shared(value: Arc<str>) -> Self {\n         Self {\n-            value: TextStorage::Shared(value),\n+            value: Arc::new(TextStorage::Shared(value)),\n         }\n     }\n     /// Transfer directly owned text without cloning; shared text is copied into\n     /// a detached box because other source/model handles may retain its payload.\n     pub fn into_string(self) -> Box<str> {\n-        match self.value {\n+        match Arc::unwrap_or_clone(self.value) {\n             TextStorage::Owned(value) => value,\n             TextStorage::Shared(value) => value.as_ref().into(),\n         }\n     }\n-    /// Conservative heap charge including the boxed CellValue wrapper. Shared\n+    /// Conservative heap charge including immutable storage ownership. Shared\n     /// payloads and reference-count headers are charged per alias, not deduplicated.\n     pub fn memory_bytes(&self) -> usize {\n-        size_of::<Self>()\n+        size_of::<TextStorage>()\n+            + 2 * size_of::<usize>()\n             + self.as_str().len()\n-            + if matches!(self.value, TextStorage::Shared(_)) {\n+            + if matches!(self.value.as_ref(), TextStorage::Shared(_)) {\n                 2 * size_of::<usize>()\n             } else {\n                 0\ndiff --git a/crates/crabxl-core/tests/workbook.rs b/crates/crabxl-core/tests/workbook.rs\nindex 17e6b2b..87477da 100644\n--- a/crates/crabxl-core/tests/workbook.rs\n+++ b/crates/crabxl-core/tests/workbook.rs\n@@ -164,7 +164,7 @@ fn decoded_models_transfer_without_clones_and_replace_stable_handles_atomically(\n     .unwrap();\n     let placeholder = book.create_sheet(\"Loaded\").unwrap();\n     let mut incoming = crabxl_core::Worksheet::new(\"Loaded\", EditLimits::default()).unwrap();\n-    let value = Box::new(crabxl_core::CellText::new(\"loaded text\"));\n+    let value = crabxl_core::CellText::new(\"loaded text\");\n     let pointer = value.as_str().as_ptr();\n     incoming\n         .set(Cell {\ndiff --git a/crates/crabxl-xlsx/src/reader.rs b/crates/crabxl-xlsx/src/reader.rs\nindex e620d07..7a4a3f9 100644\n--- a/crates/crabxl-xlsx/src/reader.rs\n+++ b/crates/crabxl-xlsx/src/reader.rs\n@@ -965,7 +965,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {\n \n     fn read_formula_text(&mut self) -> Result<Box<str>> {\n         match self.read_value::<false>(ScalarKind::Text)? {\n-            CellValue::Text(value) => Ok((*value).into_string()),\n+            CellValue::Text(value) => Ok(value.into_string()),\n             CellValue::Empty => Ok(\"\".into()),\n             _ => Err(self.invalid(\"Invalid formula text\")),\n         }\ndiff --git a/crates/crabxl-xlsx/src/strings.rs b/crates/crabxl-xlsx/src/strings.rs\nindex ef07dc8..b296b86 100644\n--- a/crates/crabxl-xlsx/src/strings.rs\n+++ b/crates/crabxl-xlsx/src/strings.rs\n@@ -7,13 +7,12 @@ use crate::{\n     memory_allowance,\n     xml::{Scope, XmlStream},\n };\n-use crabxl_core::{CellValue, Error, ErrorKind, MemoryPolicy, ResourceLimits, Result};\n+use crabxl_core::{CellText, CellValue, Error, ErrorKind, MemoryPolicy, ResourceLimits, Result};\n use quick_xml::events::Event;\n use std::{\n     fs::File,\n     io::{BufRead, BufWriter, Read, Seek, SeekFrom, Write},\n     path::PathBuf,\n-    sync::Arc,\n };\n \n /// Placement of decoded shared strings and their index.\n@@ -84,7 +83,7 @@ pub struct SharedStringStats {\n #[derive(Clone)]\n enum Entry {\n     Text(Box<str>),\n-    SharedText(Arc<str>),\n+    SharedText(CellText),\n     Rich(Box<crabxl_core::RichText>),\n     Unsupported,\n }\n@@ -92,7 +91,7 @@ impl Entry {\n     fn payload_bytes(&self) -> usize {\n         match self {\n             Self::Text(s) => s.len(),\n-            Self::SharedText(s) => s.len().saturating_add(2 * size_of::<usize>()),\n+            Self::SharedText(s) => s.memory_bytes(),\n             Self::Rich(v) => v.memory_bytes(),\n             Self::Unsupported => 0,\n         }\n@@ -100,7 +99,7 @@ impl Entry {\n     fn view(&self) -> EntryView<'_> {\n         match self {\n             Self::Text(v) => EntryView::Text(v),\n-            Self::SharedText(v) => EntryView::Text(v),\n+            Self::SharedText(v) => EntryView::Text(v.as_str()),\n             Self::Rich(v) => EntryView::Rich(v),\n             Self::Unsupported => EntryView::Unsupported,\n         }\n@@ -108,7 +107,7 @@ impl Entry {\n     fn value(&self, preserve: bool) -> Result<CellValue> {\n         match self {\n             Self::Text(s) => Ok(CellValue::text(s.as_ref())),\n-            Self::SharedText(s) => Ok(CellValue::shared_text(Arc::clone(s))),\n+            Self::SharedText(s) => Ok(CellValue::Text(s.clone())),\n             Self::Rich(v) if preserve => {\n                 let mut value = (**v).clone();\n                 for run in &mut value.runs {\n@@ -129,7 +128,7 @@ impl Entry {\n     }\n     fn plain(value: Box<str>, shared: bool) -> Self {\n         if shared {\n-            Self::SharedText(Arc::from(value))\n+            Self::SharedText(CellText::new(value))\n         } else {\n             Self::Text(value)\n         }\n@@ -232,7 +231,7 @@ struct CacheEntry {\n pub(crate) struct SharedStrings {\n     memory: Vec<Entry>,\n     plain_memory: Vec<Option<Box<str>>>,\n-    shared_memory: Vec<Option<Arc<str>>>,\n+    shared_memory: Vec<Option<CellText>>,\n     share_values: bool,\n     disk: Option<Disk>,\n     cache: Vec<Option<CacheEntry>>,\n@@ -302,10 +301,6 @@ impl SharedStrings {\n                 crate::encode::validate_xml_text(text)?;\n                 let entry = if text.contains(\"x005F_\") {\n                     Entry::plain(text.replace(\"x005F_\", \"\").into_boxed_str(), share_values)\n-                } else if share_values {\n-                    // Build canonical shared ownership once, without an\n-                    // intermediate owned text allocation and second copy.\n-                    Entry::SharedText(Arc::from(text))\n                 } else {\n                     let mut owned = String::new();\n                     owned.try_reserve_exact(text.len()).map_err(|cause| {\n@@ -316,7 +311,7 @@ impl SharedStrings {\n                         )\n                     })?;\n                     owned.push_str(text);\n-                    Entry::Text(owned.into_boxed_str())\n+                    Entry::plain(owned.into_boxed_str(), share_values)\n                 };\n                 Ok(Some(entry))\n             })? {\n@@ -385,7 +380,7 @@ impl SharedStrings {\n                 (\n                     self.shared_memory.len(),\n                     self.shared_memory.capacity(),\n-                    size_of::<Option<Arc<str>>>(),\n+                    size_of::<Option<CellText>>(),\n                 )\n             } else {\n                 (\n@@ -419,8 +414,9 @@ impl SharedStrings {\n                 } else if self.share_values {\n                     for old in &self.shared_memory {\n                         disk.push(\n-                            old.as_deref()\n-                                .map_or(EntryView::Unsupported, EntryView::Text),\n+                            old.as_ref().map_or(EntryView::Unsupported, |text| {\n+                                EntryView::Text(text.as_str())\n+                            }),\n                             options.max_temp_bytes,\n                         )?;\n                     }\n@@ -503,10 +499,9 @@ impl SharedStrings {\n             return if self.stats.rich_text_preserved {\n                 self.memory[id as usize].value(preserve)\n             } else if self.share_values {\n-                self.shared_memory[id as usize].as_ref().map_or_else(\n-                    || Err(unsupported()),\n-                    |v| Ok(CellValue::shared_text(Arc::clone(v))),\n-                )\n+                self.shared_memory[id as usize]\n+                    .as_ref()\n+                    .map_or_else(|| Err(unsupported()), |v| Ok(CellValue::Text(v.clone())))\n             } else {\n                 self.plain_memory[id as usize]\n                     .as_ref()\n@@ -667,9 +662,9 @@ impl SharedStrings {\n         } else if self.share_values {\n             for entry in &self.shared_memory {\n                 disk.push(\n-                    entry\n-                        .as_deref()\n-                        .map_or(EntryView::Unsupported, EntryView::Text),\n+                    entry.as_ref().map_or(EntryView::Unsupported, |text| {\n+                        EntryView::Text(text.as_str())\n+                    }),\n                     options.max_temp_bytes,\n                 )?;\n             }\n",
+  "decision": "Rejected: owned text model increases RSS and changes public Rust representation; runtime implementation reverted."
+}

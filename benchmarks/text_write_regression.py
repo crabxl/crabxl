@@ -32,6 +32,7 @@ def verify(path, rows):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--before", type=Path, required=True)
+    parser.add_argument("--before-core")
     parser.add_argument("--rows", nargs="+", type=int, default=[10000, 100000])
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--output", type=Path, required=True)
@@ -45,7 +46,7 @@ def main():
         "carriage returns and newlines. Compare streaming and retained-model "
         "creation separately. 1 GiB owned-model allowance, writer defaults and "
         "compression backend identical. No reference parity claim.",
-        "baseline_core_revision": "4f25c545684a03a879d717c27cf1bb91acd14676",
+        "baseline_core_revision": args.before_core,
         "openpyxl": openpyxl.__version__,
         "binary_sha256": {
             label: hashlib.sha256(binary.read_bytes()).hexdigest()
