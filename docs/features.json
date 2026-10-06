@@ -17992,7 +17992,7 @@
         "crates/crabxl-core/tests/translate.rs::reference_context_quotes_tables_axis_ranges_and_errors",
         "crates/crabxl-core/tests/translate.rs::invalid_boundaries_syntax_and_output_capacity_do_not_return_partial_results"
       ],
-      "limitations": "Selected native token behavior only; complete Python token objects, newline-inside-operand equivalence and malformed-input acceptance remain staged. Unmatched closers return typed errors; generated-reference colon operator fixes MR !345. Spill/unknown errors explicitly reject. No formula evaluation."
+      "limitations": "Selected native token behavior only; complete Python token objects and malformed-input acceptance remain staged. Newline words use separately budgeted owned storage. Unmatched closers return typed errors; generated-reference colon operator fixes MR !345. Spill/unknown errors explicitly reject. No formula evaluation."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

@@ -279,7 +279,7 @@
         "Share typed errors and checked allocation/work budgets; reject malformed quotes/brackets/unmatched or mismatched closers instead of panicking. Unclosed group/function openers remain observable.",
         "Correct exponent-sign recognition without the upstream malformed regular expression; preserve nested structured references and doubled quoted sheet names.",
         "Recognize the range operator after generated references as identified by pending reference MR !345. Literal A1 ranges remain single operands.",
-        "Newline-inside-operand token equivalence and complete adapter/malformed-input acceptance remain staged. Unknown spill/error syntax is explicitly rejected; no evaluation or worksheet cell parsing changes."
+        "Newline-inside-operand spelling follows observed reference token ordering with owned storage only for noncontiguous words; complete adapter/malformed-input acceptance remains staged. Unknown spill/error syntax is explicitly rejected; no evaluation or worksheet cell parsing changes."
       ],
       "tests": "Existing translate.rs tests extended with public-observed literal/function/array/error/exponent/Unicode-reference tokens, source borrowing, malformed input and finite-work failures; no new test functions.",
       "inventory_items": [

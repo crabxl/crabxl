@@ -54,7 +54,9 @@ pub use crabxl_xlsx::{
 pub use crabxl_core::MemoryAllowance;
 pub use crabxl_xlsx::memory_allowance;
 
-pub use crabxl_core::{FormulaToken, TokenKind, TokenSubtype, tokenize_formula};
+pub use crabxl_core::{
+    FormulaToken, TokenKind, TokenSubtype, classify_formula_operand, tokenize_formula,
+};
 pub use crabxl_core::{formula_position, translate_axis, translate_expression};
 
 pub use crabxl_core::{

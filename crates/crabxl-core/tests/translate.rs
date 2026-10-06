@@ -69,7 +69,7 @@ fn reference_context_quotes_tables_axis_ranges_and_errors() {
         let tokens = tokenize_formula(source, 4096).unwrap();
         let actual = tokens
             .iter()
-            .map(|t| (t.value, t.kind.as_str(), t.subtype.as_str()))
+            .map(|t| (t.value.as_ref(), t.kind.as_str(), t.subtype.as_str()))
             .collect::<Vec<_>>();
         assert_eq!(actual, expected, "{source}");
         for token in &tokens {
@@ -119,6 +119,44 @@ fn reference_context_quotes_tables_axis_ranges_and_errors() {
     assert_eq!(generated[closer + 1].value, ":");
     assert_eq!(generated[closer + 1].kind, crabxl_core::TokenKind::Infix);
     assert_eq!(generated[closer + 2].value, "C3");
+    for (source, expected) in [
+        (
+            "=A1\nB1",
+            vec![("\n", "WHITE-SPACE", ""), ("A1B1", "OPERAND", "RANGE")],
+        ),
+        (
+            "=SUM\n(A1)",
+            vec![
+                ("\n", "WHITE-SPACE", ""),
+                ("SUM(", "FUNC", "OPEN"),
+                ("A1", "OPERAND", "RANGE"),
+                (")", "FUNC", "CLOSE"),
+            ],
+        ),
+        (
+            "=A1\n+\tB2",
+            vec![
+                ("\n", "WHITE-SPACE", ""),
+                ("A1", "OPERAND", "RANGE"),
+                ("+", "OPERATOR-INFIX", ""),
+                ("\tB2", "OPERAND", "RANGE"),
+            ],
+        ),
+    ] {
+        let tokens = tokenize_formula(source, 4096).unwrap();
+        assert_eq!(
+            tokens
+                .iter()
+                .map(|t| (t.value.as_ref(), t.kind.as_str(), t.subtype.as_str()))
+                .collect::<Vec<_>>(),
+            expected
+        );
+        assert!(
+            tokens
+                .iter()
+                .any(|t| matches!(t.value, std::borrow::Cow::Owned(_)))
+        );
+    }
 }
 #[test]
 fn invalid_boundaries_syntax_and_output_capacity_do_not_return_partial_results() {
