@@ -46,3 +46,8 @@ Existing loaded workflows verify original/new removal, detached values, title
 reuse, surviving copies, empty relationship cleanup, repeated reload, empty-bank
 recovery, local/signed/budget/alternative failures, unknown incoming consumers and
 workbook/worksheet graph rejection. Final staged M4 acceptance is separate.
+
+A7 integration/publication follow-up: the matching Python operations and staged
+release acceptance are verified in
+[the A7 audit](../validation/alpha7-m4-stage-acceptance.md). Remaining affected
+feature-graph transformations still belong to the tracked M5/M6 dependencies.

@@ -34,3 +34,8 @@ M5/M6 instead of silently losing content.
 The existing loaded workflows cover source edits, copy independence, copying a
 copy, source printing/header/view behavior, repeat readback, aggregate failure
 atomicity and affected-graph rejection. This checkpoint does not close A7.
+
+A7 integration/publication follow-up: the matching Python operations and staged
+release acceptance are verified in
+[the A7 audit](../validation/alpha7-m4-stage-acceptance.md). Remaining affected
+feature-graph transformations still belong to the tracked M5/M6 dependencies.

@@ -157,5 +157,5 @@ linked VBA projects and unmodeled workbook identity graphs retain explicit M5/M6
 rejection and follow-up tracking. Source-backed physical-cell deletion now uses
 the same guarded model coordinator and leaves missing-cell removals unchanged.
 The staged acceptance matrix is recorded in
-[the A7 audit](validation/alpha7-m4-stage-acceptance.md). Release verification
-remains pending; these checkpoints do not close deferred M4 graph interactions.
+[the A7 audit](validation/alpha7-m4-stage-acceptance.md). A7 is published and its
+M4 stage is accepted; full M4 remains open for deferred feature-graph interactions.
