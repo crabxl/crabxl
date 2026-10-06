@@ -11,6 +11,10 @@ with direct canonical shared ownership and checked event fallback; see
 [ADR 0078](decisions/0078-buffered-plain-shared-text.md). RAM/disk placement and
 rich-text semantics retain their existing shared implementation.
 
+Shared XML text/attribute escaping scans ASCII replacement bytes and borrows
+unchanged UTF-8 runs while retaining character validation and exact output;
+[ADR 0079](decisions/0079-byte-oriented-xml-escaping.md) records measured scope.
+
 Status: M0 architecture/inventory and M1 raw numeric streaming and M3 sequential writer acceptance complete; M2 core acceptance is complete (see docs/validation/alpha5-m2-acceptance.md). The goal is a standalone Rust crate with full public openpyxl feature coverage, improved processing speed, and controlled memory consumption. An optional Python compatibility adapter is now authorized for shared tests; other language adapters follow the priorities and contracts in [binding-contract.md](binding-contract.md). Reader ownership is recorded in [ADR 0001](decisions/0001-numeric-streaming.md); the sequential writer uses [ADR 0004](decisions/0004-sequential-scalar-writer.md).
 
 Source-backed scalar/formula append coordinates canonical model and package

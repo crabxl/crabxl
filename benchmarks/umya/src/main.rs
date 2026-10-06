@@ -63,7 +63,87 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .checked_add(value)
             .expect("Generated checksum fits i64");
     };
-    if mode.starts_with("write-") {
+    if mode.starts_with("write-text-") {
+        let rows = args
+            .get(4)
+            .ok_or("Missing text row count")?
+            .parse::<u32>()?;
+        let output = target.ok_or("Missing text output path")?;
+        let value = |row: u32, column: u32| {
+            format!("{row}:{column}:")
+                + &"plain \u{6587}\u{5b57} caf\u{e9} &<> \"'\t\r\n ".repeat(4)
+        };
+        if mode == "write-text-crabxl-stream" {
+            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;
+            writer.start_sheet("Sheet")?;
+            let mut cells = crabxl::Row::new(crabxl::RowIndex::new(0)?);
+            for row in 0..rows {
+                cells.index = crabxl::RowIndex::new(row)?;
+                cells.cells.clear();
+                for column in 0..10 {
+                    let text = value(row, column);
+                    sum(text.len() as i64);
+                    cells.cells.push(crabxl::Cell {
+                        address: CellAddress::new(row, column)?,
+                        value: CellValue::text(text.into_boxed_str()),
+                        style: crabxl::StyleId::new(0),
+                    });
+                }
+                writer.write_row(&cells)?;
+            }
+            writer.finish(File::create(output)?)?;
+        } else if mode == "write-text-crabxl-model" {
+            let mut book = crabxl::Workbook::new(crabxl::WorkbookLimits {
+                max_bytes: 1024 * 1024 * 1024,
+                sheet: crabxl::EditLimits {
+                    max_bytes: 1024 * 1024 * 1024,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })?;
+            let id = book.create_sheet("Sheet")?;
+            {
+                let mut sheet = book.sheet_mut(id)?;
+                for row in 0..rows {
+                    for column in 0..10 {
+                        let text = value(row, column);
+                        sum(text.len() as i64);
+                        sheet.set(crabxl::Cell {
+                            address: CellAddress::new(row, column)?,
+                            value: CellValue::text(text.into_boxed_str()),
+                            style: crabxl::StyleId::new(0),
+                        })?;
+                    }
+                }
+            }
+            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;
+            writer.write_workbook(&book)?;
+            writer.finish(File::create(output)?)?;
+        } else if matches!(
+            mode.as_str(),
+            "write-text-rust_xlsxwriter-normal" | "write-text-rust_xlsxwriter-constant"
+        ) {
+            let mut book = rust_xlsxwriter::Workbook::new();
+            let sheet = if mode.ends_with("constant") {
+                book.add_worksheet_with_constant_memory()
+            } else {
+                book.add_worksheet()
+            };
+            sheet.set_name("Sheet")?;
+            for row in 0..rows {
+                for column in 0..10 {
+                    let text = value(row, column);
+                    sum(text.len() as i64);
+                    sheet.write_string(row, column as u16, text)?;
+                }
+            }
+            book.save(output)?;
+        } else {
+            return Err("Unknown text write mode".into());
+        }
+        sheets = 1;
+        output_bytes = std::fs::metadata(output)?.len();
+    } else if mode.starts_with("write-") {
         let rows = args
             .get(4)
             .ok_or("Write mode requires row count")?
