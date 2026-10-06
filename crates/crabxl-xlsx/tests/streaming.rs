@@ -574,6 +574,30 @@ fn malformed_numeric_values_and_coordinates_fail() {
             assert!(std::error::Error::source(&error).is_some());
         }
     }
+    // Failed numeric decoding counts its selected cell and terminates equally
+    // through buffered recognition and one-byte event input.
+    for input_buffer_bytes in [1, 64 * 1024] {
+        let document = format!(
+            "<worksheet xmlns=\"{MAIN}\"><sheetData><row><c r=\"A1\"><v>1e+</v></c></row></sheetData></worksheet>"
+        );
+        let entries = entries(&document);
+        let refs = entries
+            .iter()
+            .map(|(name, xml)| (name.as_str(), xml.as_str()))
+            .collect::<Vec<_>>();
+        let mut book = WorkbookReader::with_limits(
+            Cursor::new(fixture(&refs)),
+            ResourceLimits {
+                input_buffer_bytes,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let mut rows = book.rows("A & B").unwrap();
+        assert_eq!(rows.next_row().unwrap_err().kind(), ErrorKind::InvalidData);
+        assert_eq!(rows.decoded_cells(), 1);
+        assert!(rows.next_row().unwrap().is_none());
+    }
 }
 #[test]
 fn numeric_entities_and_zero_style_are_supported() {
@@ -594,6 +618,10 @@ fn rejects_duplicate_or_unsorted_cells_and_rows() {
     for data in [
         "<row><c r=\"B1\"/><c r=\"A1\"/></row>",
         "<row><c r=\"A1\"/><c r=\"A1\"/></row>",
+        "<row><c r=\"B1\"><v>1</v></c><c r=\"A1\"><v>2</v></c></row>",
+        "<row><c r=\"A1\"><v>1</v></c><c r=\"A1\"><v>2</v></c></row>",
+        "<row><c r=\"A1\" r=\"B1\"><v>1</v></c></row>",
+        "<row><c t=\"n\" t=\"b\"><v>1</v></c></row>",
         "<row r=\"2\"/><row r=\"1\"/>",
     ] {
         let mut book = open(data);
@@ -638,6 +666,40 @@ fn event_cell_row_depth_and_metadata_limits_are_enforced() {
         let mut book = WorkbookReader::with_limits(Cursor::new(data.clone()), limits).unwrap();
         let error = book.rows("A & B").unwrap().next_row().unwrap_err();
         assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+    }
+    // Buffered recognition must retain event-byte boundaries, including the
+    // delimiter read by quick-xml. Tiny input buffers force the event path.
+    for length in [255, 256, 257] {
+        let document = format!(
+            "<worksheet xmlns=\"{MAIN}\"><sheetData><row><c><v>{}</v></c></row></sheetData></worksheet>",
+            "0".repeat(length),
+        );
+        let entries = entries(&document);
+        let refs = entries
+            .iter()
+            .map(|(name, xml)| (name.as_str(), xml.as_str()))
+            .collect::<Vec<_>>();
+        let bytes = fixture(&refs);
+        for input_buffer_bytes in [1, 64 * 1024] {
+            let mut book = WorkbookReader::with_limits(
+                Cursor::new(bytes.clone()),
+                ResourceLimits {
+                    input_buffer_bytes,
+                    max_xml_event_bytes: 256,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            let result = book.rows("A & B").unwrap().next_row();
+            if length < 256 {
+                assert_eq!(
+                    result.unwrap().unwrap().cells[0].value,
+                    CellValue::Integer(0)
+                );
+            } else {
+                assert_eq!(result.unwrap_err().kind(), ErrorKind::LimitExceeded);
+            }
+        }
     }
     assert!(
         WorkbookReader::with_limits(
