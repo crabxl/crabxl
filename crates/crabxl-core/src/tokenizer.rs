@@ -5,6 +5,7 @@
 // Source provenance and semantic changes: third_party/ports.json.
 //! Borrowed formula lexing; this is not an expression evaluator.
 use crate::{Error, ErrorKind, Result};
+use std::borrow::Cow;
 
 /// Lexical role of a formula token.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -89,10 +90,10 @@ impl TokenSubtype {
     }
 }
 /// A token borrowing its source spelling instead of allocating a string.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FormulaToken<'a> {
     /// Source token spelling, including quotation marks and function opener.
-    pub value: &'a str,
+    pub value: Cow<'a, str>,
     /// Lexical category.
     pub kind: TokenKind,
     /// Operand or boundary subtype.
@@ -113,7 +114,7 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
             push(
                 &mut tokens,
                 FormulaToken {
-                    value: source,
+                    value: Cow::Borrowed(source),
                     kind: TokenKind::Literal,
                     subtype: TokenSubtype::None,
                 },
@@ -126,10 +127,13 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
     let bytes = source.as_bytes();
     let mut index = 1;
     let mut previous = None;
+    let mut payload = 0usize;
     while index < bytes.len() {
         let start = index;
         let byte = bytes[index];
-        let (kind, subtype) = match byte {
+        let mut word = None::<String>;
+        let mut segment = start;
+        let (kind, mut subtype) = match byte {
             b' ' | b'\n' => {
                 index += 1;
                 while bytes.get(index) == Some(&byte) {
@@ -160,7 +164,9 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                 push(
                     &mut stack,
                     kind,
-                    tokens.capacity() * size_of::<FormulaToken<'_>>(),
+                    (tokens.capacity() * size_of::<FormulaToken<'_>>())
+                        .saturating_add(payload)
+                        .saturating_add(word.as_ref().map_or(0, String::capacity)),
                     maximum,
                 )?;
                 index += 1;
@@ -244,8 +250,31 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                         {
                             index += 1;
                         }
-                        b' ' | b'\n' | b'"' | b'#' | b'(' | b')' | b'{' | b'}' | b',' | b';'
-                        | b'%' | b'+' | b'-' | b'*' | b'/' | b'^' | b'&' | b'=' | b'<' | b'>' => {
+                        b'\n' => {
+                            let other = tokens.capacity() * size_of::<FormulaToken<'_>>()
+                                + stack.capacity() * size_of::<TokenKind>()
+                                + payload;
+                            append_word(&mut word, &source[segment..index], other, maximum)?;
+                            push(
+                                &mut tokens,
+                                FormulaToken {
+                                    value: Cow::Borrowed("\n"),
+                                    kind: TokenKind::Whitespace,
+                                    subtype: TokenSubtype::None,
+                                },
+                                stack.capacity() * size_of::<TokenKind>()
+                                    + payload
+                                    + word.as_ref().map_or(0, String::capacity),
+                                maximum,
+                            )?;
+                            index += 1;
+                            while bytes.get(index) == Some(&b'\n') {
+                                index += 1;
+                            }
+                            segment = index;
+                        }
+                        b' ' | b'"' | b'#' | b'(' | b')' | b'{' | b'}' | b',' | b';' | b'%'
+                        | b'+' | b'-' | b'*' | b'/' | b'^' | b'&' | b'=' | b'<' | b'>' => {
                             break;
                         }
                         _ => {
@@ -257,7 +286,9 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                     push(
                         &mut stack,
                         TokenKind::Function,
-                        tokens.capacity() * size_of::<FormulaToken<'_>>(),
+                        (tokens.capacity() * size_of::<FormulaToken<'_>>())
+                            .saturating_add(payload)
+                            .saturating_add(word.as_ref().map_or(0, String::capacity)),
                         maximum,
                     )?;
                     index += 1;
@@ -275,11 +306,24 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                 }
             }
         };
-        let value = if kind == TokenKind::Whitespace {
-            if byte == b' ' { " " } else { "\n" }
+        let value = if word.is_some() {
+            let other = tokens.capacity() * size_of::<FormulaToken<'_>>()
+                + stack.capacity() * size_of::<TokenKind>()
+                + payload;
+            append_word(&mut word, &source[segment..index], other, maximum)?;
+            let owned = word.take().ok_or_else(|| invalid("Missing formula word"))?;
+            payload = payload.saturating_add(owned.capacity());
+            Cow::Owned(owned)
+        } else if kind == TokenKind::Whitespace {
+            Cow::Borrowed(if byte == b' ' { " " } else { "\n" })
         } else {
-            &source[start..index]
+            Cow::Borrowed(&source[start..index])
         };
+        if kind == TokenKind::Operand
+            && !matches!(subtype, TokenSubtype::Text | TokenSubtype::Error)
+        {
+            subtype = classify_formula_operand(&value);
+        }
         push(
             &mut tokens,
             FormulaToken {
@@ -287,7 +331,7 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                 kind,
                 subtype,
             },
-            stack.capacity() * size_of::<TokenKind>(),
+            (stack.capacity() * size_of::<TokenKind>()).saturating_add(payload),
             maximum,
         )?;
         if kind != TokenKind::Whitespace {
@@ -351,4 +395,50 @@ fn budget() -> Error {
         ErrorKind::MemoryBudgetExceeded,
         "Formula token allowance exceeded",
     )
+}
+
+/// Classify a public operand literal without evaluating or validating an expression.
+pub fn classify_formula_operand(value: &str) -> TokenSubtype {
+    if value.starts_with('"') {
+        TokenSubtype::Text
+    } else if value.starts_with('#') {
+        TokenSubtype::Error
+    } else if matches!(value, "TRUE" | "FALSE") {
+        TokenSubtype::Logical
+    } else if value.trim().parse::<f64>().is_ok() {
+        TokenSubtype::Number
+    } else {
+        TokenSubtype::Range
+    }
+}
+
+fn append_word(
+    word: &mut Option<String>,
+    segment: &str,
+    other: usize,
+    maximum: usize,
+) -> Result<()> {
+    let value = word.get_or_insert_with(String::new);
+    let length = value.len().checked_add(segment.len()).ok_or_else(budget)?;
+    if length > value.capacity() {
+        let available = maximum
+            .saturating_sub(other)
+            .saturating_sub(value.capacity());
+        let capacity = value
+            .capacity()
+            .saturating_mul(2)
+            .max(length)
+            .min(available);
+        if capacity < length {
+            return Err(budget());
+        }
+        value
+            .try_reserve_exact(capacity - value.len())
+            .map_err(|_| budget())?;
+        if value.capacity().saturating_add(other) > maximum {
+            return Err(budget());
+        }
+    }
+    value.push_str(segment);
+    Ok(())
 }

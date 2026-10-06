@@ -123,7 +123,7 @@ support. See [port provenance](../third_party/ports.json).
 A native borrowed formula lexer now adapts umya lexical categories and states
 without repeated character scans or cloned token streams. Public-observed
 function/array/quoted/error/exponent cases and malformed resource failures are
-checked. Complete binding, newline equivalence and token-tool acceptance remain
+checked. Newline token ordering is verified; complete binding and token-tool acceptance remain
 pending; this checkpoint does not close M5 formula support.
 
 - Complete styles/named styles/themes, rich text/hyperlinks/views/dimensions/outlines/protection.
