@@ -298,13 +298,31 @@ impl<B: BufRead> XmlStream<B> {
         &mut self,
         decode: impl FnOnce(&str, &str) -> Result<Option<T>>,
     ) -> Result<Option<T>> {
+        self.buffered_element(3, 5, scalar_value_token, decode)
+    }
+
+    pub(crate) fn buffered_plain_shared_text<T>(
+        &mut self,
+        decode: impl FnOnce(&str) -> Result<Option<T>>,
+    ) -> Result<Option<T>> {
+        self.buffered_element(1, 3, plain_shared_text_token, |_, text| decode(text))
+    }
+
+    #[inline(always)]
+    fn buffered_element<T>(
+        &mut self,
+        depth: usize,
+        maximum_depth: usize,
+        recognize: impl FnOnce(&[u8], usize, usize) -> Option<(&str, &str, usize)>,
+        decode: impl FnOnce(&str, &str) -> Result<Option<T>>,
+    ) -> Result<Option<T>> {
         self.namespaces.before_event();
         // quick-xml retains the lexical empty start token in read_event_into's
         // buffer while its expanded end event is pending. Never bypass that end.
-        if self.depth != 3
+        if self.depth != depth
             || self.namespaces.default.scope() != Scope::Spreadsheet
             || self.buffer.ends_with(b"/>")
-            || self.limits.max_xml_depth < 5
+            || self.limits.max_xml_depth < maximum_depth
         {
             return Ok(None);
         }
@@ -325,14 +343,13 @@ impl<B: BufRead> XmlStream<B> {
             )
             .with_part(self.part.clone())
         })?;
-        let Some((header, value, consumed)) =
-            scalar_value_token(bytes, maximum, self.limits.max_cell_bytes)
+        let Some((header, value, consumed)) = recognize(bytes, maximum, self.limits.max_cell_bytes)
         else {
             return Ok(None);
         };
         let value = decode(header, value)?;
         if value.is_some() {
-            // Reader::stream preserves quick-xml offsets. The recognized c/v
+            // Reader::stream preserves quick-xml offsets. The recognized XML
             // pair is balanced, unprefixed and carries no namespace declaration.
             self.reader.stream().consume(consumed);
         }
@@ -439,6 +456,28 @@ impl<B: BufRead> XmlStream<B> {
             depth: self.depth,
         })
     }
+}
+
+fn plain_shared_text_token(
+    bytes: &[u8],
+    maximum: usize,
+    cell_maximum: usize,
+) -> Option<(&str, &str, usize)> {
+    if maximum < 5 || !bytes.starts_with(b"<si><t>") {
+        return None;
+    }
+    let length = bytes.get(7..)?.iter().position(|byte| *byte == b'<')?;
+    let value = bytes.get(7..7 + length)?;
+    if length.saturating_add(1) > maximum
+        || length > cell_maximum
+        || !bytes.get(7 + length..)?.starts_with(b"</t></si>")
+        // Entities and XML line-ending normalization retain the event path.
+        || !value.is_ascii()
+        || value.iter().any(|byte| matches!(byte, b'&' | b'\r'))
+    {
+        return None;
+    }
+    Some(("", std::str::from_utf8(value).ok()?, 7 + length + 9))
 }
 
 fn scalar_value_token(

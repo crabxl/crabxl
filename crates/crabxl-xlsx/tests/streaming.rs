@@ -1325,6 +1325,39 @@ fn with_strings(sheet: &str, strings: &str) -> Vec<u8> {
 #[test]
 fn shared_text_modes_preserve_ids_entities_whitespace_and_owned_lifetimes() {
     use crabxl_xlsx::{SharedStringOptions, SharedStringStorage};
+    for (text, expected) in [
+        ("simple", "simple"),
+        ("", ""),
+        ("  spaced\ttext\n", "  spaced\ttext\n"),
+        ("line\r\nbreak", "line\nbreak"),
+        ("a &amp; b", "a & b"),
+        ("_x005F_x0041_", "_x0041_"),
+    ] {
+        for input_buffer_bytes in [1, 64 * 1024] {
+            let bytes = with_strings(
+                "<row><c t=\"s\"><v>0</v></c></row>",
+                &format!("<si><t>{text}</t></si>"),
+            );
+            let mut book = WorkbookReader::with_limits(
+                Cursor::new(bytes),
+                ResourceLimits {
+                    input_buffer_bytes,
+                    ..ResourceLimits::default()
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                book.rows("A & B")
+                    .unwrap()
+                    .next_row()
+                    .unwrap()
+                    .unwrap()
+                    .cells[0]
+                    .value,
+                CellValue::text(expected),
+            );
+        }
+    }
     for storage in [
         SharedStringStorage::Memory,
         SharedStringStorage::Disk,
@@ -1494,6 +1527,7 @@ fn shared_string_crc_and_xml_failures_leave_no_prepared_table() {
         "<wrong/>",
         "<si><t>x</si>",
         "<si>unexpected</si>",
+        "<si><t>forbidden\u{1}</t></si>",
     ] {
         let mut book = WorkbookReader::new(Cursor::new(with_strings("<row/>", content))).unwrap();
         assert!(book.rows("A & B").is_err(), "{content}");
