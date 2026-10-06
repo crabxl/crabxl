@@ -92,7 +92,15 @@ impl CellStore {
             .next_back()
             .map(|(first, _)| *first)
         else {
-            self.blocks.insert(target, vec![cell]);
+            if let Some(first) = self.blocks.first_entry()
+                && first.get().len() < BLOCK_CELLS
+            {
+                let (_, mut block) = first.remove_entry();
+                block.insert(0, cell);
+                self.blocks.insert(target, block);
+            } else {
+                self.blocks.insert(target, vec![cell]);
+            }
             self.len += 1;
             return None;
         };

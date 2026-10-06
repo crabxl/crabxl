@@ -125,6 +125,7 @@ def main():
         "umya-lazy-edit",
     ]
     write_modes = [
+        "write-crabxl-reverse-model",
         "write-crabxl-stream",
         "write-rust_xlsxwriter-constant",
         "write-crabxl-model",

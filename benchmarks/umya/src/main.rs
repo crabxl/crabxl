@@ -183,7 +183,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 writer.write_row(&cells)?;
             }
             writer.finish(File::create(output)?)?;
-        } else if mode == "write-crabxl-model" {
+        } else if matches!(
+            mode.as_str(),
+            "write-crabxl-model" | "write-crabxl-reverse-model"
+        ) {
             let mut book = crabxl::Workbook::new(crabxl::WorkbookLimits {
                 max_bytes: 1024 * 1024 * 1024,
                 sheet: crabxl::EditLimits {
@@ -195,8 +198,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let id = book.create_sheet("Sheet")?;
             {
                 let mut sheet = book.sheet_mut(id)?;
-                for row in 0..rows {
-                    for column in 0..10 {
+                for row_offset in 0..rows {
+                    let row = if mode == "write-crabxl-reverse-model" {
+                        rows - row_offset - 1
+                    } else {
+                        row_offset
+                    };
+                    for column_offset in 0..10 {
+                        let column = if mode == "write-crabxl-reverse-model" {
+                            9 - column_offset
+                        } else {
+                            column_offset
+                        };
                         sheet.set(crabxl::Cell {
                             address: CellAddress::new(row, column)?,
                             value: CellValue::Integer(i64::from(row) * 10 + i64::from(column)),
