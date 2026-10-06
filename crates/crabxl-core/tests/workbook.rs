@@ -64,6 +64,11 @@ fn sheet_ids_survive_copy_reorder_rename_and_reject_removed_foreign_handles() {
     assert_eq!(book.sheet(new).unwrap().name(), "Second");
     book.set_epoch(DateEpoch::Mac1904);
     assert_eq!(book.epoch(), DateEpoch::Mac1904);
+    for index in 0..1025 {
+        book.create_sheet(format!("Additional{index}")).unwrap();
+    }
+    assert_eq!(book.sheets().count(), 1028);
+    assert_eq!(book.active_sheet(), Some(copied));
 }
 #[test]
 fn aggregate_bytes_cells_and_work_budget_fail_without_changing_models() {
