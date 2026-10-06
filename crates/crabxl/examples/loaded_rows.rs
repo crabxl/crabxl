@@ -56,10 +56,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             | "bank-reorder"
             | "bank-create"
             | "bank-copy"
+            | "bank-remove"
     ) {
         let mut workbook = LoadedWorkbook::with_options(
             File::open(path)?,
-            if mode == "bank-copy" {
+            if matches!(mode.as_str(), "bank-copy" | "bank-remove") {
                 model_options()
             } else {
                 LoadOptions::default()
@@ -71,6 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .nth(1)
             .ok_or("Active mode requires two sheets")?
             .0;
+        let retained_name = workbook.model().sheet(id)?.name().to_owned();
         if mode == "bank-visibility" {
             let first = workbook.model().sheets().next().ok_or("No source sheet")?.0;
             workbook.set_sheet_visibility(first, crabxl::SheetVisibility::Hidden)?;
@@ -91,6 +93,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let created = workbook.create_sheet("Added")?;
             workbook.upsert_value(created, CellAddress::new(0, 0)?, CellValue::Integer(42))?;
         }
+        if mode == "bank-remove" {
+            let removed = workbook
+                .model()
+                .sheets()
+                .next()
+                .ok_or("Missing removed source")?
+                .0;
+            workbook.remove_sheet(removed)?;
+            workbook.set_active_view_index(0)?;
+        }
         let expected_materialized = if mode == "bank-copy" {
             let source = workbook.model().sheets().next().ok_or("Missing source")?.0;
             let copied = workbook.copy_sheet(source, "Copied")?;
@@ -102,7 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             usize::from(mode == "bank-create")
         };
-        let selected = usize::from(mode != "bank-reorder");
+        let selected = usize::from(!matches!(mode.as_str(), "bank-reorder" | "bank-remove"));
         let target = output.as_ref().ok_or("Active mode requires output path")?;
         workbook.save_path(target, crabxl::SaveOptions::default())?;
         output_bytes = std::fs::metadata(target)?.len();
@@ -146,6 +158,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if row.cells.first().ok_or("Missing copied A1")?.value != CellValue::Integer(42) {
                 return Err("Copied edit mismatch".into());
             }
+        }
+        if mode == "bank-remove"
+            && (saved.sheets().len() != 1 || saved.sheets()[0].name() != retained_name)
+        {
+            return Err("Removed catalog mismatch".into());
         }
         let names = saved
             .sheets()

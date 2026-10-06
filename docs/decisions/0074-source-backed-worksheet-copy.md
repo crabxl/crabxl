@@ -1,6 +1,6 @@
 # ADR 0074: Source-backed worksheet copy
 
-Status: implemented for the staged supported subset; removal remains pending.
+Status: implemented for the staged supported subset; removal is added in ADR 0075.
 
 A requested copy uses `Workbook::copy_sheet` to duplicate the canonical cells
 under aggregate/per-sheet allowances. This is the user's requested result, not a

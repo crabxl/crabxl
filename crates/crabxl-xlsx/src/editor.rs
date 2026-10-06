@@ -317,13 +317,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         drop(xml);
         let workbook_relationships = crate::package::relationship_part(&book.workbook_part);
-        let (chain_removals, chain_safe) = catalog_chain_removal(
+        let (chain_removals, chain_safe) = catalog_part_removal(
             &mut book,
             &parts,
             &calc_chain_parts,
             &workbook_relationships,
             options.resources,
             &mut bytes,
+            GraphOwner::CalculationChain,
         )?;
         Ok(Self {
             book,
@@ -1264,6 +1265,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     }
     pub(crate) fn prepare_model(&mut self, sheet: &str) -> Result<ModelPlan> {
         let index = self.editable_sheet(sheet)?;
+        self.guard_workbook_graphs()?;
         let part = self.book.sheets()[index].part().to_owned();
         let old = self.patches.get(&part).map_or(0, |patches| {
             PATCH_BYTES
@@ -1610,7 +1612,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         let dirty = self.patch_cells != 0
             || !self.model_patches.is_empty()
             || self.membership.as_deref().is_some_and(|membership| {
-                membership.created.values().any(|entry| entry.values_dirty)
+                membership.removal_dirty
+                    || membership.created.values().any(|entry| entry.values_dirty)
             });
         let mut zip = ZipWriter::new(output);
         zip.set_raw_comment(self.book.archive.comment().to_vec().into_boxed_slice())
@@ -1620,12 +1623,17 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         let mut total: u128 = self
             .parts
             .iter()
-            .filter(|part| !dirty || !self.chain_removals.contains(part.name.as_ref()))
+            .filter(|part| {
+                (!dirty || !self.chain_removals.contains(part.name.as_ref()))
+                    && !membership.is_some_and(|(member, _)| member.removes_part(&part.name))
+            })
             .map(|part| u128::from(part.uncompressed_bytes))
             .sum();
         for index in 0..self.parts.len() {
             let part = &self.parts[index];
-            if dirty && self.chain_removals.contains(part.name.as_ref()) {
+            if (dirty && self.chain_removals.contains(part.name.as_ref()))
+                || membership.is_some_and(|(member, _)| member.removes_part(&part.name))
+            {
                 stats.removed_parts += 1;
                 continue;
             }
@@ -3153,38 +3161,56 @@ fn patch_shared_strings<R: Read + Seek, W: Write>(
     Ok(output.bytes)
 }
 
-fn catalog_chain_removal<R: Read + Seek>(
+enum GraphOwner<'a> {
+    CalculationChain,
+    Worksheet(&'a str),
+}
+impl GraphOwner<'_> {
+    fn role(&self) -> &str {
+        match self {
+            Self::CalculationChain => "calcChain",
+            Self::Worksheet(_) => "worksheet",
+        }
+    }
+    fn accepts_id(&self, event: &BytesStart<'_>) -> Result<bool> {
+        Ok(match self {
+            Self::CalculationChain => true,
+            Self::Worksheet(id) => attribute(event, b"Id")?.as_deref() == Some(*id),
+        })
+    }
+}
+fn catalog_part_removal<R: Read + Seek>(
     book: &mut WorkbookReader<R>,
     parts: &[PartInfo],
-    chains: &HashSet<String>,
+    targets: &HashSet<String>,
     workbook_relationships: &str,
     limits: ResourceLimits,
     used: &mut usize,
+    owner: GraphOwner<'_>,
 ) -> Result<(HashSet<String>, bool)> {
-    // Retain only tiny path inventories. Do not parse chain cells or retain an
-    // all-package relationship DOM. Additional graph scans share one byte cap.
+    // Retain only tiny owned-path inventories, not target cell data or a
+    // package relationship DOM. Additional graph scans share one byte cap.
     let mut removals = HashSet::new();
-    for chain in chains {
-        for name in [chain.clone(), crate::package::relationship_part(chain)] {
+    for target in targets {
+        for name in [target.clone(), crate::package::relationship_part(target)] {
             if !parts.iter().any(|part| part.name.as_ref() == name) {
                 continue;
             }
             *used = used.saturating_add(name.len()).saturating_add(128);
             if *used as u128 > u128::from(limits.max_metadata_bytes) {
-                return Err(limit("Calculation-chain inventory budget exceeded"));
+                return Err(limit("Package removal inventory budget exceeded"));
             }
             removals.insert(name);
         }
     }
-    let mut safe = chains
+    let mut safe = targets
         .iter()
         .all(|chain| parts.iter().any(|part| part.name.as_ref() == chain));
     let mut remaining = limits.max_metadata_bytes;
     for part in parts {
-        // Always inspect workbook chain relationships, including references with
-        // missing/misdeclared content types. Other incoming edges matter only
-        // when deleting cataloged chain parts.
-        if part.name.as_ref() != workbook_relationships && chains.is_empty() {
+        // Check declared owner edges, including missing/misdeclared targets.
+        // Other incoming consumers matter when deleting cataloged parts.
+        if part.name.as_ref() != workbook_relationships && targets.is_empty() {
             continue;
         }
         let Some(source) = crate::package::relationship_source(&part.name) else {
@@ -3192,14 +3218,14 @@ fn catalog_chain_removal<R: Read + Seek>(
         };
         if part.uncompressed_bytes > remaining {
             return Err(
-                limit("Calculation-chain relationship scan byte limit exceeded")
+                limit("Package removal relationship scan byte limit exceeded")
                     .with_part(part.name.as_ref()),
             );
         }
         let file = book
             .archive
             .by_name(&part.name)
-            .map_err(|error| zip_error("Cannot inspect calculation-chain relationships", error))?;
+            .map_err(|error| zip_error("Cannot inspect package removal relationships", error))?;
         let mut xml = XmlStream::new(
             BufReader::with_capacity(limits.input_buffer_bytes, file),
             part.name.to_string(),
@@ -3208,7 +3234,7 @@ fn catalog_chain_removal<R: Read + Seek>(
         );
         loop {
             let frame = xml.next()?;
-            if !chains.is_empty()
+            if !targets.is_empty()
                 && matches!(&frame.event, Event::Start(e) if e.local_name().as_ref().as_bytes()==b"AlternateContent")
             {
                 safe = false;
@@ -3228,34 +3254,54 @@ fn catalog_chain_removal<R: Read + Seek>(
                 {
                     let kind = attribute(&e, b"Type")?
                         .ok_or_else(|| invalid("Relationship has no type"))?;
+                    if matches!(owner, GraphOwner::Worksheet(_))
+                        && kind
+                            == "http://schemas.microsoft.com/office/2006/relationships/vbaProject"
+                    {
+                        // VBA can name sheets without an OPC edge to their parts.
+                        safe = false;
+                    }
                     let target = attribute(&e, b"Target")?
                         .ok_or_else(|| invalid("Relationship has no target"))?;
+                    if removals.contains(part.name.as_ref()) {
+                        // Outgoing internal or external edges belong to a graph
+                        // requiring a typed deletion policy.
+                        safe = false;
+                    }
                     if attribute(&e, b"TargetMode")?.as_deref() == Some("External") {
-                        if crate::package::relationship_is(&kind, "calcChain") {
+                        if crate::package::relationship_is(&kind, owner.role()) {
                             safe = false;
                         }
                         continue;
                     }
                     let target = crate::package::resolve_part(&source, &target)?;
-                    if crate::package::relationship_is(&kind, "calcChain")
+                    if matches!(owner, GraphOwner::CalculationChain)
+                        && crate::package::relationship_is(&kind, owner.role())
                         && (part.name.as_ref() != workbook_relationships
-                            || !chains.contains(&target))
+                            || !targets.contains(&target))
                     {
                         safe = false;
                     }
-                    if chains.contains(&target)
+                    if targets.contains(&target)
                         && !(part.name.as_ref() == workbook_relationships
-                            && crate::package::relationship_is(&kind, "calcChain"))
+                            && crate::package::relationship_is(&kind, owner.role())
+                            && owner.accepts_id(&e)?)
                     {
                         // Unknown consumers must not be left with dangling refs.
                         safe = false;
                     }
-                    if removals.contains(part.name.as_ref()) {
-                        // A chain part with outgoing relationships could own
-                        // extension data: retain unchanged; reject editing.
-                        safe = false;
-                    }
                 }
+                Event::Start(_) if !targets.is_empty() => {
+                    // Unknown relationship-container extensions can own hidden
+                    // consumers; typed graph inspection must precede disposal.
+                    safe = false;
+                }
+                Event::Text(text)
+                    if !text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) =>
+                {
+                    safe = false;
+                }
+                Event::CData(_) | Event::GeneralRef(_) => safe = false,
                 Event::Eof => break,
                 _ => {}
             }
@@ -3315,7 +3361,10 @@ fn patch_chain_metadata<R: Read + Seek, W: Write>(
             {
                 let name = attribute(&e, b"PartName")?
                     .ok_or_else(|| invalid("Content override has no part name"))?;
-                if chains.contains(&crate::package::resolve_part("", &name)?) {
+                let name = crate::package::resolve_part("", &name)?;
+                if chains.contains(&name)
+                    || membership.is_some_and(|(member, _)| member.removes_part(&name))
+                {
                     skip = Some(frame.depth);
                 } else {
                     emit(&mut writer, Event::Start(e))?;
@@ -3329,7 +3378,16 @@ fn patch_chain_metadata<R: Read + Seek, W: Write>(
             {
                 let kind =
                     attribute(&e, b"Type")?.ok_or_else(|| invalid("Relationship has no type"))?;
-                if !chains.is_empty() && crate::package::relationship_is(&kind, "calcChain") {
+                let removed = if let Some((member, _)) = membership {
+                    let id = attribute(&e, b"Id")?
+                        .ok_or_else(|| invalid("Relationship has no identifier"))?;
+                    member.removes_relationship(&id)
+                } else {
+                    false
+                };
+                if removed
+                    || (!chains.is_empty() && crate::package::relationship_is(&kind, "calcChain"))
+                {
                     skip = Some(frame.depth);
                 } else {
                     emit(&mut writer, Event::Start(e))?;

@@ -28,10 +28,24 @@ impl Created {
         CREATED_BYTES + self.part.capacity() + self.target.capacity() + self.relationship.capacity()
     }
 }
+pub(super) struct Removed {
+    part: Box<str>,
+    relationships: Option<Box<str>>,
+}
+impl Removed {
+    fn bytes(&self) -> usize {
+        CREATED_BYTES + self.part.len() + self.relationships.as_ref().map_or(0, |part| part.len())
+    }
+    fn contains(&self, name: &str) -> bool {
+        self.part.as_ref() == name || self.relationships.as_deref() == Some(name)
+    }
+}
 pub(super) struct Membership {
     pub(super) declarations: Vec<SheetDeclaration>,
     originals: Vec<SheetId>,
     pub(super) created: BTreeMap<u32, Created>,
+    removed: BTreeMap<usize, Removed>,
+    pub(super) removal_dirty: bool,
 }
 impl Membership {
     fn bytes(&self) -> usize {
@@ -47,6 +61,17 @@ impl Membership {
                 })
                 .sum::<usize>()
             + self.created.values().map(Created::bytes).sum::<usize>()
+            + self.removed.values().map(Removed::bytes).sum::<usize>()
+    }
+    pub(super) fn removes_part(&self, part: &str) -> bool {
+        self.removed.values().any(|entry| entry.contains(part))
+    }
+    pub(super) fn removes_relationship(&self, id: &str) -> bool {
+        self.removed.keys().any(|index| {
+            self.declarations
+                .get(*index)
+                .is_some_and(|entry| entry.relationship.as_deref() == Some(id))
+        })
     }
     pub(super) fn write_entries<W: Write>(
         &self,
@@ -148,7 +173,255 @@ pub(crate) struct CreatePlan {
     pub(crate) scratch_bytes: usize,
     view_index: i64,
 }
+pub(crate) struct RemovePlan {
+    incoming: Option<Box<Membership>>,
+    removed: Option<(usize, Removed)>,
+    created: Option<u32>,
+    pub(crate) bytes: usize,
+    pub(crate) scratch_bytes: usize,
+}
 impl<R: Read + Seek> WorkbookEditor<R> {
+    pub(super) fn guard_workbook_graphs(&mut self) -> Result<()> {
+        // These owners can refer to sheet identities outside worksheet .rels.
+        // Until typed M6 owner inspection exists, do not silently leave them dangling.
+        let workbook = self.book.workbook_part.clone();
+        let limits = self.options.resources;
+        let input = self
+            .book
+            .archive
+            .by_name(&workbook)
+            .map_err(|cause| zip_error("Cannot inspect workbook structural owners", cause))?;
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(limits.input_buffer_bytes, input),
+            workbook.clone(),
+            limits.max_metadata_bytes.min(limits.max_part_bytes),
+            limits,
+        );
+        loop {
+            let frame = xml.next()?;
+            super::check_declaration(&frame.event)?;
+            if matches!(&frame.event, Event::Start(e)
+                if e.local_name().as_ref().as_bytes() == b"AlternateContent"
+                    || (frame.scope == Scope::Spreadsheet && frame.depth == 2
+                        && matches!(e.local_name().as_ref().as_bytes(),
+                            b"pivotCaches" | b"customWorkbookViews" | b"extLst")))
+            {
+                return Err(Error::new(
+                    ErrorKind::Unsupported,
+                    "Structural editing of workbook feature graphs remains unimplemented",
+                )
+                .with_part(workbook));
+            }
+            if matches!(frame.event, Event::Eof) {
+                break;
+            }
+        }
+        drop(xml);
+        Ok(())
+    }
+    pub(crate) fn check_remove_graph(&mut self, index: usize, allowance: usize) -> Result<()> {
+        self.validate_workbook_patch(0, self.patch_bytes, false)?;
+        self.prepare_copy_template(index)?;
+        let part = self
+            .book
+            .sheets()
+            .get(index)
+            .ok_or_else(|| invalid("Missing removed worksheet identity"))?
+            .part()
+            .to_owned();
+        if self
+            .book
+            .sheets()
+            .iter()
+            .filter(|info| info.part() == part)
+            .count()
+            != 1
+        {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Removing a shared worksheet part remains unimplemented",
+            ));
+        }
+        let declarations = if self.membership.is_none() {
+            Some(self.read_catalog_entries(allowance)?)
+        } else {
+            None
+        };
+        let declaration = self
+            .membership
+            .as_deref()
+            .map(|m| &m.declarations)
+            .or(declarations.as_ref())
+            .and_then(|entries| entries.get(index))
+            .ok_or_else(|| invalid("Missing removed worksheet declaration"))?;
+        let rid = declaration
+            .relationship
+            .as_deref()
+            .ok_or_else(|| invalid("Removed worksheet has no relationship identity"))?;
+        let mut targets = std::collections::HashSet::new();
+        targets.insert(part.clone());
+        let mut used = 0;
+        let (_, safe) = super::catalog_part_removal(
+            &mut self.book,
+            &self.parts,
+            &targets,
+            &self.workbook_relationships,
+            self.options.resources,
+            &mut used,
+            super::GraphOwner::Worksheet(rid),
+        )?;
+        if !safe {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Removing affected worksheet ownership graphs remains unimplemented",
+            )
+            .with_part(part));
+        }
+        Ok(())
+    }
+    pub(crate) fn prepare_remove(
+        &mut self,
+        id: SheetId,
+        originals: Vec<SheetId>,
+        original: Option<usize>,
+        allowance: usize,
+    ) -> Result<RemovePlan> {
+        let incoming = self.prepare_membership(originals, allowance)?;
+        let membership = incoming
+            .as_deref()
+            .or(self.membership.as_deref())
+            .ok_or_else(|| invalid("Missing removal catalog membership"))?;
+        let removed = if let Some(index) = original {
+            let part = self
+                .book
+                .sheets()
+                .get(index)
+                .ok_or_else(|| invalid("Missing removed source identity"))?
+                .part();
+            let rels = crate::package::relationship_part(part);
+            Some((
+                index,
+                Removed {
+                    part: part.into(),
+                    relationships: self
+                        .parts
+                        .iter()
+                        .any(|p| p.name.as_ref() == rels)
+                        .then(|| rels.into_boxed_str()),
+                },
+            ))
+        } else {
+            None
+        };
+        let created = if original.is_none() {
+            Some(
+                *membership
+                    .created
+                    .iter()
+                    .find(|(_, entry)| entry.bank_id == Some(id))
+                    .ok_or_else(|| invalid("Missing removed created identity"))?
+                    .0,
+            )
+        } else {
+            None
+        };
+        let old_order = self.catalog_order.as_ref().map_or(0, |order| order.charged);
+        let prior = self.membership.as_deref().map_or(0, Membership::bytes);
+        let retired = removed.as_ref().map_or(0, |(index, entry)| {
+            self.retired_sheet_bytes(*index, &entry.part)
+        });
+        let bytes = self
+            .patch_bytes
+            .saturating_sub(old_order)
+            .saturating_sub(prior)
+            .saturating_add(membership.bytes())
+            .saturating_sub(
+                created
+                    .and_then(|key| membership.created.get(&key))
+                    .map_or(0, Created::bytes),
+            )
+            .saturating_add(removed.as_ref().map_or(0, |(_, entry)| entry.bytes()))
+            .saturating_sub(retired)
+            .saturating_add(if self.active_patch.is_none() {
+                PATCH_BYTES
+            } else {
+                0
+            });
+        if bytes > self.options.max_patch_bytes {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Removed worksheet catalog allowance exceeded",
+            ));
+        }
+        let scratch_bytes = old_order
+            + retired
+            + created
+                .and_then(|key| membership.created.get(&key))
+                .map_or(0, Created::bytes);
+        Ok(RemovePlan {
+            incoming,
+            removed,
+            created,
+            bytes,
+            scratch_bytes,
+        })
+    }
+    fn retired_sheet_bytes(&self, index: usize, part: &str) -> usize {
+        self.patches.get(part).map_or(0, |patches| {
+            PATCH_BYTES
+                + part.len()
+                + patches
+                    .values()
+                    .map(|patch| PATCH_BYTES.saturating_add(patch.cell.value.heap_bytes()))
+                    .sum::<usize>()
+        }) + self
+            .name_patches
+            .get(&index)
+            .map_or(0, |name| PATCH_BYTES + name.len())
+            + usize::from(self.visibility_patches.contains_key(&index)) * PATCH_BYTES
+            + usize::from(self.model_patches.contains_key(&index)) * PATCH_BYTES
+            + self.view_patches.get(part).map_or(0, |view| {
+                super::METADATA_ENTRY_BYTES + part.len() + view.memory_bytes()
+            })
+            + self.print_patches.get(part).map_or(0, |printing| {
+                super::METADATA_ENTRY_BYTES + part.len() + printing.memory_bytes()
+            })
+    }
+    pub(crate) fn commit_remove(&mut self, plan: RemovePlan, view: i64) {
+        if let Some(incoming) = plan.incoming {
+            self.membership = Some(incoming);
+        }
+        if let Some((index, removed)) = &plan.removed {
+            if let Some(patches) = self.patches.remove(removed.part.as_ref()) {
+                self.patch_cells -= patches.len();
+            }
+            self.model_patches.remove(index);
+            self.name_patches.remove(index);
+            self.visibility_patches.remove(index);
+            self.view_patches.remove(removed.part.as_ref());
+            self.print_patches.remove(removed.part.as_ref());
+        }
+        if let Some(membership) = &mut self.membership {
+            if let Some((index, removed)) = plan.removed {
+                membership.removed.insert(index, removed);
+            }
+            if let Some(created) = plan.created {
+                membership.created.remove(&created);
+            }
+            membership.removal_dirty = true;
+        }
+        self.catalog_order = None;
+        self.active_patch = Some(super::ActivePatch::Deferred(view));
+        self.patch_bytes = plan.bytes;
+    }
+    pub(crate) fn guard_copy_context(&mut self, allowance: usize) -> Result<()> {
+        self.validate_workbook_patch(0, self.patch_bytes, false)?;
+        if self.membership.is_none() && self.catalog_order.is_none() {
+            // Verify local-name owners before source model materialization.
+            self.read_catalog_entries(allowance)?;
+        }
+        Ok(())
+    }
     pub(crate) fn copy_template(&self, id: SheetId) -> Option<usize> {
         self.membership
             .as_deref()?
@@ -242,15 +515,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 )
                 .with_part(&part));
             }
-            if let Event::Start(e) = &frame.event
-                && attribute(e, b"codeName")?.is_some()
-            {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Copying worksheet VBA identity remains unimplemented",
-                )
-                .with_part(&part));
-            }
             if matches!(frame.event, Event::Eof) {
                 break;
             }
@@ -260,34 +524,45 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     pub(crate) fn membership_is_dirty(&self) -> bool {
         self.membership.is_some()
     }
-    pub(crate) fn prepare_create(
+    fn prepare_membership(
         &mut self,
         originals: Vec<SheetId>,
         allowance: usize,
-    ) -> Result<CreatePlan> {
+    ) -> Result<Option<Box<Membership>>> {
         self.validate_workbook_patch(0, self.patch_bytes, false)?;
-        let incoming = if self.membership.is_none() {
+        if self.membership.is_none() {
             if originals.len() != self.book.sheets().len() {
                 return Err(invalid(
                     "Original stable catalog identities are inconsistent",
                 ));
             }
             let declarations = self.read_catalog_entries(allowance)?;
-            Some(Box::new(Membership {
+            Ok(Some(Box::new(Membership {
                 declarations,
                 originals,
                 created: BTreeMap::new(),
-            }))
+                removed: BTreeMap::new(),
+                removal_dirty: false,
+            })))
         } else {
-            None
-        };
+            Ok(None)
+        }
+    }
+    pub(crate) fn prepare_create(
+        &mut self,
+        originals: Vec<SheetId>,
+        allowance: usize,
+    ) -> Result<CreatePlan> {
+        let incoming = self.prepare_membership(originals, allowance)?;
         let membership = incoming
             .as_deref()
             .or(self.membership.as_deref())
             .ok_or_else(|| invalid("Missing live catalog membership"))?;
         if self
             .parts
-            .len()
+            .iter()
+            .filter(|part| !membership.removes_part(&part.name))
+            .count()
             .saturating_add(membership.created.len())
             .saturating_add(1)
             > self.options.resources.max_archive_entries

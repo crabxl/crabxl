@@ -252,9 +252,17 @@ views and loaded stable handles remain coordinated without cell materialization.
 Source-backed sheet creation installs bounded live catalog membership instead of
 another workbook model; see [ADR 0073](decisions/0073-live-source-catalog-membership.md).
 New bodies share the borrowed row encoder; original bodies remain lazy and
-repeatable. Catalog copy/removal and their affected graphs remain open.
+repeatable. Catalog copy/removal extend this transaction in ADRs 0074/0075; deferred
+feature graphs remain open.
 
 Supported loaded worksheet copies duplicate only the requested canonical model
 and retain a compact immutable source-template index for borrowed repeat saves;
 see [ADR 0074](decisions/0074-source-backed-worksheet-copy.md). Unsupported affected
 graphs reject before registering the copy; unrelated sheets remain lazy.
+
+Loaded worksheet removal transfers one requested model and atomically retires its
+package identities and pending edits; surviving copies keep their immutable source
+template. Shared checked incoming-edge inspection guards both worksheet removal
+and calculation-chain disposal; see [ADR 0075](decisions/0075-source-backed-worksheet-removal.md).
+Workbook identity graphs outside worksheet relationships remain explicit M6
+structural dependencies, while unrelated preserving edits remain available.
