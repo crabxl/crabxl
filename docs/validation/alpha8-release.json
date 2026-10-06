@@ -1,0 +1,68 @@
+{
+  "rust_release_commit": "f08b8e6d494e575ba39289dde4895b7a9b648242",
+  "rust_release_run": 37410572504,
+  "rust_platform_run": 37410572488,
+  "rust_release_url": "https://github.com/crabxl/crabxl/releases/tag/0.1.0-alpha.8",
+  "probe_toolchain": "Rust 1.88.0",
+  "packages": [
+    {
+      "name": "crabxl",
+      "version": "0.1.0-alpha.8",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "crabxl-core",
+      "version": "0.1.0-alpha.8",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "crabxl-xlsx",
+      "version": "0.1.0-alpha.8",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    }
+  ],
+  "probe_source": "use crabxl_core::{Cell, CellAddress, CellValue, EditLimits, StyleId, Worksheet};\nfn main() -> Result<(), Box<dyn std::error::Error>> {\n    let mode = std::env::args().nth(1).unwrap_or_else(|| \"ascending\".to_owned());\n    let reverse = mode == \"reverse\";\n    let shift = mode == \"shift\";\n    let budget = if shift { 384 * 1024 * 1024 } else { 64 * 1024 * 1024 };\n    let mut sheet = Worksheet::new(\"Sheet\", EditLimits { max_bytes: budget, ..Default::default() })?;\n    let mut failure = None;\n    for offset in 0..1_000_000u32 {\n        let index = if reverse { 999_999 - offset } else { offset };\n        if let Err(error) = sheet.set(Cell {\n            address: CellAddress::new(index / 10, index % 10)?,\n            value: CellValue::Integer(index.into()),\n            style: StyleId::new(0),\n        }) {\n            assert_eq!(error.kind(), crabxl_core::ErrorKind::MemoryBudgetExceeded);\n            failure = Some(error.kind());\n            break;\n        }\n    }\n    let mut shifted = false;\n    if shift && failure.is_none() {\n        match sheet.insert_rows(crabxl_core::RowIndex::new(0)?, 1) {\n            Ok(()) => shifted = true,\n            Err(error) => assert_eq!(error.kind(), crabxl_core::ErrorKind::MemoryBudgetExceeded),\n        }\n    }\n    let mut checksum = 0i64;\n    for cell in sheet.cells() {\n        let index = (cell.address.row.get() - u32::from(shifted)) * 10 + cell.address.column.get();\n        let CellValue::Integer(value) = cell.value else { panic!(\"Expected integer\"); };\n        assert_eq!(value, i64::from(index));\n        checksum += value;\n    }\n    assert!(sheet.charged_bytes() <= budget);\n    if failure.is_none() {\n        assert_eq!(sheet.len(), 1_000_000);\n        assert_eq!(checksum, 499_999_500_000);\n    }\n    println!(\"{{\\\"mode\\\":\\\"{}\\\",\\\"cells\\\":{},\\\"checksum\\\":{},\\\"charged_bytes\\\":{},\\\"budget_bytes\\\":{},\\\"complete\\\":{},\\\"shifted\\\":{}}}\",\n        mode, sheet.len(), checksum, sheet.charged_bytes(), budget, failure.is_none(), shifted);\n    Ok(())\n}\n",
+  "probe_source_sha256": "1594815214acb266d079d3b68ad751f78c864c63f823d5db905bafc19c1364e0",
+  "functional_probes": {
+    "ascending": {
+      "mode": "ascending",
+      "cells": 1000000,
+      "checksum": 499999500000,
+      "charged_bytes": 36000261,
+      "budget_bytes": 67108864,
+      "complete": true,
+      "shifted": false
+    },
+    "reverse": {
+      "mode": "reverse",
+      "cells": 1000000,
+      "checksum": 499999500000,
+      "charged_bytes": 36000261,
+      "budget_bytes": 67108864,
+      "complete": true,
+      "shifted": false
+    },
+    "shift": {
+      "mode": "shift",
+      "cells": 1000000,
+      "checksum": 499999500000,
+      "charged_bytes": 36000261,
+      "budget_bytes": 402653184,
+      "complete": true,
+      "shifted": true
+    }
+  },
+  "python_release_commit": "1c9256563ea222341cd594b74fdadfe3cb8143ad",
+  "python_release_run": 37411371452,
+  "python_publication": "verified",
+  "python_compatibility_run": 37411371457,
+  "python_wheels": 25,
+  "python_sdists": 1,
+  "python_public_package_tests": {
+    "python": "3.12.14",
+    "passed": 547,
+    "seconds": 4.57,
+    "source": "https://pypi.org/simple/crabxl/",
+    "version": "0.1.0a8"
+  }
+}

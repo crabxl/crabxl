@@ -1,6 +1,6 @@
 # Alpha.8 performance and resource acceptance
 
-Status: implementation acceptance in progress; alpha.8 is not yet published.
+Status: native alpha.8 and Python 0.1.0a8 published and verified.
 
 ## Accepted changes
 
@@ -15,7 +15,7 @@ Status: implementation acceptance in progress; alpha.8 is not yet published.
 | Capacity-aware retained models and growth work | ADR 0082; one million cells under 64 MiB and row insertion under 384 MiB; preserves large reading with explicit per-cell creation overhead |
 
 Capacity-aware model accounting (ADR 0082) has native resource/performance
-evidence; binding integration remains pending. Tests have been
+evidence and validated binding integration. Tests have been
 extended within existing workflows; these changes do not add timing thresholds
 or redundant test functions.
 
@@ -23,7 +23,8 @@ or redundant test functions.
 
 All reports retain individual serial samples and binary/fixture hashes, with
 generation, compilation, profiling and output verification excluded from timing.
-Complete value and coordinate verification runs inside the read workers. Model,
+Read workers traverse all values and check fixture counts/checksums; text/style
+workers additionally compare individual values and coordinates. Model,
 row-stream, edit/save and writer operations have distinct retention/feature
 boundaries. RSS, managed allowances and sampled temporary descriptors are separate.
 
@@ -63,7 +64,8 @@ in the authorized plan. This performance release does not close those milestones
 
 Record exact final core/binding SHAs, full local and platform checks, three-crate
 publication, Python 3.11-3.15 wheels/sdist and fresh public-package verification
-here before marking publication complete. Existing published version remains A7.
+here before marking publication complete. Both native and Python A8 publication
+gates are now complete.
 
 Native implementation `a6e83a21bef58597b458dd548f1cc0c41a4b63f7` passes local
 workspace tests, strict Clippy, warning-free documentation, Rust 1.88 core tests
@@ -73,3 +75,27 @@ the configured platform/MSRV matrix. Its fresh CPython 3.12 binding wheel passes
 547 compatibility cases (4.54 seconds), Ruff format/check and strict Clippy.
 Two existing finite-budget fixtures were updated for block-capacity accounting;
 their aggregate failure, retry, aliases and source-preservation assertions remain.
+
+## Verified native and Python publication
+
+Rust release run
+[37410572504](https://github.com/crabxl/crabxl/actions/runs/37410572504) succeeds
+at `f08b8e6d494e575ba39289dde4895b7a9b648242`, publishing all three alpha.8
+crates and their exact archives in
+[the tagged release](https://github.com/crabxl/crabxl/releases/tag/0.1.0-alpha.8).
+Regular Rust run 37410572488 also passes its platform/MSRV matrix. A fresh
+Rust 1.88 crates.io consumer resolves all three packages from registry sources,
+completes ascending/descending million-cell probes under 64 MiB, and verifies
+row insertion under 384 MiB. [The audit](alpha8-release.json) records source and
+functional checksums; these are resource/publication checks, not timed claims.
+
+Python `1c9256563ea222341cd594b74fdadfe3cb8143ad` pins that exact released core
+and prepares `0.1.0a8`. Its final local wheel passes 547 tests (4.51 seconds),
+Ruff and strict Clippy; compatibility run 37411371457 succeeds. Complete Python
+numeric/unique comparisons are recorded in the binding's A8 report, with preview
+wheel hashes and their identical runtime-source relationship to the released core.
+Release run [37411371452](https://github.com/crabxl/crabxl-python/actions/runs/37411371452)
+succeeds across all five platform jobs and OIDC publication. PyPI exposes 25 wheels
+for Python 3.11-3.15 and one sdist. A fresh public PyPI CPython 3.12.14 installation
+passes all 547 tests in 4.57 seconds. This verifies public-package usability
+separately from the local preview performance measurements.

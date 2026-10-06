@@ -1,7 +1,7 @@
 # ADR 0082: Charge retained model blocks and reserve growth work
 
-Status: implemented with native resource/performance evidence; Python integration
-and A8 release acceptance pending.
+Status: implemented and integrated into Python; native and Python A8 published
+with platform and fresh public-package acceptance.
 
 Canonical cells have used bounded contiguous blocks since ADR 0064, while the
 managed ledger still charged 256 bytes for every cell. A dense numeric sheet
