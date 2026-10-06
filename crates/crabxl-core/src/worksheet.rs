@@ -16,13 +16,14 @@ pub struct EditLimits {
     /// structural work. Excludes allocator overhead and caller-retained copies.
     pub max_bytes: usize,
     /// Maximum physically present cells; missing coordinates cost no nodes.
+    /// The default follows the worksheet coordinate space.
     pub max_cells: usize,
 }
 impl Default for EditLimits {
     fn default() -> Self {
         Self {
             max_bytes: 256 * 1024 * 1024,
-            max_cells: 10_000_000,
+            max_cells: (MAX_ROWS as usize).saturating_mul(MAX_COLUMNS as usize),
         }
     }
 }

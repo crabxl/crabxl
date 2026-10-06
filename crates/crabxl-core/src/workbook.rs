@@ -30,9 +30,11 @@ pub struct WorkbookLimits {
     /// Conservative retained model/slot bytes, also guarding structural work.
     /// Caller values and allocator overhead are additional; not a hard RSS cap.
     pub max_bytes: usize,
-    /// Total physical cells across all sheets.
+    /// Total physical cells across all sheets. Defaults to usize::MAX while
+    /// retained/work byte allowances remain enforced.
     pub max_cells: usize,
-    /// Maximum sheet count and slot capacity.
+    /// Maximum sheet count and slot capacity. Defaults to usize::MAX while
+    /// byte allowances continue to bound allocated slots.
     pub max_sheets: usize,
     /// Additional per-sheet retained/work and cardinality limits.
     pub sheet: EditLimits,
@@ -41,8 +43,8 @@ impl Default for WorkbookLimits {
     fn default() -> Self {
         Self {
             max_bytes: 256 * 1024 * 1024,
-            max_cells: 10_000_000,
-            max_sheets: 1024,
+            max_cells: usize::MAX,
+            max_sheets: usize::MAX,
             sheet: EditLimits::default(),
         }
     }
