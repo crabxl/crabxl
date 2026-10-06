@@ -290,7 +290,37 @@ fn cgroup_headroom(directory: &Path, version: CgroupMemory) -> Option<u64> {
         .trim()
         .parse()
         .ok()?;
-    Some(maximum.saturating_sub(current))
+    // Inactive clean file pages can be reclaimed by the kernel. Do not count
+    // active cache, shared memory, dirty pages or writeback as free capacity.
+    let reclaimable = fs::read_to_string(directory.join("memory.stat"))
+        .ok()
+        .and_then(|text| cgroup_reclaimable_file(&text, version))
+        .unwrap_or(0)
+        .min(current);
+    Some(maximum.saturating_sub(current.saturating_sub(reclaimable)))
+}
+fn cgroup_reclaimable_file(text: &str, version: CgroupMemory) -> Option<u64> {
+    let field = |name: &str| {
+        let mut result = None;
+        for line in text.lines() {
+            let mut words = line.split_whitespace();
+            if words.next() == Some(name) {
+                if result.is_some() {
+                    return None;
+                }
+                result = Some(words.next()?.parse::<u64>().ok()?);
+                if words.next().is_some() {
+                    return None;
+                }
+            }
+        }
+        result
+    };
+    let (inactive, dirty, writeback) = match version {
+        CgroupMemory::Unified => ("inactive_file", "file_dirty", "file_writeback"),
+        CgroupMemory::Legacy => ("total_inactive_file", "total_dirty", "total_writeback"),
+    };
+    Some(field(inactive)?.saturating_sub(field(dirty)?.saturating_add(field(writeback)?)))
 }
 #[cfg(test)]
 fn cgroup_available(root: &Path, membership: &str) -> Option<u64> {
@@ -613,6 +643,32 @@ mod tests {
         fs::write(child.join("memory.max"), "500").expect("Child limit");
         fs::write(child.join("memory.current"), "100").expect("Child usage");
         assert_eq!(cgroup_available(&root, "/group/child"), Some(100));
+        let stats = root.join("memory.stat");
+        fs::write(
+            &stats,
+            "inactive_file 300\nfile_dirty 50\nfile_writeback 50\nshmem 900\n",
+        )
+        .expect("Reclaimable cache statistics");
+        assert_eq!(cgroup_available(&root, "/group/child"), Some(300));
+        fs::write(
+            &stats,
+            "inactive_file 300\nfile_dirty 300\nfile_writeback 50\n",
+        )
+        .expect("Dirty cache statistics");
+        assert_eq!(cgroup_available(&root, "/group/child"), Some(100));
+        fs::write(
+            &stats,
+            "inactive_file 300\nfile_dirty broken\nfile_writeback 0\n",
+        )
+        .expect("Malformed cache statistics");
+        assert_eq!(cgroup_available(&root, "/group/child"), Some(100));
+        fs::write(
+            &stats,
+            "inactive_file 18446744073709551615\nfile_dirty 0\nfile_writeback 0\n",
+        )
+        .expect("Racing cache statistics");
+        assert_eq!(cgroup_available(&root, "/group/child"), Some(400));
+        fs::remove_file(stats).expect("Remove optional cache statistics");
         fs::write(child.join("memory.current"), "600").expect("Over limit");
         assert_eq!(cgroup_available(&root, "/group/child"), Some(0));
         fs::write(child.join("memory.max"), "max").expect("Unlimited child");
@@ -639,6 +695,17 @@ mod tests {
         );
         let membership = "0::/unified\n7:cpu,cpuacct:/other\n8:memory:/tenant/child\n";
         assert_eq!(mounted_cgroup_available(membership, &mounts), Some(50));
+        let stats = root.join("memory.stat");
+        fs::write(
+            &stats,
+            "total_inactive_file 400\ntotal_dirty 100\ntotal_writeback 100\n",
+        )
+        .expect("Legacy hierarchical cache statistics");
+        assert_eq!(mounted_cgroup_available(membership, &mounts), Some(250));
+        fs::write(&stats, "total_inactive_file 400\ntotal_writeback 0\n")
+            .expect("Incomplete cache statistics");
+        assert_eq!(mounted_cgroup_available(membership, &mounts), Some(50));
+        fs::remove_file(stats).expect("Remove optional legacy cache statistics");
         fs::write(child.join("memory.usage_in_bytes"), "700").expect("Over limit");
         assert_eq!(mounted_cgroup_available(membership, &mounts), Some(0));
         fs::write(child.join("memory.limit_in_bytes"), "9223372036854771712")
