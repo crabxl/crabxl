@@ -35,3 +35,8 @@ structural edits, name/order changes, repeated readback, multiple additions,
 identity collisions, invalid-name atomicity and opaque-part preservation.
 `loaded_rows bank-create` measures creation, save and complete readback separately
 from builds and fixture generation.
+
+A7 integration/publication follow-up: the matching Python operations and staged
+release acceptance are verified in
+[the A7 audit](../validation/alpha7-m4-stage-acceptance.md). Remaining affected
+feature-graph transformations still belong to the tracked M5/M6 dependencies.

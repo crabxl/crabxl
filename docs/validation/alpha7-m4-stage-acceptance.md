@@ -63,3 +63,31 @@ Latest-core GitHub CI run 37398037891 is still completing platform checks at aud
 creation. The alpha.7 version, registry publication, release artifacts and fresh
 public-package installations are not yet verified; append exact evidence before
 claiming release completion. Full M4 remains open under the agreed dependencies.
+
+## Published release verification
+
+Rust release workflow [37398286672](https://github.com/crabxl/crabxl/actions/runs/37398286672)
+passes verification/MSRV and publishes all three crates at core
+`ea04f692fffd8a52f838f44e9f7c36f48af55255`. The prerelease contains the exact
+three crate archives. Regular core CI run 37398037891 also passes Rust 1.88
+Linux/Windows/macOS checks and native zlib, plus latest-stable quality checks.
+A fresh crates.io installation verifies basic owned workbook values in the
+A8 resource probe without substituting a local dependency for the baseline.
+
+Python release workflow [37398587429](https://github.com/crabxl/crabxl-python/actions/runs/37398587429)
+passes all five platform jobs and publishes adapter
+`e0fe86ad83390c3788759bc514a1400660ddd83a`. PyPI `0.1.0a7` contains 25 wheels
+(CPython 3.11-3.15 across Linux x86_64/aarch64, Windows x86_64 and macOS
+x86_64/arm64) and one sdist. A fresh public PyPI CPython 3.12 installation
+passes all 547 local tests in 3.53 seconds, with Ruff/native checks completed
+before publication. Matching GitHub prereleases and tags exist in both repos.
+
+A verification run overlapping benchmark compilation encountered six Auto
+working-reserve errors under nearly full cgroup usage. The isolated local-wheel
+rerun passes 547 tests (3.55 seconds); the public-wheel run also passes. A8 tracks
+this previously conservative file-cache availability estimate in ADR 0076;
+it is not hidden as an A7 speed improvement or a measured RSS reduction.
+
+The **M4 stage is accepted for A7** and A7 publication is complete. Full M4
+remains open for the explicitly tracked M5/M6 graph interactions; A8 continues
+performance/resource work, A9 retains all assigned M5 acceptance families.
