@@ -274,3 +274,20 @@ pub(crate) fn write_data<W: Write>(
         .write_all(b"</sheetData>")
         .map_err(|cause| crate::writer::io_error("Cannot finish model sheetData", cause))
 }
+
+/// Minimal new worksheet envelope around the canonical shared row serializer.
+pub(crate) fn write_new<W: Write>(
+    output: &mut W,
+    sheet: &Worksheet,
+    catalog: Option<&StyleCatalog>,
+    limits: ResourceLimits,
+    encoding: Encoding,
+    uri: &str,
+) -> Result<()> {
+    write!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"{uri}\"><dimension ref=\"{}\"/><sheetFormatPr defaultRowHeight=\"15\"/>", dimension(sheet))
+        .map_err(|cause| crate::writer::io_error("Cannot start new model worksheet", cause))?;
+    write_data(output, sheet, catalog, limits, encoding, uri)?;
+    output
+        .write_all(b"</worksheet>")
+        .map_err(|cause| crate::writer::io_error("Cannot finish new model worksheet", cause))
+}

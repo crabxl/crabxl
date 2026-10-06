@@ -20,6 +20,8 @@ use std::{
 };
 use zip::ZipWriter;
 
+mod catalog;
+
 const PATCH_BYTES: usize = 256;
 // Box large metadata values so sparse BTree nodes retain pointer-sized slots.
 // Conservative per-part node allowance; model payload/capacities are additional.
@@ -44,29 +46,37 @@ pub(crate) struct RowPatchPlan {
     pub(crate) bytes: usize,
     pub(crate) scratch_bytes: usize,
 }
+struct SheetDeclaration {
+    start: BytesStart<'static>,
+    relationship: Option<Box<str>>,
+    namespace: &'static str,
+}
 struct CatalogOrder {
     positions: Vec<usize>,
-    entries: Vec<BytesStart<'static>>,
+    entries: Vec<SheetDeclaration>,
     charged: usize,
 }
-fn catalog_order_bytes(positions: &Vec<usize>, entries: &Vec<BytesStart<'static>>) -> usize {
+fn catalog_order_bytes(positions: &Vec<usize>, entries: &Vec<SheetDeclaration>) -> usize {
     PATCH_BYTES
         .saturating_add(positions.capacity().saturating_mul(size_of::<usize>()))
         .saturating_add(
             entries
                 .capacity()
-                .saturating_mul(size_of::<BytesStart<'static>>()),
+                .saturating_mul(size_of::<SheetDeclaration>()),
         )
         .saturating_add(
             entries
                 .iter()
-                .map(|entry| entry.as_ref().len())
+                .map(|entry| {
+                    entry.start.as_ref().len()
+                        + entry.relationship.as_ref().map_or(0, |id| id.len())
+                })
                 .sum::<usize>(),
         )
 }
 pub(crate) struct OrderPlan {
     positions: Vec<usize>,
-    entries: Option<Vec<BytesStart<'static>>>,
+    entries: Option<Vec<SheetDeclaration>>,
     pub(crate) bytes: usize,
     pub(crate) scratch_bytes: usize,
     pub(crate) view_index: i64,
@@ -142,6 +152,8 @@ pub struct SaveOptions {
 pub struct SaveStats {
     /// Entries passed through without decompression/recompression (except validation).
     pub copied_parts: usize,
+    /// New worksheet parts created from borrowed canonical models.
+    pub created_parts: usize,
     /// Obsolete calculation-chain parts/relationships omitted on an edited save.
     pub removed_parts: usize,
     /// XML parts rewritten through bounded events.
@@ -176,6 +188,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     catalog_order: Option<Box<CatalogOrder>>,
     model_patches: BTreeMap<usize, crabxl_core::SheetId>,
     structural_plain_strings: bool,
+    membership: Option<Box<catalog::Membership>>,
     options: EditorOptions,
     patch_bytes: usize,
     patch_cells: usize,
@@ -324,6 +337,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             catalog_order: None,
             model_patches: BTreeMap::new(),
             structural_plain_strings: false,
+            membership: None,
             options,
             patch_bytes: 0,
             patch_cells: 0,
@@ -347,6 +361,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// Whether pending overlays are present. Saving does not discard overlays.
     pub fn is_dirty(&self) -> bool {
         self.patch_cells != 0
+            || self.membership.is_some()
             || !self.model_patches.is_empty()
             || !self.view_patches.is_empty()
             || !self.print_patches.is_empty()
@@ -385,10 +400,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         Ok(())
     }
     pub(crate) fn prepare_name(&mut self, index: usize, name: &str) -> Result<usize> {
-        crate::encode::validate_xml_text(name)?;
-        if name.is_empty() || name.chars().any(|ch| ":\\/?*[]".contains(ch)) {
-            return Err(invalid("Invalid worksheet name"));
-        }
+        crate::encode::validate_catalog_name(name)?;
         let folded = name.to_lowercase();
         if self
             .book
@@ -504,12 +516,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             view_index: self.active_view_index(),
         })
     }
-    fn read_catalog_entries(&mut self, allowance: usize) -> Result<Vec<BytesStart<'static>>> {
+    fn read_catalog_entries(&mut self, allowance: usize) -> Result<Vec<SheetDeclaration>> {
         let part = self.book.workbook_part.clone();
         let count = self.book.sheets().len();
         let mut entries = Vec::new();
         let fixed = PATCH_BYTES
-            .saturating_add(count.saturating_mul(size_of::<BytesStart<'static>>()))
+            .saturating_add(count.saturating_mul(size_of::<SheetDeclaration>()))
             .saturating_add(count.saturating_mul(size_of::<usize>()));
         if fixed > allowance {
             return Err(Error::new(
@@ -582,7 +594,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         )
                         .with_part(&part));
                     }
-                    charged = charged.saturating_add(e.as_ref().len());
+                    charged = charged
+                        .saturating_add(e.as_ref().len())
+                        .saturating_add(frame.office_relationship.as_ref().map_or(0, String::len));
                     if charged > allowance || entries.len() == count {
                         return Err(Error::new(
                             ErrorKind::MemoryBudgetExceeded,
@@ -600,7 +614,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             .with_part(&part)
                         })?;
                     }
-                    entries.push(e.to_owned());
+                    entries.push(SheetDeclaration {
+                        start: e.to_owned(),
+                        relationship: frame.office_relationship.as_deref().map(Into::into),
+                        namespace: frame
+                            .spreadsheet_uri
+                            .ok_or_else(|| invalid("Missing sheet declaration namespace"))?,
+                    });
                     sheet_open = true;
                 }
                 Event::Start(_) if sheet_open => {
@@ -1311,14 +1331,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.model_patches.insert(plan.sheet, id);
         self.patch_bytes = plan.bytes;
     }
-    pub(crate) fn prepare_value(
+    pub(crate) fn validate_cell_value(
         &self,
-        sheet: &str,
         address: CellAddress,
         value: &CellValue,
-    ) -> Result<PatchPlan> {
-        let sheet = self.editable_sheet(sheet)?;
-        let info = &self.book.sheets()[sheet];
+    ) -> Result<()> {
         if contains_date(value) {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -1342,6 +1359,34 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .map_err(|error| error.with_cell(address))?;
         validate_value(value, self.options.resources.max_cell_bytes, epoch)
             .map_err(|error| error.with_cell(address))?;
+        Ok(())
+    }
+    pub(crate) fn validate_created_value(
+        &self,
+        address: CellAddress,
+        value: &CellValue,
+    ) -> Result<()> {
+        if self.signed
+            || !self.chain_safe
+            || !self.calc_chain_parts.is_empty()
+                && self.options.calculation_chain == CalculationChainPolicy::RejectEdits
+        {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Created value edits are rejected by signature/calculation policy",
+            ));
+        }
+        self.validate_cell_value(address, value)
+    }
+    pub(crate) fn prepare_value(
+        &self,
+        sheet: &str,
+        address: CellAddress,
+        value: &CellValue,
+    ) -> Result<PatchPlan> {
+        let sheet = self.editable_sheet(sheet)?;
+        let info = &self.book.sheets()[sheet];
+        self.validate_cell_value(address, value)?;
         if self.model_patches.contains_key(&sheet) {
             return Ok(PatchPlan {
                 sheet,
@@ -1513,6 +1558,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.name_patches = BTreeMap::new();
         self.catalog_order = None;
         self.model_patches = BTreeMap::new();
+        self.membership = None;
         self.patch_bytes = 0;
         self.patch_cells = 0;
     }
@@ -1534,23 +1580,43 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         options: SaveOptions,
         bank: Option<&crabxl_core::Workbook>,
     ) -> Result<(W, SaveStats)> {
-        if !self.model_patches.is_empty() && bank.is_none() {
+        if (!self.model_patches.is_empty() || self.membership.is_some()) && bank.is_none() {
             return Err(invalid(
                 "Model rewrite requires its canonical workbook owner",
             ));
         }
         crate::writer::validate_compression_level(options.compression_level)?;
-        let active = self.active_for_save()?;
+        let membership = self.membership.as_deref().zip(bank);
+        let active = if let Some((_, bank)) = membership {
+            Some(crabxl_core::normalize_active_view(
+                self.active_view_index(),
+                bank.sheets().count(),
+                |position| {
+                    bank.sheets()
+                        .nth(position)
+                        .map_or(crabxl_core::SheetVisibility::Hidden, |(_, sheet)| {
+                            sheet.visibility()
+                        })
+                },
+            )?)
+        } else {
+            self.active_for_save()?
+        };
         let epoch = if self.book.date_1904() {
             DateEpoch::Mac1904
         } else {
             DateEpoch::Windows1900
         };
-        let dirty = self.patch_cells != 0 || !self.model_patches.is_empty();
+        let dirty = self.patch_cells != 0
+            || !self.model_patches.is_empty()
+            || self.membership.as_deref().is_some_and(|membership| {
+                membership.created.values().any(|entry| entry.values_dirty)
+            });
         let mut zip = ZipWriter::new(output);
         zip.set_raw_comment(self.book.archive.comment().to_vec().into_boxed_slice())
             .map_err(|error| zip_error("Cannot preserve ZIP archive comment", error))?;
         let mut stats = SaveStats::default();
+        let empty_chains = HashSet::new();
         let mut total: u128 = self
             .parts
             .iter()
@@ -1563,8 +1629,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 stats.removed_parts += 1;
                 continue;
             }
-            let chain_metadata = dirty
-                && !self.calc_chain_parts.is_empty()
+            let chain_metadata = (membership.is_some()
+                || dirty && !self.calc_chain_parts.is_empty())
                 && (part.name.as_ref() == "[Content_Types].xml"
                     || part.name.as_ref() == self.workbook_relationships);
             let view_patch = self.view_patches.get(part.name.as_ref()).map(Box::as_ref);
@@ -1588,7 +1654,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 || active.is_some()
                 || !self.visibility_patches.is_empty()
                 || !self.name_patches.is_empty()
-                || self.catalog_order.is_some())
+                || self.catalog_order.is_some()
+                || membership.is_some())
                 && part.name.as_ref() == self.book.workbook_part;
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
             if worksheet || workbook || shared_strings || chain_metadata {
@@ -1641,6 +1708,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             visibility: &self.visibility_patches,
                             names: &self.name_patches,
                             order: self.catalog_order.as_deref(),
+                            membership,
                         },
                     )
                 } else if shared_strings {
@@ -1650,8 +1718,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         file,
                         budget,
                         &part.name,
-                        &self.calc_chain_parts,
+                        if dirty {
+                            &self.calc_chain_parts
+                        } else {
+                            &empty_chains
+                        },
                         self.options.resources,
+                        membership,
                     )
                 }
                 .map_err(|error| error.with_part(part.name.as_ref()))?;
@@ -1691,6 +1764,52 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         .with_part(part.name.as_ref())
                 })?;
                 stats.copied_parts += 1;
+            }
+        }
+        if let Some((membership, bank)) = membership {
+            for created in membership.created.values() {
+                let sheet = bank.sheet(
+                    created
+                        .bank_id
+                        .ok_or_else(|| invalid("Created sheet has no model identity"))?,
+                )?;
+                zip.start_file(
+                    &created.part,
+                    crate::writer::compression_options(options.compression_level)
+                        .large_file(self.options.resources.max_part_bytes >= u64::from(u32::MAX)),
+                )
+                .map_err(|cause| {
+                    zip_error("Cannot start created worksheet", cause).with_part(&created.part)
+                })?;
+                let mut output = PartOutput {
+                    inner: BufWriter::with_capacity(64 * 1024, &mut zip),
+                    bytes: 0,
+                    maximum: self.options.resources.max_part_bytes,
+                };
+                crate::loaded_codec::write_new(
+                    &mut output,
+                    sheet,
+                    bank.style_catalog(),
+                    self.options.resources,
+                    crate::loaded_codec::Encoding {
+                        epoch,
+                        non_finite: self.options.non_finite,
+                        formula_attributes: self.options.formula_attributes,
+                    },
+                    membership.namespace(),
+                )
+                .map_err(|error| error.with_part(&created.part))?;
+                output
+                    .flush()
+                    .map_err(|cause| io_error("Cannot flush created worksheet", cause))?;
+                let bytes = output.bytes;
+                drop(output);
+                total += u128::from(bytes);
+                if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
+                    return Err(limit("Created package uncompressed byte limit exceeded"));
+                }
+                stats.created_parts += 1;
+                stats.rewritten_xml_bytes += bytes;
             }
         }
         let mut output = zip
@@ -2602,6 +2721,7 @@ struct WorkbookRewrite<'a> {
     visibility: &'a BTreeMap<usize, crabxl_core::SheetVisibility>,
     names: &'a BTreeMap<usize, Box<str>>,
     order: Option<&'a CatalogOrder>,
+    membership: Option<(&'a catalog::Membership, &'a crabxl_core::Workbook)>,
 }
 fn rewritten_catalog_entry(
     original: &BytesStart<'_>,
@@ -2641,6 +2761,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
         visibility,
         names,
         order,
+        membership,
     } = rewrite;
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -2712,7 +2833,7 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                     && frame.depth == 3
                     && e.local_name().as_ref().as_bytes() == b"sheet" =>
             {
-                if order.is_some() {
+                if order.is_some() || membership.is_some() {
                     sheet_index += 1;
                     skipped_sheet = true;
                     continue;
@@ -2732,9 +2853,14 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 1
                     && e.local_name().as_ref().as_bytes() == b"sheets"
-                    && order.is_some() =>
+                    && (order.is_some() || membership.is_some()) =>
             {
-                if let Some(order) = order {
+                if let Some((membership, bank)) = membership {
+                    if sheet_index != membership.declarations.len() {
+                        return Err(invalid("Original sheet catalog changed"));
+                    }
+                    membership.write_entries(&mut writer, bank)?;
+                } else if let Some(order) = order {
                     if sheet_index != order.entries.len() {
                         return Err(invalid("Original sheet catalog changed"));
                     }
@@ -2746,10 +2872,10 @@ fn patch_workbook<R: Read + Seek, W: Write>(
                         let state = visibility.get(&source).copied();
                         let name = names.get(&source).map(AsRef::as_ref);
                         if state.is_some() || name.is_some() {
-                            let start = rewritten_catalog_entry(original, name, state)?;
+                            let start = rewritten_catalog_entry(&original.start, name, state)?;
                             emit(&mut writer, Event::Empty(start))?;
                         } else {
-                            emit(&mut writer, Event::Empty(original.borrow()))?;
+                            emit(&mut writer, Event::Empty(original.start.borrow()))?;
                         }
                     }
                 }
@@ -3100,6 +3226,7 @@ fn patch_chain_metadata<R: Read + Seek, W: Write>(
     part: &str,
     chains: &HashSet<String>,
     limits: ResourceLimits,
+    membership: Option<(&catalog::Membership, &crabxl_core::Workbook)>,
 ) -> Result<u64> {
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -3158,11 +3285,17 @@ fn patch_chain_metadata<R: Read + Seek, W: Write>(
             {
                 let kind =
                     attribute(&e, b"Type")?.ok_or_else(|| invalid("Relationship has no type"))?;
-                if crate::package::relationship_is(&kind, "calcChain") {
+                if !chains.is_empty() && crate::package::relationship_is(&kind, "calcChain") {
                     skip = Some(frame.depth);
                 } else {
                     emit(&mut writer, Event::Start(e))?;
                 }
+            }
+            Event::End(e) if frame.depth == 0 => {
+                if let Some((membership, bank)) = membership {
+                    membership.write_additions(&mut writer, types, bank)?;
+                }
+                emit(&mut writer, Event::End(e))?;
             }
             Event::Eof => break,
             event => emit(&mut writer, event)?,

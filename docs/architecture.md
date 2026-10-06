@@ -248,3 +248,8 @@ remain staged for Alpha 7.
 and deferred workbook-view indexes and compatible visibility normalization.
 Bindings consume the canonical policy; source active declarations, pending
 views and loaded stable handles remain coordinated without cell materialization.
+
+Source-backed sheet creation installs bounded live catalog membership instead of
+another workbook model; see [ADR 0073](decisions/0073-live-source-catalog-membership.md).
+New bodies share the borrowed row encoder; original bodies remain lazy and
+repeatable. Catalog copy/removal and their affected graphs remain open.
