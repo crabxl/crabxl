@@ -643,6 +643,12 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     ) -> Result<()> {
         self.edit_value(id, address, value, true)
     }
+    /// Remove one physical cell from a supported source-backed model and
+    /// transfer its owned value/style to the caller. Logical append extent stays.
+    /// Affected unmodeled graphs reject before any cell or package mutation.
+    pub fn remove_cell(&mut self, id: SheetId, address: CellAddress) -> Result<Option<Cell>> {
+        self.edit_structure_when(id, |sheet| Ok(sheet.remove(address)), Option::is_some)
+    }
     /// Insert rows in a supported source-backed cell model. Unmodeled affected
     /// worksheet graphs are rejected before mutation; formulas are not translated.
     pub fn insert_rows(&mut self, id: SheetId, at: RowIndex, count: u32) -> Result<()> {
@@ -697,6 +703,14 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         id: SheetId,
         edit: impl FnOnce(&mut WorksheetEditor<'_>) -> Result<()>,
     ) -> Result<()> {
+        self.edit_structure_when(id, edit, |_| true)
+    }
+    fn edit_structure_when<T>(
+        &mut self,
+        id: SheetId,
+        edit: impl FnOnce(&mut WorksheetEditor<'_>) -> Result<T>,
+        changed: impl FnOnce(&T) -> bool,
+    ) -> Result<T> {
         if self.options.read.data_only {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -711,7 +725,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         if self.sheets[index].original.is_none() {
             crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
             let result = edit(&mut self.bank.sheet_mut(id)?);
-            if result.is_ok() {
+            if let Ok(value) = &result
+                && changed(value)
+            {
                 self.editor.created_values_dirty(id);
             }
             self.rebalance()?;
@@ -722,12 +738,18 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
         self.reserve_workbook_patch(plan.bytes.max(self.editor.patch_bytes()))?;
         let result = edit(&mut self.bank.sheet_mut(id)?);
-        if let Err(error) = result {
-            self.rebalance()?;
-            return Err(error);
+        let value = match result {
+            Ok(value) => value,
+            Err(error) => {
+                self.rebalance()?;
+                return Err(error);
+            }
+        };
+        if changed(&value) {
+            self.editor.commit_model(plan, id);
         }
-        self.editor.commit_model(plan, id);
-        self.rebalance()
+        self.rebalance()?;
+        Ok(value)
     }
     /// Append a complete scalar/formula row after actual source/pending extent.
     /// The selected sheet materializes once; advertised dimensions do not choose

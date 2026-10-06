@@ -142,6 +142,67 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
     assert!(!workbook.is_materialized(first));
     assert!(!workbook.is_materialized(second));
     assert_eq!(workbook.model().cell_count(), 0);
+    // Removing a missing physical cell does not rewrite source XML or caches.
+    let mut missing =
+        LoadedWorkbook::with_options(Cursor::new(bytes.clone()), Default::default()).unwrap();
+    let id = missing.sheet_id("First").unwrap();
+    assert!(
+        missing
+            .remove_cell(id, CellAddress::new(100, 0).unwrap())
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(missing.patch_bytes(), 0);
+    let saved = missing
+        .save(Cursor::new(Vec::new()), Default::default())
+        .unwrap()
+        .0;
+    assert_eq!(parts(saved.into_inner()), parts(bytes.clone()));
+    // Single-cell deletion uses the same structural transaction and append cursor.
+    let mut deleted =
+        LoadedWorkbook::with_options(Cursor::new(bytes.clone()), Default::default()).unwrap();
+    let id = deleted.sheet_id("First").unwrap();
+    deleted
+        .set_value(id, CellAddress::new(0, 0).unwrap(), CellValue::Integer(73))
+        .unwrap();
+    let old = deleted
+        .remove_cell(id, CellAddress::new(0, 0).unwrap())
+        .unwrap()
+        .unwrap();
+    assert_eq!(old.value, CellValue::Integer(73));
+    assert!(
+        deleted
+            .remove_cell(id, CellAddress::new(100, 0).unwrap())
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(deleted.sheet(id).unwrap().row_extent(), 4);
+    deleted.append(id, vec![CellValue::Integer(9)]).unwrap();
+    let mut reloaded = LoadedWorkbook::with_options(
+        deleted
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0,
+        Default::default(),
+    )
+    .unwrap();
+    let id = reloaded.sheet_id("First").unwrap();
+    assert!(
+        reloaded
+            .sheet(id)
+            .unwrap()
+            .get(CellAddress::new(0, 0).unwrap())
+            .is_none()
+    );
+    assert_eq!(
+        reloaded
+            .sheet(id)
+            .unwrap()
+            .get(CellAddress::new(4, 0).unwrap())
+            .unwrap()
+            .value,
+        CellValue::Integer(9)
+    );
     // Catalog membership shares the lazy bank without decoding original bodies.
     let mut created_book =
         LoadedWorkbook::with_options(Cursor::new(bytes.clone()), LoadOptions::default()).unwrap();
@@ -1939,6 +2000,13 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
             ErrorKind::Unsupported
         );
         assert!(guarded.sheet_id("First").is_some());
+        assert_eq!(
+            guarded
+                .remove_cell(id, CellAddress::new(0, 0).unwrap())
+                .unwrap_err()
+                .kind(),
+            ErrorKind::Unsupported
+        );
         assert!(!guarded.is_materialized(id));
         assert_eq!(guarded.patch_bytes(), 0);
         assert_eq!(guarded.managed_retained_bytes(), before);

@@ -266,3 +266,9 @@ template. Shared checked incoming-edge inspection guards both worksheet removal
 and calculation-chain disposal; see [ADR 0075](decisions/0075-source-backed-worksheet-removal.md).
 Workbook identity graphs outside worksheet relationships remain explicit M6
 structural dependencies, while unrelated preserving edits remain available.
+
+Source-backed physical-cell removal transfers the removed owned cell through
+`LoadedWorkbook::remove_cell`. It retains the logical append extent and shares
+structural-edit graph validation and joint resource reservations. A missing cell
+returns `None` without committing a model rewrite or invalidating source formula
+caches; temporary reservations are released through the normal rebalance path.
