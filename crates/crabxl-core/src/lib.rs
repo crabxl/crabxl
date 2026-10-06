@@ -37,6 +37,8 @@ pub use style::{CellStyle, Font, StyleId};
 
 mod worksheet;
 pub use worksheet::{CellRange, EditLimits, SheetVisibility, Worksheet};
+mod range;
+pub use range::WorksheetRange;
 mod sheet_selection;
 pub use sheet_selection::{ActiveViewSelection, normalize_active_view, resolve_sheet_index};
 
