@@ -176,14 +176,39 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// A bounded catalog/relationship/content-type transaction commits after
     /// source policies and aggregate model/metadata allowances are checked.
     pub fn create_sheet(&mut self, name: impl Into<Box<str>>) -> Result<SheetId> {
+        self.add_sheet(name.into(), None)
+    }
+    /// Copy supported cell content and source worksheet properties into a new
+    /// budgeted canonical model. Affected unmodeled graphs reject before mutation.
+    pub fn copy_sheet(&mut self, id: SheetId, name: impl Into<Box<str>>) -> Result<SheetId> {
+        self.add_sheet(name.into(), Some(id))
+    }
+    fn add_sheet(&mut self, name: Box<str>, source: Option<SheetId>) -> Result<SheetId> {
         if self.options.read.data_only {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Data-only sheet creation remains unimplemented",
             ));
         }
-        let name = name.into();
         crate::encode::validate_catalog_name(&name)?;
+        let template = if let Some(id) = source {
+            let source = self
+                .sheets
+                .iter()
+                .find(|entry| entry.id == id)
+                .ok_or_else(|| {
+                    Error::new(ErrorKind::SheetNotFound, "Unknown copied sheet identity")
+                })?;
+            let template = source.original.or_else(|| self.editor.copy_template(id));
+            if let Some(index) = template {
+                self.editor.prepare_copy_template(index)?;
+            }
+            self.sheet(id)?;
+            crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
+            template
+        } else {
+            None
+        };
         let mut originals = Vec::new();
         originals
             .try_reserve_exact(self.sheets.len())
@@ -204,10 +229,12 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .allowance
             .retained_data_bytes
             .min(self.options.workbook.max_bytes);
-        let plan = self.editor.prepare_create(
-            originals,
-            maximum.saturating_sub(self.managed_retained_bytes()),
-        )?;
+        let allowance = maximum.saturating_sub(self.managed_retained_bytes());
+        let plan = if source.is_some() {
+            self.editor.prepare_copy(originals, allowance, template)?
+        } else {
+            self.editor.prepare_create(originals, allowance)?
+        };
         self.sheets.try_reserve_exact(1).map_err(|cause| {
             Error::caused_by(
                 ErrorKind::MemoryBudgetExceeded,
@@ -217,7 +244,12 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         })?;
         self.reserve_workbook_patch(plan.bytes.saturating_add(plan.scratch_bytes))?;
         let view = self.active_view_index();
-        let id = match self.bank.create_sheet(name) {
+        let incoming = if let Some(id) = source {
+            self.bank.copy_sheet(id, name)
+        } else {
+            self.bank.create_sheet(name)
+        };
+        let id = match incoming {
             Ok(id) => id,
             Err(error) => {
                 self.rebalance()?;

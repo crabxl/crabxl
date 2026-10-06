@@ -1694,6 +1694,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             catalog: bank.and_then(crabxl_core::Workbook::style_catalog),
                             epoch,
                             non_finite: self.options.non_finite,
+                            copying: false,
                         },
                     )
                 } else if workbook {
@@ -1786,24 +1787,54 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     bytes: 0,
                     maximum: self.options.resources.max_part_bytes,
                 };
-                crate::loaded_codec::write_new(
-                    &mut output,
-                    sheet,
-                    bank.style_catalog(),
-                    self.options.resources,
-                    crate::loaded_codec::Encoding {
-                        epoch,
-                        non_finite: self.options.non_finite,
-                        formula_attributes: self.options.formula_attributes,
-                    },
-                    membership.namespace(),
-                )
-                .map_err(|error| error.with_part(&created.part))?;
-                output
-                    .flush()
-                    .map_err(|cause| io_error("Cannot flush created worksheet", cause))?;
-                let bytes = output.bytes;
-                drop(output);
+                let bytes = if let Some(index) = created.template {
+                    let part = self
+                        .book
+                        .sheets()
+                        .get(index)
+                        .ok_or_else(|| invalid("Missing copied worksheet template"))?
+                        .part()
+                        .to_owned();
+                    let input = self.book.archive.by_name(&part).map_err(|cause| {
+                        zip_error("Cannot reopen copied worksheet template", cause)
+                    })?;
+                    patch_worksheet(
+                        input,
+                        output,
+                        &part,
+                        WorksheetRewrite {
+                            patches: None,
+                            limits: self.options.resources,
+                            formula_attributes: self.options.formula_attributes,
+                            views: None,
+                            printing: None,
+                            invalidate_caches: true,
+                            model: Some(sheet),
+                            catalog: bank.style_catalog(),
+                            epoch,
+                            non_finite: self.options.non_finite,
+                            copying: true,
+                        },
+                    )?
+                } else {
+                    crate::loaded_codec::write_new(
+                        &mut output,
+                        sheet,
+                        bank.style_catalog(),
+                        self.options.resources,
+                        crate::loaded_codec::Encoding {
+                            epoch,
+                            non_finite: self.options.non_finite,
+                            formula_attributes: self.options.formula_attributes,
+                        },
+                        membership.namespace(),
+                    )
+                    .map_err(|error| error.with_part(&created.part))?;
+                    output
+                        .flush()
+                        .map_err(|cause| io_error("Cannot flush created worksheet", cause))?;
+                    output.bytes
+                };
                 total += u128::from(bytes);
                 if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
                     return Err(limit("Created package uncompressed byte limit exceeded"));
@@ -2130,6 +2161,7 @@ struct WorksheetRewrite<'a> {
     catalog: Option<&'a crabxl_core::StyleCatalog>,
     epoch: DateEpoch,
     non_finite: crate::NonFiniteWritePolicy,
+    copying: bool,
 }
 fn patch_worksheet<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
@@ -2148,6 +2180,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
         catalog,
         epoch,
         non_finite,
+        copying,
     } = rewrite;
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -2191,6 +2224,17 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                 ErrorKind::Unsupported,
                 "Editing markup-compatibility alternatives requires typed branch handling",
             ));
+        }
+        // openpyxl's public copy behavior omits views and header/footer state.
+        if copying
+            && frame.scope == Scope::Spreadsheet
+            && frame.depth == 2
+            && matches!(&frame.event, Event::Start(e)
+                if matches!(e.local_name().as_ref().as_bytes(), b"sheetViews" | b"headerFooter"))
+        {
+            let depth = frame.depth;
+            crate::style_codec::skip(&mut xml, depth)?;
+            continue;
         }
         if let Some(rewrite) = &mut print_rewrite
             && frame.scope == Scope::Spreadsheet

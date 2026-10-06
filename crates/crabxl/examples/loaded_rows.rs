@@ -4,6 +4,24 @@ use crabxl::{
     WorkbookLimits, WorkbookReader, Worksheet,
 };
 use std::{fs::File, time::Instant};
+fn model_options() -> LoadOptions {
+    LoadOptions {
+        memory_policy: MemoryPolicy::Budget(1024 * 1024 * 1024),
+        resources: crabxl::ResourceLimits {
+            max_materialized_bytes: 1024 * 1024 * 1024,
+            ..Default::default()
+        },
+        workbook: WorkbookLimits {
+            max_bytes: 1024 * 1024 * 1024,
+            sheet: EditLimits {
+                max_bytes: 768 * 1024 * 1024,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let path = args.next().ok_or(
@@ -37,8 +55,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             | "bank-rename"
             | "bank-reorder"
             | "bank-create"
+            | "bank-copy"
     ) {
-        let mut workbook = LoadedWorkbook::with_options(File::open(path)?, LoadOptions::default())?;
+        let mut workbook = LoadedWorkbook::with_options(
+            File::open(path)?,
+            if mode == "bank-copy" {
+                model_options()
+            } else {
+                LoadOptions::default()
+            },
+        )?;
         let id = workbook
             .model()
             .sheets()
@@ -65,12 +91,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let created = workbook.create_sheet("Added")?;
             workbook.upsert_value(created, CellAddress::new(0, 0)?, CellValue::Integer(42))?;
         }
+        let expected_materialized = if mode == "bank-copy" {
+            let source = workbook.model().sheets().next().ok_or("Missing source")?.0;
+            let copied = workbook.copy_sheet(source, "Copied")?;
+            workbook.set_value(copied, CellAddress::new(0, 0)?, CellValue::Integer(42))?;
+            if workbook.is_materialized(id) {
+                return Err("Copy loaded an unrelated sheet".into());
+            }
+            workbook.model().cell_count()
+        } else {
+            usize::from(mode == "bank-create")
+        };
         let selected = usize::from(mode != "bank-reorder");
         let target = output.as_ref().ok_or("Active mode requires output path")?;
         workbook.save_path(target, crabxl::SaveOptions::default())?;
         output_bytes = std::fs::metadata(target)?.len();
         materialized_cells = workbook.model().cell_count();
-        if materialized_cells != usize::from(mode == "bank-create") {
+        if materialized_cells != expected_materialized {
             return Err("Active selection eagerly materialized cells".into());
         }
         let mut saved = WorkbookReader::open(target)?;
@@ -98,6 +135,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let row = rows.next_row()?.ok_or("Missing created row")?;
             if row.cells.len() != 1 || row.cells[0].value != CellValue::Integer(42) {
                 return Err("Created cell mismatch".into());
+            }
+        }
+        if mode == "bank-copy" {
+            if saved.sheets().len() != 3 || saved.sheets()[2].name() != "Copied" {
+                return Err("Copied catalog mismatch".into());
+            }
+            let mut rows = saved.rows("Copied")?;
+            let row = rows.next_row()?.ok_or("Missing copied row")?;
+            if row.cells.first().ok_or("Missing copied A1")?.value != CellValue::Integer(42) {
+                return Err("Copied edit mismatch".into());
             }
         }
         let names = saved
@@ -130,25 +177,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         mode.as_str(),
         "bank" | "bank-edit" | "bank-append" | "bank-structure"
     ) {
-        let mut workbook = LoadedWorkbook::with_options(
-            File::open(path)?,
-            LoadOptions {
-                memory_policy: MemoryPolicy::Budget(1024 * 1024 * 1024),
-                resources: crabxl::ResourceLimits {
-                    max_materialized_bytes: 1024 * 1024 * 1024,
-                    ..Default::default()
-                },
-                workbook: WorkbookLimits {
-                    max_bytes: 1024 * 1024 * 1024,
-                    sheet: EditLimits {
-                        max_bytes: 768 * 1024 * 1024,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-        )?;
+        let mut workbook = LoadedWorkbook::with_options(File::open(path)?, model_options())?;
         let ids = workbook
             .model()
             .sheets()

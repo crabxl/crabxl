@@ -248,6 +248,71 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
             .unwrap()
             .contains("rIdCrabxl2")
     );
+    // Copy uses the current bank values but preserves supported source properties.
+    let mut copied_parts = original_parts.clone();
+    let xml = String::from_utf8(copied_parts.remove("xl/worksheets/sheet1.xml").unwrap()).unwrap();
+    copied_parts.insert("xl/worksheets/sheet1.xml".into(), xml.replace("</worksheet>", "<pageMargins left=\"0.2\" right=\"0.3\" top=\"0.4\" bottom=\"0.5\" header=\"0.1\" footer=\"0.1\"/><headerFooter><oddHeader>source header</oddHeader></headerFooter></worksheet>").into_bytes());
+    let mut copied =
+        LoadedWorkbook::with_options(Cursor::new(package(copied_parts)), Default::default())
+            .unwrap();
+    let source_id = copied.sheet_id("First").unwrap();
+    copied
+        .set_value(
+            source_id,
+            CellAddress::new(0, 0).unwrap(),
+            CellValue::Integer(73),
+        )
+        .unwrap();
+    let clone_id = copied.copy_sheet(source_id, "Copy").unwrap();
+    assert!(!copied.is_materialized(copied.sheet_id("Second").unwrap()));
+    copied
+        .set_value(
+            clone_id,
+            CellAddress::new(0, 0).unwrap(),
+            CellValue::Integer(99),
+        )
+        .unwrap();
+    assert_eq!(
+        copied
+            .sheet(source_id)
+            .unwrap()
+            .get(CellAddress::new(0, 0).unwrap())
+            .unwrap()
+            .value,
+        CellValue::Integer(73)
+    );
+    let again_id = copied.copy_sheet(clone_id, "Copy Again").unwrap();
+    assert_ne!(clone_id, again_id);
+    for _ in 0..2 {
+        let (output, stats) = copied
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        assert_eq!(stats.created_parts, 2);
+        let saved = parts(output.into_inner());
+        for name in [
+            "xl/worksheets/crabxl-sheet-3.xml",
+            "xl/worksheets/crabxl-sheet-4.xml",
+        ] {
+            let xml = String::from_utf8(saved[name].clone()).unwrap();
+            assert!(xml.contains("<pageMargins"));
+            assert!(!xml.contains("<headerFooter"));
+            assert!(!xml.contains("<sheetViews"));
+        }
+        let mut reopened =
+            LoadedWorkbook::with_options(Cursor::new(package(saved)), Default::default()).unwrap();
+        for name in ["Copy", "Copy Again"] {
+            let id = reopened.sheet_id(name).unwrap();
+            assert_eq!(
+                reopened
+                    .sheet(id)
+                    .unwrap()
+                    .get(CellAddress::new(0, 0).unwrap())
+                    .unwrap()
+                    .value,
+                CellValue::Integer(99)
+            );
+        }
+    }
     let catalog_pointer = workbook.model().style_catalog().unwrap().fonts.as_ptr();
     let sheet = workbook.sheet(first).unwrap();
     assert_eq!(sheet.len(), 4);
@@ -870,6 +935,13 @@ fn aggregate_loading_rejects_without_committing_and_sst_temp_resources_are_owned
     let first = workbook.sheet_id("First").unwrap();
     let second = workbook.sheet_id("Second").unwrap();
     workbook.sheet(first).unwrap();
+    assert_eq!(
+        workbook.copy_sheet(first, "Too Large").unwrap_err().kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    assert!(workbook.sheet_id("Too Large").is_none());
+    assert_eq!(workbook.patch_bytes(), 0);
+    assert_eq!(workbook.model().cell_count(), 9);
     for _ in 0..2 {
         assert_eq!(
             workbook.sheet(second).err().unwrap().kind(),
@@ -1512,6 +1584,11 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
                 .kind(),
             ErrorKind::Unsupported
         );
+        assert_eq!(
+            guarded.copy_sheet(id, "Blocked Copy").unwrap_err().kind(),
+            ErrorKind::Unsupported
+        );
+        assert!(guarded.sheet_id("Blocked Copy").is_none());
         assert!(!guarded.is_materialized(id));
         assert_eq!(guarded.patch_bytes(), 0);
         assert_eq!(guarded.managed_retained_bytes(), before);

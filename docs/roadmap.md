@@ -153,3 +153,7 @@ Full baseline module statuses remain independently staged; M4–M7 are not close
 The source-backed bank can now create and populate worksheets with synchronized
 package identities and repeated saves (ADR 0073). Loaded sheet copy/removal remain
 required for staged A7 acceptance; creation does not close that gate.
+
+Supported source-backed worksheet copies now share catalog membership and stream
+the original property template (ADR 0074). Loaded worksheet removal, Python copy
+integration and remaining staged A7 acceptance stay open.
