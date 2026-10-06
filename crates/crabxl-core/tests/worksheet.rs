@@ -53,7 +53,7 @@ fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
     // boundary removal and sparse row traversal against an independent map.
     let mut sheet = Worksheet::new("Sparse", EditLimits::default()).unwrap();
     let mut expected = std::collections::BTreeMap::new();
-    for index in 0..640u32 {
+    for index in 0..653u32 {
         let coordinate = (index / 32 * 3, index % 32 * 2);
         set(
             &mut sheet,
@@ -63,6 +63,8 @@ fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
         );
         expected.insert(coordinate, i64::from(index));
     }
+    assert_eq!(sheet.cells().count(), 653);
+    assert_eq!(sheet.row_cells(RowIndex::new(60).unwrap()).count(), 13);
     for index in (0..640u32).rev() {
         let coordinate = (index / 32 * 3, index % 32 * 2 + 1);
         set(

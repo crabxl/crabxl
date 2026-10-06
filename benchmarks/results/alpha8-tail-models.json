@@ -1,0 +1,492 @@
+{
+  "core_revision": "ea04f692fffd8a52f838f44e9f7c36f48af55255",
+  "versions": {
+    "umya-spreadsheet": "3.1.0",
+    "calamine": "0.36.1",
+    "rust_xlsxwriter": "0.99.1",
+    "rust": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "binary_sha256": "fa3e54e3fdfb40349f4cc31b03fcdad8cb27c019aa4d5a4b83d5317385cadb38",
+  "baseline_binary_sha256": "c44ff430b72f6fd3ddfff7209b732cf832d663dac363d9a90605d17b11475e37",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592",
+  "method": "one warmup per mode and scale; rotating serial release samples; native wait4; generation/build/output verification excluded; no baseline subtraction",
+  "boundaries": "Read: two numeric sheets, sum all cells, complete model modes versus noneditable calamine ranges and streams separately. Lazy modes initialize only and do not read cells. Edit: both engines materialize and sum all sheets then replace first A1 with 42 and save. Write: one numeric sheet built from zero, ordinary owned model versus sequential writer modes separately. Different preservation, rich styles, formulas and unsupported features are not compared.",
+  "temporary_sampling": "10ms lower-bound sum of unique process fds under isolated TMPDIR/output directory, including spools and adjacent/final ZIP during write; completed output bytes recorded separately; no exact managed-memory comparison",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "columns": 10,
+      "read_sheets": 2,
+      "source_bytes": 606757,
+      "source_sha256": "3e7c6e539fa5a6b1f83d1117429f780ff02975d7d938e30e123b5575a6b4d55f",
+      "samples": {
+        "calamine-model": [
+          {
+            "seconds": 0.04991996,
+            "cpu_seconds": 0.049836,
+            "peak_rss_kib": 14724,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.051392178,
+            "cpu_seconds": 0.051209,
+            "peak_rss_kib": 14276,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.056660544,
+            "cpu_seconds": 0.052698,
+            "peak_rss_kib": 14400,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "crabxl-edit": [
+          {
+            "seconds": 0.338371687,
+            "cpu_seconds": 0.338048,
+            "peak_rss_kib": 12564,
+            "sampled_peak_working_file_bytes": 592841,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.33909928,
+            "cpu_seconds": 0.338984,
+            "peak_rss_kib": 12504,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.337737806,
+            "cpu_seconds": 0.33756,
+            "peak_rss_kib": 12696,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          }
+        ],
+        "write-crabxl-model": [
+          {
+            "seconds": 0.087419281,
+            "cpu_seconds": 0.087312,
+            "peak_rss_kib": 8376,
+            "sampled_peak_working_file_bytes": 3345739,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.092660417,
+            "cpu_seconds": 0.092538,
+            "peak_rss_kib": 8476,
+            "sampled_peak_working_file_bytes": 3381044,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.084486096,
+            "cpu_seconds": 0.084302,
+            "peak_rss_kib": 8672,
+            "sampled_peak_working_file_bytes": 3368075,
+            "output_bytes": 305143
+          }
+        ],
+        "before:crabxl-model": [
+          {
+            "seconds": 0.108765593,
+            "cpu_seconds": 0.108603,
+            "peak_rss_kib": 11716,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.109724733,
+            "cpu_seconds": 0.109623,
+            "peak_rss_kib": 11716,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.105131182,
+            "cpu_seconds": 0.104902,
+            "peak_rss_kib": 11972,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-model": [
+          {
+            "seconds": 0.051606571,
+            "cpu_seconds": 0.051507,
+            "peak_rss_kib": 14520,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.051452708,
+            "cpu_seconds": 0.051179,
+            "peak_rss_kib": 14672,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.050289852,
+            "cpu_seconds": 0.050211,
+            "peak_rss_kib": 14648,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-edit": [
+          {
+            "seconds": 0.328357443,
+            "cpu_seconds": 0.328192,
+            "peak_rss_kib": 12484,
+            "sampled_peak_working_file_bytes": 592841,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.332615916,
+            "cpu_seconds": 0.332405,
+            "peak_rss_kib": 12616,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.331603338,
+            "cpu_seconds": 0.331255,
+            "peak_rss_kib": 12608,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          }
+        ],
+        "before:write-crabxl-model": [
+          {
+            "seconds": 0.094137846,
+            "cpu_seconds": 0.093952,
+            "peak_rss_kib": 8532,
+            "sampled_peak_working_file_bytes": 3368075,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.09191699,
+            "cpu_seconds": 0.091724,
+            "peak_rss_kib": 8532,
+            "sampled_peak_working_file_bytes": 3323415,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.106547293,
+            "cpu_seconds": 0.106146,
+            "peak_rss_kib": 8532,
+            "sampled_peak_working_file_bytes": 3368075,
+            "output_bytes": 305143
+          }
+        ],
+        "crabxl-model": [
+          {
+            "seconds": 0.118142149,
+            "cpu_seconds": 0.118014,
+            "peak_rss_kib": 11532,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.133497492,
+            "cpu_seconds": 0.13338,
+            "peak_rss_kib": 11468,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.123360541,
+            "cpu_seconds": 0.123122,
+            "peak_rss_kib": 11660,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "calamine-model": {
+          "seconds": 0.051392178,
+          "cpu_seconds": 0.051209,
+          "peak_rss_kib": 14400,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "crabxl-edit": {
+          "seconds": 0.338371687,
+          "cpu_seconds": 0.338048,
+          "peak_rss_kib": 12564,
+          "sampled_peak_working_file_bytes": 570501,
+          "output_bytes": 607096
+        },
+        "write-crabxl-model": {
+          "seconds": 0.087419281,
+          "cpu_seconds": 0.087312,
+          "peak_rss_kib": 8476,
+          "sampled_peak_working_file_bytes": 3368075,
+          "output_bytes": 305143
+        },
+        "before:crabxl-model": {
+          "seconds": 0.108765593,
+          "cpu_seconds": 0.108603,
+          "peak_rss_kib": 11716,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-model": {
+          "seconds": 0.051452708,
+          "cpu_seconds": 0.051179,
+          "peak_rss_kib": 14648,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-edit": {
+          "seconds": 0.331603338,
+          "cpu_seconds": 0.331255,
+          "peak_rss_kib": 12608,
+          "sampled_peak_working_file_bytes": 570501,
+          "output_bytes": 607096
+        },
+        "before:write-crabxl-model": {
+          "seconds": 0.094137846,
+          "cpu_seconds": 0.093952,
+          "peak_rss_kib": 8532,
+          "sampled_peak_working_file_bytes": 3368075,
+          "output_bytes": 305143
+        },
+        "crabxl-model": {
+          "seconds": 0.123360541,
+          "cpu_seconds": 0.123122,
+          "peak_rss_kib": 11532,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows_per_sheet": 100000,
+      "columns": 10,
+      "read_sheets": 2,
+      "source_bytes": 5882341,
+      "source_sha256": "7c9a4471c3d743011320d3eefeb2540eb6b67cdc3081ad72d889735a87d1c0e1",
+      "samples": {
+        "calamine-model": [
+          {
+            "seconds": 0.530192726,
+            "cpu_seconds": 0.529417,
+            "peak_rss_kib": 106080,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.484098724,
+            "cpu_seconds": 0.48377,
+            "peak_rss_kib": 105820,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.527314217,
+            "cpu_seconds": 0.527003,
+            "peak_rss_kib": 105756,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "crabxl-edit": [
+          {
+            "seconds": 3.510818311,
+            "cpu_seconds": 3.508589,
+            "peak_rss_kib": 69880,
+            "sampled_peak_working_file_bytes": 5871387,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 3.509504484,
+            "cpu_seconds": 3.506091,
+            "peak_rss_kib": 70204,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 3.72698355,
+            "cpu_seconds": 3.726359,
+            "peak_rss_kib": 69884,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          }
+        ],
+        "write-crabxl-model": [
+          {
+            "seconds": 1.030172652,
+            "cpu_seconds": 1.029399,
+            "peak_rss_kib": 37428,
+            "sampled_peak_working_file_bytes": 35794633,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.973536553,
+            "cpu_seconds": 0.972636,
+            "peak_rss_kib": 37168,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.950936039,
+            "cpu_seconds": 0.95082,
+            "peak_rss_kib": 37296,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          }
+        ],
+        "before:crabxl-model": [
+          {
+            "seconds": 1.079855,
+            "cpu_seconds": 1.078889,
+            "peak_rss_kib": 69188,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.072552566,
+            "cpu_seconds": 1.072002,
+            "peak_rss_kib": 69188,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.059691423,
+            "cpu_seconds": 1.059199,
+            "peak_rss_kib": 69188,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:calamine-model": [
+          {
+            "seconds": 0.519422465,
+            "cpu_seconds": 0.518772,
+            "peak_rss_kib": 106264,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.502656224,
+            "cpu_seconds": 0.502147,
+            "peak_rss_kib": 106264,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.50080049,
+            "cpu_seconds": 0.500684,
+            "peak_rss_kib": 106256,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:crabxl-edit": [
+          {
+            "seconds": 3.492527162,
+            "cpu_seconds": 3.490646,
+            "peak_rss_kib": 69740,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 3.456013243,
+            "cpu_seconds": 3.453196,
+            "peak_rss_kib": 69996,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 3.450252101,
+            "cpu_seconds": 3.448714,
+            "peak_rss_kib": 70164,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          }
+        ],
+        "before:write-crabxl-model": [
+          {
+            "seconds": 0.93475504,
+            "cpu_seconds": 0.933984,
+            "peak_rss_kib": 37348,
+            "sampled_peak_working_file_bytes": 35806554,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.954799874,
+            "cpu_seconds": 0.953924,
+            "peak_rss_kib": 37368,
+            "sampled_peak_working_file_bytes": 35794633,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.938389979,
+            "cpu_seconds": 0.937896,
+            "peak_rss_kib": 37220,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          }
+        ],
+        "crabxl-model": [
+          {
+            "seconds": 1.114261103,
+            "cpu_seconds": 1.113661,
+            "peak_rss_kib": 69132,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.088138292,
+            "cpu_seconds": 1.087864,
+            "peak_rss_kib": 68940,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 1.152785907,
+            "cpu_seconds": 1.152601,
+            "peak_rss_kib": 69132,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "calamine-model": {
+          "seconds": 0.527314217,
+          "cpu_seconds": 0.527003,
+          "peak_rss_kib": 105820,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "crabxl-edit": {
+          "seconds": 3.510818311,
+          "cpu_seconds": 3.508589,
+          "peak_rss_kib": 69884,
+          "sampled_peak_working_file_bytes": 5849781,
+          "output_bytes": 5887428
+        },
+        "write-crabxl-model": {
+          "seconds": 0.973536553,
+          "cpu_seconds": 0.972636,
+          "peak_rss_kib": 37296,
+          "sampled_peak_working_file_bytes": 35773024,
+          "output_bytes": 2942935
+        },
+        "before:crabxl-model": {
+          "seconds": 1.072552566,
+          "cpu_seconds": 1.072002,
+          "peak_rss_kib": 69188,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:calamine-model": {
+          "seconds": 0.502656224,
+          "cpu_seconds": 0.502147,
+          "peak_rss_kib": 106264,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:crabxl-edit": {
+          "seconds": 3.456013243,
+          "cpu_seconds": 3.453196,
+          "peak_rss_kib": 69996,
+          "sampled_peak_working_file_bytes": 5849781,
+          "output_bytes": 5887428
+        },
+        "before:write-crabxl-model": {
+          "seconds": 0.938389979,
+          "cpu_seconds": 0.937896,
+          "peak_rss_kib": 37348,
+          "sampled_peak_working_file_bytes": 35794633,
+          "output_bytes": 2942935
+        },
+        "crabxl-model": {
+          "seconds": 1.114261103,
+          "cpu_seconds": 1.113661,
+          "peak_rss_kib": 69132,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    }
+  ],
+  "candidate_status": "rejected: no consistent elapsed-time or RSS benefit",
+  "baseline_core_revision": "ea04f692fffd8a52f838f44e9f7c36f48af55255",
+  "candidate_patch": "diff --git a/crates/crabxl-core/src/cell_store.rs b/crates/crabxl-core/src/cell_store.rs\nindex 4a83167..0bbd5f1 100644\n--- a/crates/crabxl-core/src/cell_store.rs\n+++ b/crates/crabxl-core/src/cell_store.rs\n@@ -12,6 +12,7 @@ const BLOCK_CELLS: usize = 128;\n #[derive(Default)]\n pub(crate) struct CellStore {\n     blocks: BTreeMap<Key, Vec<Cell>>,\n+    tail: Vec<Cell>,\n     len: usize,\n     last: Option<Key>,\n }\n@@ -29,7 +30,10 @@ impl CellStore {\n         self.len == 0\n     }\n     pub(crate) fn values(&self) -> impl DoubleEndedIterator<Item = &Cell> + Clone {\n-        self.blocks.values().flat_map(|block| block.iter())\n+        self.blocks\n+            .values()\n+            .flat_map(|block| block.iter())\n+            .chain(self.tail.iter())\n     }\n     pub(crate) fn range(\n         &self,\n@@ -51,18 +55,30 @@ impl CellStore {\n                 block[from.min(to)..to].iter()\n             })\n             .map(|cell| (key(cell), cell))\n+            .chain({\n+                let from = self.tail.partition_point(|cell| key(cell) < start);\n+                let to = self.tail.partition_point(|cell| key(cell) <= end);\n+                self.tail[from.min(to)..to]\n+                    .iter()\n+                    .map(|cell| (key(cell), cell))\n+            })\n     }\n     pub(crate) fn get(&self, target: &Key) -> Option<&Cell> {\n         if self.last.is_none_or(|last| *target > last) {\n             return None;\n         }\n-        let (_, block) = self.blocks.range(..=*target).next_back()?;\n+        let block = if self.tail.first().is_some_and(|cell| key(cell) <= *target) {\n+            &self.tail\n+        } else {\n+            self.blocks.range(..=*target).next_back()?.1\n+        };\n         block\n             .binary_search_by_key(target, key)\n             .ok()\n             .map(|index| &block[index])\n     }\n     pub(crate) fn get_mut(&mut self, target: &Key) -> Option<&mut Cell> {\n+        self.flush_tail();\n         if self.last.is_none_or(|last| *target > last) {\n             return None;\n         }\n@@ -75,17 +91,15 @@ impl CellStore {\n     pub(crate) fn insert(&mut self, target: Key, cell: Cell) -> Option<Cell> {\n         debug_assert_eq!(target, key(&cell));\n         if self.last.is_none_or(|last| target > last) {\n-            if let Some(mut last) = self.blocks.last_entry()\n-                && last.get().len() < BLOCK_CELLS\n-            {\n-                last.get_mut().push(cell);\n-            } else {\n-                self.blocks.insert(target, vec![cell]);\n+            if self.tail.len() == BLOCK_CELLS {\n+                self.flush_tail();\n             }\n+            self.tail.push(cell);\n             self.last = Some(target);\n             self.len += 1;\n             return None;\n         }\n+        self.flush_tail();\n         let Some(first) = self\n             .blocks\n             .range(..=target)\n@@ -122,7 +136,13 @@ impl CellStore {\n         self.len += 1;\n         None\n     }\n+    fn flush_tail(&mut self) {\n+        if let Some(first) = self.tail.first().map(key) {\n+            self.blocks.insert(first, std::mem::take(&mut self.tail));\n+        }\n+    }\n     pub(crate) fn remove(&mut self, target: &Key) -> Option<Cell> {\n+        self.flush_tail();\n         let first = self\n             .blocks\n             .range(..=*target)\n@@ -168,6 +188,7 @@ impl CellStore {\n pub(crate) struct IntoCells {\n     blocks: btree_map::IntoValues<Key, Vec<Cell>>,\n     current: vec::IntoIter<Cell>,\n+    tail: Option<Vec<Cell>>,\n }\n impl Iterator for IntoCells {\n     type Item = (Key, Cell);\n@@ -176,7 +197,10 @@ impl Iterator for IntoCells {\n             if let Some(cell) = self.current.next() {\n                 return Some((key(&cell), cell));\n             }\n-            self.current = self.blocks.next()?.into_iter();\n+            self.current = match self.blocks.next() {\n+                Some(block) => block.into_iter(),\n+                None => self.tail.take()?.into_iter(),\n+            };\n         }\n     }\n }\n@@ -187,6 +211,7 @@ impl IntoIterator for CellStore {\n         IntoCells {\n             blocks: self.blocks.into_values(),\n             current: Vec::new().into_iter(),\n+            tail: Some(self.tail),\n         }\n     }\n }\n"
+}
