@@ -1,0 +1,690 @@
+{
+  "method": "One warmup and 3 rotating serial release samples. Complete retained model plus every-value/coordinate verification inside each native worker; import/build/generation excluded. Identical worker source/lockfile/toolchain, prior core bfeb2714dcea31f0facaa5c999547b071e7a55c8 versus candidate; hashes identify binaries. Calamine returns retained noneditable text ranges; CrabXL retains editable models plus source catalogs.",
+  "binary_sha256": {
+    "before": "9f38f0ddd46cdd02cc58f10542bbf0bd97e153971a7c01b019ecc21e7aa005df",
+    "after": "33e18e8b0b10c3228a3e4fa59848364d1ddf5f6b178f2559fa9213eedacffec3"
+  },
+  "resource_settings": "CrabXL 1 GiB joint/model allowances, 256 MiB SST allowance, 1 MiB decoded disk cache; explicit RAM/disk policy. These are managed allowances, not an RSS limit. Calamine uses its defaults.",
+  "cases": [
+    {
+      "rows": 10000,
+      "kind": "repeated-text",
+      "source_sha256": "68e79fc55564057d72dcc1322cf68eb7678fa83d2177aed9bacdc24b99dd1d17",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.038371227,
+            "cpu_seconds": 0.038263,
+            "peak_rss_kib": 11612,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.038763968,
+            "cpu_seconds": 0.038528,
+            "peak_rss_kib": 11916,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.039109327,
+            "cpu_seconds": 0.039013,
+            "peak_rss_kib": 11676,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.038011607,
+            "cpu_seconds": 0.037815,
+            "peak_rss_kib": 11852,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.03729522,
+            "cpu_seconds": 0.037152,
+            "peak_rss_kib": 11852,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.040620267,
+            "cpu_seconds": 0.040378,
+            "peak_rss_kib": 12108,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.039392883,
+            "cpu_seconds": 0.039269,
+            "peak_rss_kib": 11932,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.039091891,
+            "cpu_seconds": 0.038993,
+            "peak_rss_kib": 11804,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.041944263,
+            "cpu_seconds": 0.041786,
+            "peak_rss_kib": 11932,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.041935013,
+            "cpu_seconds": 0.041825,
+            "peak_rss_kib": 20048,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.043546775,
+            "cpu_seconds": 0.043465,
+            "peak_rss_kib": 19916,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.065552543,
+            "cpu_seconds": 0.065378,
+            "peak_rss_kib": 20048,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.037711496,
+            "cpu_seconds": 0.037618,
+            "peak_rss_kib": 11852,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.038272935,
+            "cpu_seconds": 0.038167,
+            "peak_rss_kib": 11852,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.03935078,
+            "cpu_seconds": 0.039241,
+            "peak_rss_kib": 11724,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.038763968,
+          "cpu_seconds": 0.038528,
+          "peak_rss_kib": 11676,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.038011607,
+          "cpu_seconds": 0.037815,
+          "peak_rss_kib": 11852,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "after:disk": {
+          "seconds": 0.039392883,
+          "cpu_seconds": 0.039269,
+          "peak_rss_kib": 11932,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "calamine:memory": {
+          "seconds": 0.043546775,
+          "cpu_seconds": 0.043465,
+          "peak_rss_kib": 20048,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.038272935,
+          "cpu_seconds": 0.038167,
+          "peak_rss_kib": 11852,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 10000,
+      "kind": "unique-text",
+      "source_sha256": "a940e6e1013e3346467e2efcd34c97734a40161b17949fc119f2d305cce619e3",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.071704144,
+            "cpu_seconds": 0.071526,
+            "peak_rss_kib": 27420,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.072212638,
+            "cpu_seconds": 0.072097,
+            "peak_rss_kib": 27164,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.072787171,
+            "cpu_seconds": 0.072678,
+            "peak_rss_kib": 27292,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.190343646,
+            "cpu_seconds": 0.190229,
+            "peak_rss_kib": 25932,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.15460271,
+            "cpu_seconds": 0.154378,
+            "peak_rss_kib": 25932,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.158401134,
+            "cpu_seconds": 0.158281,
+            "peak_rss_kib": 25932,
+            "sampled_peak_working_file_bytes": 12600000
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.129061034,
+            "cpu_seconds": 0.128808,
+            "peak_rss_kib": 26140,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.151701856,
+            "cpu_seconds": 0.151581,
+            "peak_rss_kib": 25948,
+            "sampled_peak_working_file_bytes": 12600000
+          },
+          {
+            "seconds": 0.133480276,
+            "cpu_seconds": 0.133371,
+            "peak_rss_kib": 26140,
+            "sampled_peak_working_file_bytes": 12600000
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.073081808,
+            "cpu_seconds": 0.07284,
+            "peak_rss_kib": 35012,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.079966311,
+            "cpu_seconds": 0.079863,
+            "peak_rss_kib": 34880,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.073324339,
+            "cpu_seconds": 0.073029,
+            "peak_rss_kib": 34880,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.094493904,
+            "cpu_seconds": 0.094381,
+            "peak_rss_kib": 27340,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.097665149,
+            "cpu_seconds": 0.097525,
+            "peak_rss_kib": 27212,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.103492407,
+            "cpu_seconds": 0.103382,
+            "peak_rss_kib": 27212,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.072212638,
+          "cpu_seconds": 0.072097,
+          "peak_rss_kib": 27292,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.158401134,
+          "cpu_seconds": 0.158281,
+          "peak_rss_kib": 25932,
+          "sampled_peak_working_file_bytes": 12600000
+        },
+        "after:disk": {
+          "seconds": 0.133480276,
+          "cpu_seconds": 0.133371,
+          "peak_rss_kib": 26140,
+          "sampled_peak_working_file_bytes": 12600000
+        },
+        "calamine:memory": {
+          "seconds": 0.073324339,
+          "cpu_seconds": 0.073029,
+          "peak_rss_kib": 34880,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.097665149,
+          "cpu_seconds": 0.097525,
+          "peak_rss_kib": 27212,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 10000,
+      "kind": "styled",
+      "source_sha256": "dec541403890ff4bc08f2f26e7a1385a099e53dfaa17b33d0615097bca192190",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.065136479,
+            "cpu_seconds": 0.065051,
+            "peak_rss_kib": 11676,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.05242549,
+            "cpu_seconds": 0.052291,
+            "peak_rss_kib": 11932,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.051982223,
+            "cpu_seconds": 0.051758,
+            "peak_rss_kib": 11804,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.05074206,
+            "cpu_seconds": 0.050621,
+            "peak_rss_kib": 11852,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.052655665,
+            "cpu_seconds": 0.052573,
+            "peak_rss_kib": 11852,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.05066916,
+            "cpu_seconds": 0.050577,
+            "peak_rss_kib": 11852,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.05242549,
+          "cpu_seconds": 0.052291,
+          "peak_rss_kib": 11804,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.05074206,
+          "cpu_seconds": 0.050621,
+          "peak_rss_kib": 11852,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "repeated-text",
+      "source_sha256": "c9429b840f61d4fbfc7fe4375239f83f2f35c083195165754dac18ec09e06b2c",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.371217289,
+            "cpu_seconds": 0.37097,
+            "peak_rss_kib": 68892,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.374592797,
+            "cpu_seconds": 0.374454,
+            "peak_rss_kib": 68892,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.393946491,
+            "cpu_seconds": 0.393816,
+            "peak_rss_kib": 68892,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 0.364332812,
+            "cpu_seconds": 0.364064,
+            "peak_rss_kib": 69196,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.371482957,
+            "cpu_seconds": 0.371337,
+            "peak_rss_kib": 69068,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.370946598,
+            "cpu_seconds": 0.370833,
+            "peak_rss_kib": 69068,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 0.39802086,
+            "cpu_seconds": 0.397579,
+            "peak_rss_kib": 69148,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.3882788,
+            "cpu_seconds": 0.388151,
+            "peak_rss_kib": 68956,
+            "sampled_peak_working_file_bytes": 16128
+          },
+          {
+            "seconds": 0.373568998,
+            "cpu_seconds": 0.373434,
+            "peak_rss_kib": 68892,
+            "sampled_peak_working_file_bytes": 16128
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.433108244,
+            "cpu_seconds": 0.432947,
+            "peak_rss_kib": 160684,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.412164866,
+            "cpu_seconds": 0.411963,
+            "peak_rss_kib": 160684,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.430564277,
+            "cpu_seconds": 0.430439,
+            "peak_rss_kib": 160728,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.384708874,
+            "cpu_seconds": 0.384321,
+            "peak_rss_kib": 68940,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.387875272,
+            "cpu_seconds": 0.387686,
+            "peak_rss_kib": 68684,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.368788905,
+            "cpu_seconds": 0.368655,
+            "peak_rss_kib": 68940,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.374592797,
+          "cpu_seconds": 0.374454,
+          "peak_rss_kib": 68892,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 0.370946598,
+          "cpu_seconds": 0.370833,
+          "peak_rss_kib": 69068,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "after:disk": {
+          "seconds": 0.3882788,
+          "cpu_seconds": 0.388151,
+          "peak_rss_kib": 68956,
+          "sampled_peak_working_file_bytes": 16128
+        },
+        "calamine:memory": {
+          "seconds": 0.430564277,
+          "cpu_seconds": 0.430439,
+          "peak_rss_kib": 160684,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.384708874,
+          "cpu_seconds": 0.384321,
+          "peak_rss_kib": 68940,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "unique-text",
+      "source_sha256": "3b3cbcf625c5085968c7d7837bb972227eced2cc322a96089cc2a07c285aea71",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.787244007,
+            "cpu_seconds": 0.78709,
+            "peak_rss_kib": 225180,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.73356648,
+            "cpu_seconds": 0.73311,
+            "peak_rss_kib": 225052,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.695843667,
+            "cpu_seconds": 0.695519,
+            "peak_rss_kib": 225052,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:disk": [
+          {
+            "seconds": 1.538339061,
+            "cpu_seconds": 1.5374,
+            "peak_rss_kib": 209356,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.476137761,
+            "cpu_seconds": 1.47591,
+            "peak_rss_kib": 209356,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.4709788,
+            "cpu_seconds": 1.470478,
+            "peak_rss_kib": 209612,
+            "sampled_peak_working_file_bytes": 126000000
+          }
+        ],
+        "after:disk": [
+          {
+            "seconds": 1.384351019,
+            "cpu_seconds": 1.384122,
+            "peak_rss_kib": 209436,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.237986763,
+            "cpu_seconds": 1.237256,
+            "peak_rss_kib": 209308,
+            "sampled_peak_working_file_bytes": 126000000
+          },
+          {
+            "seconds": 1.292198055,
+            "cpu_seconds": 1.290982,
+            "peak_rss_kib": 209564,
+            "sampled_peak_working_file_bytes": 126000000
+          }
+        ],
+        "calamine:memory": [
+          {
+            "seconds": 0.771306083,
+            "cpu_seconds": 0.770859,
+            "peak_rss_kib": 309188,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.738129764,
+            "cpu_seconds": 0.737771,
+            "peak_rss_kib": 309064,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.716767633,
+            "cpu_seconds": 0.716149,
+            "peak_rss_kib": 309128,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.951422618,
+            "cpu_seconds": 0.950713,
+            "peak_rss_kib": 224972,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.950236992,
+            "cpu_seconds": 0.949796,
+            "peak_rss_kib": 224972,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.912942538,
+            "cpu_seconds": 0.9126,
+            "peak_rss_kib": 224972,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.73356648,
+          "cpu_seconds": 0.73311,
+          "peak_rss_kib": 225052,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:disk": {
+          "seconds": 1.476137761,
+          "cpu_seconds": 1.47591,
+          "peak_rss_kib": 209356,
+          "sampled_peak_working_file_bytes": 126000000
+        },
+        "after:disk": {
+          "seconds": 1.292198055,
+          "cpu_seconds": 1.290982,
+          "peak_rss_kib": 209436,
+          "sampled_peak_working_file_bytes": 126000000
+        },
+        "calamine:memory": {
+          "seconds": 0.738129764,
+          "cpu_seconds": 0.737771,
+          "peak_rss_kib": 309128,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.950236992,
+          "cpu_seconds": 0.949796,
+          "peak_rss_kib": 224972,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    },
+    {
+      "rows": 100000,
+      "kind": "styled",
+      "source_sha256": "d07750234f68a6041909b53f19abbda50bca4b33c417dcdf62046fd26046f0a0",
+      "samples": {
+        "after:memory": [
+          {
+            "seconds": 0.51878965,
+            "cpu_seconds": 0.518005,
+            "peak_rss_kib": 68508,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.598641604,
+            "cpu_seconds": 0.598399,
+            "peak_rss_kib": 68740,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.551882545,
+            "cpu_seconds": 0.549829,
+            "peak_rss_kib": 68636,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ],
+        "before:memory": [
+          {
+            "seconds": 0.535604447,
+            "cpu_seconds": 0.53542,
+            "peak_rss_kib": 68556,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.53276363,
+            "cpu_seconds": 0.529854,
+            "peak_rss_kib": 68556,
+            "sampled_peak_working_file_bytes": 0
+          },
+          {
+            "seconds": 0.529079596,
+            "cpu_seconds": 0.5289,
+            "peak_rss_kib": 68684,
+            "sampled_peak_working_file_bytes": 0
+          }
+        ]
+      },
+      "medians": {
+        "after:memory": {
+          "seconds": 0.551882545,
+          "cpu_seconds": 0.549829,
+          "peak_rss_kib": 68636,
+          "sampled_peak_working_file_bytes": 0
+        },
+        "before:memory": {
+          "seconds": 0.53276363,
+          "cpu_seconds": 0.529854,
+          "peak_rss_kib": 68556,
+          "sampled_peak_working_file_bytes": 0
+        }
+      }
+    }
+  ],
+  "candidate_base_revision": "bfeb2714dcea31f0facaa5c999547b071e7a55c8",
+  "candidate_patch": "diff --git a/crates/crabxl-xlsx/src/strings.rs b/crates/crabxl-xlsx/src/strings.rs\nindex e1124a9..ef07dc8 100644\n--- a/crates/crabxl-xlsx/src/strings.rs\n+++ b/crates/crabxl-xlsx/src/strings.rs\n@@ -295,6 +295,34 @@ impl SharedStrings {\n         let mut xml = XmlStream::new(input, part, limits.max_part_bytes, limits);\n         let mut root = false;\n         loop {\n+            if let Some(entry) = xml.buffered_plain_shared_text(|text| {\n+                if table.stats.entries >= options.max_entries {\n+                    return Err(limit(\"Shared-string entry limit exceeded\"));\n+                }\n+                crate::encode::validate_xml_text(text)?;\n+                let entry = if text.contains(\"x005F_\") {\n+                    Entry::plain(text.replace(\"x005F_\", \"\").into_boxed_str(), share_values)\n+                } else if share_values {\n+                    // Build canonical shared ownership once, without an\n+                    // intermediate owned text allocation and second copy.\n+                    Entry::SharedText(Arc::from(text))\n+                } else {\n+                    let mut owned = String::new();\n+                    owned.try_reserve_exact(text.len()).map_err(|cause| {\n+                        Error::caused_by(\n+                            ErrorKind::LimitExceeded,\n+                            \"Cannot allocate cell value buffer\",\n+                            cause,\n+                        )\n+                    })?;\n+                    owned.push_str(text);\n+                    Entry::Text(owned.into_boxed_str())\n+                };\n+                Ok(Some(entry))\n+            })? {\n+                table.push(entry, options, allowance)?;\n+                continue;\n+            }\n             let frame = xml.next()?;\n             match frame.event {\n                 Event::Start(e) if frame.depth == 1 => {\ndiff --git a/crates/crabxl-xlsx/src/xml.rs b/crates/crabxl-xlsx/src/xml.rs\nindex d918096..2d4d70a 100644\n--- a/crates/crabxl-xlsx/src/xml.rs\n+++ b/crates/crabxl-xlsx/src/xml.rs\n@@ -297,14 +297,32 @@ impl<B: BufRead> XmlStream<B> {\n     pub(crate) fn buffered_scalar<T>(\n         &mut self,\n         decode: impl FnOnce(&str, &str) -> Result<Option<T>>,\n+    ) -> Result<Option<T>> {\n+        self.buffered_element(3, 5, scalar_value_token, decode)\n+    }\n+\n+    pub(crate) fn buffered_plain_shared_text<T>(\n+        &mut self,\n+        decode: impl FnOnce(&str) -> Result<Option<T>>,\n+    ) -> Result<Option<T>> {\n+        self.buffered_element(1, 3, plain_shared_text_token, |_, text| decode(text))\n+    }\n+\n+    #[inline(always)]\n+    fn buffered_element<T>(\n+        &mut self,\n+        depth: usize,\n+        maximum_depth: usize,\n+        recognize: impl FnOnce(&[u8], usize, usize) -> Option<(&str, &str, usize)>,\n+        decode: impl FnOnce(&str, &str) -> Result<Option<T>>,\n     ) -> Result<Option<T>> {\n         self.namespaces.before_event();\n         // quick-xml retains the lexical empty start token in read_event_into's\n         // buffer while its expanded end event is pending. Never bypass that end.\n-        if self.depth != 3\n+        if self.depth != depth\n             || self.namespaces.default.scope() != Scope::Spreadsheet\n             || self.buffer.ends_with(b\"/>\")\n-            || self.limits.max_xml_depth < 5\n+            || self.limits.max_xml_depth < maximum_depth\n         {\n             return Ok(None);\n         }\n@@ -325,14 +343,13 @@ impl<B: BufRead> XmlStream<B> {\n             )\n             .with_part(self.part.clone())\n         })?;\n-        let Some((header, value, consumed)) =\n-            scalar_value_token(bytes, maximum, self.limits.max_cell_bytes)\n+        let Some((header, value, consumed)) = recognize(bytes, maximum, self.limits.max_cell_bytes)\n         else {\n             return Ok(None);\n         };\n         let value = decode(header, value)?;\n         if value.is_some() {\n-            // Reader::stream preserves quick-xml offsets. The recognized c/v\n+            // Reader::stream preserves quick-xml offsets. The recognized XML\n             // pair is balanced, unprefixed and carries no namespace declaration.\n             self.reader.stream().consume(consumed);\n         }\n@@ -441,6 +458,28 @@ impl<B: BufRead> XmlStream<B> {\n     }\n }\n \n+fn plain_shared_text_token(\n+    bytes: &[u8],\n+    maximum: usize,\n+    cell_maximum: usize,\n+) -> Option<(&str, &str, usize)> {\n+    if maximum < 5 || !bytes.starts_with(b\"<si><t>\") {\n+        return None;\n+    }\n+    let length = bytes.get(7..)?.iter().position(|byte| *byte == b'<')?;\n+    let value = bytes.get(7..7 + length)?;\n+    if length.saturating_add(1) > maximum\n+        || length > cell_maximum\n+        || !bytes.get(7 + length..)?.starts_with(b\"</t></si>\")\n+        // Entities and XML line-ending normalization retain the event path.\n+        || !value.is_ascii()\n+        || value.iter().any(|byte| matches!(byte, b'&' | b'\\r'))\n+    {\n+        return None;\n+    }\n+    Some((\"\", std::str::from_utf8(value).ok()?, 7 + length + 9))\n+}\n+\n fn scalar_value_token(\n     bytes: &[u8],\n     maximum: usize,\n"
+}

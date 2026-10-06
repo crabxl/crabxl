@@ -295,6 +295,34 @@ impl SharedStrings {
         let mut xml = XmlStream::new(input, part, limits.max_part_bytes, limits);
         let mut root = false;
         loop {
+            if let Some(entry) = xml.buffered_plain_shared_text(|text| {
+                if table.stats.entries >= options.max_entries {
+                    return Err(limit("Shared-string entry limit exceeded"));
+                }
+                crate::encode::validate_xml_text(text)?;
+                let entry = if text.contains("x005F_") {
+                    Entry::plain(text.replace("x005F_", "").into_boxed_str(), share_values)
+                } else if share_values {
+                    // Build canonical shared ownership once, without an
+                    // intermediate owned text allocation and second copy.
+                    Entry::SharedText(Arc::from(text))
+                } else {
+                    let mut owned = String::new();
+                    owned.try_reserve_exact(text.len()).map_err(|cause| {
+                        Error::caused_by(
+                            ErrorKind::LimitExceeded,
+                            "Cannot allocate cell value buffer",
+                            cause,
+                        )
+                    })?;
+                    owned.push_str(text);
+                    Entry::Text(owned.into_boxed_str())
+                };
+                Ok(Some(entry))
+            })? {
+                table.push(entry, options, allowance)?;
+                continue;
+            }
             let frame = xml.next()?;
             match frame.event {
                 Event::Start(e) if frame.depth == 1 => {
