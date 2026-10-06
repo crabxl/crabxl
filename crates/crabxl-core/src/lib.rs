@@ -44,6 +44,8 @@ pub use sheet_selection::{ActiveViewSelection, normalize_active_view, resolve_sh
 
 mod translate;
 pub use translate::{formula_position, translate_axis, translate_expression};
+mod tokenizer;
+pub use tokenizer::{FormulaToken, TokenKind, TokenSubtype, tokenize_formula};
 
 mod workbook;
 pub use workbook::{

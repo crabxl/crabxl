@@ -120,6 +120,12 @@ umya range layout to validated typed coordinates. Feature ownership, codecs and
 Python exposure remain pending; this does not close print-area, merge or rule
 support. See [port provenance](../third_party/ports.json).
 
+A native borrowed formula lexer now adapts umya lexical categories and states
+without repeated character scans or cloned token streams. Public-observed
+function/array/quoted/error/exponent cases and malformed resource failures are
+checked. Complete binding, newline equivalence and token-tool acceptance remain
+pending; this checkpoint does not close M5 formula support.
+
 - Complete styles/named styles/themes, rich text/hyperlinks/views/dimensions/outlines/protection.
 - Add tables, filters, validation, conditional formatting, comments, print settings, names, document properties.
 - Complete tokenizer/translation/formula metadata; model whole-row/column ranges without dense allocation.
