@@ -17886,6 +17886,36 @@
       "benchmarks": [
         "benchmarks/alpha7-loaded-create.md"
       ]
+    },
+    {
+      "id": "editor.sheet-copy",
+      "description": "Source-backed worksheet copy using requested canonical model duplication and borrowed original property templates",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "lazy-source-backed-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html#create-a-workbook",
+      "modules": [
+        "crates/crabxl-xlsx/src/loaded.rs",
+        "crates/crabxl-xlsx/src/editor/catalog.rs",
+        "crates/crabxl-xlsx/src/editor.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable",
+        "crates/crabxl-xlsx/tests/loaded.rs::aggregate_loading_rejects_without_committing_and_sst_temp_resources_are_owned"
+      ],
+      "limitations": "Affected unmodeled feature graphs, rich/shared formulas, linked worksheet metadata and VBA identities reject. Views/header/footer are excluded by reference copy behavior. Native copied visibility is retained; the adapter must map reference visible-copy semantics. Removal and staged M4 acceptance remain open.",
+      "acceptance_ref": "docs/decisions/0074-source-backed-worksheet-copy.md",
+      "benchmarks": [
+        "benchmarks/alpha7-loaded-copy.md"
+      ]
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

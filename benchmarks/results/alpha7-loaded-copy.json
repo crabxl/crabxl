@@ -1,0 +1,114 @@
+{
+  "checkpoint": "A7 source-backed worksheet copy; removal pending",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "binary_sha256": "d8361a372511227261793c7e68a29b1226b6ea2abff732c9be1692f7292cd9e4",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592",
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "method": "one warmup, three rotating serial release runs; native wait4 wall/CPU/peak RSS; build and generation excluded",
+  "comparison": "same current decoder and owned sparse cell type; bank transfers source styles and enforces joint resource accounting; standalone reproduces prior per-sheet native materialization; not Python or streaming performance",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 300000,
+      "checksum": 14999850042,
+      "file_bytes": 606757,
+      "sha256": "3e7c6e539fa5a6b1f83d1117429f780ff02975d7d938e30e123b5575a6b4d55f",
+      "samples": {
+        "bank-copy": [
+          {
+            "seconds": 0.626774133,
+            "cpu_seconds": 0.626582,
+            "peak_rss_kib": 10076,
+            "sampled_peak_working_file_bytes": 908913,
+            "managed_bytes": 51217512,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 908913
+          },
+          {
+            "seconds": 0.633660852,
+            "cpu_seconds": 0.633208,
+            "peak_rss_kib": 9784,
+            "sampled_peak_working_file_bytes": 908913,
+            "managed_bytes": 51217512,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 908913
+          },
+          {
+            "seconds": 0.64171769,
+            "cpu_seconds": 0.641138,
+            "peak_rss_kib": 10076,
+            "sampled_peak_working_file_bytes": 908913,
+            "managed_bytes": 51217512,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 908913
+          }
+        ]
+      },
+      "medians": {
+        "bank-copy": {
+          "seconds": 0.633660852,
+          "cpu_seconds": 0.633208,
+          "peak_rss_kib": 10076,
+          "sampled_peak_working_file_bytes": 908913,
+          "managed_bytes": 51217512,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 908913
+        }
+      }
+    },
+    {
+      "rows_per_sheet": 100000,
+      "columns": 10,
+      "sheets": 2,
+      "cells": 3000000,
+      "checksum": 1499998500042,
+      "file_bytes": 5882341,
+      "sha256": "7c9a4471c3d743011320d3eefeb2540eb6b67cdc3081ad72d889735a87d1c0e1",
+      "samples": {
+        "bank-copy": [
+          {
+            "seconds": 6.270315389,
+            "cpu_seconds": 6.264826,
+            "peak_rss_kib": 67056,
+            "sampled_peak_working_file_bytes": 8828386,
+            "managed_bytes": 512017512,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 8828386
+          },
+          {
+            "seconds": 6.389506655,
+            "cpu_seconds": 6.38478,
+            "peak_rss_kib": 67468,
+            "sampled_peak_working_file_bytes": 8828386,
+            "managed_bytes": 512017512,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 8828386
+          },
+          {
+            "seconds": 6.637827799,
+            "cpu_seconds": 6.636583,
+            "peak_rss_kib": 67096,
+            "sampled_peak_working_file_bytes": 8828386,
+            "managed_bytes": 512017512,
+            "sst_temp_bytes": 0,
+            "completed_adjacent_zip_bytes": 8828386
+          }
+        ]
+      },
+      "medians": {
+        "bank-copy": {
+          "seconds": 6.389506655,
+          "cpu_seconds": 6.38478,
+          "peak_rss_kib": 67096,
+          "sampled_peak_working_file_bytes": 8828386,
+          "managed_bytes": 512017512,
+          "sst_temp_bytes": 0,
+          "completed_adjacent_zip_bytes": 8828386
+        }
+      }
+    }
+  ]
+}

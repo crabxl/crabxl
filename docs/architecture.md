@@ -253,3 +253,8 @@ Source-backed sheet creation installs bounded live catalog membership instead of
 another workbook model; see [ADR 0073](decisions/0073-live-source-catalog-membership.md).
 New bodies share the borrowed row encoder; original bodies remain lazy and
 repeatable. Catalog copy/removal and their affected graphs remain open.
+
+Supported loaded worksheet copies duplicate only the requested canonical model
+and retain a compact immutable source-template index for borrowed repeat saves;
+see [ADR 0074](decisions/0074-source-backed-worksheet-copy.md). Unsupported affected
+graphs reject before registering the copy; unrelated sheets remain lazy.

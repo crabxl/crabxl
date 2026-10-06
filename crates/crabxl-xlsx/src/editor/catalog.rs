@@ -21,6 +21,7 @@ pub(super) struct Created {
     relationship: String,
     sheet_id: u32,
     pub(super) values_dirty: bool,
+    pub(super) template: Option<usize>,
 }
 impl Created {
     fn bytes(&self) -> usize {
@@ -148,6 +149,114 @@ pub(crate) struct CreatePlan {
     view_index: i64,
 }
 impl<R: Read + Seek> WorkbookEditor<R> {
+    pub(crate) fn copy_template(&self, id: SheetId) -> Option<usize> {
+        self.membership
+            .as_deref()?
+            .created
+            .values()
+            .find(|created| created.bank_id == Some(id))?
+            .template
+    }
+    pub(crate) fn prepare_copy_template(&mut self, index: usize) -> Result<()> {
+        let info = self
+            .book
+            .sheets()
+            .get(index)
+            .ok_or_else(|| invalid("Missing copied source identity"))?;
+        let name = info.name().to_owned();
+        let part = info.part().to_owned();
+        // Reuse the affected-cell/feature and SST checks without marking the source dirty.
+        self.prepare_model(&name)?;
+        let limits = self.options.resources;
+        let file = self
+            .book
+            .archive
+            .by_name(&part)
+            .map_err(|cause| zip_error("Cannot inspect copied worksheet metadata", cause))?;
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(limits.input_buffer_bytes, file),
+            part.clone(),
+            limits.max_part_bytes,
+            limits,
+        );
+        let mut properties = false;
+        let mut data = false;
+        loop {
+            let frame = xml.next()?;
+            if let Event::Start(e) = &frame.event {
+                let name = e.local_name();
+                let name = name.as_ref().as_bytes();
+                if frame.depth == 2 {
+                    if matches!(name, b"sheetViews" | b"headerFooter") {
+                        let depth = frame.depth;
+                        crate::style_codec::skip(&mut xml, depth)?;
+                        continue;
+                    }
+                    properties = name == b"sheetPr";
+                    data = name == b"sheetData";
+                }
+                if !data
+                    && frame.depth >= 3
+                    && !(properties
+                        && frame.depth == 3
+                        && frame.scope == Scope::Spreadsheet
+                        && matches!(name, b"tabColor" | b"outlinePr" | b"pageSetUpPr"))
+                {
+                    return Err(Error::new(
+                        ErrorKind::Unsupported,
+                        "Copying affected worksheet metadata remains unimplemented",
+                    )
+                    .with_part(&part));
+                }
+                if !data {
+                    for attr in e.attributes() {
+                        let attr = attr.map_err(|cause| {
+                            Error::caused_by(
+                                ErrorKind::Xml,
+                                "Invalid copied worksheet metadata",
+                                cause,
+                            )
+                        })?;
+                        let key = attr.key.as_ref().as_bytes();
+                        if key != b"xmlns"
+                            && !key.starts_with(b"xmlns:")
+                            && (key.contains(&b':') || frame.depth == 1 || key == b"codeName")
+                        {
+                            return Err(Error::new(
+                                ErrorKind::Unsupported,
+                                "Copying affected worksheet identities remains unimplemented",
+                            )
+                            .with_part(&part));
+                        }
+                    }
+                }
+            }
+            if matches!(&frame.event, Event::End(_)) && frame.depth == 1 {
+                properties = false;
+                data = false;
+            }
+            if frame.office_relationship.is_some() {
+                return Err(Error::new(
+                    ErrorKind::Unsupported,
+                    "Copying affected worksheet relationships remains unimplemented",
+                )
+                .with_part(&part));
+            }
+            if let Event::Start(e) = &frame.event
+                && attribute(e, b"codeName")?.is_some()
+            {
+                return Err(Error::new(
+                    ErrorKind::Unsupported,
+                    "Copying worksheet VBA identity remains unimplemented",
+                )
+                .with_part(&part));
+            }
+            if matches!(frame.event, Event::Eof) {
+                break;
+            }
+        }
+        Ok(())
+    }
     pub(crate) fn membership_is_dirty(&self) -> bool {
         self.membership.is_some()
     }
@@ -273,6 +382,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             relationship,
             sheet_id,
             values_dirty: false,
+            template: None,
         };
         let old_order = self.catalog_order.as_ref().map_or(0, |order| order.charged);
         let prior = self.membership.as_deref().map_or(0, Membership::bytes);
@@ -300,6 +410,17 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             scratch_bytes: old_order,
             view_index: self.active_view_index(),
         })
+    }
+    pub(crate) fn prepare_copy(
+        &mut self,
+        originals: Vec<SheetId>,
+        allowance: usize,
+        template: Option<usize>,
+    ) -> Result<CreatePlan> {
+        let mut plan = self.prepare_create(originals, allowance)?;
+        plan.created.template = template;
+        plan.created.values_dirty = true;
+        Ok(plan)
     }
     pub(crate) fn commit_create(&mut self, plan: CreatePlan, id: SheetId) {
         if let Some(incoming) = plan.incoming {
