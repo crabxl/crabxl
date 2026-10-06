@@ -64,3 +64,12 @@ in the authorized plan. This performance release does not close those milestones
 Record exact final core/binding SHAs, full local and platform checks, three-crate
 publication, Python 3.11-3.15 wheels/sdist and fresh public-package verification
 here before marking publication complete. Existing published version remains A7.
+
+Native implementation `a6e83a21bef58597b458dd548f1cc0c41a4b63f7` passes local
+workspace tests, strict Clippy, warning-free documentation, Rust 1.88 core tests
+and both default/native-zlib loaded/writer checks. GitHub Rust run
+[37410046133](https://github.com/crabxl/crabxl/actions/runs/37410046133) passes
+the configured platform/MSRV matrix. Its fresh CPython 3.12 binding wheel passes
+547 compatibility cases (4.54 seconds), Ruff format/check and strict Clippy.
+Two existing finite-budget fixtures were updated for block-capacity accounting;
+their aggregate failure, retry, aliases and source-preservation assertions remain.
