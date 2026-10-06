@@ -14,6 +14,10 @@ pub const MAX_COLUMNS: u32 = 16_384;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RowIndex(u32);
 impl RowIndex {
+    /// First legal worksheet row.
+    pub const FIRST: Self = Self(0);
+    /// Last legal worksheet row.
+    pub const LAST: Self = Self(MAX_ROWS - 1);
     /// Validate a zero-based row index.
     pub fn new(value: u32) -> Result<Self> {
         if value < MAX_ROWS {
@@ -32,6 +36,10 @@ impl RowIndex {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ColumnIndex(u32);
 impl ColumnIndex {
+    /// First legal worksheet column.
+    pub const FIRST: Self = Self(0);
+    /// Last legal worksheet column.
+    pub const LAST: Self = Self(MAX_COLUMNS - 1);
     /// Validate a zero-based column index.
     pub fn new(value: u32) -> Result<Self> {
         if value < MAX_COLUMNS {

@@ -214,6 +214,56 @@ fn overlapping_moves_and_copies_clear_destination_holes_without_dense_cells() {
 }
 #[test]
 fn bounds_and_data_work_limits_fail_without_partial_mutation() {
+    // Whole-axis geometry must remain compact even when it covers more cells
+    // than a 32-bit process could allocate. Reuse the shared address validator.
+    for (source, canonical, count, rows, columns) in [
+        ("$1:$1048576", "1:1048576", 17_179_869_184u64, true, false),
+        ("$A:$XFD", "A:XFD", 17_179_869_184, false, true),
+        ("$B$2:$D$4", "B2:D4", 9, false, false),
+        ("A1", "A1", 1, false, false),
+    ] {
+        let range: crabxl_core::WorksheetRange = source.parse().unwrap();
+        assert_eq!(range.to_string(), canonical);
+        assert_eq!(range.cell_count(), count);
+        assert_eq!(range.is_rows(), rows);
+        assert_eq!(range.is_columns(), columns);
+        assert!(range.contains(range.bounds().start));
+        assert!(range.contains(range.bounds().end));
+        assert_eq!(
+            canonical.parse::<crabxl_core::WorksheetRange>().unwrap(),
+            range
+        );
+    }
+    assert!(std::mem::size_of::<crabxl_core::WorksheetRange>() <= 24);
+    for source in [
+        "",
+        ":",
+        "A:",
+        ":B",
+        "$:$",
+        "A:1",
+        "2:1",
+        "Z:A",
+        "A0",
+        "1:1048577",
+        "A:XFE",
+        "A1:B2:C3",
+        "Sheet!A1",
+        "1:1x",
+        "A$$:B",
+        "A1:A0",
+    ] {
+        assert_eq!(
+            source
+                .parse::<crabxl_core::WorksheetRange>()
+                .unwrap_err()
+                .kind(),
+            ErrorKind::InvalidData
+        );
+    }
+    let columns: crabxl_core::WorksheetRange = "B:D".parse().unwrap();
+    assert!(!columns.contains(address(0, 0)));
+    assert!(columns.contains(address(MAX_ROWS - 1, 3)));
     // A buffer expansion can exceed the operation allowance even when its
     // eventual retained size would fit. Both set and append stay atomic.
     let mut growing = Worksheet::new(

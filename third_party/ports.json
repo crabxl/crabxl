@@ -235,6 +235,30 @@
       "inventory_items": [
         "read.numeric"
       ]
+    },
+    {
+      "project": "umya-spreadsheet",
+      "repository": "https://github.com/MathNya/umya-spreadsheet",
+      "commit": "aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b",
+      "license": "MIT",
+      "notice": "Copyright (c) 2020 MathNya",
+      "license_file": "third_party/licenses/umya-spreadsheet-MIT.txt",
+      "original": [
+        "src/structs/range.rs: Range axis-optional layout, set_range, range"
+      ],
+      "destination": [
+        "crates/crabxl-core/src/range.rs: WorksheetRange"
+      ],
+      "changes": [
+        "Replace optional independently mutable endpoints with validated rectangle/whole-row/whole-column variants and shared zero-based typed coordinates.",
+        "Reuse existing checked coordinate parsing instead of upstream assertions and unwraps; reject reversed, mixed-axis, qualified and out-of-bounds geometry. Sheet qualification remains an owning-feature responsibility.",
+        "Store geometry without heap allocation or dense cells; preserve no absolute-marker spelling and expose checked physical bounds and u64 coverage.",
+        "Feature codecs and Python integration remain separate M5 gates; this foundation does not complete merges, print areas, validation or names."
+      ],
+      "tests": "Existing worksheet.rs bounds_and_data_work_limits_fail_without_partial_mutation extended with whole-axis bounds, maximum coverage, membership, round-trip and malformed cases; no new test functions.",
+      "inventory_items": [
+        "model.worksheet-ranges"
+      ]
     }
   ]
 }

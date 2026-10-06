@@ -114,6 +114,12 @@ Acceptance: unchanged round-trip, single-cell edits, structural edits, repeat sa
 
 ## M5: Complete common workbook and worksheet features
 
+A compact shared worksheet-range foundation now represents finite rectangles and
+whole rows/columns without allocating covered cells. It adapts the stable pinned
+umya range layout to validated typed coordinates. Feature ownership, codecs and
+Python exposure remain pending; this does not close print-area, merge or rule
+support. See [port provenance](../third_party/ports.json).
+
 - Complete styles/named styles/themes, rich text/hyperlinks/views/dimensions/outlines/protection.
 - Add tables, filters, validation, conditional formatting, comments, print settings, names, document properties.
 - Complete tokenizer/translation/formula metadata; model whole-row/column ranges without dense allocation.
