@@ -6,8 +6,10 @@ use crate::{
 };
 use std::collections::BTreeMap;
 
-// Conservative node allowance, not a claim about std's private BTreeMap layout.
+// Conservative structural staging allowance; retained blocks are charged
+// separately. This is not a claim about std's private BTreeMap layout.
 const ENTRY_BYTES: usize = 256;
+const STRUCTURAL_ROOT_BYTES: usize = 1024;
 
 /// Limits for one explicitly materialized editable sheet.
 #[derive(Clone, Copy, Debug)]
@@ -287,7 +289,7 @@ impl Worksheet {
             .range((index.get(), 0)..=(index.get(), u32::MAX))
             .map(|(_, cell)| cell)
     }
-    /// Conservative charged bytes (256 per cell plus owned value/name payload).
+    /// Conservative retained block capacity, tree allowances and value/name payload.
     pub fn charged_bytes(&self) -> usize {
         self.charged
     }
@@ -309,27 +311,48 @@ impl Worksheet {
     }
     /// Set one cell; budget failures leave the previous value unchanged.
     pub fn set(&mut self, cell: Cell) -> Result<()> {
-        let bytes = self.preflight_set(&cell)?;
+        let (bytes, _) = self.plan_set(&cell)?;
+        let storage = self.cells.storage_bytes();
         self.append_cursor = self.append_cursor.max(cell.address.row.get() + 1);
         self.cells.insert(key(cell.address), cell);
-        self.charged = bytes;
+        self.charged = bytes
+            .saturating_sub(storage)
+            .saturating_add(self.cells.storage_bytes());
         self.dirty = true;
         Ok(())
     }
     pub(crate) fn preflight_set(&self, cell: &Cell) -> Result<usize> {
-        let old = self.get(cell.address).map_or(0, charge);
+        self.plan_set(cell).map(|(_, peak)| peak)
+    }
+    #[inline(always)]
+    fn plan_set(&self, cell: &Cell) -> Result<(usize, usize)> {
+        let previous = self.get(cell.address);
+        let old = previous.map_or(0, charge);
+        let present = previous.is_some();
+        let (growth, work) = self.cells.insertion_growth(key(cell.address));
         let bytes = self
             .charged
             .saturating_sub(old)
             .saturating_add(charge(cell));
-        self.check(bytes, self.len().saturating_add(usize::from(old == 0)))?;
-        Ok(bytes)
+        let count = self.len().saturating_add(usize::from(!present));
+        self.check(bytes.saturating_add(growth), count)?;
+        let peak = bytes.saturating_add(work);
+        self.check(peak, count)?;
+        Ok((bytes, peak))
     }
     /// Remove a physical cell; existing append position is retained.
     pub fn remove(&mut self, address: CellAddress) -> Option<Cell> {
-        let cell = self.cells.remove(&key(address));
+        let storage = self.cells.storage_bytes();
+        let cell = self.cells.remove(
+            &key(address),
+            self.limits.max_bytes.saturating_sub(self.charged),
+        );
         if let Some(cell) = &cell {
-            self.charged -= charge(cell);
+            self.charged = self
+                .charged
+                .saturating_sub(charge(cell))
+                .saturating_sub(storage)
+                .saturating_add(self.cells.storage_bytes());
             self.dirty = true;
         }
         cell
@@ -349,17 +372,24 @@ impl Worksheet {
         }
         let bytes = values
             .iter()
-            .map(|value| ENTRY_BYTES.saturating_add(value.heap_bytes()))
+            .map(CellValue::heap_bytes)
             .fold(self.charged, usize::saturating_add);
-        self.check(bytes, self.len().saturating_add(values.len()))?;
-        Ok(bytes)
+        let (growth, work) = self.cells.append_growth(values.len());
+        let count = self.len().saturating_add(values.len());
+        self.check(bytes.saturating_add(work), count)?;
+        Ok(bytes.saturating_add(growth))
     }
     pub(crate) fn append_with_styles(
         &mut self,
         values: Vec<CellValue>,
         style: impl Fn(&CellValue) -> StyleId,
     ) -> Result<RowIndex> {
-        let bytes = self.preflight_append(&values)?;
+        self.preflight_append(&values)?;
+        let payload = values
+            .iter()
+            .map(CellValue::heap_bytes)
+            .fold(0usize, usize::saturating_add);
+        let storage = self.cells.storage_bytes();
         let index = RowIndex::new(self.append_cursor)?;
         for (column, value) in values.into_iter().enumerate() {
             let style = style(&value);
@@ -370,7 +400,11 @@ impl Worksheet {
             };
             self.cells.insert(key(cell.address), cell);
         }
-        self.charged = bytes;
+        self.charged = self
+            .charged
+            .saturating_sub(storage)
+            .saturating_add(self.cells.storage_bytes())
+            .saturating_add(payload);
         self.append_cursor += 1;
         self.dirty = true;
         Ok(index)
@@ -455,7 +489,7 @@ impl Worksheet {
         })?;
         let base = self
             .charged
-            .saturating_add(self.len().saturating_mul(ENTRY_BYTES))
+            .saturating_add(self.cell_work_bytes())
             .saturating_add(
                 translated
                     .capacity()
@@ -530,7 +564,7 @@ impl Worksheet {
             .filter(|cell| range.contains(cell.address));
         let extra = selected
             .clone()
-            .map(charge)
+            .map(|cell| ENTRY_BYTES.saturating_add(charge(cell)))
             .fold(0usize, usize::saturating_add);
         let count = selected.clone().count();
         let removed = self
@@ -645,15 +679,25 @@ impl Worksheet {
         self.charged = self.name.len()
             + self.view_bytes()
             + self.print_bytes()
+            + self.cells.storage_bytes()
             + self.cells.values().map(charge).sum::<usize>();
     }
     fn work_allowance(&self, extra: usize) -> Result<()> {
         self.check(
             self.charged
-                .saturating_add(self.len().saturating_mul(ENTRY_BYTES))
+                .saturating_add(self.cell_work_bytes())
                 .saturating_add(extra),
             self.len(),
         )
+    }
+    fn cell_work_bytes(&self) -> usize {
+        self.len()
+            .saturating_mul(ENTRY_BYTES)
+            .saturating_add(if self.is_empty() {
+                0
+            } else {
+                STRUCTURAL_ROOT_BYTES
+            })
     }
     fn check(&self, bytes: usize, cells: usize) -> Result<()> {
         if bytes > self.limits.max_bytes || cells > self.limits.max_cells {
@@ -666,7 +710,7 @@ fn key(address: CellAddress) -> (u32, u32) {
     (address.row.get(), address.column.get())
 }
 fn charge(cell: &Cell) -> usize {
-    ENTRY_BYTES.saturating_add(cell.value.heap_bytes())
+    cell.value.heap_bytes()
 }
 fn offset(address: CellAddress, rows: i32, columns: i32) -> Result<CellAddress> {
     let row = i64::from(address.row.get()) + i64::from(rows);

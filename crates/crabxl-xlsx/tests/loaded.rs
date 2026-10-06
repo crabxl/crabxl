@@ -1385,19 +1385,6 @@ fn aggregate_loading_rejects_without_committing_and_sst_temp_resources_are_owned
         let first = workbook.sheet_id("First").unwrap();
         let second = workbook.sheet_id("Second").unwrap();
         for id in [first, second] {
-            if id == second && storage == SharedStringStorage::Memory {
-                assert_eq!(
-                    workbook.sheet(id).err().unwrap().kind(),
-                    ErrorKind::MemoryBudgetExceeded
-                );
-                assert!(!workbook.is_materialized(id));
-                assert_eq!(workbook.sheet(first).unwrap().len(), count as usize);
-                assert!(
-                    workbook.managed_retained_bytes()
-                        <= workbook.memory_allowance().retained_data_bytes
-                );
-                continue;
-            }
             let sheet = workbook.sheet(id).unwrap();
             assert_eq!(sheet.len(), count as usize);
             assert!(
@@ -1408,9 +1395,13 @@ fn aggregate_loading_rejects_without_committing_and_sst_temp_resources_are_owned
                     <= workbook.memory_allowance().retained_data_bytes
             );
         }
-        if storage != SharedStringStorage::Memory {
-            let stats = workbook.shared_string_stats().unwrap();
+        let stats = workbook.shared_string_stats().unwrap();
+        if storage == SharedStringStorage::Disk {
             assert!(stats.disk_backed);
+        } else if storage == SharedStringStorage::Memory {
+            assert!(!stats.disk_backed);
+        }
+        if stats.disk_backed {
             assert!(stats.disk_reads > 0);
             assert!(stats.temp_bytes > 0);
             #[cfg(target_os = "linux")]
