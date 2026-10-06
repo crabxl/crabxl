@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--structure-only", action="store_true", help="Verify loaded row/column insert/save/full readback")
     parser.add_argument("--create-only", action="store_true", help="Verify lazy sheet creation/edit/save/full readback")
     parser.add_argument("--copy-only", action="store_true", help="Verify loaded sheet copy/edit/save/full readback")
+    parser.add_argument("--remove-only", action="store_true", help="Verify loaded sheet removal/save/full readback")
     args = parser.parse_args()
     report = {
         "checkpoint": args.checkpoint,
@@ -74,6 +75,9 @@ def main():
         if args.copy_only:
             modes = ["bank-copy"]
             expected = {"cells": 3 * count, "checksum": 3 * count * (count - 1) // 2 + 42}
+        if args.remove_only:
+            modes = ["bank-remove"]
+            expected = {"cells": count, "checksum": count * (count - 1) // 2}
         samples = {mode: [] for mode in modes}
         for repeat in range(4):
             order = modes[repeat % len(modes):] + modes[:repeat % len(modes)]
@@ -81,13 +85,13 @@ def main():
                 temporary = tempfile.TemporaryDirectory(prefix="crabxl-loaded-workflow-")
                 target = Path(temporary.name) / "output.xlsx"
                 command = [EXAMPLES / "loaded_rows", path, mode]
-                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred", "bank-rename", "bank-reorder", "bank-structure", "bank-create", "bank-copy"]:
+                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred", "bank-rename", "bank-reorder", "bank-structure", "bank-create", "bank-copy", "bank-remove"]:
                     command.append(target)
                 output, measured = measure(command, target.parent)
                 assert all(output[key] == value for key, value in expected.items()), output
                 assert output["sst_temp_bytes"] == 0
-                assert output["materialized_cells"] == (2 * count if mode == "bank-copy" else 1 if mode == "bank-create" else 0 if mode in ["bank-active", "bank-visibility", "bank-deferred", "bank-rename", "bank-reorder"] else expected["cells"] + (10 if mode == "bank-append" else 0))
-                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred", "bank-rename", "bank-reorder", "bank-structure", "bank-create", "bank-copy"]:
+                assert output["materialized_cells"] == (2 * count if mode == "bank-copy" else 1 if mode == "bank-create" else 0 if mode in ["bank-active", "bank-visibility", "bank-deferred", "bank-rename", "bank-reorder", "bank-remove"] else expected["cells"] + (10 if mode == "bank-append" else 0))
+                if mode in ["bank-edit", "bank-append", "bank-active", "bank-visibility", "bank-deferred", "bank-rename", "bank-reorder", "bank-structure", "bank-create", "bank-copy", "bank-remove"]:
                     assert output["verified_edit"] and output["output_bytes"] == target.stat().st_size
                     target.unlink()
                 assert not list(target.parent.iterdir())

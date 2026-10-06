@@ -313,6 +313,252 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
             );
         }
     }
+    // Removing the original must not consume the immutable template of its copies.
+    let detached = copied.remove_sheet(source_id).unwrap();
+    assert_eq!(
+        detached.get(CellAddress::new(0, 0).unwrap()).unwrap().value,
+        CellValue::Integer(73)
+    );
+    assert!(copied.sheet_id("First").is_none());
+    copied.remove_sheet(clone_id).unwrap();
+    let replacement = copied.create_sheet("First").unwrap();
+    copied
+        .upsert_value(
+            replacement,
+            CellAddress::new(0, 0).unwrap(),
+            CellValue::Integer(7),
+        )
+        .unwrap();
+    for _ in 0..2 {
+        let (output, stats) = copied
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        assert_eq!(stats.created_parts, 2);
+        assert_eq!(stats.removed_parts, 1);
+        let saved = parts(output.into_inner());
+        assert!(!saved.contains_key("xl/worksheets/sheet1.xml"));
+        assert!(!saved.contains_key("xl/worksheets/crabxl-sheet-3.xml"));
+        let mut reopened =
+            LoadedWorkbook::with_options(Cursor::new(package(saved)), Default::default()).unwrap();
+        assert_eq!(reopened.model().sheets().count(), 3);
+        let id = reopened.sheet_id("Copy Again").unwrap();
+        assert_eq!(
+            reopened
+                .sheet(id)
+                .unwrap()
+                .get(CellAddress::new(0, 0).unwrap())
+                .unwrap()
+                .value,
+            CellValue::Integer(99)
+        );
+        let id = reopened.sheet_id("First").unwrap();
+        assert_eq!(
+            reopened
+                .sheet(id)
+                .unwrap()
+                .get(CellAddress::new(0, 0).unwrap())
+                .unwrap()
+                .value,
+            CellValue::Integer(7)
+        );
+    }
+    // Unknown incoming consumers reject before loading or removing the source.
+    let mut incoming_parts = original_parts.clone();
+    incoming_parts.insert("xl/opaque.xml".into(), b"opaque".to_vec());
+    incoming_parts.insert("xl/_rels/opaque.xml.rels".into(), b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"urn:opaque\" Target=\"worksheets/sheet1.xml\"/></Relationships>".to_vec());
+    let mut incoming = LoadedWorkbook::with_options(
+        Cursor::new(package(incoming_parts.clone())),
+        Default::default(),
+    )
+    .unwrap();
+    let id = incoming.sheet_id("First").unwrap();
+    assert_eq!(
+        incoming.remove_sheet(id).err().unwrap().kind(),
+        ErrorKind::Unsupported
+    );
+    assert!(!incoming.is_materialized(id));
+    assert_eq!(incoming.patch_bytes(), 0);
+    assert_eq!(
+        parts(
+            incoming
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap()
+                .0
+                .into_inner()
+        ),
+        incoming_parts
+    );
+    for body in [
+        "<Relationship Id=\"external\" Type=\"urn:opaque\" Target=\"https://example.invalid/asset\" TargetMode=\"External\"/>",
+        "<owner xmlns=\"urn:opaque\" target=\"sheet1.xml\"/>",
+    ] {
+        let mut outgoing_parts = original_parts.clone();
+        outgoing_parts.insert("xl/worksheets/_rels/sheet1.xml.rels".into(), format!("<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">{body}</Relationships>").into_bytes());
+        let mut outgoing = LoadedWorkbook::with_options(
+            Cursor::new(package(outgoing_parts.clone())),
+            Default::default(),
+        )
+        .unwrap();
+        let id = outgoing.sheet_id("First").unwrap();
+        assert_eq!(
+            outgoing.remove_sheet(id).err().unwrap().kind(),
+            ErrorKind::Unsupported
+        );
+        assert!(!outgoing.is_materialized(id));
+        assert_eq!(outgoing.patch_bytes(), 0);
+        assert_eq!(
+            parts(
+                outgoing
+                    .save(Cursor::new(Vec::new()), Default::default())
+                    .unwrap()
+                    .0
+                    .into_inner()
+            ),
+            outgoing_parts
+        );
+    }
+    // Macro/template main types are preserved; linked VBA deletion is a policy gap.
+    for kind in [
+        "application/vnd.ms-excel.sheet.macroEnabled.main+xml",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml",
+        "application/vnd.ms-excel.template.macroEnabled.main+xml",
+    ] {
+        let mut typed_parts = original_parts.clone();
+        let types = String::from_utf8(typed_parts.remove("[Content_Types].xml").unwrap()).unwrap();
+        typed_parts.insert(
+            "[Content_Types].xml".into(),
+            types
+                .replace(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
+                    kind,
+                )
+                .into_bytes(),
+        );
+        if kind.contains("macroEnabled") {
+            typed_parts.insert("custom/project.bin".into(), vec![0, 1, 255]);
+            let rels = String::from_utf8(typed_parts.remove("xl/_rels/workbook.xml.rels").unwrap())
+                .unwrap();
+            typed_parts.insert("xl/_rels/workbook.xml.rels".into(), rels.replace("</Relationships>", "<Relationship Id=\"project\" Type=\"http://schemas.microsoft.com/office/2006/relationships/vbaProject\" Target=\"../custom/project.bin\"/></Relationships>").into_bytes());
+        }
+        let mut typed = LoadedWorkbook::with_options(
+            Cursor::new(package(typed_parts.clone())),
+            Default::default(),
+        )
+        .unwrap();
+        let id = typed.sheet_id("First").unwrap();
+        if kind.contains("macroEnabled") {
+            assert_eq!(
+                typed.remove_sheet(id).err().unwrap().kind(),
+                ErrorKind::Unsupported
+            );
+            assert!(!typed.is_materialized(id));
+            assert_eq!(typed.patch_bytes(), 0);
+            typed
+                .set_value(id, CellAddress::new(0, 0).unwrap(), CellValue::Integer(27))
+                .unwrap();
+        } else {
+            typed.remove_sheet(id).unwrap();
+        }
+        let saved = parts(
+            typed
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap()
+                .0
+                .into_inner(),
+        );
+        assert!(
+            String::from_utf8(saved["[Content_Types].xml"].clone())
+                .unwrap()
+                .contains(kind)
+        );
+        if kind.contains("macroEnabled") {
+            assert_eq!(
+                saved["custom/project.bin"],
+                typed_parts["custom/project.bin"]
+            );
+            assert_eq!(
+                saved["xl/_rels/workbook.xml.rels"],
+                typed_parts["xl/_rels/workbook.xml.rels"]
+            );
+        }
+    }
+    // Empty models remain recoverable; saving rejects before touching an output.
+    let mut empty_parts = original_parts.clone();
+    empty_parts.insert(
+        "xl/worksheets/_rels/sheet2.xml.rels".into(),
+        b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"/>"
+            .to_vec(),
+    );
+    let mut empty =
+        LoadedWorkbook::with_options(Cursor::new(package(empty_parts)), Default::default())
+            .unwrap();
+    let ids = empty.model().sheets().map(|(id, _)| id).collect::<Vec<_>>();
+    for id in ids {
+        empty.remove_sheet(id).unwrap();
+    }
+    assert_eq!(empty.model().sheets().count(), 0);
+    assert_eq!(
+        empty
+            .save(Cursor::new(Vec::new()), Default::default())
+            .err()
+            .unwrap()
+            .kind(),
+        ErrorKind::NoVisibleSheet
+    );
+    empty.create_sheet("Recovered").unwrap();
+    let (output, stats) = empty
+        .save(Cursor::new(Vec::new()), Default::default())
+        .unwrap();
+    assert_eq!(stats.created_parts, 1);
+    assert_eq!(stats.removed_parts, 3);
+    let saved = parts(output.into_inner());
+    assert!(!saved.contains_key("xl/worksheets/_rels/sheet2.xml.rels"));
+    let reopened =
+        LoadedWorkbook::with_options(Cursor::new(package(saved)), Default::default()).unwrap();
+    assert_eq!(reopened.model().sheets().count(), 1);
+    assert!(reopened.sheet_id("Recovered").is_some());
+    for graph in ["<pivotCaches/>", "<customWorkbookViews/>", "<extLst/>"] {
+        let mut guarded_parts = original_parts.clone();
+        let xml = String::from_utf8(guarded_parts.remove("xl/workbook.xml").unwrap()).unwrap();
+        guarded_parts.insert(
+            "xl/workbook.xml".into(),
+            xml.replace("</workbook>", &format!("{graph}</workbook>"))
+                .into_bytes(),
+        );
+        let mut guarded = LoadedWorkbook::with_options(
+            Cursor::new(package(guarded_parts.clone())),
+            Default::default(),
+        )
+        .unwrap();
+        let id = guarded.sheet_id("First").unwrap();
+        assert_eq!(
+            guarded.remove_sheet(id).err().unwrap().kind(),
+            ErrorKind::Unsupported
+        );
+        assert_eq!(
+            guarded
+                .insert_rows(id, RowIndex::new(0).unwrap(), 1)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::Unsupported
+        );
+        assert_eq!(
+            guarded.copy_sheet(id, "Blocked").unwrap_err().kind(),
+            ErrorKind::Unsupported
+        );
+        assert!(!guarded.is_materialized(id));
+        assert_eq!(guarded.patch_bytes(), 0);
+        assert_eq!(
+            parts(
+                guarded
+                    .save(Cursor::new(Vec::new()), Default::default())
+                    .unwrap()
+                    .0
+                    .into_inner()
+            ),
+            guarded_parts
+        );
+    }
     let catalog_pointer = workbook.model().style_catalog().unwrap().fonts.as_ptr();
     let sheet = workbook.sheet(first).unwrap();
     assert_eq!(sheet.len(), 4);
@@ -716,6 +962,96 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         assert_eq!(workbook.model().active_sheet(), Some(first));
         assert_eq!(workbook.active_view_index(), 0);
         assert!(workbook.move_sheet(first, 2).is_err());
+        // Reuse namespace/custom-path/cache fixtures for membership transactions.
+        let mut membership =
+            LoadedWorkbook::with_options(Cursor::new(package(input.clone())), Default::default())
+                .unwrap();
+        let first = membership.sheet_id("First").unwrap();
+        let added = membership.create_sheet("Added").unwrap();
+        let blank = parts(
+            membership
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap()
+                .0
+                .into_inner(),
+        );
+        for (name, data) in &input {
+            if ![
+                workbook_part,
+                "[Content_Types].xml",
+                if mode == "custom-part" {
+                    "xl/_rels/custom-book.xml.rels"
+                } else {
+                    "xl/_rels/workbook.xml.rels"
+                },
+            ]
+            .contains(&name.as_str())
+            {
+                assert_eq!(&blank[name], data, "blank creation {mode}: {name}");
+            }
+        }
+        assert!(!membership.is_materialized(first));
+        membership
+            .upsert_value(
+                added,
+                CellAddress::new(0, 0).unwrap(),
+                CellValue::Integer(17),
+            )
+            .unwrap();
+        if mode == "extension" {
+            assert_eq!(
+                membership.copy_sheet(first, "Copied").unwrap_err().kind(),
+                ErrorKind::Unsupported
+            );
+            assert_eq!(
+                membership.remove_sheet(first).err().unwrap().kind(),
+                ErrorKind::Unsupported
+            );
+            assert!(!membership.is_materialized(first));
+        } else {
+            membership.copy_sheet(first, "Copied").unwrap();
+            membership.remove_sheet(first).unwrap();
+        }
+        for _ in 0..2 {
+            let saved = parts(
+                membership
+                    .save(Cursor::new(Vec::new()), Default::default())
+                    .unwrap()
+                    .0
+                    .into_inner(),
+            );
+            assert!(!saved.contains_key("xl/calcChain.xml"));
+            assert_eq!(saved["xl/styles.xml"], input["xl/styles.xml"]);
+            let mut reopened =
+                LoadedWorkbook::with_options(Cursor::new(package(saved)), Default::default())
+                    .unwrap();
+            assert_eq!(reopened.model().sheets().count(), 3);
+            let id = reopened.sheet_id("Added").unwrap();
+            assert_eq!(
+                reopened
+                    .sheet(id)
+                    .unwrap()
+                    .get(CellAddress::new(0, 0).unwrap())
+                    .unwrap()
+                    .value,
+                CellValue::Integer(17)
+            );
+            if mode != "extension" {
+                assert!(reopened.sheet_id("First").is_none());
+                let id = reopened.sheet_id("Copied").unwrap();
+                let CellValue::Formula(formula) = &reopened
+                    .sheet(id)
+                    .unwrap()
+                    .get(CellAddress::new(0, 0).unwrap())
+                    .unwrap()
+                    .value
+                else {
+                    unreachable!()
+                };
+                assert_eq!(formula.expression(), "A2+1");
+                assert!(formula.cached().is_none());
+            }
+        }
     }
     for mode in ["hidden", "signed", "alternative", "patch-cap"] {
         let mut input = original.clone();
@@ -761,6 +1097,11 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         assert_eq!(workbook.patch_bytes(), 0);
         assert_eq!(workbook.managed_retained_bytes(), before);
         if mode != "hidden" {
+            assert!(workbook.create_sheet("Added").is_err());
+            assert!(workbook.copy_sheet(second, "Copied").is_err());
+            assert!(workbook.remove_sheet(second).is_err());
+            assert!(!workbook.is_materialized(first));
+            assert!(!workbook.is_materialized(second));
             assert!(workbook.rename_sheet(second, "Renamed").is_err());
             assert_eq!(workbook.sheet_id("Second"), Some(second));
             assert!(workbook.move_sheet(second, 0).is_err());
@@ -828,6 +1169,10 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
                 book.move_sheet(second, 0).unwrap_err().kind(),
                 ErrorKind::Unsupported
             );
+            assert!(book.create_sheet("Added").is_err());
+            assert!(book.copy_sheet(second, "Copied").is_err());
+            assert!(book.remove_sheet(second).is_err());
+            assert!(!book.is_materialized(second));
             assert_eq!(book.model().sheets().next().unwrap().0, first);
             assert_eq!(book.patch_bytes(), 0);
             assert_eq!(book.managed_retained_bytes(), before);
@@ -1589,6 +1934,11 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
             ErrorKind::Unsupported
         );
         assert!(guarded.sheet_id("Blocked Copy").is_none());
+        assert_eq!(
+            guarded.remove_sheet(id).err().unwrap().kind(),
+            ErrorKind::Unsupported
+        );
+        assert!(guarded.sheet_id("First").is_some());
         assert!(!guarded.is_materialized(id));
         assert_eq!(guarded.patch_bytes(), 0);
         assert_eq!(guarded.managed_retained_bytes(), before);

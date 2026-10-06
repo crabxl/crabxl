@@ -17852,7 +17852,7 @@
       "tests": [
         "crates/crabxl-xlsx/tests/loaded.rs::preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_usable"
       ],
-      "limitations": "Selected supported models hydrate once. Source row/column formatting, rich SST/inline runs, structured formulas, cm/vm, merges/tables/rules/hyperlinks/drawings/extensions reject before mutation pending M5/M6. Data-only editing and elapsed-duration style registration are unsupported. Formula/name/view references are not implicitly updated; translated range moves are explicit. Loaded sheet create/copy/remove and full deferred M4 acceptance remain required.",
+      "limitations": "Selected supported models hydrate once. Source row/column formatting, rich SST/inline runs, structured formulas, cm/vm, merges/tables/rules/hyperlinks/drawings/extensions reject before mutation pending M5/M6. Data-only editing and elapsed-duration style registration are unsupported. Formula/name/view references are not implicitly updated; translated range moves are explicit. Workbook pivot-cache/custom-view/extension owners reject conservatively until M6. Final staged A7 acceptance and full deferred M4 graph interactions remain required.",
       "acceptance_ref": "docs/decisions/0072-source-backed-cell-structure.md",
       "benchmarks": [
         "benchmarks/alpha7-loaded-structure.md"
@@ -17881,7 +17881,7 @@
       "tests": [
         "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable"
       ],
-      "limitations": "Loaded local defined-name ownership and signed/data-only creation reject; new typed date style registration remains M5. Copy/removal and staged M4 acceptance remain open.",
+      "limitations": "Loaded local defined-name ownership and signed/data-only creation reject; new typed date style registration remains M5. Final staged A7 acceptance and deferred M4 graph interactions remain open.",
       "acceptance_ref": "docs/decisions/0073-live-source-catalog-membership.md",
       "benchmarks": [
         "benchmarks/alpha7-loaded-create.md"
@@ -17911,10 +17911,40 @@
         "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable",
         "crates/crabxl-xlsx/tests/loaded.rs::aggregate_loading_rejects_without_committing_and_sst_temp_resources_are_owned"
       ],
-      "limitations": "Affected unmodeled feature graphs, rich/shared formulas, linked worksheet metadata and VBA identities reject. Views/header/footer are excluded by reference copy behavior. Native copied visibility is retained; the adapter must map reference visible-copy semantics. Removal and staged M4 acceptance remain open.",
+      "limitations": "Affected unmodeled feature graphs, rich/shared formulas, linked worksheet metadata and VBA identities reject. Views/header/footer are excluded by reference copy behavior. Native copied visibility is retained; the adapter must map reference visible-copy semantics. Workbook pivot-cache/custom-view/extension owners reject conservatively until M6. Final staged A7 acceptance remains open.",
       "acceptance_ref": "docs/decisions/0074-source-backed-worksheet-copy.md",
       "benchmarks": [
         "benchmarks/alpha7-loaded-copy.md"
+      ]
+    },
+    {
+      "id": "editor.sheet-remove",
+      "description": "Source-backed worksheet ownership transfer and synchronized package identity retirement with shared incoming-edge validation",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "planned",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "lazy-source-backed-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/api/openpyxl.workbook.workbook.html#openpyxl.workbook.workbook.Workbook.remove",
+      "modules": [
+        "crates/crabxl-xlsx/src/loaded.rs",
+        "crates/crabxl-xlsx/src/editor/catalog.rs",
+        "crates/crabxl-xlsx/src/editor.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable",
+        "crates/crabxl-xlsx/tests/loaded.rs::active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_mutation"
+      ],
+      "limitations": "Unmodeled worksheet graphs, unknown/shared incoming owners, outgoing relationship graphs, linked VBA projects, local defined names and workbook pivot-cache/custom-view/extension owners reject. Empty-bank save rejects until a visible sheet is created. Detached models are caller-owned and retain separate edit limits. Python removal and final staged A7 acceptance remain pending.",
+      "acceptance_ref": "docs/decisions/0075-source-backed-worksheet-removal.md",
+      "benchmarks": [
+        "benchmarks/alpha7-loaded-remove.md"
       ]
     }
   ],

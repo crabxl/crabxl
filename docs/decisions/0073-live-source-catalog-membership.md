@@ -1,6 +1,7 @@
 # ADR 0073: Live source catalog membership
 
-Status: implemented for worksheet creation; copy and removal remain pending.
+Status: implemented for worksheet creation; copy/removal extend this transaction
+in ADRs 0074/0075.
 
 The source-backed coordinator registers new worksheets in its existing canonical
 bank. It retains bounded original sheet declarations and stable source identities,

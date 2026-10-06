@@ -143,17 +143,16 @@ Use source tests to preserve behavior, integrate common models, decouple I/O, re
 
 ## Parallel Python compatibility acceptance
 
-The user moved a thin optional Python adapter ahead of milestone completion to share tests and ease migration. Workbook/Worksheet/Cell calls must match openpyxl; Rust internals and public Rust naming remain independent. Selectively reuse pinned upstream tests with exact assertions/provenance, then expand the tested surface along M4-M7. Unsupported behavior stays explicit and planned, including read-only/write-only binding modes, full style/date/string reading, complete formula tokenization, loaded structural edits and advanced features. This does not complete M4-M7 or the whole Python compatibility suite.
+The user moved a thin optional Python adapter ahead of milestone completion to share tests and ease migration. Workbook/Worksheet/Cell calls must match openpyxl; Rust internals and public Rust naming remain independent. Selectively reuse pinned upstream tests with exact assertions/provenance, then expand the tested surface along M4-M7. Unsupported behavior stays explicit and planned, including complete styles/rich text, full formula tokenization and loaded feature-graph editing. This does not complete M4-M7 or the whole Python compatibility suite.
 
-M5 translation checkpoint: the bounded shared A1 scanner and atomic translated sparse moves are implemented and exposed through compatible Python Translator/move_range calls. All 46 selected original worksheet/translator methods pass. Full tokenizer/formula metadata and other M5 feature families remain required; M4 existing structural edits are also unfinished.
+M5 translation checkpoint: the bounded shared A1 scanner and atomic translated sparse moves are implemented and exposed through compatible Python Translator/move_range calls. All 46 selected original worksheet/translator methods pass. Full tokenizer/formula metadata and other M5 feature families remain required; Deferred M4 feature-graph interactions remain staged.
 
 M2 closure evidence: [alpha.5 behavioral audit](validation/alpha5-m2-acceptance.md).
 Full baseline module statuses remain independently staged; M4–M7 are not closed.
 
-The source-backed bank can now create and populate worksheets with synchronized
-package identities and repeated saves (ADR 0073). Loaded sheet copy/removal remain
-required for staged A7 acceptance; creation does not close that gate.
-
-Supported source-backed worksheet copies now share catalog membership and stream
-the original property template (ADR 0074). Loaded worksheet removal, Python copy
-integration and remaining staged A7 acceptance stay open.
+The source-backed bank now supports worksheet creation, copy and removal with
+synchronized package identities, requested model duplication, detached ownership
+transfer and repeat saves (ADRs 0073-0075). Unknown/shared owners, local-name scopes,
+linked VBA projects and unmodeled workbook identity graphs retain explicit M5/M6
+rejection and follow-up tracking. Python removal and final staged A7 acceptance
+remain open; these checkpoints do not close deferred M4 graph interactions.

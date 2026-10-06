@@ -192,6 +192,12 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         }
         crate::encode::validate_catalog_name(&name)?;
         let template = if let Some(id) = source {
+            let maximum = self
+                .allowance
+                .retained_data_bytes
+                .min(self.options.workbook.max_bytes);
+            self.editor
+                .guard_copy_context(maximum.saturating_sub(self.managed_retained_bytes()))?;
             let source = self
                 .sheets
                 .iter()
@@ -209,22 +215,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         } else {
             None
         };
-        let mut originals = Vec::new();
-        originals
-            .try_reserve_exact(self.sheets.len())
-            .map_err(|cause| {
-                Error::caused_by(
-                    ErrorKind::MemoryBudgetExceeded,
-                    "Cannot allocate original catalog handles",
-                    cause,
-                )
-            })?;
-        originals.extend(
-            self.sheets
-                .iter()
-                .filter(|source| source.original.is_some())
-                .map(|source| source.id),
-        );
+        let originals = self.original_identities()?;
         let maximum = self
             .allowance
             .retained_data_bytes
@@ -267,6 +258,79 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.bank.set_active_view_index(view);
         self.rebalance()?;
         Ok(id)
+    }
+    /// Remove a supported worksheet and return its detached canonical model.
+    /// Package graph ownership is validated before loading or modifying cells.
+    /// Source parts stay available as immutable templates for existing copies.
+    pub fn remove_sheet(&mut self, id: SheetId) -> Result<Worksheet> {
+        if self.options.read.data_only {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Data-only sheet removal remains unimplemented",
+            ));
+        }
+        let index = self
+            .sheets
+            .iter()
+            .position(|source| source.id == id)
+            .ok_or_else(|| {
+                Error::new(ErrorKind::SheetNotFound, "Unknown removed sheet identity")
+            })?;
+        let original = self.sheets[index].original;
+        let maximum = self
+            .allowance
+            .retained_data_bytes
+            .min(self.options.workbook.max_bytes);
+        if let Some(original) = original {
+            self.editor.check_remove_graph(
+                original,
+                maximum.saturating_sub(self.managed_retained_bytes()),
+            )?;
+        }
+        self.sheet(id)?;
+        let originals = self.original_identities()?;
+        let plan = self.editor.prepare_remove(
+            id,
+            originals,
+            original,
+            maximum.saturating_sub(self.managed_retained_bytes()),
+        )?;
+        self.reserve_workbook_patch(plan.bytes.saturating_add(plan.scratch_bytes))?;
+        let view = self.active_view_index();
+        let detached = match self.bank.remove_sheet(id) {
+            Ok(sheet) => sheet,
+            Err(error) => {
+                self.rebalance()?;
+                return Err(error);
+            }
+        };
+        self.sheets.remove(index);
+        self.bank.set_active_view_index(view);
+        self.editor.commit_remove(plan, view);
+        self.rebalance()?;
+        Ok(detached)
+    }
+    fn original_identities(&self) -> Result<Vec<SheetId>> {
+        let mut originals = Vec::new();
+        if self.editor.membership_is_dirty() {
+            return Ok(originals);
+        }
+        originals
+            .try_reserve_exact(self.sheets.len())
+            .map_err(|cause| {
+                Error::caused_by(
+                    ErrorKind::MemoryBudgetExceeded,
+                    "Cannot allocate original catalog handles",
+                    cause,
+                )
+            })?;
+        originals.extend(
+            self.sheets
+                .iter()
+                .filter(|source| source.original.is_some())
+                .map(|source| source.id),
+        );
+        Ok(originals)
     }
     /// Rename a stable source-backed identity without decoding cells or changing
     /// its original part. Catalog/model changes share one preflight allowance.
