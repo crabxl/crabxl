@@ -142,6 +142,112 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
     assert!(!workbook.is_materialized(first));
     assert!(!workbook.is_materialized(second));
     assert_eq!(workbook.model().cell_count(), 0);
+    // Catalog membership shares the lazy bank without decoding original bodies.
+    let mut created_book =
+        LoadedWorkbook::with_options(Cursor::new(bytes.clone()), LoadOptions::default()).unwrap();
+    let created = created_book.create_sheet("Added").unwrap();
+    assert!(!created_book.is_materialized(first));
+    assert!(!created_book.is_materialized(second));
+    assert!(created_book.is_materialized(created));
+    let original_parts = parts(bytes.clone());
+    let (empty, stats) = created_book
+        .save(Cursor::new(Vec::new()), Default::default())
+        .unwrap();
+    assert_eq!(stats.created_parts, 1);
+    let empty_parts = parts(empty.into_inner());
+    for (name, data) in &original_parts {
+        if ![
+            "xl/workbook.xml",
+            "xl/_rels/workbook.xml.rels",
+            "[Content_Types].xml",
+        ]
+        .contains(&name.as_str())
+        {
+            assert_eq!(&empty_parts[name], data);
+        }
+    }
+    created_book
+        .upsert_value(
+            created,
+            CellAddress::new(0, 0).unwrap(),
+            CellValue::text("created value"),
+        )
+        .unwrap();
+    created_book
+        .append(created, vec![CellValue::Integer(42)])
+        .unwrap();
+    created_book
+        .insert_rows(created, RowIndex::new(0).unwrap(), 1)
+        .unwrap();
+    created_book.rename_sheet(created, "Renamed Added").unwrap();
+    created_book.move_sheet(created, 0).unwrap();
+    for _ in 0..2 {
+        let (output, stats) = created_book
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        assert_eq!(stats.created_parts, 1);
+        let mut reopened =
+            LoadedWorkbook::with_options(Cursor::new(output.into_inner()), Default::default())
+                .unwrap();
+        let id = reopened.sheet_id("Renamed Added").unwrap();
+        assert_eq!(reopened.model().sheets().next().unwrap().0, id);
+        let sheet = reopened.sheet(id).unwrap();
+        assert_eq!(
+            sheet.get(CellAddress::new(1, 0).unwrap()).unwrap().value,
+            CellValue::text("created value")
+        );
+        assert_eq!(
+            sheet.get(CellAddress::new(2, 0).unwrap()).unwrap().value,
+            CellValue::Integer(42)
+        );
+        assert!(!created_book.is_materialized(first));
+        assert!(!created_book.is_materialized(second));
+    }
+    let before = created_book.patch_bytes();
+    assert!(created_book.create_sheet("Bad/Title").is_err());
+    assert_eq!(created_book.patch_bytes(), before);
+    assert_eq!(created_book.model().sheets().count(), 3);
+    let other = created_book.create_sheet("Another").unwrap();
+    assert_ne!(other, created);
+    let (output, stats) = created_book
+        .save(Cursor::new(Vec::new()), Default::default())
+        .unwrap();
+    assert_eq!(stats.created_parts, 2);
+    let reopened =
+        LoadedWorkbook::with_options(Cursor::new(output.into_inner()), Default::default()).unwrap();
+    assert_eq!(reopened.model().sheets().count(), 4);
+    assert!(reopened.sheet_id("Another").is_some());
+    // Existing opaque identities must never be overwritten by allocation.
+    let mut collision_parts = original_parts.clone();
+    collision_parts.insert(
+        "xl/worksheets/crabxl-sheet-3.xml".into(),
+        b"opaque payload".to_vec(),
+    );
+    let rels = String::from_utf8(
+        collision_parts
+            .remove("xl/_rels/workbook.xml.rels")
+            .unwrap(),
+    )
+    .unwrap();
+    collision_parts.insert("xl/_rels/workbook.xml.rels".into(), rels.replace("</Relationships>", "<Relationship Id=\"rIdCrabxl1\" Type=\"urn:opaque\" Target=\"worksheets/crabxl-sheet-3.xml\"/></Relationships>").into_bytes());
+    let mut collision =
+        LoadedWorkbook::with_options(Cursor::new(package(collision_parts)), Default::default())
+            .unwrap();
+    collision.create_sheet("Added").unwrap();
+    let saved = parts(
+        collision
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0
+            .into_inner(),
+    );
+    assert_eq!(saved["xl/worksheets/crabxl-sheet-3.xml"], b"opaque payload");
+    assert!(saved.contains_key("xl/worksheets/crabxl-sheet-4.xml"));
+    assert!(
+        String::from_utf8(saved["xl/_rels/workbook.xml.rels"].clone())
+            .unwrap()
+            .contains("rIdCrabxl2")
+    );
     let catalog_pointer = workbook.model().style_catalog().unwrap().fonts.as_ptr();
     let sheet = workbook.sheet(first).unwrap();
     assert_eq!(sheet.len(), 4);

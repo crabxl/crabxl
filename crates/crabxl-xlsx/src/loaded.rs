@@ -32,6 +32,7 @@ struct SourceSheet {
     name: Box<str>,
     loaded: bool,
     kind: crate::SheetKind,
+    original: Option<usize>,
 }
 /// Owns a seekable original package and the canonical workbook bank. Source
 /// styles transfer into the bank without cloning; only date classifications stay
@@ -127,13 +128,14 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 error,
             )
         })?;
-        for sheet in reader.sheets() {
+        for (index, sheet) in reader.sheets().iter().enumerate() {
             let id = bank.create_sheet(sheet.name())?;
             sheets.push(SourceSheet {
                 id,
                 name: sheet.name().into(),
                 loaded: false,
                 kind: sheet.kind(),
+                original: Some(index),
             });
         }
         bank.set_active_view_index(reader.active_view_index());
@@ -170,6 +172,70 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .find(|sheet| sheet.id == id)
             .map(|sheet| sheet.kind)
     }
+    /// Create an empty worksheet in the same source-backed canonical bank.
+    /// A bounded catalog/relationship/content-type transaction commits after
+    /// source policies and aggregate model/metadata allowances are checked.
+    pub fn create_sheet(&mut self, name: impl Into<Box<str>>) -> Result<SheetId> {
+        if self.options.read.data_only {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Data-only sheet creation remains unimplemented",
+            ));
+        }
+        let name = name.into();
+        crate::encode::validate_catalog_name(&name)?;
+        let mut originals = Vec::new();
+        originals
+            .try_reserve_exact(self.sheets.len())
+            .map_err(|cause| {
+                Error::caused_by(
+                    ErrorKind::MemoryBudgetExceeded,
+                    "Cannot allocate original catalog handles",
+                    cause,
+                )
+            })?;
+        originals.extend(
+            self.sheets
+                .iter()
+                .filter(|source| source.original.is_some())
+                .map(|source| source.id),
+        );
+        let maximum = self
+            .allowance
+            .retained_data_bytes
+            .min(self.options.workbook.max_bytes);
+        let plan = self.editor.prepare_create(
+            originals,
+            maximum.saturating_sub(self.managed_retained_bytes()),
+        )?;
+        self.sheets.try_reserve_exact(1).map_err(|cause| {
+            Error::caused_by(
+                ErrorKind::MemoryBudgetExceeded,
+                "Cannot allocate created sheet handle",
+                cause,
+            )
+        })?;
+        self.reserve_workbook_patch(plan.bytes.saturating_add(plan.scratch_bytes))?;
+        let view = self.active_view_index();
+        let id = match self.bank.create_sheet(name) {
+            Ok(id) => id,
+            Err(error) => {
+                self.rebalance()?;
+                return Err(error);
+            }
+        };
+        self.sheets.push(SourceSheet {
+            id,
+            name: "".into(),
+            loaded: true,
+            kind: crate::SheetKind::Worksheet,
+            original: None,
+        });
+        self.editor.commit_create(plan, id);
+        self.bank.set_active_view_index(view);
+        self.rebalance()?;
+        Ok(id)
+    }
     /// Rename a stable source-backed identity without decoding cells or changing
     /// its original part. Catalog/model changes share one preflight allowance.
     /// Existing formula and defined-name expressions are not rewritten.
@@ -180,8 +246,20 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .position(|sheet| sheet.id == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
         let name = name.into();
+        crate::encode::validate_catalog_name(&name)?;
         if self.bank.sheet(id)?.name() == name.as_ref() {
             return Ok(());
+        }
+        if self.editor.membership_is_dirty() {
+            let planned = self.editor.prepare_membership_metadata()?;
+            self.reserve_workbook_patch(planned)?;
+            if let Err(error) = self.bank.rename_sheet(id, name) {
+                self.rebalance()?;
+                return Err(error);
+            }
+            self.editor
+                .commit_active_view(self.active_view_index(), planned);
+            return self.rebalance();
         }
         let planned = self.editor.prepare_name(index, &name)?;
         self.reserve_workbook_patch(planned)?;
@@ -210,6 +288,18 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         if current == position {
             return Ok(());
         }
+        if self.editor.membership_is_dirty() {
+            let planned = self.editor.prepare_membership_metadata()?;
+            self.reserve_workbook_patch(planned)?;
+            let view = self.active_view_index();
+            if let Err(error) = self.bank.move_sheet(id, position) {
+                self.rebalance()?;
+                return Err(error);
+            }
+            self.bank.set_active_view_index(view);
+            self.editor.commit_active_view(view, planned);
+            return self.rebalance();
+        }
         self.rebalance()?;
         let maximum = self
             .allowance
@@ -236,6 +326,16 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .sheets()
             .position(|(sheet, _)| sheet == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        if self.editor.membership_is_dirty() {
+            let planned = self.editor.prepare_membership_metadata()?;
+            self.reserve_workbook_patch(planned)?;
+            if let Err(error) = self.bank.set_active_sheet(id) {
+                self.rebalance()?;
+                return Err(error);
+            }
+            self.editor.commit_active_view(index as i64, planned);
+            return self.rebalance();
+        }
         let planned = self.editor.prepare_active(index)?;
         self.reserve_workbook_patch(planned)?;
         self.bank.set_active_sheet(id)?;
@@ -244,7 +344,11 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     }
     /// Select a deferred display view without loading worksheet cells.
     pub fn set_active_view_index(&mut self, index: i64) -> Result<()> {
-        let planned = self.editor.prepare_active_view(index)?;
+        let planned = if self.editor.membership_is_dirty() {
+            self.editor.prepare_membership_metadata()?
+        } else {
+            self.editor.prepare_active_view(index)?
+        };
         self.reserve_workbook_patch(planned)?;
         self.bank.set_active_view_index(index);
         self.editor.commit_active_view(index, planned);
@@ -262,6 +366,18 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         id: SheetId,
         visibility: crabxl_core::SheetVisibility,
     ) -> Result<()> {
+        if self.editor.membership_is_dirty() {
+            let planned = self.editor.prepare_membership_metadata()?;
+            self.reserve_workbook_patch(planned)?;
+            let view = self.active_view_index();
+            if let Err(error) = self.bank.set_sheet_visibility(id, visibility) {
+                self.rebalance()?;
+                return Err(error);
+            }
+            self.bank.set_active_view_index(view);
+            self.editor.commit_active_view(view, planned);
+            return self.rebalance();
+        }
         let index = self
             .sheets
             .iter()
@@ -281,6 +397,17 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         visibility: crabxl_core::SheetVisibility,
         view_index: i64,
     ) -> Result<()> {
+        if self.editor.membership_is_dirty() {
+            let planned = self.editor.prepare_membership_metadata()?;
+            self.reserve_workbook_patch(planned)?;
+            if let Err(error) = self.bank.set_sheet_visibility(id, visibility) {
+                self.rebalance()?;
+                return Err(error);
+            }
+            self.bank.set_active_view_index(view_index);
+            self.editor.commit_active_view(view_index, planned);
+            return self.rebalance();
+        }
         let index = self
             .sheets
             .iter()
@@ -385,7 +512,10 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     }
     /// Borrow a pending source overlay without decoding the original worksheet.
     pub fn pending_value(&self, id: SheetId, address: CellAddress) -> Option<&CellValue> {
-        let source = self.sheets.iter().find(|sheet| sheet.id == id)?;
+        let source = self
+            .sheets
+            .iter()
+            .find(|sheet| sheet.id == id && sheet.original.is_some())?;
         self.editor.pending_value(&source.name, address)
     }
     /// Borrow pending source cells in sparse order, without materialization.
@@ -393,7 +523,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     pub fn pending_cells(&self, id: SheetId) -> impl Iterator<Item = &Cell> {
         self.sheets
             .iter()
-            .filter(move |sheet| sheet.id == id)
+            .filter(move |sheet| sheet.id == id && sheet.original.is_some())
             .flat_map(|sheet| self.editor.pending_cells(&sheet.name))
     }
     /// Current retained overlay bytes inside the joint source/model cap.
@@ -482,6 +612,15 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .iter()
             .position(|source| source.id == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        if self.sheets[index].original.is_none() {
+            crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
+            let result = edit(&mut self.bank.sheet_mut(id)?);
+            if result.is_ok() {
+                self.editor.created_values_dirty(id);
+            }
+            self.rebalance()?;
+            return result;
+        }
         let plan = self.editor.prepare_model(&self.sheets[index].name)?;
         self.sheet(id)?;
         crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
@@ -506,16 +645,21 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .iter()
             .find(|source| source.id == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
-        if self.editor.model_is_dirty(&source.name) {
+        if source.original.is_none() || self.editor.model_is_dirty(&source.name) {
+            let created = source.original.is_none();
             let row = RowIndex::new(self.bank.sheet(id)?.row_extent())?;
             for (column, value) in values.iter().enumerate() {
-                self.editor.prepare_value(
-                    &source.name,
-                    CellAddress::new(row.get(), column as u32)?,
-                    value,
-                )?;
+                let address = CellAddress::new(row.get(), column as u32)?;
+                if created {
+                    self.editor.validate_created_value(address, value)?;
+                } else {
+                    self.editor.prepare_value(&source.name, address, value)?;
+                }
             }
             let result = self.bank.sheet_mut(id)?.append(values);
+            if created && result.is_ok() {
+                self.editor.created_values_dirty(id);
+            }
             self.rebalance()?;
             return result;
         }
@@ -600,6 +744,44 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .iter()
             .find(|sheet| sheet.id == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        if source.original.is_none() {
+            self.editor.validate_created_value(address, &value)?;
+            if !insert_missing && self.bank.sheet(id)?.get(address).is_none() {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Replacement targets a missing model cell",
+                )
+                .with_cell(address));
+            }
+            let maximum = self
+                .allowance
+                .retained_data_bytes
+                .min(self.options.workbook.max_bytes);
+            let retained = self
+                .mapping_bytes()
+                .saturating_add(self.package_extra_bytes())
+                .saturating_add(self.bank.charged_bytes())
+                .saturating_add(value.heap_bytes());
+            self.editor
+                .book
+                .rebalance_strings_for_retained(retained, maximum)?;
+            self.rebalance()?;
+            let style = self
+                .bank
+                .sheet(id)?
+                .get(address)
+                .map_or(crabxl_core::StyleId::new(0), |cell| cell.style);
+            let result = self.bank.sheet_mut(id)?.set(Cell {
+                address,
+                value,
+                style,
+            });
+            if result.is_ok() {
+                self.editor.created_values_dirty(id);
+            }
+            self.rebalance()?;
+            return result;
+        }
         let plan = self.editor.prepare_value(&source.name, address, &value)?;
         let loaded = source.loaded;
         let model_dirty = self.editor.model_is_dirty(&source.name);

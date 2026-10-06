@@ -31,7 +31,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let (managed, temp) = if matches!(
         mode.as_str(),
-        "bank-active" | "bank-visibility" | "bank-deferred" | "bank-rename" | "bank-reorder"
+        "bank-active"
+            | "bank-visibility"
+            | "bank-deferred"
+            | "bank-rename"
+            | "bank-reorder"
+            | "bank-create"
     ) {
         let mut workbook = LoadedWorkbook::with_options(File::open(path)?, LoadOptions::default())?;
         let id = workbook
@@ -56,12 +61,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             workbook.move_sheet(id, 0)?;
             workbook.set_active_sheet(id)?;
         }
+        if mode == "bank-create" {
+            let created = workbook.create_sheet("Added")?;
+            workbook.upsert_value(created, CellAddress::new(0, 0)?, CellValue::Integer(42))?;
+        }
         let selected = usize::from(mode != "bank-reorder");
         let target = output.as_ref().ok_or("Active mode requires output path")?;
         workbook.save_path(target, crabxl::SaveOptions::default())?;
         output_bytes = std::fs::metadata(target)?.len();
         materialized_cells = workbook.model().cell_count();
-        if materialized_cells != 0 {
+        if materialized_cells != usize::from(mode == "bank-create") {
             return Err("Active selection eagerly materialized cells".into());
         }
         let mut saved = WorkbookReader::open(target)?;
@@ -80,6 +89,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         if workbook.model().active_sheet() != Some(id) {
             return Err("Loaded active selection is not synchronized".into());
+        }
+        if mode == "bank-create" {
+            if saved.sheets().len() != 3 || saved.sheets()[2].name() != "Added" {
+                return Err("Created catalog mismatch".into());
+            }
+            let mut rows = saved.rows("Added")?;
+            let row = rows.next_row()?.ok_or("Missing created row")?;
+            if row.cells.len() != 1 || row.cells[0].value != CellValue::Integer(42) {
+                return Err("Created cell mismatch".into());
+            }
         }
         let names = saved
             .sheets()

@@ -5,6 +5,16 @@
 use crabxl_core::{CellValue, Error, ErrorKind, Result};
 use std::io::{self, Write};
 
+/// XLSX title syntax shared by preserving catalog mutations.
+/// Long names retain the loaded/Python reference policy rather than truncation.
+pub(crate) fn validate_catalog_name(name: &str) -> Result<()> {
+    validate_xml_text(name)?;
+    if name.is_empty() || name.chars().any(|ch| ":\\/?*[]".contains(ch)) {
+        return Err(Error::new(ErrorKind::InvalidData, "Invalid worksheet name"));
+    }
+    Ok(())
+}
+
 pub(crate) enum StyleContext<'a> {
     Registry {
         registry: &'a mut crabxl_core::StyleRegistry,

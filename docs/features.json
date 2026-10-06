@@ -17857,6 +17857,35 @@
       "benchmarks": [
         "benchmarks/alpha7-loaded-structure.md"
       ]
+    },
+    {
+      "id": "editor.sheet-create",
+      "description": "Lazy source-backed worksheet creation with canonical cells and synchronized package identities",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "lazy-source-backed-model"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html#create-a-workbook",
+      "modules": [
+        "crates/crabxl-xlsx/src/loaded.rs",
+        "crates/crabxl-xlsx/src/editor/catalog.rs",
+        "crates/crabxl-xlsx/src/loaded_codec.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable"
+      ],
+      "limitations": "Loaded local defined-name ownership and signed/data-only creation reject; new typed date style registration remains M5. Copy/removal and staged M4 acceptance remain open.",
+      "acceptance_ref": "docs/decisions/0073-live-source-catalog-membership.md",
+      "benchmarks": [
+        "benchmarks/alpha7-loaded-create.md"
+      ]
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

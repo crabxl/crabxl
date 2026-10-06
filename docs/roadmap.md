@@ -149,3 +149,7 @@ M5 translation checkpoint: the bounded shared A1 scanner and atomic translated s
 
 M2 closure evidence: [alpha.5 behavioral audit](validation/alpha5-m2-acceptance.md).
 Full baseline module statuses remain independently staged; M4–M7 are not closed.
+
+The source-backed bank can now create and populate worksheets with synchronized
+package identities and repeated saves (ADR 0073). Loaded sheet copy/removal remain
+required for staged A7 acceptance; creation does not close that gate.
