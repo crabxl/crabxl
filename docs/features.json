@@ -17946,6 +17946,53 @@
       "benchmarks": [
         "benchmarks/alpha7-loaded-remove.md"
       ]
+    },
+    {
+      "id": "model.worksheet-ranges",
+      "description": "Compact validated rectangles and whole worksheet axes",
+      "status": "ported",
+      "milestone": "M5",
+      "capabilities": {
+        "read": "ported",
+        "create": "ported",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "core-geometry"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/stable/api/openpyxl.worksheet.cell_range.html",
+      "modules": [
+        "crates/crabxl-core/src/range.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/worksheet.rs::bounds_and_data_work_limits_fail_without_partial_mutation"
+      ],
+      "limitations": "Sheet-local geometry only; owning feature/codecs/Python remain separate. Absolute spelling is normalized. No dense covered-cell allocation."
+    },
+    {
+      "id": "formula.tokenizer.native",
+      "description": "Bounded borrowed formula lexical tokens without evaluation",
+      "status": "ported",
+      "milestone": "M5",
+      "capabilities": {
+        "read": "ported",
+        "create": "ported",
+        "edit": "planned",
+        "preserve": "planned"
+      },
+      "modes": [
+        "explicit-formula-lexing"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/stable/formula.html",
+      "modules": [
+        "crates/crabxl-core/src/tokenizer.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/translate.rs::reference_context_quotes_tables_axis_ranges_and_errors",
+        "crates/crabxl-core/tests/translate.rs::invalid_boundaries_syntax_and_output_capacity_do_not_return_partial_results"
+      ],
+      "limitations": "Selected native token behavior only; complete Python token objects, newline-inside-operand equivalence and malformed-input acceptance remain staged. Unmatched closers return typed errors; generated-reference colon operator fixes MR !345. Spill/unknown errors explicitly reject. No formula evaluation."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

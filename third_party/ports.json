@@ -259,6 +259,32 @@
       "inventory_items": [
         "model.worksheet-ranges"
       ]
+    },
+    {
+      "project": "umya-spreadsheet",
+      "repository": "https://github.com/MathNya/umya-spreadsheet",
+      "commit": "aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b",
+      "license": "MIT",
+      "notice": "Copyright (c) 2020 MathNya; upstream helper partly based on Copyright (c) 2007 E. W. Bachtal, Inc.",
+      "license_file": "third_party/licenses/umya-spreadsheet-MIT.txt",
+      "original": [
+        "src/helper/formula.rs: FormulaTokenTypes, FormulaTokenSubTypes, parse_into_intermediate_tokens, finalize_tokens, quoted/bracket/error/scientific handlers"
+      ],
+      "destination": [
+        "crates/crabxl-core/src/tokenizer.rs"
+      ],
+      "changes": [
+        "Replace repeated chars().nth/count scans and three cloned token streams with a single forward byte scan, borrowed source tokens and a typed boundary stack.",
+        "Retain quotes, function openers, whitespace and unary plus, matching observed public token representations rather than upstream evaluation-oriented cleanup. Logical literal matching is case-sensitive.",
+        "Share typed errors and checked allocation/work budgets; reject malformed quotes/brackets/unmatched or mismatched closers instead of panicking. Unclosed group/function openers remain observable.",
+        "Correct exponent-sign recognition without the upstream malformed regular expression; preserve nested structured references and doubled quoted sheet names.",
+        "Recognize the range operator after generated references as identified by pending reference MR !345. Literal A1 ranges remain single operands.",
+        "Newline-inside-operand token equivalence and complete adapter/malformed-input acceptance remain staged. Unknown spill/error syntax is explicitly rejected; no evaluation or worksheet cell parsing changes."
+      ],
+      "tests": "Existing translate.rs tests extended with public-observed literal/function/array/error/exponent/Unicode-reference tokens, source borrowing, malformed input and finite-work failures; no new test functions.",
+      "inventory_items": [
+        "formula.tokenizer.native"
+      ]
     }
   ]
 }

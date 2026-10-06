@@ -6,6 +6,81 @@ use crabxl_core::{
 };
 #[test]
 fn reference_context_quotes_tables_axis_ranges_and_errors() {
+    use crabxl_core::tokenize_formula;
+    for (source, expected) in [
+        (
+            "=IF(A1>=2,\"a\"\"b\",#N/A)",
+            vec![
+                ("IF(", "FUNC", "OPEN"),
+                ("A1", "OPERAND", "RANGE"),
+                (">=", "OPERATOR-INFIX", ""),
+                ("2", "OPERAND", "NUMBER"),
+                (",", "SEP", "ARG"),
+                ("\"a\"\"b\"", "OPERAND", "TEXT"),
+                (",", "SEP", "ARG"),
+                ("#N/A", "OPERAND", "ERROR"),
+                (")", "FUNC", "CLOSE"),
+            ],
+        ),
+        (
+            "=-1.2E-3%+TRUE",
+            vec![
+                ("-", "OPERATOR-PREFIX", ""),
+                ("1.2E-3", "OPERAND", "NUMBER"),
+                ("%", "OPERATOR-POSTFIX", ""),
+                ("+", "OPERATOR-INFIX", ""),
+                ("TRUE", "OPERAND", "LOGICAL"),
+            ],
+        ),
+        (
+            "={1,2;3,4}",
+            vec![
+                ("{", "ARRAY", "OPEN"),
+                ("1", "OPERAND", "NUMBER"),
+                (",", "SEP", "ARG"),
+                ("2", "OPERAND", "NUMBER"),
+                (";", "SEP", "ROW"),
+                ("3", "OPERAND", "NUMBER"),
+                (",", "SEP", "ARG"),
+                ("4", "OPERAND", "NUMBER"),
+                ("}", "ARRAY", "CLOSE"),
+            ],
+        ),
+        (
+            "='\u{8cc7}\u{6599}''\u{8868}'!A1+T[[#Headers],[B]]",
+            vec![
+                ("'\u{8cc7}\u{6599}''\u{8868}'!A1", "OPERAND", "RANGE"),
+                ("+", "OPERATOR-INFIX", ""),
+                ("T[[#Headers],[B]]", "OPERAND", "RANGE"),
+            ],
+        ),
+        (
+            "=a,b",
+            vec![
+                ("a", "OPERAND", "RANGE"),
+                (",", "OPERATOR-INFIX", ""),
+                ("b", "OPERAND", "RANGE"),
+            ],
+        ),
+        ("literal", vec![("literal", "LITERAL", "")]),
+        ("", vec![]),
+        ("=", vec![]),
+    ] {
+        let tokens = tokenize_formula(source, 4096).unwrap();
+        let actual = tokens
+            .iter()
+            .map(|t| (t.value, t.kind.as_str(), t.subtype.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected, "{source}");
+        for token in &tokens {
+            // Non-whitespace spelling is borrowed from the original source.
+            assert!(token.value.as_ptr() >= source.as_ptr());
+            assert!(
+                (token.value.as_ptr() as usize) + token.value.len()
+                    <= (source.as_ptr() as usize) + source.len()
+            );
+        }
+    }
     let cases = [
         ("=A1+$B2+C$3+$D$4", "=B2+$B3+D$3+$D$4"),
         ("='A1'!A1+A1!B2", "='A1'!B2+A1!C3"),
@@ -36,9 +111,40 @@ fn reference_context_quotes_tables_axis_ranges_and_errors() {
     assert_eq!(formula_position("AA1001001001").unwrap(), (1001001001, 27));
     assert_eq!(translate_axis("1001001001", 1, true).unwrap(), "1001001002");
     assert_eq!(translate_axis("$a", 10, false).unwrap(), "$a");
+    let generated = tokenize_formula("=OFFSET(A1,0,0):C3", 4096).unwrap();
+    let closer = generated
+        .iter()
+        .position(|t| t.subtype == crabxl_core::TokenSubtype::Close)
+        .unwrap();
+    assert_eq!(generated[closer + 1].value, ":");
+    assert_eq!(generated[closer + 1].kind, crabxl_core::TokenKind::Infix);
+    assert_eq!(generated[closer + 2].value, "C3");
 }
 #[test]
 fn invalid_boundaries_syntax_and_output_capacity_do_not_return_partial_results() {
+    for source in [
+        "=\"text",
+        "='Sheet!A1",
+        "=Table[A1",
+        "=1)",
+        "={1)",
+        "=#SPILL!",
+        "=A1#",
+    ] {
+        assert_eq!(
+            crabxl_core::tokenize_formula(source, 4096)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::InvalidData
+        );
+    }
+    for source in ["literal", "=1+2", "=SUM(1,2)"] {
+        assert_eq!(
+            crabxl_core::tokenize_formula(source, 2).unwrap_err().kind(),
+            ErrorKind::MemoryBudgetExceeded
+        );
+    }
+    assert!(crabxl_core::tokenize_formula("=SUM(1", 4096).is_ok());
     for (source, row, col) in [
         ("=A1", -1, 0),
         ("=A1", 0, -1),
