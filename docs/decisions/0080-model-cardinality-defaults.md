@@ -1,6 +1,6 @@
 # ADR 0080: Default model cardinality follows coordinates and byte budgets
 
-Status: implemented; Python integration and A8 release acceptance remain open.
+Status: implemented and integrated into Python; A8 release acceptance remains open.
 
 The archive byte defaults were removed in A6, but ordinary editable models still
 defaulted to ten million physical cells and 1,024 worksheets. A one-million-row
@@ -24,3 +24,8 @@ obstacle does not verify the file's elapsed time, RSS or successful complete
 materialization under a particular memory policy. Packed model charging remains
 conservative at 256 bytes per physical cell plus owned payload; its capacity-aware
 accounting is still tracked separately.
+
+Python commit `a4657794982eec1f81554b92ddf3ef903a8c7814` pins this exact core
+revision. Its freshly built CPython 3.12 wheel passes all 547 compatibility cases,
+Ruff formatting/checks and strict Clippy. Core GitHub Rust run `37405637664`
+passes the configured platform/MSRV/quality matrix.

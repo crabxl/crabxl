@@ -65,6 +65,17 @@ fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
     }
     assert_eq!(sheet.cells().count(), 653);
     assert_eq!(sheet.row_cells(RowIndex::new(60).unwrap()).count(), 13);
+    let mut reversed = Worksheet::new("Reverse", EditLimits::default()).unwrap();
+    for index in (0..653u32).rev() {
+        set(
+            &mut reversed,
+            index / 32 * 3,
+            index % 32 * 2,
+            Value::Integer(index.into()),
+        );
+    }
+    assert_eq!(values(&reversed), values(&sheet));
+    assert_eq!(reversed.row_cells(RowIndex::new(60).unwrap()).count(), 13);
     for index in (0..640u32).rev() {
         let coordinate = (index / 32 * 3, index % 32 * 2 + 1);
         set(
