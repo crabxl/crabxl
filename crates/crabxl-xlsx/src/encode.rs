@@ -511,21 +511,23 @@ pub(crate) fn write_text(output: &mut impl Write, text: &str) -> io::Result<()> 
 }
 fn write_xml(output: &mut impl Write, text: &str, attribute: bool) -> io::Result<()> {
     let mut start = 0;
-    for (offset, ch) in text.char_indices() {
-        let replacement = match ch {
-            '&' => b"&amp;".as_slice(),
-            '<' => b"&lt;".as_slice(),
-            '>' => b"&gt;".as_slice(),
-            '\r' => b"&#13;".as_slice(),
-            '\n' if attribute => b"&#10;".as_slice(),
-            '\t' if attribute => b"&#9;".as_slice(),
-            '\"' if attribute => b"&quot;".as_slice(),
-            '\'' if attribute => b"&apos;".as_slice(),
+    // XML replacements are ASCII, which cannot occur inside a UTF-8 sequence.
+    // Borrow unchanged byte runs without decoding every Unicode character.
+    for (offset, byte) in text.bytes().enumerate() {
+        let replacement = match byte {
+            b'&' => b"&amp;".as_slice(),
+            b'<' => b"&lt;".as_slice(),
+            b'>' => b"&gt;".as_slice(),
+            b'\r' => b"&#13;".as_slice(),
+            b'\n' if attribute => b"&#10;".as_slice(),
+            b'\t' if attribute => b"&#9;".as_slice(),
+            b'\"' if attribute => b"&quot;".as_slice(),
+            b'\'' if attribute => b"&apos;".as_slice(),
             _ => continue,
         };
         output.write_all(&text.as_bytes()[start..offset])?;
         output.write_all(replacement)?;
-        start = offset + ch.len_utf8();
+        start = offset + 1;
     }
     output.write_all(&text.as_bytes()[start..])
 }

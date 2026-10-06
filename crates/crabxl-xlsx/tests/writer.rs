@@ -48,7 +48,7 @@ fn scalar_round_trip_sparse_rows_empty_sheet_and_epoch() {
         CellValue::Boolean(false),
         CellValue::Boolean(true),
         CellValue::error("#DIV/0!"),
-        CellValue::text(" \t<&>\r\n "),
+        CellValue::text(" \u{1f980}\u{e9}\t<&>\r\n\u{6587}\u{5b57} "),
         CellValue::text(""),
         CellValue::Empty,
     ];

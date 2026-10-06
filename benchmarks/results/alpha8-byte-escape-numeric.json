@@ -1,0 +1,644 @@
+{
+  "core_revision": "4f25c545684a03a879d717c27cf1bb91acd14676",
+  "versions": {
+    "umya-spreadsheet": "3.1.0",
+    "calamine": "0.36.1",
+    "rust_xlsxwriter": "0.99.1",
+    "rust": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "binary_sha256": "086419c0a209d75144ab56cfd418d959fb5077d99b5fcb583ae11551d48aa4fd",
+  "baseline_binary_sha256": "2c39d749b016795cf9bd8430bc47f656732d135c6c936cb0de625b4f28f07d5b",
+  "cpu_quota": "200000 100000",
+  "memory_ceiling": "8589934592",
+  "method": "one warmup per mode and scale; rotating serial release samples; native wait4; generation/build/output verification excluded; no baseline subtraction",
+  "boundaries": "Read: two numeric sheets, sum all cells, complete model modes versus noneditable calamine ranges and streams separately. Lazy modes initialize only and do not read cells. Edit: both engines materialize and sum all sheets then replace first A1 with 42 and save. Write: one numeric sheet built from zero, ordinary owned model versus sequential writer modes separately. Different preservation, rich styles, formulas and unsupported features are not compared.",
+  "temporary_sampling": "10ms lower-bound sum of unique process fds under isolated TMPDIR/output directory, including spools and adjacent/final ZIP during write; completed output bytes recorded separately; no exact managed-memory comparison",
+  "cases": [
+    {
+      "rows_per_sheet": 10000,
+      "columns": 10,
+      "read_sheets": 2,
+      "source_bytes": 606757,
+      "source_sha256": "3e7c6e539fa5a6b1f83d1117429f780ff02975d7d938e30e123b5575a6b4d55f",
+      "samples": {
+        "write-crabxl-model": [
+          {
+            "seconds": 0.090446573,
+            "cpu_seconds": 0.090236,
+            "peak_rss_kib": 8572,
+            "sampled_peak_working_file_bytes": 3345739,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.08455462,
+            "cpu_seconds": 0.08443,
+            "peak_rss_kib": 8508,
+            "sampled_peak_working_file_bytes": 3368075,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.102189368,
+            "cpu_seconds": 0.102066,
+            "peak_rss_kib": 8636,
+            "sampled_peak_working_file_bytes": 3323415,
+            "output_bytes": 305143
+          }
+        ],
+        "write-rust_xlsxwriter-normal": [
+          {
+            "seconds": 0.114762491,
+            "cpu_seconds": 0.113524,
+            "peak_rss_kib": 15744,
+            "sampled_peak_working_file_bytes": 232769,
+            "output_bytes": 307115
+          },
+          {
+            "seconds": 0.102884031,
+            "cpu_seconds": 0.102421,
+            "peak_rss_kib": 15744,
+            "sampled_peak_working_file_bytes": 232769,
+            "output_bytes": 307115
+          },
+          {
+            "seconds": 0.10718905,
+            "cpu_seconds": 0.104416,
+            "peak_rss_kib": 16028,
+            "sampled_peak_working_file_bytes": 265537,
+            "output_bytes": 307115
+          }
+        ],
+        "write-rust_xlsxwriter-constant": [
+          {
+            "seconds": 0.082526453,
+            "cpu_seconds": 0.082419,
+            "peak_rss_kib": 5660,
+            "sampled_peak_working_file_bytes": 3371497,
+            "output_bytes": 307190
+          },
+          {
+            "seconds": 0.088249407,
+            "cpu_seconds": 0.088136,
+            "peak_rss_kib": 5660,
+            "sampled_peak_working_file_bytes": 3349129,
+            "output_bytes": 307190
+          },
+          {
+            "seconds": 0.10010465,
+            "cpu_seconds": 0.100005,
+            "peak_rss_kib": 5528,
+            "sampled_peak_working_file_bytes": 3349129,
+            "output_bytes": 307190
+          }
+        ],
+        "crabxl-edit": [
+          {
+            "seconds": 0.29583217,
+            "cpu_seconds": 0.295501,
+            "peak_rss_kib": 12668,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.284063287,
+            "cpu_seconds": 0.283881,
+            "peak_rss_kib": 12600,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.266260923,
+            "cpu_seconds": 0.266003,
+            "peak_rss_kib": 12600,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          }
+        ],
+        "before:write-crabxl-stream": [
+          {
+            "seconds": 0.089576143,
+            "cpu_seconds": 0.089344,
+            "peak_rss_kib": 5360,
+            "sampled_peak_working_file_bytes": 3345739,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.078121754,
+            "cpu_seconds": 0.078028,
+            "peak_rss_kib": 5232,
+            "sampled_peak_working_file_bytes": 3345739,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.076398821,
+            "cpu_seconds": 0.076292,
+            "peak_rss_kib": 5228,
+            "sampled_peak_working_file_bytes": 3345739,
+            "output_bytes": 305143
+          }
+        ],
+        "before:write-crabxl-model": [
+          {
+            "seconds": 0.088228326,
+            "cpu_seconds": 0.087944,
+            "peak_rss_kib": 8428,
+            "sampled_peak_working_file_bytes": 3345739,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.083199877,
+            "cpu_seconds": 0.083065,
+            "peak_rss_kib": 8556,
+            "sampled_peak_working_file_bytes": 3378389,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.082736539,
+            "cpu_seconds": 0.08265,
+            "peak_rss_kib": 8556,
+            "sampled_peak_working_file_bytes": 3382034,
+            "output_bytes": 305143
+          }
+        ],
+        "before:write-rust_xlsxwriter-normal": [
+          {
+            "seconds": 0.106031305,
+            "cpu_seconds": 0.104636,
+            "peak_rss_kib": 16164,
+            "sampled_peak_working_file_bytes": 265537,
+            "output_bytes": 307115
+          },
+          {
+            "seconds": 0.096951122,
+            "cpu_seconds": 0.094273,
+            "peak_rss_kib": 16036,
+            "sampled_peak_working_file_bytes": 265537,
+            "output_bytes": 307115
+          },
+          {
+            "seconds": 0.099449694,
+            "cpu_seconds": 0.098994,
+            "peak_rss_kib": 16036,
+            "sampled_peak_working_file_bytes": 265537,
+            "output_bytes": 307115
+          }
+        ],
+        "before:write-rust_xlsxwriter-constant": [
+          {
+            "seconds": 0.094250673,
+            "cpu_seconds": 0.093822,
+            "peak_rss_kib": 5824,
+            "sampled_peak_working_file_bytes": 3371497,
+            "output_bytes": 307190
+          },
+          {
+            "seconds": 0.080935225,
+            "cpu_seconds": 0.080827,
+            "peak_rss_kib": 5964,
+            "sampled_peak_working_file_bytes": 3326799,
+            "output_bytes": 307190
+          },
+          {
+            "seconds": 0.090875047,
+            "cpu_seconds": 0.09076,
+            "peak_rss_kib": 5836,
+            "sampled_peak_working_file_bytes": 3326799,
+            "output_bytes": 307191
+          }
+        ],
+        "before:crabxl-edit": [
+          {
+            "seconds": 0.277862936,
+            "cpu_seconds": 0.277569,
+            "peak_rss_kib": 12652,
+            "sampled_peak_working_file_bytes": 592841,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.271939951,
+            "cpu_seconds": 0.271803,
+            "peak_rss_kib": 12524,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          },
+          {
+            "seconds": 0.288723653,
+            "cpu_seconds": 0.288536,
+            "peak_rss_kib": 12524,
+            "sampled_peak_working_file_bytes": 570501,
+            "output_bytes": 607096
+          }
+        ],
+        "write-crabxl-stream": [
+          {
+            "seconds": 0.082800953,
+            "cpu_seconds": 0.082579,
+            "peak_rss_kib": 5440,
+            "sampled_peak_working_file_bytes": 3368075,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.078842097,
+            "cpu_seconds": 0.078531,
+            "peak_rss_kib": 5176,
+            "sampled_peak_working_file_bytes": 3345739,
+            "output_bytes": 305143
+          },
+          {
+            "seconds": 0.107432388,
+            "cpu_seconds": 0.107318,
+            "peak_rss_kib": 5304,
+            "sampled_peak_working_file_bytes": 3345739,
+            "output_bytes": 305143
+          }
+        ]
+      },
+      "medians": {
+        "write-crabxl-model": {
+          "seconds": 0.090446573,
+          "cpu_seconds": 0.090236,
+          "peak_rss_kib": 8572,
+          "sampled_peak_working_file_bytes": 3345739,
+          "output_bytes": 305143
+        },
+        "write-rust_xlsxwriter-normal": {
+          "seconds": 0.10718905,
+          "cpu_seconds": 0.104416,
+          "peak_rss_kib": 15744,
+          "sampled_peak_working_file_bytes": 232769,
+          "output_bytes": 307115
+        },
+        "write-rust_xlsxwriter-constant": {
+          "seconds": 0.088249407,
+          "cpu_seconds": 0.088136,
+          "peak_rss_kib": 5660,
+          "sampled_peak_working_file_bytes": 3349129,
+          "output_bytes": 307190
+        },
+        "crabxl-edit": {
+          "seconds": 0.284063287,
+          "cpu_seconds": 0.283881,
+          "peak_rss_kib": 12600,
+          "sampled_peak_working_file_bytes": 570501,
+          "output_bytes": 607096
+        },
+        "before:write-crabxl-stream": {
+          "seconds": 0.078121754,
+          "cpu_seconds": 0.078028,
+          "peak_rss_kib": 5232,
+          "sampled_peak_working_file_bytes": 3345739,
+          "output_bytes": 305143
+        },
+        "before:write-crabxl-model": {
+          "seconds": 0.083199877,
+          "cpu_seconds": 0.083065,
+          "peak_rss_kib": 8556,
+          "sampled_peak_working_file_bytes": 3378389,
+          "output_bytes": 305143
+        },
+        "before:write-rust_xlsxwriter-normal": {
+          "seconds": 0.099449694,
+          "cpu_seconds": 0.098994,
+          "peak_rss_kib": 16036,
+          "sampled_peak_working_file_bytes": 265537,
+          "output_bytes": 307115
+        },
+        "before:write-rust_xlsxwriter-constant": {
+          "seconds": 0.090875047,
+          "cpu_seconds": 0.09076,
+          "peak_rss_kib": 5836,
+          "sampled_peak_working_file_bytes": 3326799,
+          "output_bytes": 307190
+        },
+        "before:crabxl-edit": {
+          "seconds": 0.277862936,
+          "cpu_seconds": 0.277569,
+          "peak_rss_kib": 12524,
+          "sampled_peak_working_file_bytes": 570501,
+          "output_bytes": 607096
+        },
+        "write-crabxl-stream": {
+          "seconds": 0.082800953,
+          "cpu_seconds": 0.082579,
+          "peak_rss_kib": 5304,
+          "sampled_peak_working_file_bytes": 3345739,
+          "output_bytes": 305143
+        }
+      }
+    },
+    {
+      "rows_per_sheet": 100000,
+      "columns": 10,
+      "read_sheets": 2,
+      "source_bytes": 5882341,
+      "source_sha256": "7c9a4471c3d743011320d3eefeb2540eb6b67cdc3081ad72d889735a87d1c0e1",
+      "samples": {
+        "write-crabxl-model": [
+          {
+            "seconds": 0.954059749,
+            "cpu_seconds": 0.953356,
+            "peak_rss_kib": 37204,
+            "sampled_peak_working_file_bytes": 35751439,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 1.037019951,
+            "cpu_seconds": 1.03607,
+            "peak_rss_kib": 37328,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.963149415,
+            "cpu_seconds": 0.962267,
+            "peak_rss_kib": 37332,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          }
+        ],
+        "write-rust_xlsxwriter-normal": [
+          {
+            "seconds": 0.952207708,
+            "cpu_seconds": 0.949887,
+            "peak_rss_kib": 110932,
+            "sampled_peak_working_file_bytes": 2985281,
+            "output_bytes": 3047479
+          },
+          {
+            "seconds": 0.958467393,
+            "cpu_seconds": 0.954572,
+            "peak_rss_kib": 110776,
+            "sampled_peak_working_file_bytes": 2985281,
+            "output_bytes": 3047479
+          },
+          {
+            "seconds": 0.958292396,
+            "cpu_seconds": 0.954918,
+            "peak_rss_kib": 110804,
+            "sampled_peak_working_file_bytes": 3018049,
+            "output_bytes": 3047480
+          }
+        ],
+        "write-rust_xlsxwriter-constant": [
+          {
+            "seconds": 0.901596194,
+            "cpu_seconds": 0.900844,
+            "peak_rss_kib": 5660,
+            "sampled_peak_working_file_bytes": 35784205,
+            "output_bytes": 2957242
+          },
+          {
+            "seconds": 0.905489208,
+            "cpu_seconds": 0.904876,
+            "peak_rss_kib": 5532,
+            "sampled_peak_working_file_bytes": 35784205,
+            "output_bytes": 2957242
+          },
+          {
+            "seconds": 0.917369217,
+            "cpu_seconds": 0.916532,
+            "peak_rss_kib": 5660,
+            "sampled_peak_working_file_bytes": 35805916,
+            "output_bytes": 2957243
+          }
+        ],
+        "crabxl-edit": [
+          {
+            "seconds": 2.958938618,
+            "cpu_seconds": 2.956935,
+            "peak_rss_kib": 70108,
+            "sampled_peak_working_file_bytes": 5871387,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 3.083045903,
+            "cpu_seconds": 3.08031,
+            "peak_rss_kib": 69976,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 2.981214985,
+            "cpu_seconds": 2.978831,
+            "peak_rss_kib": 70044,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          }
+        ],
+        "before:write-crabxl-stream": [
+          {
+            "seconds": 0.894276066,
+            "cpu_seconds": 0.893478,
+            "peak_rss_kib": 5232,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.869678787,
+            "cpu_seconds": 0.869088,
+            "peak_rss_kib": 5332,
+            "sampled_peak_working_file_bytes": 35794633,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.863608497,
+            "cpu_seconds": 0.863089,
+            "peak_rss_kib": 5356,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          }
+        ],
+        "before:write-crabxl-model": [
+          {
+            "seconds": 0.928247139,
+            "cpu_seconds": 0.927468,
+            "peak_rss_kib": 37252,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.981282604,
+            "cpu_seconds": 0.980356,
+            "peak_rss_kib": 37124,
+            "sampled_peak_working_file_bytes": 35751439,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.94326528,
+            "cpu_seconds": 0.942729,
+            "peak_rss_kib": 37248,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          }
+        ],
+        "before:write-rust_xlsxwriter-normal": [
+          {
+            "seconds": 0.824748395,
+            "cpu_seconds": 0.823839,
+            "peak_rss_kib": 110940,
+            "sampled_peak_working_file_bytes": 2985281,
+            "output_bytes": 3047479
+          },
+          {
+            "seconds": 0.833108542,
+            "cpu_seconds": 0.829273,
+            "peak_rss_kib": 111068,
+            "sampled_peak_working_file_bytes": 3018049,
+            "output_bytes": 3047479
+          },
+          {
+            "seconds": 0.841077312,
+            "cpu_seconds": 0.838795,
+            "peak_rss_kib": 110940,
+            "sampled_peak_working_file_bytes": 2985281,
+            "output_bytes": 3047479
+          }
+        ],
+        "before:write-rust_xlsxwriter-constant": [
+          {
+            "seconds": 0.903802496,
+            "cpu_seconds": 0.903418,
+            "peak_rss_kib": 5836,
+            "sampled_peak_working_file_bytes": 35784205,
+            "output_bytes": 2957242
+          },
+          {
+            "seconds": 1.006771093,
+            "cpu_seconds": 1.005986,
+            "peak_rss_kib": 5888,
+            "sampled_peak_working_file_bytes": 35805916,
+            "output_bytes": 2957242
+          },
+          {
+            "seconds": 0.915008358,
+            "cpu_seconds": 0.914309,
+            "peak_rss_kib": 5708,
+            "sampled_peak_working_file_bytes": 35784205,
+            "output_bytes": 2957242
+          }
+        ],
+        "before:crabxl-edit": [
+          {
+            "seconds": 2.834008613,
+            "cpu_seconds": 2.831829,
+            "peak_rss_kib": 69900,
+            "sampled_peak_working_file_bytes": 5884392,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 2.997769912,
+            "cpu_seconds": 2.996273,
+            "peak_rss_kib": 70028,
+            "sampled_peak_working_file_bytes": 5849781,
+            "output_bytes": 5887428
+          },
+          {
+            "seconds": 2.984829276,
+            "cpu_seconds": 2.982543,
+            "peak_rss_kib": 70028,
+            "sampled_peak_working_file_bytes": 5871387,
+            "output_bytes": 5887428
+          }
+        ],
+        "write-crabxl-stream": [
+          {
+            "seconds": 0.892146427,
+            "cpu_seconds": 0.891319,
+            "peak_rss_kib": 5312,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.920570501,
+            "cpu_seconds": 0.919754,
+            "peak_rss_kib": 5052,
+            "sampled_peak_working_file_bytes": 35773024,
+            "output_bytes": 2942935
+          },
+          {
+            "seconds": 0.870744116,
+            "cpu_seconds": 0.869932,
+            "peak_rss_kib": 5052,
+            "sampled_peak_working_file_bytes": 35794633,
+            "output_bytes": 2942935
+          }
+        ]
+      },
+      "medians": {
+        "write-crabxl-model": {
+          "seconds": 0.963149415,
+          "cpu_seconds": 0.962267,
+          "peak_rss_kib": 37328,
+          "sampled_peak_working_file_bytes": 35773024,
+          "output_bytes": 2942935
+        },
+        "write-rust_xlsxwriter-normal": {
+          "seconds": 0.958292396,
+          "cpu_seconds": 0.954572,
+          "peak_rss_kib": 110804,
+          "sampled_peak_working_file_bytes": 2985281,
+          "output_bytes": 3047479
+        },
+        "write-rust_xlsxwriter-constant": {
+          "seconds": 0.905489208,
+          "cpu_seconds": 0.904876,
+          "peak_rss_kib": 5660,
+          "sampled_peak_working_file_bytes": 35784205,
+          "output_bytes": 2957242
+        },
+        "crabxl-edit": {
+          "seconds": 2.981214985,
+          "cpu_seconds": 2.978831,
+          "peak_rss_kib": 70044,
+          "sampled_peak_working_file_bytes": 5849781,
+          "output_bytes": 5887428
+        },
+        "before:write-crabxl-stream": {
+          "seconds": 0.869678787,
+          "cpu_seconds": 0.869088,
+          "peak_rss_kib": 5332,
+          "sampled_peak_working_file_bytes": 35773024,
+          "output_bytes": 2942935
+        },
+        "before:write-crabxl-model": {
+          "seconds": 0.94326528,
+          "cpu_seconds": 0.942729,
+          "peak_rss_kib": 37248,
+          "sampled_peak_working_file_bytes": 35773024,
+          "output_bytes": 2942935
+        },
+        "before:write-rust_xlsxwriter-normal": {
+          "seconds": 0.833108542,
+          "cpu_seconds": 0.829273,
+          "peak_rss_kib": 110940,
+          "sampled_peak_working_file_bytes": 2985281,
+          "output_bytes": 3047479
+        },
+        "before:write-rust_xlsxwriter-constant": {
+          "seconds": 0.915008358,
+          "cpu_seconds": 0.914309,
+          "peak_rss_kib": 5836,
+          "sampled_peak_working_file_bytes": 35784205,
+          "output_bytes": 2957242
+        },
+        "before:crabxl-edit": {
+          "seconds": 2.984829276,
+          "cpu_seconds": 2.982543,
+          "peak_rss_kib": 70028,
+          "sampled_peak_working_file_bytes": 5871387,
+          "output_bytes": 5887428
+        },
+        "write-crabxl-stream": {
+          "seconds": 0.892146427,
+          "cpu_seconds": 0.891319,
+          "peak_rss_kib": 5052,
+          "sampled_peak_working_file_bytes": 35773024,
+          "output_bytes": 2942935
+        }
+      }
+    }
+  ],
+  "candidate_base_revision": "4f25c545684a03a879d717c27cf1bb91acd14676",
+  "candidate_patch": "diff --git a/crates/crabxl-xlsx/src/encode.rs b/crates/crabxl-xlsx/src/encode.rs\nindex 1338068..79ca649 100644\n--- a/crates/crabxl-xlsx/src/encode.rs\n+++ b/crates/crabxl-xlsx/src/encode.rs\n@@ -511,21 +511,23 @@ pub(crate) fn write_text(output: &mut impl Write, text: &str) -> io::Result<()>\n }\n fn write_xml(output: &mut impl Write, text: &str, attribute: bool) -> io::Result<()> {\n     let mut start = 0;\n-    for (offset, ch) in text.char_indices() {\n-        let replacement = match ch {\n-            '&' => b\"&amp;\".as_slice(),\n-            '<' => b\"&lt;\".as_slice(),\n-            '>' => b\"&gt;\".as_slice(),\n-            '\\r' => b\"&#13;\".as_slice(),\n-            '\\n' if attribute => b\"&#10;\".as_slice(),\n-            '\\t' if attribute => b\"&#9;\".as_slice(),\n-            '\\\"' if attribute => b\"&quot;\".as_slice(),\n-            '\\'' if attribute => b\"&apos;\".as_slice(),\n+    // XML replacements are ASCII, which cannot occur inside a UTF-8 sequence.\n+    // Borrow unchanged byte runs without decoding every Unicode character.\n+    for (offset, byte) in text.bytes().enumerate() {\n+        let replacement = match byte {\n+            b'&' => b\"&amp;\".as_slice(),\n+            b'<' => b\"&lt;\".as_slice(),\n+            b'>' => b\"&gt;\".as_slice(),\n+            b'\\r' => b\"&#13;\".as_slice(),\n+            b'\\n' if attribute => b\"&#10;\".as_slice(),\n+            b'\\t' if attribute => b\"&#9;\".as_slice(),\n+            b'\\\"' if attribute => b\"&quot;\".as_slice(),\n+            b'\\'' if attribute => b\"&apos;\".as_slice(),\n             _ => continue,\n         };\n         output.write_all(&text.as_bytes()[start..offset])?;\n         output.write_all(replacement)?;\n-        start = offset + ch.len_utf8();\n+        start = offset + 1;\n     }\n     output.write_all(&text.as_bytes()[start..])\n }\n",
+  "comparison_worker_source": "//! Public-API comparison of editable Rust models and numeric cell streams.\nuse crabxl::{CellAddress, CellValue, LoadOptions, LoadedWorkbook, MemoryPolicy, WorkbookReader};\nuse std::{fs::File, path::Path, time::Instant};\n\nfn verify_text(text: &str, index: usize, unique: usize) -> Result<i64, Box<dyn std::error::Error>> {\n    if unique == 0 || text != format!(\"item-{:08}-{}\", index % unique, \"x\".repeat(96)) {\n        return Err(\"Text model value/order mismatch\".into());\n    }\n    Ok(text.len() as i64)\n}\n\nfn verify_styled(cell: &crabxl::Cell, index: usize) -> Result<(), Box<dyn std::error::Error>> {\n    let row = index / 10;\n    let column = index % 10;\n    if cell.address.row.get() as usize != row || cell.address.column.get() as usize != column {\n        return Err(\"Styled model coordinate mismatch\".into());\n    }\n    let expected_style = match column {\n        1 | 2 | 4 | 7 => 1,\n        3 => 2,\n        _ => 0,\n    };\n    if cell.style.get() != expected_style {\n        return Err(\"Styled model identity mismatch\".into());\n    }\n    let valid = match (column, &cell.value) {\n        (0 | 9, CellValue::Number(value)) => *value == 1.25,\n        (1 | 7, CellValue::DateTime(value)) => {\n            value.kind() == crabxl::DateKind::DateTime\n                && value.serial() == 45292.25 + (row % 365) as f64\n        }\n        (2, CellValue::DateTime(value)) => {\n            value.kind() == crabxl::DateKind::Time && value.serial() == 0.5\n        }\n        (3, CellValue::DateTime(value)) => {\n            value.kind() == crabxl::DateKind::Duration && value.serial() == (row % 101) as f64 / 4.0\n        }\n        (4, CellValue::Boolean(value)) => *value == !row.is_multiple_of(2),\n        (5, CellValue::Text(value)) => value.as_str() == format!(\"styled-{row:08}\"),\n        (6, CellValue::Error(value)) => value.as_str() == \"#DIV/0!\",\n        (8, CellValue::Integer(value)) => *value == row as i64,\n        _ => false,\n    };\n    if !valid {\n        return Err(\"Styled model value mismatch\".into());\n    }\n    Ok(())\n}\n\nfn main() -> Result<(), Box<dyn std::error::Error>> {\n    let args: Vec<String> = std::env::args().collect();\n    let input = Path::new(args.get(1).ok_or(\"Missing input path\")?);\n    let mode = args.get(2).ok_or(\"Missing comparison mode\")?;\n    let target = args.get(3).map(Path::new);\n    let start = Instant::now();\n    let mut count = 0usize;\n    let mut checksum = 0i64;\n    let mut sheets = 0usize;\n    let mut output_bytes = 0u64;\n    let mut sum = |value: i64| {\n        count += 1;\n        checksum = checksum\n            .checked_add(value)\n            .expect(\"Generated checksum fits i64\");\n    };\n    if mode.starts_with(\"write-text-\") {\n        let rows = args\n            .get(4)\n            .ok_or(\"Missing text row count\")?\n            .parse::<u32>()?;\n        let output = target.ok_or(\"Missing text output path\")?;\n        let value = |row: u32, column: u32| {\n            format!(\"{row}:{column}:\")\n                + &\"plain \\u{6587}\\u{5b57} caf\\u{e9} &<> \\\"'\\t\\r\\n \".repeat(4)\n        };\n        if mode == \"write-text-crabxl-stream\" {\n            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;\n            writer.start_sheet(\"Sheet\")?;\n            let mut cells = crabxl::Row::new(crabxl::RowIndex::new(0)?);\n            for row in 0..rows {\n                cells.index = crabxl::RowIndex::new(row)?;\n                cells.cells.clear();\n                for column in 0..10 {\n                    let text = value(row, column);\n                    sum(text.len() as i64);\n                    cells.cells.push(crabxl::Cell {\n                        address: CellAddress::new(row, column)?,\n                        value: CellValue::text(text.into_boxed_str()),\n                        style: crabxl::StyleId::new(0),\n                    });\n                }\n                writer.write_row(&cells)?;\n            }\n            writer.finish(File::create(output)?)?;\n        } else if mode == \"write-text-crabxl-model\" {\n            let mut book = crabxl::Workbook::new(crabxl::WorkbookLimits {\n                max_bytes: 1024 * 1024 * 1024,\n                sheet: crabxl::EditLimits {\n                    max_bytes: 1024 * 1024 * 1024,\n                    ..Default::default()\n                },\n                ..Default::default()\n            })?;\n            let id = book.create_sheet(\"Sheet\")?;\n            {\n                let mut sheet = book.sheet_mut(id)?;\n                for row in 0..rows {\n                    for column in 0..10 {\n                        let text = value(row, column);\n                        sum(text.len() as i64);\n                        sheet.set(crabxl::Cell {\n                            address: CellAddress::new(row, column)?,\n                            value: CellValue::text(text.into_boxed_str()),\n                            style: crabxl::StyleId::new(0),\n                        })?;\n                    }\n                }\n            }\n            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;\n            writer.write_workbook(&book)?;\n            writer.finish(File::create(output)?)?;\n        } else if matches!(\n            mode.as_str(),\n            \"write-text-rust_xlsxwriter-normal\" | \"write-text-rust_xlsxwriter-constant\"\n        ) {\n            let mut book = rust_xlsxwriter::Workbook::new();\n            let sheet = if mode.ends_with(\"constant\") {\n                book.add_worksheet_with_constant_memory()\n            } else {\n                book.add_worksheet()\n            };\n            sheet.set_name(\"Sheet\")?;\n            for row in 0..rows {\n                for column in 0..10 {\n                    let text = value(row, column);\n                    sum(text.len() as i64);\n                    sheet.write_string(row, column as u16, text)?;\n                }\n            }\n            book.save(output)?;\n        } else {\n            return Err(\"Unknown text write mode\".into());\n        }\n        sheets = 1;\n        output_bytes = std::fs::metadata(output)?.len();\n    } else if mode.starts_with(\"write-\") {\n        let rows = args\n            .get(4)\n            .ok_or(\"Write mode requires row count\")?\n            .parse::<u32>()?;\n        let output = target.ok_or(\"Write mode requires output\")?;\n        if matches!(\n            mode.as_str(),\n            \"write-rust_xlsxwriter-normal\" | \"write-rust_xlsxwriter-constant\"\n        ) {\n            let mut book = rust_xlsxwriter::Workbook::new();\n            let sheet = if mode.ends_with(\"constant\") {\n                book.add_worksheet_with_constant_memory()\n            } else {\n                book.add_worksheet()\n            };\n            sheet.set_name(\"Sheet\")?;\n            for row in 0..rows {\n                for column in 0..10u16 {\n                    sheet.write_number(row, column, f64::from(row) * 10.0 + f64::from(column))?;\n                }\n            }\n            book.save(output)?;\n        } else if mode == \"write-crabxl-stream\" {\n            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;\n            writer.start_sheet(\"Sheet\")?;\n            let mut cells = crabxl::Row::new(crabxl::RowIndex::new(0)?);\n            for row in 0..rows {\n                cells.index = crabxl::RowIndex::new(row)?;\n                cells.cells.clear();\n                for column in 0..10 {\n                    cells.cells.push(crabxl::Cell {\n                        address: CellAddress::new(row, column)?,\n                        value: CellValue::Integer(i64::from(row) * 10 + i64::from(column)),\n                        style: crabxl::StyleId::new(0),\n                    });\n                }\n                writer.write_row(&cells)?;\n            }\n            writer.finish(File::create(output)?)?;\n        } else if mode == \"write-crabxl-model\" {\n            let mut book = crabxl::Workbook::new(crabxl::WorkbookLimits {\n                max_bytes: 1024 * 1024 * 1024,\n                sheet: crabxl::EditLimits {\n                    max_bytes: 1024 * 1024 * 1024,\n                    ..Default::default()\n                },\n                ..Default::default()\n            })?;\n            let id = book.create_sheet(\"Sheet\")?;\n            {\n                let mut sheet = book.sheet_mut(id)?;\n                for row in 0..rows {\n                    for column in 0..10 {\n                        sheet.set(crabxl::Cell {\n                            address: CellAddress::new(row, column)?,\n                            value: CellValue::Integer(i64::from(row) * 10 + i64::from(column)),\n                            style: crabxl::StyleId::new(0),\n                        })?;\n                    }\n                }\n            }\n            let mut writer = crabxl::WorkbookWriter::new(crabxl::WriteOptions::default())?;\n            writer.write_workbook(&book)?;\n            writer.finish(File::create(output)?)?;\n        } else if mode == \"write-umya-model\" {\n            let mut book = umya_spreadsheet::new_file();\n            book.sheet_mut(0)?.set_name(\"Sheet\");\n            let sheet = book.sheet_mut(0)?;\n            for row in 0..rows {\n                for column in 0..10 {\n                    sheet\n                        .cell_mut((column + 1, row + 1))\n                        .set_value_number(f64::from(row) * 10.0 + f64::from(column));\n                }\n            }\n            umya_spreadsheet::writer::xlsx::write(&book, output)?;\n        } else {\n            return Err(\"Unknown write comparison mode\".into());\n        }\n        count = rows as usize * 10;\n        checksum = (count as i64) * (count as i64 - 1) / 2;\n        sheets = 1;\n        output_bytes = std::fs::metadata(output)?.len();\n    } else if mode == \"calamine-text-model\" {\n        use calamine::{Data, Reader};\n        let unique: usize = args.get(4).ok_or(\"Missing unique count\")?.parse()?;\n        let mut book: calamine::Xlsx<_> = calamine::open_workbook(input)?;\n        let mut ranges = Vec::new();\n        for name in book.sheet_names() {\n            let range = book.worksheet_range(&name)?;\n            for (_, _, value) in range.used_cells() {\n                let Data::String(text) = value else {\n                    return Err(\"Expected text\".into());\n                };\n                checksum += verify_text(text, count, unique)?;\n                count += 1;\n            }\n            sheets += 1;\n            ranges.push(range);\n        }\n        std::hint::black_box(&ranges);\n    } else if mode.starts_with(\"calamine-\") {\n        use calamine::{Data, DataRef, Reader};\n        let mut book: calamine::Xlsx<_> = calamine::open_workbook(input)?;\n        let names = book.sheet_names();\n        sheets = names.len();\n        let mut retained_ranges = Vec::new();\n        for name in names {\n            if mode == \"calamine-stream\" {\n                let mut cells = book.worksheet_cells_reader(&name)?;\n                while let Some(cell) = cells.next_cell()? {\n                    let value = match cell.get_value() {\n                        DataRef::Int(value) => *value,\n                        DataRef::Float(value) if value.fract() == 0.0 => *value as i64,\n                        _ => return Err(\"Expected numeric input\".into()),\n                    };\n                    sum(value);\n                }\n            } else if mode == \"calamine-range\" || mode == \"calamine-model\" {\n                let range = book.worksheet_range(&name)?;\n                for cell in range.used_cells() {\n                    let value = match cell.2 {\n                        Data::Int(value) => *value,\n                        Data::Float(value) if value.fract() == 0.0 => *value as i64,\n                        _ => return Err(\"Expected numeric input\".into()),\n                    };\n                    sum(value);\n                }\n                if mode == \"calamine-model\" {\n                    retained_ranges.push(range);\n                }\n            } else {\n                return Err(\"Unknown calamine mode\".into());\n            }\n        }\n        // Explicitly keep all returned ranges alive through complete traversal.\n        std::hint::black_box(&retained_ranges);\n    } else if mode.starts_with(\"umya-\") {\n        if mode == \"umya-stream\" {\n            // These are the two declarations emitted by workbook_demo.\n            for name in [\"Copy\", \"Renamed\"] {\n                umya_spreadsheet::reader::xlsx::read_sheet_by_name_stream(input, name, |cell| {\n                    let value = cell.value_number().expect(\"Generated numeric input\");\n                    assert_eq!(value.fract(), 0.0);\n                    sum(value as i64);\n                })?;\n                sheets += 1;\n            }\n        } else {\n            let mut book = if mode.starts_with(\"umya-lazy\") {\n                umya_spreadsheet::reader::xlsx::lazy_read(input)?\n            } else {\n                umya_spreadsheet::reader::xlsx::read(input)?\n            };\n            sheets = book.sheet_count();\n            if mode != \"umya-lazy\" {\n                book.read_sheet_collection();\n                for sheet in book.sheet_collection() {\n                    // Use the supported unordered public collection API.\n                    for cell in sheet.cells() {\n                        let value = cell.value_number().ok_or(\"Expected numeric input\")?;\n                        if value.fract() != 0.0 {\n                            return Err(\"Expected integer values\".into());\n                        }\n                        sum(value as i64);\n                    }\n                }\n                if mode.ends_with(\"edit\") {\n                    book.sheet_mut(0)?.cell_mut(\"A1\").set_value_number(42);\n                    let target = target.ok_or(\"Edit mode requires output\")?;\n                    umya_spreadsheet::writer::xlsx::write(&book, target)?;\n                    output_bytes = std::fs::metadata(target)?.len();\n                }\n            }\n        }\n    } else if mode == \"crabxl-text-model\" || mode == \"crabxl-styled-model\" {\n        let unique: usize = args.get(4).ok_or(\"Missing unique count\")?.parse()?;\n        let storage = match args.get(5).map(String::as_str).unwrap_or(\"memory\") {\n            \"memory\" => crabxl::SharedStringStorage::Memory,\n            \"disk\" => crabxl::SharedStringStorage::Disk,\n            _ => return Err(\"Invalid SST policy\".into()),\n        };\n        let maximum = 1024 * 1024 * 1024;\n        let mut book = LoadedWorkbook::with_options(\n            File::open(input)?,\n            LoadOptions {\n                memory_policy: MemoryPolicy::Budget(maximum),\n                resources: crabxl::ResourceLimits {\n                    max_materialized_bytes: maximum,\n                    ..Default::default()\n                },\n                workbook: crabxl::WorkbookLimits {\n                    max_bytes: maximum,\n                    sheet: crabxl::EditLimits {\n                        max_bytes: maximum,\n                        ..Default::default()\n                    },\n                    ..Default::default()\n                },\n                read: crabxl::ReadOptions {\n                    data_only: true,\n                    ..Default::default()\n                },\n                shared_strings: crabxl::SharedStringOptions {\n                    storage,\n                    memory_policy: MemoryPolicy::Budget(256 * 1024 * 1024),\n                    cache_bytes: 1024 * 1024,\n                    temp_directory: target.and_then(Path::parent).map(Path::to_owned),\n                    ..Default::default()\n                },\n                ..Default::default()\n            },\n        )?;\n        let ids = book.model().sheets().map(|(id, _)| id).collect::<Vec<_>>();\n        for id in ids {\n            for cell in book.sheet(id)?.cells() {\n                if mode == \"crabxl-text-model\" {\n                    let CellValue::Text(text) = &cell.value else {\n                        return Err(\"Expected text\".into());\n                    };\n                    checksum += verify_text(text.as_str(), count, unique)?;\n                } else {\n                    verify_styled(cell, count)?;\n                    checksum += 1;\n                }\n                count += 1;\n            }\n            sheets += 1;\n        }\n    } else if mode == \"crabxl-stream\" {\n        let mut reader = WorkbookReader::open(input)?;\n        let names: Vec<_> = reader\n            .sheets()\n            .iter()\n            .map(|s| s.name().to_owned())\n            .collect();\n        for name in names {\n            let mut rows = reader.rows(&name)?;\n            let mut row = crabxl::Row::new(crabxl::RowIndex::new(0)?);\n            while rows.read_row_into(&mut row)? {\n                for cell in &row.cells {\n                    let CellValue::Integer(value) = cell.value else {\n                        return Err(\"Expected numeric input\".into());\n                    };\n                    sum(value);\n                }\n            }\n            sheets += 1;\n        }\n    } else if matches!(\n        mode.as_str(),\n        \"crabxl-model\" | \"crabxl-edit\" | \"crabxl-lazy\"\n    ) {\n        let mut book = LoadedWorkbook::with_options(\n            File::open(input)?,\n            LoadOptions {\n                memory_policy: MemoryPolicy::Budget(1024 * 1024 * 1024),\n                workbook: crabxl::WorkbookLimits {\n                    max_bytes: 1024 * 1024 * 1024,\n                    sheet: crabxl::EditLimits {\n                        max_bytes: 512 * 1024 * 1024,\n                        ..Default::default()\n                    },\n                    ..Default::default()\n                },\n                ..LoadOptions::default()\n            },\n        )?;\n        let ids: Vec<_> = book.model().sheets().map(|(id, _)| id).collect();\n        sheets = ids.len();\n        if mode != \"crabxl-lazy\" {\n            for id in ids.iter().copied() {\n                for cell in book.sheet(id)?.cells() {\n                    let CellValue::Integer(value) = cell.value else {\n                        return Err(\"Expected numeric input\".into());\n                    };\n                    sum(value);\n                }\n            }\n            if mode == \"crabxl-edit\" {\n                book.set_value(ids[0], CellAddress::new(0, 0)?, CellValue::Integer(42))?;\n                let target = target.ok_or(\"Edit mode requires output\")?;\n                book.save_path(target, crabxl::SaveOptions::default())?;\n                output_bytes = std::fs::metadata(target)?.len();\n            }\n        }\n    } else {\n        return Err(\"Unknown comparison mode\".into());\n    }\n    println!(\n        \"{{\\\"cells\\\":{count},\\\"checksum\\\":{checksum},\\\"sheets\\\":{sheets},\\\"output_bytes\\\":{output_bytes},\\\"operation_seconds\\\":{}}}\",\n        start.elapsed().as_secs_f64()\n    );\n    Ok(())\n}\n"
+}
