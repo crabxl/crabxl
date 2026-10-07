@@ -150,6 +150,50 @@ impl Index {
         }
     }
 }
+// Intern one changed component while retaining the existing shared tables.
+fn intern_component<T: Hash + PartialEq>(
+    values: &mut Vec<T>,
+    index: &mut Index,
+    value: T,
+    heap: usize,
+    limits: StyleLimits,
+    maximum: usize,
+    other: usize,
+) -> Result<(u32, bool)> {
+    if let Some(id) = index.find(values, &value) {
+        return Ok((id, false));
+    }
+    let hash = fingerprint(&value);
+    let retained = other
+        .saturating_add(values.capacity() * size_of::<T>())
+        .saturating_add(index.heap_bytes())
+        .saturating_add(heap)
+        .saturating_add(index.growth(hash));
+    let geometric =
+        retained.saturating_add(vector_growth(values, limits.max_records, true)) <= maximum;
+    if retained.saturating_add(vector_growth(values, limits.max_records, geometric)) > maximum {
+        return Err(limit());
+    }
+    reserve(values, limits.max_records, geometric)?;
+    let prepared = index.reserve(hash)?;
+    let actual = other
+        .saturating_add(values.capacity() * size_of::<T>())
+        .saturating_add(index.heap_bytes())
+        .saturating_add(heap)
+        .saturating_add(
+            prepared
+                .as_ref()
+                .map_or(0, |ids| ids.capacity() * size_of::<u32>()),
+        );
+    if actual > maximum {
+        return Err(limit());
+    }
+    let id = values.len() as u32;
+    values.push(value);
+    index.insert(hash, id, prepared);
+    Ok((id, true))
+}
+
 fn vector_growth<T>(values: &Vec<T>, maximum: usize, geometric: bool) -> usize {
     if values.len() < values.capacity() {
         return 0;
@@ -245,6 +289,66 @@ impl TemporalStyleIds {
         }
     }
 }
+enum ComponentChange {
+    Font(u32),
+    Fill(u32),
+    Border(u32),
+    Alignment(Option<Box<crate::Alignment>>),
+    Protection(Option<crate::Protection>),
+}
+impl ComponentChange {
+    fn key<'a>(&'a self, source: &'a CellFormat) -> FormatKey<'a> {
+        let mut key = format_key(source, source.alignment.as_deref());
+        match self {
+            Self::Font(id) => {
+                key.font_id = *id;
+                key.apply_font = Some(true);
+            }
+            Self::Fill(id) => {
+                key.fill_id = *id;
+                key.apply_fill = Some(true);
+            }
+            Self::Border(id) => {
+                key.border_id = *id;
+                key.apply_border = Some(true);
+            }
+            Self::Alignment(value) => {
+                key.alignment = value.as_deref();
+                key.apply_alignment = Some(true);
+            }
+            Self::Protection(value) => {
+                key.protection = *value;
+                key.apply_protection = Some(true);
+            }
+        }
+        key
+    }
+    fn apply(self, format: &mut CellFormat) {
+        match self {
+            Self::Font(id) => {
+                format.font_id = id;
+                format.apply_font = Some(true);
+            }
+            Self::Fill(id) => {
+                format.fill_id = id;
+                format.apply_fill = Some(true);
+            }
+            Self::Border(id) => {
+                format.border_id = id;
+                format.apply_border = Some(true);
+            }
+            Self::Alignment(value) => {
+                format.alignment = value;
+                format.apply_alignment = Some(true);
+            }
+            Self::Protection(value) => {
+                format.protection = value;
+                format.apply_protection = Some(true);
+            }
+        }
+    }
+}
+
 /// One canonical catalog plus collision-checked indices. Styles share components,
 /// not whole appearance clones. Catalog access is borrowed and immutable so
 /// numeric IDs and deduplication indices cannot become stale.
@@ -754,6 +858,111 @@ impl StyleRegistry {
             })
             .map(StyleId::new))
     }
+    /// Replace one component without copying any unrelated component payloads.
+    /// Checked interned components remain reusable if subsequent format growth fails.
+    pub fn derive_component_with_limit(
+        &mut self,
+        base: StyleId,
+        component: crate::StyleComponent,
+        maximum: usize,
+    ) -> Result<StyleId> {
+        let maximum = maximum.min(self.limits.max_bytes);
+        if self.memory_bytes() > maximum {
+            return Err(limit());
+        }
+        self.catalog
+            .cell_format(base)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown base cell format"))?;
+        let change = match component {
+            crate::StyleComponent::Font(value) => {
+                value.validate()?;
+                let heap = value.heap_bytes();
+                let other = self
+                    .memory_bytes()
+                    .saturating_sub(self.catalog.fonts.capacity() * size_of::<crate::Font>())
+                    .saturating_sub(self.fonts.heap_bytes());
+                let (id, inserted) = intern_component(
+                    &mut self.catalog.fonts,
+                    &mut self.fonts,
+                    *value,
+                    heap,
+                    self.limits,
+                    maximum,
+                    other,
+                )?;
+                if inserted {
+                    self.payload_bytes = self.payload_bytes.saturating_add(heap);
+                }
+                ComponentChange::Font(id)
+            }
+            crate::StyleComponent::Fill(value) => {
+                if value.heap_bytes() > maximum {
+                    return Err(limit());
+                }
+                value.validate()?;
+                let heap = value.heap_bytes();
+                let other = self
+                    .memory_bytes()
+                    .saturating_sub(self.catalog.fills.capacity() * size_of::<crate::Fill>())
+                    .saturating_sub(self.fills.heap_bytes());
+                let (id, inserted) = intern_component(
+                    &mut self.catalog.fills,
+                    &mut self.fills,
+                    *value,
+                    heap,
+                    self.limits,
+                    maximum,
+                    other,
+                )?;
+                if inserted {
+                    self.payload_bytes = self.payload_bytes.saturating_add(heap);
+                }
+                ComponentChange::Fill(id)
+            }
+            crate::StyleComponent::Border(value) => {
+                value.validate()?;
+                let heap = value.heap_bytes();
+                let other = self
+                    .memory_bytes()
+                    .saturating_sub(self.catalog.borders.capacity() * size_of::<crate::Border>())
+                    .saturating_sub(self.borders.heap_bytes());
+                let (id, inserted) = intern_component(
+                    &mut self.catalog.borders,
+                    &mut self.borders,
+                    *value,
+                    heap,
+                    self.limits,
+                    maximum,
+                    other,
+                )?;
+                if inserted {
+                    self.payload_bytes = self.payload_bytes.saturating_add(heap);
+                }
+                ComponentChange::Border(id)
+            }
+            crate::StyleComponent::Alignment(value) => {
+                if let Some(value) = &value {
+                    value.validate()?;
+                }
+                ComponentChange::Alignment(value)
+            }
+            crate::StyleComponent::Protection(value) => ComponentChange::Protection(value),
+        };
+        let source = self
+            .catalog
+            .cell_format(base)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown base cell format"))?;
+        let key = change.key(source);
+        if let Some(id) = self.formats.find_by(fingerprint(&key), |id| {
+            let existing = &self.catalog.cell_formats[id as usize];
+            format_key(existing, existing.alignment.as_deref()) == key
+        }) {
+            return Ok(StyleId::new(id));
+        }
+        let mut format = source.clone();
+        change.apply(&mut format);
+        self.register_format_with_limit(format, maximum)
+    }
     /// Intern the canonical automatic presets using the source normal format's
     /// shared components. Default catalogs obtain the stable IDs 1 through 4;
     /// imported catalogs retain their existing IDs. Valid interned records may
@@ -1078,7 +1287,44 @@ mod accounting_tests {
                 ..Default::default()
             };
             style.font.name = Some(format!("Face {}", index % 4).into());
-            registry.register(style)?;
+            let base = registry.register(style)?;
+            let components = [
+                crate::StyleComponent::Font(Box::new(crate::Font {
+                    name: Some(format!("Replacement {}", index % 3).into()),
+                    ..Default::default()
+                })),
+                crate::StyleComponent::Fill(Box::default()),
+                crate::StyleComponent::Border(Box::default()),
+                crate::StyleComponent::Alignment(Some(Box::new(crate::Alignment {
+                    wrap_text: Some(true),
+                    ..Default::default()
+                }))),
+                crate::StyleComponent::Protection(Some(crate::Protection {
+                    locked: Some(false),
+                    hidden: Some(true),
+                })),
+            ];
+            for component in components {
+                let source = registry
+                    .catalog
+                    .cell_format(base)
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Missing registered base"))?
+                    .clone();
+                let derived =
+                    registry.derive_component_with_limit(base, component.clone(), usize::MAX)?;
+                let bytes = registry.memory_bytes();
+                assert_eq!(
+                    registry.derive_component_with_limit(base, component, usize::MAX,)?,
+                    derived
+                );
+                assert_eq!(registry.memory_bytes(), bytes);
+                let result = registry
+                    .catalog
+                    .cell_format(derived)
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Missing derived format"))?;
+                assert_eq!(source.number_format_id, result.number_format_id);
+                assert_eq!(source.base_format_id, result.base_format_id);
+            }
             let indices = [
                 &registry.fonts,
                 &registry.fills,

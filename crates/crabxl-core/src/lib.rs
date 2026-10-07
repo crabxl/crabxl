@@ -33,7 +33,7 @@ pub use row::{
     RowBatch, SheetData,
 };
 pub use scalar::{CellError, CellText, ExactInteger, StyleInteger};
-pub use style::{CellStyle, Font, StyleId};
+pub use style::{CellStyle, Font, StyleComponent, StyleId};
 
 mod worksheet;
 pub use worksheet::{CellRange, EditLimits, SheetVisibility, Worksheet};

@@ -688,6 +688,54 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.rebalance()?;
         self.set_style(id, address, result?)
     }
+    /// Replace one source style component while retaining unrelated fields.
+    /// Source graph and signature guards run before registration.
+    pub fn set_style_component(
+        &mut self,
+        id: SheetId,
+        address: CellAddress,
+        component: crabxl_core::StyleComponent,
+    ) -> Result<()> {
+        if self.options.read.data_only {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Data-only style editing remains unimplemented",
+            ));
+        }
+        if let crabxl_core::StyleComponent::Font(font) = &component
+            && let Some(name) = &font.name
+        {
+            crate::encode::validate_xml_text(name)?;
+        }
+        let catalog = self.bank.style_catalog().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source stylesheet remains unimplemented",
+            )
+        })?;
+        self.editor.validate_style_edit(catalog)?;
+        let index = self
+            .sheets
+            .iter()
+            .position(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        if self.sheets[index].original.is_some()
+            && !self.editor.model_is_dirty(&self.sheets[index].name)
+        {
+            self.editor.prepare_model(&self.sheets[index].name)?;
+        }
+        let style = self
+            .sheet(id)?
+            .get(address)
+            .map_or(crabxl_core::StyleId::new(0), |cell| cell.style);
+        self.rebalance()?;
+        let result = self.bank.derive_style_component(style, component);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        self.assign_style(id, address, result?, false)
+    }
     /// Assign an existing workbook-local format without copying the cell value.
     /// Supported source worksheets materialize once and use the canonical save
     /// path. Affected unmodeled graphs reject before mutation. Unknown format
@@ -698,6 +746,15 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         id: SheetId,
         address: CellAddress,
         style: crabxl_core::StyleId,
+    ) -> Result<()> {
+        self.assign_style(id, address, style, true)
+    }
+    fn assign_style(
+        &mut self,
+        id: SheetId,
+        address: CellAddress,
+        style: crabxl_core::StyleId,
+        explicit_temporal: bool,
     ) -> Result<()> {
         let valid = self
             .bank
@@ -724,7 +781,13 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
         if source.original.is_none() || self.editor.model_is_dirty(&source.name) {
             let created = source.original.is_none();
-            let result = self.bank.sheet_mut(id)?.set_style(address, style);
+            let result = if explicit_temporal {
+                self.bank.sheet_mut(id)?.set_style(address, style)
+            } else {
+                self.bank
+                    .sheet_mut(id)?
+                    .set_appearance_style(address, style)
+            };
             if result.is_ok() && created {
                 self.editor.created_values_dirty(id);
             }
@@ -734,8 +797,8 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.edit_structure_when(
             id,
             |sheet| {
-                let changed = sheet.get(address).is_none_or(|cell| cell.style != style || matches!(&cell.value, CellValue::DateTime(date) if !date.requires_serial_encoding()));
-                sheet.set_style(address, style)?;
+                let changed = sheet.get(address).is_none_or(|cell| cell.style != style || (explicit_temporal && matches!(&cell.value, CellValue::DateTime(date) if !date.requires_serial_encoding())));
+                if explicit_temporal {sheet.set_style(address,style)?;} else {sheet.set_appearance_style(address,style)?;}
                 Ok(changed)
             },
             |changed| *changed,

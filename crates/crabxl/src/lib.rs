@@ -29,7 +29,9 @@ pub use crabxl_core::{
     Cell, CellAddress, CellValue, ColumnIndex, Error, ErrorKind, MAX_COLUMNS, MAX_ROWS,
     ReadOptions, ResourceLimits, Result, Row, RowBatch, RowIndex, SheetData,
 };
-pub use crabxl_core::{CellError, CellText, ExactInteger, StyleId, StyleInteger, parse_iso8601};
+pub use crabxl_core::{
+    CellError, CellText, ExactInteger, StyleComponent, StyleId, StyleInteger, parse_iso8601,
+};
 pub use crabxl_xlsx::{AdaptiveRead, ReadData};
 pub use crabxl_xlsx::{LoadOptions, LoadedWorkbook};
 pub use crabxl_xlsx::{Rows, SheetInfo, SheetKind, WorkbookReader};
