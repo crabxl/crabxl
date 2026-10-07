@@ -18021,6 +18021,36 @@
         "crates/crabxl-xlsx/tests/writer.rs::owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values"
       ],
       "limitations": "Existing canonical IDs and derived number formats only. Original source styling materializes once and reuses guarded model output. Signed packages, sources without stylesheets, unknown style sections, data-only edits and affected unmodeled graphs reject explicitly. General temporal assignment preserves the live value but requests numeric encoding. Complete component/Python style APIs and deferred graph interactions remain later M5/M6 work. No full milestone closure."
+    },
+    {
+      "id": "model.styles.component-mutation",
+      "description": "Checked shared font/fill/border/alignment/protection derivation and native/Python component views",
+      "status": "verified",
+      "milestone": "M5",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "owned-model",
+        "loaded-model",
+        "sequential-writer",
+        "streaming-reader"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/stable/styles.html",
+      "modules": [
+        "crates/crabxl-core/src/style_registry.rs",
+        "crates/crabxl-xlsx/src/loaded.rs",
+        "crates/crabxl-xlsx/src/writer.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/style_registry.rs::borrowed_number_format_variants_share_components_and_preserve_source_properties",
+        "crates/crabxl-core/src/style_registry.rs::accounting_tests::incremental_storage_ledger_matches_actual_catalog_and_index_capacities",
+        "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable"
+      ],
+      "limitations": "A10 component checkpoint only. Named styles/themes/row-column styles remain A11; advanced graph mutations remain their owning M5/M6 releases. Missing source stylesheets, signed/data-only packages and unknown/affected unmodeled graphs retain explicit guards. Caller-owned Python appearance snapshots are separate from workbook-managed allowances."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",
