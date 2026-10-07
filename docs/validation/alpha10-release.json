@@ -1,0 +1,128 @@
+{
+  "alpha": 10,
+  "status": "published and public installations verified",
+  "core_revision": "50e4861336a5a4b019f671dee8fa65f488bb4053",
+  "python_revision": "03ea5211ff7a2f9832c24052a7303d3415851763",
+  "rust_release_run": 37561763186,
+  "python_release_run": 37561869461,
+  "rust_public_consumer": {
+    "toolchain": "1.88.0",
+    "source": "crates.io only",
+    "result": "passed explicit General dates, font component replacement and repeated loaded saves"
+  },
+  "python_public_consumer": {
+    "version": "0.1.0a10",
+    "interpreter": "CPython 3.12.14",
+    "tests": 547,
+    "passed": 547,
+    "seconds": 4.88,
+    "installed_wheel": "crabxl-0.1.0a10-cp312-cp312-manylinux_2_28_x86_64.whl",
+    "sha256": "2b81c5d2f1dc78d32554f131503deb024350fc347ca63a3fde2effe96cb39735"
+  },
+  "python_artifacts": [
+    {
+      "filename": "crabxl-0.1.0a10-cp311-cp311-macosx_10_12_x86_64.whl",
+      "sha256": "340108e5edcfcd2a1e01e3a993015fa5af645d138f755cb402fcd2baaeba8159"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp311-cp311-macosx_11_0_arm64.whl",
+      "sha256": "e1af558c4e5c8acb94c4279b1130e0d07ea650cc3d5f9119d3eff48f608bc664"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp311-cp311-manylinux_2_28_aarch64.whl",
+      "sha256": "ea81295967e318d31b4cf3e2cf37521884685ad8be6cf1fb0e6d8f290da7d439"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp311-cp311-manylinux_2_28_x86_64.whl",
+      "sha256": "d327155118dae797eb9defe9bcf74e97d39d27f38bc1fdbea48834b9ddf36c64"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp311-cp311-win_amd64.whl",
+      "sha256": "9db2de6c5931c7710d38965b220a729a219077211f59c558de44bdfd24ca7ede"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp312-cp312-macosx_10_12_x86_64.whl",
+      "sha256": "4e9fdab4c28708d1d6a12a325d8aa5f215c8f2479ea21e07721a5e68eb4647f9"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "3801c0ef19cedd24f17d4accbbc70b4229e8a98332d393356a925e8c466e6e1f"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp312-cp312-manylinux_2_28_aarch64.whl",
+      "sha256": "bc09c7f6f589da40817e112ca3c30f3beb3d8a19090d27c780aeb2648c302d0b"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp312-cp312-manylinux_2_28_x86_64.whl",
+      "sha256": "2b81c5d2f1dc78d32554f131503deb024350fc347ca63a3fde2effe96cb39735"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp312-cp312-win_amd64.whl",
+      "sha256": "05f55fcd54497df2236edfc0e2cc75703c0f827164d612d8660bbc5abddf5ee2"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp313-cp313-macosx_10_12_x86_64.whl",
+      "sha256": "f8eecad01d35fe73a420e50a6448e77c26a70830f8479e443226efc0777d9a9d"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp313-cp313-macosx_11_0_arm64.whl",
+      "sha256": "c00f2eb61c8b4a2d9e4982336cac38d2eb1a399fcdbd8c406021ab594bfdbb09"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp313-cp313-manylinux_2_28_aarch64.whl",
+      "sha256": "cd3286df38a66694a9bd0f346aaf7778188c72b92a61f34f043d73edd271afc3"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp313-cp313-manylinux_2_28_x86_64.whl",
+      "sha256": "ba4646a41d93024037acb9e21ee29041aa594f1c5d11b4f65a78e50c125169a6"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp313-cp313-win_amd64.whl",
+      "sha256": "56e471cad9ad5b1ab5f2a30df1984f5f3a496dfd2a386bc48c071fbc037dbb98"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp314-cp314-macosx_10_12_x86_64.whl",
+      "sha256": "4a5d1f798661e8050f7db98a4a1e517caa5991b19abec86fa77d28d6c96c10ea"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp314-cp314-macosx_11_0_arm64.whl",
+      "sha256": "d3cc400df24ff80679ea7b27374ae75984b2c500d0147ef910b21572c2e0dd39"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp314-cp314-manylinux_2_28_aarch64.whl",
+      "sha256": "39198853eab5a356df0aca93c55e2e0c863dbf27617c263d626d7c1956125380"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp314-cp314-manylinux_2_28_x86_64.whl",
+      "sha256": "2710de587c0c5f77d776f11fa2753ba4a7858e06f409c213de86b4d3e10f8b8c"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp314-cp314-win_amd64.whl",
+      "sha256": "6e00bf1fc9267eaba2fba7cec8ebb70ae0d29d94ae3b73678042443fdcd79115"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp315-cp315-macosx_10_12_x86_64.whl",
+      "sha256": "11bfc96858334d4a47d4abb5c6ffdbf4b0865fcc1e41ea7cb2df49d8eae6b9aa"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp315-cp315-macosx_11_0_arm64.whl",
+      "sha256": "650b6d516e422f72f0a2bec336d327aa04534c656f22e9c39eda50535e54d500"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp315-cp315-manylinux_2_28_aarch64.whl",
+      "sha256": "df8ce5a322763af7078e47c6f891c2ba708d4dba73c27ba1fa0bb7cd198367d0"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp315-cp315-manylinux_2_28_x86_64.whl",
+      "sha256": "e7186e3b7437d86b4e05170683cffe9520afad465f96dbdb2a116ac8070eca38"
+    },
+    {
+      "filename": "crabxl-0.1.0a10-cp315-cp315-win_amd64.whl",
+      "sha256": "6053070da6f7d231e445d6b42e13038add973886836d37fb0651c8d6fa31139b"
+    },
+    {
+      "filename": "crabxl-0.1.0a10.tar.gz",
+      "sha256": "a0d94fc67fd823f458f4af7943dfb879262329145073105ce2ebd2580fa65f52"
+    }
+  ]
+}
