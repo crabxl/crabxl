@@ -352,3 +352,7 @@ Preserving point hyperlink edits use a sparse source ledger and bounded relation
 identity plans over the canonical bank. Borrowed rewrites preserve unrelated graph
 records and formula caches for pure metadata changes; missing relationship parts
 are created in the same save transaction. See [ADR 0091](decisions/0091-preserving-point-hyperlinks.md).
+
+Independent hyperlink declaration references retain canonical owner coordinates
+and byte accounting. Captured duplicate points use last-declaration semantics;
+affected structural guards inspect both coordinates. See [ADR 0092](decisions/0092-independent-hyperlink-references.md).

@@ -239,6 +239,43 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
     sheet.remove(b2);
     assert!(sheet.hyperlinks().is_empty());
     assert!(sheet.charged_bytes() < charged);
+    // The declaration reference is independent of the retained owner coordinate.
+    let mut first = Hyperlink::external("https://first.example/");
+    first.reference = Some("B2".into());
+    sheet.set_hyperlink(a1, Some(first)).unwrap();
+    let mut last = Hyperlink::external("https://last.example/");
+    last.reference = Some("B2".into());
+    sheet.set_hyperlink(b2, Some(last)).unwrap();
+    let before = sheet.get(a1).unwrap().clone();
+    let invalid_ref = Hyperlink {
+        reference: Some("A1:C3".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        sheet
+            .set_hyperlink(a1, Some(invalid_ref))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(sheet.get(a1), Some(&before));
+    assert_eq!(
+        sheet
+            .insert_rows(RowIndex::new(1).unwrap(), 1)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.write_worksheet(&sheet).unwrap();
+    let mut reader = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    let declarations = reader.hyperlinks("Links").unwrap();
+    assert_eq!(declarations.len(), 1);
+    assert!(declarations.get(a1).is_none());
+    assert_eq!(
+        declarations.get(b2).unwrap().target.as_deref(),
+        Some("https://last.example/")
+    );
 }
 
 #[test]

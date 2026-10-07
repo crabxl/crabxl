@@ -49,6 +49,10 @@ impl Worksheet {
             )
             .with_cell(address));
         }
+        if let Some(link) = &value {
+            link.validate_reference()
+                .map_err(|error| error.with_cell(address))?;
+        }
         let old = self.hyperlinks.heap_bytes();
         let new = self.hyperlinks.replacement_bytes(address, value.as_ref());
         let other = self.charged.saturating_sub(old);

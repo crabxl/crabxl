@@ -9,9 +9,12 @@ use std::collections::BTreeMap;
 const POINT_BYTES: usize = 256;
 
 /// Resolved hyperlink properties; package relationship IDs are source hints.
-/// The destination coordinate belongs to the owning worksheet collection.
+/// The owner coordinate belongs to the worksheet; an optional declaration reference
+/// preserves independently mutable public metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Hyperlink {
+    /// Optional serialized declaration reference, independent of the owner cell.
+    pub reference: Option<Box<str>>,
     /// Relationship target, including meaningful URL fragments and relative URLs.
     pub target: Option<Box<str>>,
     /// Optional destination within the target or current workbook.
@@ -28,6 +31,7 @@ pub struct Hyperlink {
 impl Default for Hyperlink {
     fn default() -> Self {
         Self {
+            reference: None,
             target: None,
             location: None,
             display: None,
@@ -45,6 +49,19 @@ impl Hyperlink {
             ..Default::default()
         }
     }
+    /// Validate a finite point declaration reference before committing metadata.
+    pub fn validate_reference(&self) -> Result<()> {
+        if let Some(reference) = &self.reference {
+            let range: crate::CellRange = reference.parse()?;
+            if range.start != range.end {
+                return Err(Error::new(
+                    ErrorKind::Unsupported,
+                    "Range hyperlink editing remains unimplemented",
+                ));
+            }
+        }
+        Ok(())
+    }
     /// Initial value for an empty anchor, with compatible empty-target fallback.
     pub fn initial_cell_value(&self) -> crate::CellValue {
         self.target
@@ -58,6 +75,7 @@ impl Hyperlink {
     /// Owned text payload; collection node charging includes inline records.
     pub fn heap_bytes(&self) -> usize {
         [
+            &self.reference,
             &self.target,
             &self.location,
             &self.display,
@@ -77,6 +95,7 @@ impl Hyperlink {
 pub struct Hyperlinks {
     points: BTreeMap<(RowIndex, ColumnIndex), Hyperlink>,
     bytes: usize,
+    references: usize,
 }
 impl Hyperlinks {
     /// Number of stored declarations.
@@ -154,6 +173,10 @@ impl Hyperlinks {
         value: Option<Hyperlink>,
         maximum: usize,
     ) -> Result<()> {
+        if let Some(link) = &value {
+            link.validate_reference()
+                .map_err(|error| error.with_cell(address))?;
+        }
         let bytes = self.replacement_bytes(address, value.as_ref());
         if bytes > maximum {
             return Err(Error::new(
@@ -162,6 +185,13 @@ impl Hyperlinks {
             )
             .with_cell(address));
         }
+        let old_reference = usize::from(
+            self.get(address)
+                .is_some_and(|link| link.reference.is_some()),
+        );
+        let new_reference =
+            usize::from(value.as_ref().is_some_and(|link| link.reference.is_some()));
+        self.references = self.references - old_reference + new_reference;
         if let Some(value) = value {
             self.points.insert((address.row, address.column), value);
         } else {
@@ -170,18 +200,37 @@ impl Hyperlinks {
         self.bytes = bytes;
         Ok(())
     }
+    fn reference_intersects(&self, range: crate::CellRange, non_anchor: bool) -> bool {
+        if self.references == 0 {
+            return false;
+        }
+        self.points.values().any(|link| {
+            link.reference.as_deref().is_some_and(|reference| {
+                reference
+                    .parse::<crate::CellRange>()
+                    .map_or(true, |declared| {
+                        range.contains(declared.start)
+                            && (!non_anchor || declared.start != range.start)
+                    })
+            })
+        })
+    }
     pub(crate) fn non_anchor_intersects(&self, range: crate::CellRange) -> bool {
         use std::ops::Bound::{Excluded, Included};
-        self.points
-            .range((
-                Excluded((range.start.row, range.start.column)),
-                Included((range.end.row, range.end.column)),
-            ))
-            .any(|(&(row, column), _)| range.contains(CellAddress { row, column }))
+        self.reference_intersects(range, true)
+            || self
+                .points
+                .range((
+                    Excluded((range.start.row, range.start.column)),
+                    Included((range.end.row, range.end.column)),
+                ))
+                .any(|(&(row, column), _)| range.contains(CellAddress { row, column }))
     }
     pub(crate) fn intersects(&self, range: crate::CellRange) -> bool {
-        self.points
-            .range((range.start.row, range.start.column)..=(range.end.row, range.end.column))
-            .any(|(&(row, column), _)| range.contains(CellAddress { row, column }))
+        self.reference_intersects(range, false)
+            || self
+                .points
+                .range((range.start.row, range.start.column)..=(range.end.row, range.end.column))
+                .any(|(&(row, column), _)| range.contains(CellAddress { row, column }))
     }
 }
