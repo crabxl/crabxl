@@ -281,16 +281,43 @@ impl CellStore {
         }
         *self = retained;
     }
-    /// Filter without moving coordinates or allocating new blocks. Tree keys
-    /// remain lower bounds after removal, so checked cell searches still select
-    /// the same ordered block. Later insertions/removals can tighten those bounds.
-    pub(crate) fn retain_stationary(&mut self, mut predicate: impl FnMut(&Cell) -> bool) {
-        self.blocks.retain(|_, block| {
-            block.retain(&mut predicate);
-            !block.is_empty()
-        });
-        self.len = self.blocks.values().map(Vec::len).sum();
-        self.slots = self.blocks.values().map(Vec::capacity).sum();
+    /// Remove selected stationary cells only from the bounded key interval.
+    /// Conservative block keys remain valid lower bounds. No scratch vector or
+    /// replacement block allocation is required; retained capacities stay charged.
+    pub(crate) fn remove_where(
+        &mut self,
+        range: RangeInclusive<Key>,
+        mut predicate: impl FnMut(&Cell) -> bool,
+        mut removed: impl FnMut(Cell),
+    ) {
+        let start = *range.start();
+        let end = *range.end();
+        let first = self
+            .blocks
+            .range(..=start)
+            .next_back()
+            .map_or(start, |(key, _)| *key);
+        let mut count = 0usize;
+        for (_, block) in self.blocks.range_mut(first..=end) {
+            let from = block.partition_point(|cell| key(cell) < start);
+            let to = block.partition_point(|cell| key(cell) <= end);
+            for cell in block.extract_if(from.min(to)..to, |cell| predicate(cell)) {
+                count += 1;
+                removed(cell);
+            }
+        }
+        self.len -= count;
+        // Removing a sparse set of emptied blocks avoids revisiting unrelated cells.
+        loop {
+            let empty = self
+                .blocks
+                .range(first..=end)
+                .find_map(|(key, block)| block.is_empty().then_some(*key));
+            let Some(empty) = empty else { break };
+            if let Some(block) = self.blocks.remove(&empty) {
+                self.slots -= block.capacity();
+            }
+        }
         if let Some((first, block)) = self.blocks.last_key_value() {
             self.last = block.last().map(key);
             self.tail_first = Some(*first);

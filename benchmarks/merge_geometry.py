@@ -35,13 +35,13 @@ reopened.close()
 book.close()
 print(
     json.dumps(
-        dict(
-            engine=sys.argv[1],
-            merges=count,
-            prepare_seconds=prepared,
-            save_seconds=saved,
-            peak_rss_kib=peak,
-            output_bytes=path.stat().st_size,
-        )
+        {
+            "engine": sys.argv[1],
+            "merges": count,
+            "prepare_seconds": prepared,
+            "save_seconds": saved,
+            "peak_rss_kib": peak,
+            "output_bytes": path.stat().st_size,
+        }
     )
 )
