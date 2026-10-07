@@ -380,6 +380,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .map_or(0, |name| PATCH_BYTES + name.len())
             + usize::from(self.visibility_patches.contains_key(&index)) * PATCH_BYTES
             + usize::from(self.model_patches.contains_key(&index)) * PATCH_BYTES
+            + usize::from(self.hyperlink_patches.contains_key(&index)) * PATCH_BYTES
             + self.view_patches.get(part).map_or(0, |view| {
                 super::METADATA_ENTRY_BYTES + part.len() + view.memory_bytes()
             })
@@ -396,6 +397,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 self.patch_cells -= patches.len();
             }
             self.model_patches.remove(index);
+            self.hyperlink_patches.remove(index);
             self.name_patches.remove(index);
             self.visibility_patches.remove(index);
             self.view_patches.remove(removed.part.as_ref());
@@ -461,6 +463,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 let name = name.as_ref().as_bytes();
                 if frame.depth == 2 {
                     if matches!(name, b"sheetViews" | b"headerFooter") {
+                        let depth = frame.depth;
+                        crate::style_codec::skip(&mut xml, depth)?;
+                        continue;
+                    }
+                    if name == b"hyperlinks" {
                         let depth = frame.depth;
                         crate::style_codec::skip(&mut xml, depth)?;
                         continue;

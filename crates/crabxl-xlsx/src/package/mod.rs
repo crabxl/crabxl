@@ -61,10 +61,10 @@ impl SheetInfo {
     }
 }
 
-struct Relationship {
-    target: String,
-    kind: String,
-    external: bool,
+pub(crate) struct Relationship {
+    pub(crate) target: String,
+    pub(crate) kind: String,
+    pub(crate) external: bool,
 }
 
 /// Owns a seekable ZIP source and a small sheet catalog, not worksheet cells.
@@ -353,7 +353,7 @@ fn metadata_xml<'a, R: Read + Seek>(
     ))
 }
 
-fn read_relationships<R: Read + Seek>(
+pub(crate) fn read_relationships<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     part: &str,
     limits: ResourceLimits,

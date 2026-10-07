@@ -6,7 +6,17 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// transfer its owned value/style to the caller. Logical append extent stays.
     /// Affected unmodeled graphs reject before any cell or package mutation.
     pub fn remove_cell(&mut self, id: SheetId, address: CellAddress) -> Result<Option<Cell>> {
-        self.edit_structure_when(id, |sheet| Ok(sheet.remove(address)), Option::is_some)
+        self.edit_structure_when(
+            id,
+            |sheet| {
+                let linked = sheet.hyperlinks().get(address).is_some();
+                let cell = sheet.remove(address);
+                let changed = linked || cell.is_some();
+                Ok((cell, changed))
+            },
+            |(_, changed)| *changed,
+        )
+        .map(|(cell, _)| cell)
     }
     /// Insert rows in a supported source-backed cell model. Unmodeled affected
     /// worksheet graphs are rejected before mutation; formulas are not translated.
@@ -92,8 +102,23 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             self.rebalance()?;
             return result;
         }
-        let plan = self.editor.prepare_model(&self.sheets[index].name)?;
-        self.sheet(id)?;
+        let original = self.sheets[index].original.ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidState,
+                "Missing structural source identity",
+            )
+        })?;
+        let mut plan = self.editor.prepare_model(&self.sheets[index].name)?;
+        self.hyperlinks(id)?;
+        let had_hyperlinks = !self.bank.sheet(id)?.hyperlinks().is_empty();
+        let hyperlink_bytes = if had_hyperlinks {
+            Some(self.editor.prepare_hyperlink_patch(original, plan.bytes)?)
+        } else {
+            None
+        };
+        if let Some(bytes) = hyperlink_bytes {
+            plan.bytes = bytes;
+        }
         crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
         self.validate_normalized_styles(id)?;
         self.reserve_workbook_patch(plan.bytes.max(self.editor.patch_bytes()))?;
@@ -107,6 +132,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         };
         if changed(&value) {
             self.commit_normalized_model(plan, id);
+            if let Some(bytes) = hyperlink_bytes {
+                self.editor.commit_hyperlink_patch(original, id, bytes);
+            }
         }
         self.rebalance()?;
         Ok(value)

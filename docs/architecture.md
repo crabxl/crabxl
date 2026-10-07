@@ -347,3 +347,8 @@ Opt-in hyperlink capture shares one declaration decoder between explicit scans
 and row streams. Loaded typed access keeps policy flags on the source mapping
 and one collection in the canonical bank; normal scalar access remains lazy.
 See [ADR 0090](decisions/0090-streamed-hyperlink-capture.md).
+
+Preserving point hyperlink edits use a sparse source ledger and bounded relationship
+identity plans over the canonical bank. Borrowed rewrites preserve unrelated graph
+records and formula caches for pure metadata changes; missing relationship parts
+are created in the same save transaction. See [ADR 0091](decisions/0091-preserving-point-hyperlinks.md).

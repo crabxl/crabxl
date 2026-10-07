@@ -1,7 +1,7 @@
 //! Lazy original-package preservation and bounded existing-cell value overlays.
 use crate::encode::{RowBuffer, StyleContext, ValueEncoding, encode_cells, validate_value};
 use crate::writer::{io_error, zip_error};
-use crate::xml::{Scope, XmlStream, attribute};
+use crate::xml::{Scope, XmlStream, attribute, check_declaration};
 use crate::{SheetInfo, SheetKind, WorkbookReader};
 use crabxl_core::{
     Cell, CellAddress, CellStyle, CellValue, DateEpoch, Error, ErrorKind, ResourceLimits, Result,
@@ -23,6 +23,7 @@ use zip::ZipWriter;
 mod catalog;
 mod catalog_edits;
 mod graph;
+mod hyperlinks;
 mod metadata_edits;
 mod output;
 mod overlays;
@@ -200,6 +201,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     name_patches: BTreeMap<usize, Box<str>>,
     catalog_order: Option<Box<CatalogOrder>>,
     model_patches: BTreeMap<usize, crabxl_core::SheetId>,
+    hyperlink_patches: BTreeMap<usize, crabxl_core::SheetId>,
     structural_plain_strings: bool,
     pub(crate) structural_rich_text: bool,
     pub(crate) structural_inline_rich_text: bool,
@@ -355,6 +357,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             name_patches: BTreeMap::new(),
             catalog_order: None,
             model_patches: BTreeMap::new(),
+            hyperlink_patches: BTreeMap::new(),
             styles_dirty: false,
             theme_dirty: false,
             structural_plain_strings: false,
@@ -389,6 +392,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             || self.patch_cells != 0
             || self.membership.is_some()
             || !self.model_patches.is_empty()
+            || !self.hyperlink_patches.is_empty()
             || !self.view_patches.is_empty()
             || !self.print_patches.is_empty()
             || self.active_patch.is_some()

@@ -59,11 +59,7 @@ impl Worksheet {
                 let cell = Cell {
                     address,
                     style: self.style_at(address),
-                    value: link
-                        .target
-                        .as_ref()
-                        .or(link.location.as_ref())
-                        .map_or(CellValue::Empty, |text| CellValue::text(text.clone())),
+                    value: link.initial_cell_value(),
                 };
                 let maximum = self.limits.max_bytes;
                 self.limits.max_bytes = maximum.saturating_sub(new.saturating_sub(old));
