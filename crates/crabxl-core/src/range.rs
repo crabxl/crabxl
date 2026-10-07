@@ -7,6 +7,48 @@ use crate::{CellAddress, CellRange, ColumnIndex, Error, ErrorKind, Result, RowIn
 use std::{fmt, str::FromStr};
 
 impl CellRange {
+    /// Smallest rectangle containing both inputs; this is a bounding union.
+    pub fn union(self, other: Self) -> Self {
+        Self {
+            start: CellAddress {
+                row: self.start.row.min(other.start.row),
+                column: self.start.column.min(other.start.column),
+            },
+            end: CellAddress {
+                row: self.end.row.max(other.end.row),
+                column: self.end.column.max(other.end.column),
+            },
+        }
+    }
+    /// Whether another finite rectangle is entirely covered.
+    pub fn contains_range(self, other: Self) -> bool {
+        self.contains(other.start) && self.contains(other.end)
+    }
+    /// Adjust each edge independently, validating overflow and worksheet bounds.
+    /// Positive deltas move an edge right or down; reversed results are rejected.
+    pub fn adjusted(self, left: i64, top: i64, right: i64, bottom: i64) -> Result<Self> {
+        fn coordinate(value: u32, delta: i64) -> Result<u32> {
+            i64::from(value)
+                .checked_add(delta)
+                .and_then(|value| u32::try_from(value).ok())
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        "Adjusted range exceeds coordinate bounds",
+                    )
+                })
+        }
+        Self::new(
+            CellAddress::new(
+                coordinate(self.start.row.get(), top)?,
+                coordinate(self.start.column.get(), left)?,
+            )?,
+            CellAddress::new(
+                coordinate(self.end.row.get(), bottom)?,
+                coordinate(self.end.column.get(), right)?,
+            )?,
+        )
+    }
     /// Intersection of two finite rectangles without allocating coordinates.
     pub fn intersection(self, other: Self) -> Option<Self> {
         self.intersects(other).then(|| Self {
