@@ -794,7 +794,10 @@ impl WorkbookWriter {
             ));
         }
         if workbook.is_empty() {
-            return Err(state("A workbook requires at least one worksheet"));
+            return Err(Error::new(
+                ErrorKind::NoVisibleSheet,
+                "A workbook requires at least one worksheet",
+            ));
         }
         if let Some(theme) = workbook.theme() {
             let bytes = theme
@@ -822,9 +825,7 @@ impl WorkbookWriter {
                 };
         }
         self.options.date_1904 = workbook.epoch() == DateEpoch::Mac1904;
-        self.options.active_sheet = workbook
-            .active_index()
-            .ok_or_else(|| state("Workbook has no active sheet"))?;
+        self.options.active_sheet = workbook.active_index().unwrap_or(0);
         let original = self.canonical_styles;
         self.canonical_styles = workbook.style_catalog().is_some();
         let result = (|| {
