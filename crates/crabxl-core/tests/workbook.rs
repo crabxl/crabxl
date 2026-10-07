@@ -182,6 +182,73 @@ fn sheet_ids_survive_copy_reorder_rename_and_reject_removed_foreign_handles() {
             .ranges()
             .is_empty()
     );
+    // Sparse cleanup crosses block boundaries without removing adjacent columns,
+    // and releases payload bytes while preserving later insertion/append lookup.
+    let sparse = merged.create_sheet("Sparse").unwrap();
+    for row in 0..260 {
+        for column in 0..4 {
+            merged
+                .sheet_mut(sparse)
+                .unwrap()
+                .set(Cell {
+                    address: CellAddress::new(row, column).unwrap(),
+                    value: CellValue::text("payload".repeat(100)),
+                    style: StyleId::new(0),
+                })
+                .unwrap();
+        }
+    }
+    let before = merged.charged_bytes();
+    merged
+        .merge_cells(sparse, "B2:C259".parse().unwrap())
+        .unwrap();
+    assert_eq!(merged.sheet(sparse).unwrap().len(), 1040 - 515);
+    assert!(merged.charged_bytes() + 515 * 700 < before);
+    for row in 0..260 {
+        for column in [0, 3] {
+            assert_eq!(
+                merged
+                    .sheet(sparse)
+                    .unwrap()
+                    .get(CellAddress::new(row, column).unwrap())
+                    .unwrap()
+                    .value,
+                CellValue::text("payload".repeat(100))
+            );
+        }
+    }
+    merged
+        .sheet_mut(sparse)
+        .unwrap()
+        .unmerge_cells("B2:C259".parse().unwrap())
+        .unwrap();
+    merged
+        .sheet_mut(sparse)
+        .unwrap()
+        .set(Cell {
+            address: "C129".parse().unwrap(),
+            value: CellValue::Integer(9),
+            style: StyleId::new(0),
+        })
+        .unwrap();
+    assert_eq!(
+        merged
+            .sheet_mut(sparse)
+            .unwrap()
+            .append(vec![CellValue::Integer(10)])
+            .unwrap()
+            .get(),
+        260
+    );
+    assert_eq!(
+        merged
+            .sheet(sparse)
+            .unwrap()
+            .get("C129".parse().unwrap())
+            .unwrap()
+            .value,
+        CellValue::Integer(9)
+    );
 }
 #[test]
 fn aggregate_bytes_cells_and_work_budget_fail_without_changing_models() {

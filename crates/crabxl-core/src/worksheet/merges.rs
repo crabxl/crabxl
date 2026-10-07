@@ -44,10 +44,7 @@ impl Worksheet {
             })?;
         }
         self.merges.insert_reserved(range);
-        self.cells.retain_stationary(|cell| {
-            cell.address == geometry.start || !geometry.contains(cell.address)
-        });
-        self.recount();
+        self.remove_merge_interior(geometry);
         self.dirty = true;
         Ok(())
     }
@@ -57,11 +54,25 @@ impl Worksheet {
         if self.merges.remove(range).is_none() {
             return Err(invalid("Cell range is not merged"));
         }
-        self.cells
-            .retain_stationary(|cell| cell.address == range.start || !range.contains(cell.address));
-        self.recount();
+        self.remove_merge_interior(range);
         self.dirty = true;
         Ok(())
+    }
+    fn remove_merge_interior(&mut self, range: CellRange) {
+        let storage = self.cells.storage_bytes();
+        let mut removed_bytes = 0usize;
+        self.cells.remove_where(
+            key(range.start)..=key(range.end),
+            |cell| cell.address != range.start && range.contains(cell.address),
+            |cell| {
+                removed_bytes = removed_bytes.saturating_add(charge(&cell));
+            },
+        );
+        self.charged = self
+            .charged
+            .saturating_sub(storage)
+            .saturating_sub(removed_bytes)
+            .saturating_add(self.cells.storage_bytes());
     }
     /// Resolve shared appearance, including a virtual covered coordinate.
     pub fn style_at(&self, address: CellAddress) -> StyleId {

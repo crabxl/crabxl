@@ -1,4 +1,12 @@
-{"engine": "crabxl", "merges": 2000, "prepare_seconds": 0.01697516199783422, "save_seconds": 0.0029779339965898544, "peak_rss_kib": 19200, "output_bytes": 29545}
-{"engine": "openpyxl", "merges": 2000, "prepare_seconds": 0.6873123249970376, "save_seconds": 0.039263936021598056, "peak_rss_kib": 35916, "output_bytes": 38078}
-{"engine": "crabxl", "merges": 8000, "prepare_seconds": 0.11586963900481351, "save_seconds": 0.010186833998886868, "peak_rss_kib": 20072, "output_bytes": 99811}
-{"engine": "openpyxl", "merges": 8000, "prepare_seconds": 10.858034739998402, "save_seconds": 0.16022136597894132, "peak_rss_kib": 50456, "output_bytes": 139324}
+{"engine": "crabxl", "merges": 2000, "prepare_seconds": 0.012994551012525335, "save_seconds": 0.0048774479946587235, "peak_rss_kib": 19320, "output_bytes": 29545}
+{"engine": "openpyxl", "merges": 2000, "prepare_seconds": 0.6900069169932976, "save_seconds": 0.03805911500239745, "peak_rss_kib": 35712, "output_bytes": 38081}
+{"engine": "openpyxl", "merges": 2000, "prepare_seconds": 0.7436311630008277, "save_seconds": 0.04056593799032271, "peak_rss_kib": 35900, "output_bytes": 38081}
+{"engine": "crabxl", "merges": 2000, "prepare_seconds": 0.012253407010575756, "save_seconds": 0.0030623799830209464, "peak_rss_kib": 19264, "output_bytes": 29545}
+{"engine": "crabxl", "merges": 2000, "prepare_seconds": 0.012699616985628381, "save_seconds": 0.0028141879884060472, "peak_rss_kib": 19412, "output_bytes": 29545}
+{"engine": "openpyxl", "merges": 2000, "prepare_seconds": 0.6996609499910846, "save_seconds": 0.03816798600018956, "peak_rss_kib": 35828, "output_bytes": 38081}
+{"engine": "crabxl", "merges": 8000, "prepare_seconds": 0.04853305598953739, "save_seconds": 0.011243270011618733, "peak_rss_kib": 20048, "output_bytes": 99811}
+{"engine": "openpyxl", "merges": 8000, "prepare_seconds": 11.135307991004083, "save_seconds": 0.1488535790122114, "peak_rss_kib": 50540, "output_bytes": 139324}
+{"engine": "openpyxl", "merges": 8000, "prepare_seconds": 11.212750136008253, "save_seconds": 0.16450483800144866, "peak_rss_kib": 50540, "output_bytes": 139325}
+{"engine": "crabxl", "merges": 8000, "prepare_seconds": 0.06013970202184282, "save_seconds": 0.011446234013419598, "peak_rss_kib": 20172, "output_bytes": 99811}
+{"engine": "crabxl", "merges": 8000, "prepare_seconds": 0.05543163701076992, "save_seconds": 0.010244467994198203, "peak_rss_kib": 20304, "output_bytes": 99811}
+{"engine": "openpyxl", "merges": 8000, "prepare_seconds": 10.831924196012551, "save_seconds": 0.1498255699989386, "peak_rss_kib": 50332, "output_bytes": 139323}
