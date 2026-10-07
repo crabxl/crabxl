@@ -5,6 +5,7 @@
 mod finish;
 mod hyperlinks;
 mod interleaved;
+mod live_hyperlinks;
 mod merged_rows;
 mod rows;
 mod sheet;
@@ -144,6 +145,7 @@ struct StoredSheet {
     visibility: crabxl_core::SheetVisibility,
     relationships: Option<Vec<u8>>,
     relationship_spool: Option<NamedTempFile>,
+    live_events: Option<live_hyperlinks::Events>,
 }
 struct ActiveSheet {
     id: usize,
@@ -155,6 +157,7 @@ struct ActiveSheet {
     visibility: crabxl_core::SheetVisibility,
     relationships: Option<Vec<u8>>,
     link_spool: Option<hyperlinks::LinkSpool>,
+    live_events: Option<live_hyperlinks::Events>,
     dimensions: crabxl_core::SheetDimensions,
     header_prefix_bytes: u64,
     columns_written: bool,
@@ -178,6 +181,7 @@ pub struct WorkbookWriter {
     next_sheet: usize,
     row_buffer: RowBuffer,
     temporary_bytes: u64,
+    live_links: Option<live_hyperlinks::Store>,
     pending_link_bytes: u64,
     pending_link_sheet_bytes: u64,
     pending_link_metadata_bytes: usize,
@@ -333,6 +337,7 @@ impl WorkbookWriter {
             next_sheet: 0,
             row_buffer,
             temporary_bytes: 0,
+            live_links: None,
             pending_link_bytes: 0,
             pending_link_sheet_bytes: 0,
             pending_link_metadata_bytes: 0,

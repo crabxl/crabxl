@@ -55,7 +55,8 @@ impl WorkbookWriter {
             .active
             .as_ref()
             .ok_or_else(|| state("No active worksheet"))?;
-        if active.footer.is_some() || active.relationships.is_some() {
+        if active.footer.is_some() || active.relationships.is_some() || active.live_events.is_some()
+        {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Appending hyperlinks to a prebuilt worksheet footer is not implemented",

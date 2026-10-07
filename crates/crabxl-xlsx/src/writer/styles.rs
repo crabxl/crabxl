@@ -187,6 +187,10 @@ impl WorkbookWriter {
     }
     pub(super) fn catalog_bytes(&self) -> usize {
         self.options.theme.memory_bytes()
+            + self
+                .live_links
+                .as_ref()
+                .map_or(0, live_hyperlinks::Store::heap_bytes)
             + self.paused_bytes()
             + self.sheets.capacity() * size_of::<StoredSheet>()
             + self
@@ -194,6 +198,10 @@ impl WorkbookWriter {
                 .iter()
                 .map(|sheet| {
                     sheet.name.capacity()
+                        + sheet
+                            .live_events
+                            .as_ref()
+                            .map_or(0, live_hyperlinks::Events::heap_bytes)
                         + sheet.file.path().as_os_str().len()
                         + sheet.relationships.as_ref().map_or(0, Vec::capacity)
                         + sheet
@@ -204,6 +212,10 @@ impl WorkbookWriter {
                 .sum::<usize>()
             + self.active.as_ref().map_or(0, |sheet| {
                 sheet.name.capacity()
+                    + sheet
+                        .live_events
+                        .as_ref()
+                        .map_or(0, live_hyperlinks::Events::heap_bytes)
                     + sheet.output.get_ref().path().as_os_str().len()
                     + sheet.footer.as_ref().map_or(0, Vec::capacity)
                     + sheet.relationships.as_ref().map_or(0, Vec::capacity)
@@ -225,6 +237,10 @@ impl WorkbookWriter {
                 .iter()
                 .map(|sheet| {
                     sheet.name.capacity()
+                        + sheet
+                            .live_events
+                            .as_ref()
+                            .map_or(0, live_hyperlinks::Events::heap_bytes)
                         + sheet.output.capacity()
                         + sheet.output.get_ref().path().as_os_str().len()
                         + sheet.dimensions.heap_bytes()
