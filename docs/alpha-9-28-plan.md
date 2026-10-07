@@ -105,3 +105,7 @@ physical removal now share the canonical owner ([ADR 0091](decisions/0091-preser
 Shared IDs, collisions, missing relationship parts, repeat saves and untouched
 assets/caches are verified. Python live interfaces, range declarations and full
 W13/A11 acceptance remain open; the six-release scope is unchanged.
+
+Native point declarations now support independent serialized references and
+bounded last-declaration capture (ADR 0092). Python shared-object integration and
+compact finite ranges remain W13 gates; scope and release numbering are unchanged.

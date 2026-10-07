@@ -61,9 +61,6 @@ impl Capture {
                 if range.start != range.end {
                     return Err(unsupported("Range hyperlink editing remains unimplemented"));
                 }
-                if self.links.get(range.start).is_some() {
-                    return Err(invalid("Duplicate hyperlink coordinate").with_cell(range.start));
-                }
                 let link = Hyperlink {
                     location: attribute(e, b"location")?.map(String::into_boxed_str),
                     display: attribute(e, b"display")?.map(String::into_boxed_str),

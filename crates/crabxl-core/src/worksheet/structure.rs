@@ -217,12 +217,22 @@ impl Worksheet {
         if count == 0 || at.checked_add(count).is_none_or(|end| end > maximum) {
             return Err(invalid("Invalid structural edit count"));
         }
-        if self.hyperlinks.iter().any(|(address, _)| {
-            if rows {
-                address.row.get() >= at
-            } else {
-                address.column.get() >= at
-            }
+        if self.hyperlinks.iter().any(|(address, link)| {
+            let declared_affected = link.reference.as_deref().is_some_and(|reference| {
+                reference.parse::<CellRange>().map_or(true, |range| {
+                    if rows {
+                        range.end.row.get() >= at
+                    } else {
+                        range.end.column.get() >= at
+                    }
+                })
+            });
+            declared_affected
+                || if rows {
+                    address.row.get() >= at
+                } else {
+                    address.column.get() >= at
+                }
         }) {
             return Err(Error::new(
                 ErrorKind::Unsupported,

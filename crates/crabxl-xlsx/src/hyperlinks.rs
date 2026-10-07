@@ -27,6 +27,8 @@ pub(crate) fn validate_link(
     address: crabxl_core::CellAddress,
     link: &crabxl_core::Hyperlink,
 ) -> Result<()> {
+    link.validate_reference()
+        .map_err(|error| error.with_cell(address))?;
     if link.target.is_none() && link.relationship_id.is_some() {
         return Err(Error::new(
             ErrorKind::Unsupported,
@@ -76,7 +78,11 @@ pub(crate) fn write_links_with_ids<'a>(
     output.write_all(b">")?;
     for (index, (address, link)) in links.iter().enumerate() {
         output.write_all(b"<hyperlink")?;
-        write_attribute(output, "ref", &address.to_string())?;
+        if let Some(reference) = &link.reference {
+            write_attribute(output, "ref", reference)?;
+        } else {
+            write_attribute(output, "ref", &address.to_string())?;
+        }
         for (name, value) in [
             ("location", &link.location),
             ("display", &link.display),
