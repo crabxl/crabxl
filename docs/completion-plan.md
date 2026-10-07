@@ -15,8 +15,10 @@ For every feature track read, create, edit and preserve separately, with streami
 See the [Alpha.6 and later plan](alpha-6-and-later-plan.md) for release gates.
 Alpha 6 is the published urgent archive compatibility fix.
 A7 accepts M4 loaded-model/package/structural operations for implemented content;
-A8 addresses measured performance debt; A9 completes M5; M6 ships through multiple
-usable alphas; M7 completes the full baseline matrix. These stages remain open.
+A8 addressed the measured performance backlog and is published. The
+[Alpha 9–28 umya integration plan](alpha-9-28-plan.md) splits M5 across A9–A19,
+M6/deferred M4 across A20–A26, and performance/M7 across A27–A28. These future
+stages remain open and implementation is paused.
 
 The user selected staged M4 acceptance: reject operations affecting unimplemented
 M5/M6 graphs atomically, preserve unrelated opaque content, and retain the missing

@@ -6,19 +6,20 @@ This plan follows alpha.5 and records the agreed staged M4 acceptance boundary.
 Alpha 6 is an urgent large/stream-generated archive compatibility release.
 The previously planned feature releases move back by one number and remain open.
 
-The active delivery goal includes completing and publishing A7 through A9,
-then implementing all M6 acceptance groups and publishing multiple usable
-Alpha releases. M6 planning alone does not satisfy this goal. M7 remains the
-subsequent full compatibility and release-quality milestone.
+Alpha 6–8 are published history. The active finer release split is defined in
+[the Alpha 9–28 umya integration plan](alpha-9-28-plan.md). It supersedes the
+previous single-release M5 target: A9–A19 deliver M5, A20–A26 deliver M6 and
+remaining M4 interactions, and A27–A28 target performance and M7 closure.
+Implementation is paused; updating the plan does not request publication.
 
 | Release | Scope | Acceptance boundary |
 | --- | --- | --- |
 | A6: `0.1.0-alpha.6` | Large and stream-generated archive compatibility | Remove default archive byte caps, accept ZIP/ZIP64 data descriptors, and retain explicit finite caps |
 | A7: `0.1.0-alpha.7` | M4 loaded-model integration, existing-file edits, worksheet and row/column operations | Complete the M4 stage defined below; retain explicit M5/M6 dependency tracking |
 | A8: `0.1.0-alpha.8` | Remaining read, write, edit, and Python binding performance problems | Profile and fix the measured backlog, with equivalent-workload evidence and correctness/resource checks |
-| A9: `0.1.0-alpha.9` | M5 common features | Full assigned style, merge, table, validation, conditional-formatting, comment, printing, and formula-tool acceptance |
-| Subsequent alphas | M6 advanced graphs | Release usable, independently verified feature groups; choose each next alpha number manually |
-| M7 completion release | Full compatibility, platform support, performance, and release quality | Complete the full baseline acceptance matrix, including deferred M4 graph interactions |
+| A9–A19 | Staged M5 common features | Per-release usable native/Python gates; full M5 acceptance targeted at A19 |
+| A20–A26 | M6 advanced graphs and deferred M4 | Per-family graph acceptance; full M4/M6 closure targeted at A26 |
+| A27–A28 | Performance and M7 release quality | Complete the full baseline acceptance matrix |
 
 Rust and Python ship corresponding functionality. Rust uses the
 `0.1.0-alpha.N` tag format; Python packages use `0.1.0aN`. The repositories keep
@@ -137,7 +138,7 @@ tradeoffs explicitly; publication must not imply universal superiority or that
 no further optimization is possible. Extend existing high-value correctness
 checks rather than adding timing thresholds or redundant test permutations.
 
-## A9: M5 common features
+## A9–A19: M5 common features
 
 Complete the existing M5.1–M5.8 acceptance definitions: styles and rich text;
 dimensions, merges, groups and views; names, hyperlinks and properties; tables,
@@ -150,13 +151,13 @@ compatibility, bounded resources, and verified save/reopen behavior. Typed core
 models alone do not complete Python APIs. Resolve the associated deferred M4
 structural cases as each family becomes available.
 
-## M6: Multiple usable alpha releases
+## A20–A26: M6 usable alpha releases
 
 Use the existing M6.1–M6.4 groups as planning boundaries: images/drawings and
 anchors; charts/chartsheets; pivots/caches/records; external links, macro policies,
 extensions, dynamic-array/rich-value and cm/vm metadata graphs. Split further when
-necessary to deliver coherent usable capabilities; do not fix the alpha count in
-advance or mark a whole family complete from a narrow checkpoint.
+necessary to deliver coherent usable capabilities; the target numbers may shift or expand. Do not mark a whole family complete
+from a narrow checkpoint.
 
 Every release must pair the relevant read/create/edit behavior with relationship
 integrity, preservation limits, repeated saves, bounded binary/record handling,

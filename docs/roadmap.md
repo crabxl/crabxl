@@ -15,8 +15,9 @@ See the [detailed Rust completion plan](completion-plan.md) for dependency order
 The [Alpha.3 through Alpha.5 plan](alpha-3-4-plan.md) is completed history.
 Current delivery follows the [Alpha.6 and later release plan](alpha-6-and-later-plan.md):
 A6 urgent archive-limit/descriptor fixes (published), A7 staged M4 acceptance,
-A8 performance backlog, A9 complete M5, multiple usable M6 alphas, then full M7
-acceptance. Deferred M4 graph interactions stay tracked through M5/M6; the urgent
+A8 performance backlog (published), then the [Alpha 9–28 integration plan](alpha-9-28-plan.md):
+A9–A19 for M5, A20–A26 for M6 and deferred M4, and A27–A28 for performance/M7
+acceptance. Target numbers may shift; these stages remain incomplete. Deferred M4 graph interactions stay tracked through M5/M6; the urgent
 A6 release does not claim staged M4 completion.
 
 ## Scope and completion
