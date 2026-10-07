@@ -97,3 +97,11 @@ remain pending; A11 is not released by this checkpoint.
 Typed loaded point reads now share opt-in row capture and post-stream relationship
 resolution, with clean metadata adoption and shared merge/link/formula/SST budgets
 (ADR 0090). Preserving hyperlink mutation and full W13/A11 acceptance remain open.
+
+### W13 preserving hyperlink checkpoint
+
+Native point mutation, source relationship updates, supported source copies and
+physical removal now share the canonical owner ([ADR 0091](decisions/0091-preserving-point-hyperlinks.md)).
+Shared IDs, collisions, missing relationship parts, repeat saves and untouched
+assets/caches are verified. Python live interfaces, range declarations and full
+W13/A11 acceptance remain open; the six-release scope is unchanged.

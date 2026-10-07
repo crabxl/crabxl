@@ -609,3 +609,20 @@ pub(crate) fn append_xml_text(
         )),
     }
 }
+
+pub(crate) fn check_declaration(event: &Event<'_>) -> Result<()> {
+    if let Event::Decl(declaration) = event
+        && let Some(encoding) = declaration.encoding()
+    {
+        let encoding = encoding.map_err(|error| {
+            Error::caused_by(ErrorKind::Xml, "Invalid XML encoding declaration", error)
+        })?;
+        if !encoding.eq_ignore_ascii_case("UTF-8") {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Rewriting non-UTF-8 XML is not supported",
+            ));
+        }
+    }
+    Ok(())
+}

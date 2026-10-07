@@ -45,6 +45,16 @@ impl Hyperlink {
             ..Default::default()
         }
     }
+    /// Initial value for an empty anchor, with compatible empty-target fallback.
+    pub fn initial_cell_value(&self) -> crate::CellValue {
+        self.target
+            .as_ref()
+            .filter(|text| !text.is_empty())
+            .or(self.location.as_ref())
+            .map_or(crate::CellValue::Empty, |text| {
+                crate::CellValue::text(text.clone())
+            })
+    }
     /// Owned text payload; collection node charging includes inline records.
     pub fn heap_bytes(&self) -> usize {
         [

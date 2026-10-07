@@ -157,6 +157,7 @@ pub(super) fn patch_chain_metadata<R: Read + Seek, W: Write>(
     chains: &HashSet<String>,
     limits: ResourceLimits,
     membership: Option<(&catalog::Membership, &crabxl_core::Workbook)>,
+    relationships_added: bool,
 ) -> Result<u64> {
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -167,6 +168,7 @@ pub(super) fn patch_chain_metadata<R: Read + Seek, W: Write>(
     let mut writer = Writer::new(output);
     let types = part == "[Content_Types].xml";
     let mut skip = None;
+    let mut seen_relationship_default = false;
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
@@ -190,6 +192,17 @@ pub(super) fn patch_chain_metadata<R: Read + Seek, W: Write>(
                 };
                 if !valid {
                     return Err(invalid("Invalid calculation-chain package metadata root"));
+                }
+                emit(&mut writer, Event::Start(e))?;
+            }
+            Event::Start(e)
+                if types
+                    && frame.depth == 2
+                    && frame.scope == Scope::ContentTypes
+                    && e.local_name().as_ref().as_bytes() == b"Default" =>
+            {
+                if attribute(&e, b"Extension")?.as_deref() == Some("rels") {
+                    seen_relationship_default = true;
                 }
                 emit(&mut writer, Event::Start(e))?;
             }
@@ -234,6 +247,19 @@ pub(super) fn patch_chain_metadata<R: Read + Seek, W: Write>(
                 }
             }
             Event::End(e) if frame.depth == 0 => {
+                if types && relationships_added && !seen_relationship_default {
+                    let mut default = BytesStart::new("Default");
+                    default.push_attribute((
+                        "xmlns",
+                        "http://schemas.openxmlformats.org/package/2006/content-types",
+                    ));
+                    default.push_attribute(("Extension", "rels"));
+                    default.push_attribute((
+                        "ContentType",
+                        "application/vnd.openxmlformats-package.relationships+xml",
+                    ));
+                    emit(&mut writer, Event::Empty(default))?;
+                }
                 if let Some((membership, bank)) = membership {
                     membership.write_additions(&mut writer, types, bank)?;
                 }

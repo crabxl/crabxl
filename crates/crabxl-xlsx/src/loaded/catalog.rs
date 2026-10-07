@@ -39,7 +39,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             if let Some(index) = template {
                 self.editor.prepare_copy_template(index)?;
             }
-            self.sheet(id)?;
+            self.hyperlinks(id)?;
             crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
             template
         } else {
@@ -126,7 +126,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 maximum.saturating_sub(self.managed_retained_bytes()),
             )?;
         }
-        self.sheet(id)?;
+        self.hyperlinks(id)?;
         let originals = self.original_identities()?;
         let plan = self.editor.prepare_remove(
             id,

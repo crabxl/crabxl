@@ -57,6 +57,7 @@ pub(crate) fn guard<B: BufRead>(
                                 | b"cols"
                                 | b"sheetData"
                                 | b"mergeCells"
+                                | b"hyperlinks"
                                 | b"printOptions"
                                 | b"pageMargins"
                                 | b"pageSetup"
@@ -75,6 +76,14 @@ pub(crate) fn guard<B: BufRead>(
                         seen_data = true;
                         data = true;
                     }
+                }
+                if frame.depth == 2 && name == b"hyperlinks" {
+                    // The loaded coordinator validates and adopts point declarations
+                    // before committing structural/copy edits. This pass retains no
+                    // second collection; source IDs resolve through that shared owner.
+                    let depth = frame.depth;
+                    crate::style_codec::skip(xml, depth)?;
+                    continue;
                 }
                 if columns
                     && !(frame.depth == 3 && frame.scope == Scope::Spreadsheet && name == b"col")
@@ -304,6 +313,7 @@ pub(crate) fn guard_strings<B: BufRead>(
     }
 }
 pub(crate) fn validate_model(sheet: &Worksheet, catalog: Option<&StyleCatalog>) -> Result<()> {
+    crate::hyperlinks::validate(sheet.hyperlinks())?;
     sheet.validate_style_links(catalog)?;
     sheet.dimensions().validate()?;
     for style in sheet
@@ -479,6 +489,7 @@ pub(crate) fn write_new<W: Write>(
     limits: ResourceLimits,
     encoding: Encoding,
     uri: &str,
+    hyperlinks: Option<&crate::hyperlinks::source::Plan>,
 ) -> Result<()> {
     write!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"{uri}\"><dimension ref=\"{}\"/><sheetFormatPr defaultRowHeight=\"15\"/>", dimension(sheet))
         .map_err(|cause| crate::writer::io_error("Cannot start new model worksheet", cause))?;
@@ -486,6 +497,10 @@ pub(crate) fn write_new<W: Write>(
         .map_err(|cause| crate::writer::io_error("Cannot write model columns", cause))?;
     write_data(output, sheet, catalog, limits, encoding, uri)?;
     write_merges(output, sheet, Some(uri))?;
+    if let Some(plan) = hyperlinks {
+        plan.write_links(output, sheet.hyperlinks(), Some(uri))
+            .map_err(|cause| crate::writer::io_error("Cannot write new-sheet hyperlinks", cause))?;
+    }
     output
         .write_all(b"</worksheet>")
         .map_err(|cause| crate::writer::io_error("Cannot finish new model worksheet", cause))

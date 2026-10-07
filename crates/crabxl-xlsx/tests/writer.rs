@@ -119,6 +119,91 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
             loaded.sheet(id).unwrap().get(a1).unwrap().value,
             sheet.get(a1).unwrap().value
         );
+        let mut changed = links.get(a1).unwrap().clone();
+        changed.target = Some("https://example.org/changed?q=1&x=2#new".into());
+        loaded.set_hyperlink(id, a1, Some(changed.clone())).unwrap();
+        let c3: CellAddress = "C3".parse().unwrap();
+        loaded
+            .set_hyperlink(id, c3, Some(Hyperlink::external("https://example.org/new")))
+            .unwrap();
+        for _ in 0..2 {
+            let (saved, _) = loaded
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap();
+            let mut reader = WorkbookReader::new(saved).unwrap();
+            let metadata = reader.hyperlinks("Links").unwrap();
+            assert_eq!(metadata.len(), 3);
+            assert_eq!(metadata.get(a1).unwrap().target, changed.target);
+            assert_eq!(
+                metadata.get(b2).unwrap().location.as_deref(),
+                Some("'Links'!A1")
+            );
+            let rows = reader.read_sheet("Links").unwrap().rows;
+            assert_eq!(
+                rows.last().unwrap().cells.last().unwrap().value,
+                CellValue::text("https://example.org/new")
+            );
+            assert_eq!(
+                rows.first().unwrap().cells.first().unwrap().value,
+                sheet.get(a1).unwrap().value
+            );
+        }
+        let copied = loaded.copy_sheet(id, "Copied").unwrap();
+        loaded
+            .set_hyperlink(
+                copied,
+                a1,
+                Some(Hyperlink::external("https://example.org/copied")),
+            )
+            .unwrap();
+        let cleared = loaded.copy_sheet(id, "Cleared").unwrap();
+        for address in [a1, b2, c3] {
+            loaded.set_hyperlink(cleared, address, None).unwrap();
+        }
+        let (saved, _) = loaded
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        let mut reader = WorkbookReader::new(saved).unwrap();
+        assert_eq!(
+            reader
+                .hyperlinks("Copied")
+                .unwrap()
+                .get(a1)
+                .unwrap()
+                .target
+                .as_deref(),
+            Some("https://example.org/copied")
+        );
+        assert_eq!(
+            reader.hyperlinks("Links").unwrap().get(a1).unwrap().target,
+            changed.target
+        );
+        assert!(reader.hyperlinks("Cleared").unwrap().is_empty());
+        loaded.remove_cell(id, c3).unwrap();
+        let (saved, _) = loaded
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        assert!(
+            WorkbookReader::new(saved)
+                .unwrap()
+                .hyperlinks("Links")
+                .unwrap()
+                .get(c3)
+                .is_none()
+        );
+        loaded.remove_sheet(copied).unwrap();
+        loaded.set_hyperlink(id, a1, None).unwrap();
+        let (saved, _) = loaded
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        assert!(
+            WorkbookReader::new(saved)
+                .unwrap()
+                .hyperlinks("Links")
+                .unwrap()
+                .get(a1)
+                .is_none()
+        );
     }
     let decoded = links.get(a1).unwrap();
     assert_eq!(decoded.target, external.target);
@@ -136,6 +221,21 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
         sheet.get(a1).unwrap().value,
         CellValue::text("../report.xlsx?q=<&>#fragment")
     );
+    sheet
+        .set_memory_allowance(EditLimits::default().max_bytes)
+        .unwrap();
+    sheet.remove(b2);
+    sheet
+        .set_hyperlink(
+            b2,
+            Some(Hyperlink {
+                target: Some("".into()),
+                location: Some("Links!A1".into()),
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+    assert_eq!(sheet.get(b2).unwrap().value, CellValue::text("Links!A1"));
     sheet.remove(b2);
     assert!(sheet.hyperlinks().is_empty());
     assert!(sheet.charged_bytes() < charged);

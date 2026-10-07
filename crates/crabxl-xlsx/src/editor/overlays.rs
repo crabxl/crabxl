@@ -428,6 +428,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.name_patches = BTreeMap::new();
         self.catalog_order = None;
         self.model_patches = BTreeMap::new();
+        self.hyperlink_patches = BTreeMap::new();
         self.membership = None;
         self.patch_bytes = 0;
         self.patch_cells = 0;

@@ -1,22 +1,6 @@
 //! Worksheet overlays and canonical model XML rewriting.
 use super::*;
 
-pub(super) fn check_declaration(event: &Event<'_>) -> Result<()> {
-    if let Event::Decl(declaration) = event
-        && let Some(encoding) = declaration.encoding()
-    {
-        let encoding = encoding.map_err(|error| {
-            Error::caused_by(ErrorKind::Xml, "Invalid XML encoding declaration", error)
-        })?;
-        if !encoding.eq_ignore_ascii_case("UTF-8") {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Rewriting non-UTF-8 XML is not supported",
-            ));
-        }
-    }
-    Ok(())
-}
 pub(super) fn unsigned_attribute(e: &BytesStart<'_>, name: &[u8]) -> Result<Option<u32>> {
     let Some(attribute) = e
         .try_get_attribute(
@@ -221,6 +205,10 @@ pub(super) struct WorksheetRewrite<'a> {
     pub(super) formula_attributes: crate::FormulaWritePolicy,
     pub(super) views: Option<&'a crabxl_core::SheetViews>,
     pub(super) printing: Option<&'a crabxl_core::PrintSettings>,
+    pub(super) hyperlinks: Option<(
+        &'a crabxl_core::Hyperlinks,
+        &'a crate::hyperlinks::source::Plan,
+    )>,
     pub(super) invalidate_caches: bool,
     pub(super) model: Option<&'a crabxl_core::Worksheet>,
     pub(super) catalog: Option<&'a crabxl_core::StyleCatalog>,
@@ -240,6 +228,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         formula_attributes,
         views,
         printing,
+        hyperlinks,
         invalidate_caches,
         model,
         catalog,
@@ -273,6 +262,8 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
     let mut in_row = false;
     let mut in_cell = false;
     let mut views_written = false;
+    let mut hyperlink_rewrite =
+        hyperlinks.map(|(links, plan)| crate::hyperlinks::rewrite::Rewrite::new(links, plan));
     let mut skipped_views = false;
     let mut formula = false;
     let mut seen_v = false;
@@ -283,6 +274,31 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
+        if let Some(rewrite) = &mut hyperlink_rewrite
+            && frame.scope == Scope::Spreadsheet
+        {
+            match &frame.event {
+                Event::Start(e) => {
+                    let skip = rewrite
+                        .before_start(
+                            writer.get_mut(),
+                            e.local_name().as_ref().as_bytes(),
+                            frame.depth,
+                            frame.spreadsheet_uri,
+                        )
+                        .map_err(|cause| io_error("Cannot replace source hyperlinks", cause))?;
+                    if skip {
+                        let depth = frame.depth;
+                        crate::style_codec::skip(&mut xml, depth)?;
+                        continue;
+                    }
+                }
+                Event::End(_) => rewrite
+                    .before_end(writer.get_mut(), frame.depth, frame.spreadsheet_uri)
+                    .map_err(|cause| io_error("Cannot finish source hyperlinks", cause))?,
+                _ => {}
+            }
+        }
 
         if matches!(&frame.event,Event::Start(e) if e.local_name().as_ref().as_bytes()==b"AlternateContent")
         {

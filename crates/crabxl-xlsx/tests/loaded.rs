@@ -2234,3 +2234,164 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
         assert_eq!(parts(saved), guarded_parts);
     }
 }
+
+#[test]
+fn hyperlink_metadata_edits_preserve_shared_relationships_assets_and_create_missing_graphs() {
+    use crabxl_core::{Hyperlink, Worksheet};
+    let mut sheet = Worksheet::new("Links", EditLimits::default()).unwrap();
+    sheet
+        .append(vec![
+            CellValue::Integer(7),
+            CellValue::Formula(Box::new(
+                crabxl_core::Formula::new("1+1", Some(CellValue::Integer(2))).unwrap(),
+            )),
+        ])
+        .unwrap();
+    let mut writer = WorkbookWriter::new(Default::default()).unwrap();
+    writer.write_worksheet(&sheet).unwrap();
+    let base = parts(writer.finish(Cursor::new(Vec::new())).unwrap().into_inner());
+    let office = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    let mut source = base.clone();
+    let body = String::from_utf8(source["xl/worksheets/sheet1.xml"].clone()).unwrap()
+        .replace("<worksheet ", &format!("<worksheet xmlns:r=\"{office}\" "))
+        .replace("</worksheet>", "<hyperlinks><hyperlink ref=\"A1\" r:id=\"shared\" tooltip=\"keep\"/><hyperlink ref=\"B1\" r:id=\"shared\"/></hyperlinks><drawing r:id=\"rIdCrabXL1\"/></worksheet>");
+    source.insert("xl/worksheets/sheet1.xml".into(), body.into_bytes());
+    source.insert("xl/worksheets/_rels/sheet1.xml.rels".into(), format!("<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\" xmlns:x=\"urn:keep\" x:flag=\"keep\"><Relationship Id=\"shared\" Type=\"{office}/hyperlink\" Target=\"https://example.org/original\" TargetMode=\"External\"/><Relationship Id=\"rIdCrabXL1\" Type=\"{office}/drawing\" Target=\"../drawings/kept.xml\"/></Relationships>").into_bytes());
+    source.insert(
+        "xl/drawings/kept.xml".into(),
+        b"<kept xmlns=\"urn:opaque\"/>".to_vec(),
+    );
+    source.insert("xl/media/kept.bin".into(), vec![0, 255, 7, 19]);
+    let mut loaded =
+        LoadedWorkbook::with_options(Cursor::new(package(source.clone())), Default::default())
+            .unwrap();
+    let id = loaded.sheet_id("Links").unwrap();
+    let a1: CellAddress = "A1".parse().unwrap();
+    let b1: CellAddress = "B1".parse().unwrap();
+    assert_eq!(
+        loaded
+            .hyperlinks(id)
+            .unwrap()
+            .get(a1)
+            .unwrap()
+            .target
+            .as_deref(),
+        Some("https://example.org/original")
+    );
+    let mut changed = loaded.hyperlinks(id).unwrap().get(a1).unwrap().clone();
+    changed.target = Some("../changed.xlsx?q=1&x=2#section".into());
+    loaded.set_hyperlink(id, a1, Some(changed)).unwrap();
+    let mut previous_relationships = None;
+    for _ in 0..2 {
+        let (output, stats) = loaded
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        assert_eq!(stats.rewritten_parts, 2);
+        let bytes = output.into_inner();
+        let saved = parts(bytes.clone());
+        assert_eq!(
+            saved["xl/drawings/kept.xml"],
+            source["xl/drawings/kept.xml"]
+        );
+        assert_eq!(saved["xl/media/kept.bin"], source["xl/media/kept.bin"]);
+        let body = String::from_utf8(saved["xl/worksheets/sheet1.xml"].clone()).unwrap();
+        assert!(body.contains("<v>2</v>"));
+        assert!(body.contains("r:id=\"rIdCrabXL1\""));
+        let rels = saved["xl/worksheets/_rels/sheet1.xml.rels"].clone();
+        assert!(
+            String::from_utf8(rels.clone())
+                .unwrap()
+                .contains("x:flag=\"keep\"")
+        );
+        if let Some(previous) = previous_relationships.replace(rels.clone()) {
+            assert_eq!(previous, rels);
+        }
+        let mut reader = crabxl_xlsx::WorkbookReader::new(Cursor::new(bytes)).unwrap();
+        let links = reader.hyperlinks("Links").unwrap();
+        assert_eq!(
+            links.get(a1).unwrap().target.as_deref(),
+            Some("../changed.xlsx?q=1&x=2#section")
+        );
+        assert_ne!(
+            links.get(a1).unwrap().relationship_id.as_deref(),
+            Some("rIdCrabXL1")
+        );
+        assert_eq!(
+            links.get(b1).unwrap().target.as_deref(),
+            Some("https://example.org/original")
+        );
+        assert_eq!(
+            links.get(b1).unwrap().relationship_id.as_deref(),
+            Some("shared")
+        );
+    }
+    let mut bare = base;
+    let content = String::from_utf8(bare["[Content_Types].xml"].clone()).unwrap()
+        .replace("<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>", "")
+        .replace("</Types>", "<Override PartName=\"/_rels/.rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Override PartName=\"/xl/_rels/workbook.xml.rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/></Types>");
+    assert!(!content.contains("Extension=\"rels\""));
+    bare.insert("[Content_Types].xml".into(), content.into_bytes());
+    let mut loaded =
+        LoadedWorkbook::with_options(Cursor::new(package(bare)), Default::default()).unwrap();
+    let original = loaded.sheet_id("Links").unwrap();
+    let d4: CellAddress = "D4".parse().unwrap();
+    loaded
+        .set_hyperlink(
+            original,
+            d4,
+            Some(Hyperlink::external("https://example.org/filled")),
+        )
+        .unwrap();
+    let created = loaded.create_sheet("Created").unwrap();
+    loaded
+        .set_hyperlink(
+            created,
+            a1,
+            Some(Hyperlink::external("https://example.org/created")),
+        )
+        .unwrap();
+    let (output, _) = loaded
+        .save(Cursor::new(Vec::new()), Default::default())
+        .unwrap();
+    let bytes = output.into_inner();
+    let saved = parts(bytes.clone());
+    assert!(
+        String::from_utf8(saved["[Content_Types].xml"].clone())
+            .unwrap()
+            .contains("Extension=\"rels\"")
+    );
+    let mut reader = crabxl_xlsx::WorkbookReader::new(Cursor::new(bytes)).unwrap();
+    assert_eq!(
+        reader
+            .hyperlinks("Links")
+            .unwrap()
+            .get(d4)
+            .unwrap()
+            .target
+            .as_deref(),
+        Some("https://example.org/filled")
+    );
+    assert_eq!(
+        reader
+            .hyperlinks("Created")
+            .unwrap()
+            .get(a1)
+            .unwrap()
+            .target
+            .as_deref(),
+        Some("https://example.org/created")
+    );
+    assert_eq!(
+        reader
+            .read_sheet("Links")
+            .unwrap()
+            .rows
+            .last()
+            .unwrap()
+            .cells
+            .last()
+            .unwrap()
+            .value,
+        CellValue::text("https://example.org/filled")
+    );
+}

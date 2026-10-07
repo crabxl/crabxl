@@ -12,13 +12,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         output: W,
         options: SaveOptions,
     ) -> Result<(W, SaveStats)> {
-        self.save_with_models(output, options, None)
+        self.save_with_models(output, options, None, 0)
     }
     pub(crate) fn save_with_models<W: Write + Seek>(
         &mut self,
         output: W,
         options: SaveOptions,
         bank: Option<&crabxl_core::Workbook>,
+        extra_retained: usize,
     ) -> Result<(W, SaveStats)> {
         if (!self.model_patches.is_empty() || self.membership.is_some()) && bank.is_none() {
             return Err(invalid(
@@ -40,6 +41,15 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 ));
             }
         }
+        let hyperlink_plans = self.prepare_hyperlink_save(bank, extra_retained)?;
+        let relationship_plans: BTreeMap<_, _> = hyperlink_plans
+            .iter()
+            .filter(|(_, (_, plan))| plan.relationships.is_some())
+            .map(|(part, (id, plan))| (crate::package::relationship_part(part), (*id, plan)))
+            .collect();
+        let relationships_added = relationship_plans
+            .keys()
+            .any(|part| self.book.archive.index_for_name(part).is_none());
         let membership = self.membership.as_deref().zip(bank);
         let active = if let Some((_, bank)) = membership {
             Some(crabxl_core::normalize_active_view(
@@ -90,9 +100,47 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 continue;
             }
             let chain_metadata = (membership.is_some()
-                || dirty && !self.calc_chain_parts.is_empty())
+                || dirty && !self.calc_chain_parts.is_empty()
+                || relationships_added && part.name.as_ref() == "[Content_Types].xml")
                 && (part.name.as_ref() == "[Content_Types].xml"
                     || part.name.as_ref() == self.workbook_relationships);
+            let hyperlink = hyperlink_plans
+                .get(part.name.as_ref())
+                .map(|(id, plan)| {
+                    let links = bank
+                        .ok_or_else(|| invalid("Missing hyperlink bank owner"))?
+                        .sheet(*id)?
+                        .hyperlinks();
+                    Ok::<_, Error>((links, plan))
+                })
+                .transpose()?;
+            if let Some((_, plan)) = relationship_plans.get(part.name.as_ref()) {
+                let bytes = plan
+                    .relationships
+                    .as_deref()
+                    .ok_or_else(|| invalid("Missing planned hyperlink relationships"))?;
+                if bytes.len() as u64 > self.options.resources.max_part_bytes {
+                    return Err(limit(
+                        "Hyperlink relationship part exceeds configured limit",
+                    ));
+                }
+                zip.start_file(
+                    part.name.as_ref(),
+                    crate::writer::compression_options(options.compression_level),
+                )
+                .map_err(|cause| {
+                    zip_error("Cannot start rewritten hyperlink relationships", cause)
+                })?;
+                zip.write_all(bytes)
+                    .map_err(|cause| io_error("Cannot write hyperlink relationships", cause))?;
+                total = total - u128::from(part.uncompressed_bytes) + bytes.len() as u128;
+                if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
+                    return Err(limit("Edited hyperlink package exceeds configured limit"));
+                }
+                stats.rewritten_parts += 1;
+                stats.rewritten_xml_bytes += bytes.len() as u64;
+                continue;
+            }
             let view_patch = self.view_patches.get(part.name.as_ref()).map(Box::as_ref);
             let print_patch = self.print_patches.get(part.name.as_ref()).map(Box::as_ref);
             let model = self
@@ -106,10 +154,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         .sheet(*id)
                 })
                 .transpose()?;
-            let worksheet = (dirty || view_patch.is_some() || print_patch.is_some())
-                && self.book.sheets().iter().any(|sheet| {
-                    sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
-                });
+            let worksheet =
+                (dirty || view_patch.is_some() || print_patch.is_some() || hyperlink.is_some())
+                    && self.book.sheets().iter().any(|sheet| {
+                        sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
+                    });
             let workbook = (dirty
                 || active.is_some()
                 || !self.visibility_patches.is_empty()
@@ -183,6 +232,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             formula_attributes: self.options.formula_attributes,
                             views: view_patch,
                             printing: print_patch,
+                            hyperlinks: hyperlink,
                             invalidate_caches: dirty,
                             model,
                             catalog: bank.and_then(crabxl_core::Workbook::style_catalog),
@@ -220,6 +270,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         },
                         self.options.resources,
                         membership,
+                        relationships_added,
                     )
                 }
                 .map_err(|error| error.with_part(part.name.as_ref()))?;
@@ -260,6 +311,33 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 })?;
                 stats.copied_parts += 1;
             }
+        }
+        for (part, (_, plan)) in &relationship_plans {
+            if self.book.archive.index_for_name(part).is_some() {
+                continue;
+            }
+            let bytes = plan
+                .relationships
+                .as_deref()
+                .ok_or_else(|| invalid("Missing new hyperlink relationships"))?;
+            if bytes.len() as u64 > self.options.resources.max_part_bytes {
+                return Err(limit(
+                    "New hyperlink relationship part exceeds configured limit",
+                ));
+            }
+            zip.start_file(
+                part.as_str(),
+                crate::writer::compression_options(options.compression_level),
+            )
+            .map_err(|cause| zip_error("Cannot start new hyperlink relationships", cause))?;
+            zip.write_all(bytes)
+                .map_err(|cause| io_error("Cannot write new hyperlink relationships", cause))?;
+            total += bytes.len() as u128;
+            if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
+                return Err(limit("Created hyperlink package exceeds configured limit"));
+            }
+            stats.created_parts += 1;
+            stats.rewritten_xml_bytes += bytes.len() as u64;
         }
         if let Some((membership, bank)) = membership {
             for created in membership.created.values() {
@@ -302,6 +380,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             formula_attributes: self.options.formula_attributes,
                             views: None,
                             printing: None,
+                            hyperlinks: hyperlink_plans
+                                .get(created.part.as_str())
+                                .map(|(_, plan)| (sheet.hyperlinks(), plan)),
                             invalidate_caches: true,
                             model: Some(sheet),
                             catalog: bank.style_catalog(),
@@ -322,6 +403,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             formula_attributes: self.options.formula_attributes,
                         },
                         membership.namespace(),
+                        hyperlink_plans
+                            .get(created.part.as_str())
+                            .map(|(_, plan)| plan),
                     )
                     .map_err(|error| error.with_part(&created.part))?;
                     output

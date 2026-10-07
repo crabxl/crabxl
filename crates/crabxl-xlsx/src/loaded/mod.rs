@@ -532,9 +532,12 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 "Edited data-only model output remains unimplemented",
             ));
         }
-        let result = self
-            .editor
-            .save_with_models(output, options, Some(&self.bank))?;
+        let result = self.editor.save_with_models(
+            output,
+            options,
+            Some(&self.bank),
+            self.mapping_bytes(),
+        )?;
         self.bank
             .set_active_view_index(self.editor.active_view_index());
         Ok(result)

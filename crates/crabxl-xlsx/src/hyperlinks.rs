@@ -2,7 +2,9 @@
 // External hyperlink relationship ordering adapted from umya-spreadsheet,
 // Copyright (c) 2020 MathNya. Bounded codecs and full optional fields are CrabXL.
 //! Point hyperlink metadata and owned-package relationship encoding.
+pub(crate) mod rewrite;
 mod scan;
+pub(crate) mod source;
 pub(crate) use scan::Capture;
 
 use crate::{
@@ -10,30 +12,58 @@ use crate::{
     xml::OFFICE_REL_URI,
 };
 use crabxl_core::{Error, ErrorKind, Hyperlinks, Result};
-use std::io::{self, Write};
+use std::{
+    borrow::Cow,
+    io::{self, Write},
+};
 
 pub(crate) fn validate(links: &Hyperlinks) -> Result<()> {
     for (address, link) in links.iter() {
-        if link.target.is_some() && !link.external {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Internal-package hyperlink graph editing remains unimplemented",
-            )
-            .with_cell(address));
-        }
-        for text in [&link.target, &link.location, &link.display, &link.tooltip]
-            .into_iter()
-            .flatten()
-        {
-            validate_xml_text(text).map_err(|e| e.with_cell(address))?;
-        }
+        validate_link(address, link)?;
     }
     Ok(())
 }
+pub(crate) fn validate_link(
+    address: crabxl_core::CellAddress,
+    link: &crabxl_core::Hyperlink,
+) -> Result<()> {
+    if link.target.is_none() && link.relationship_id.is_some() {
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            "Unresolved source hyperlink targets require relationship resolution",
+        )
+        .with_cell(address));
+    }
+    if link.target.is_some() && !link.external {
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            "Internal-package hyperlink graph editing remains unimplemented",
+        )
+        .with_cell(address));
+    }
+    for text in [&link.target, &link.location, &link.display, &link.tooltip]
+        .into_iter()
+        .flatten()
+    {
+        validate_xml_text(text).map_err(|e| e.with_cell(address))?;
+    }
+    Ok(())
+}
+
 pub(crate) fn write_links(
     output: &mut impl Write,
     links: &Hyperlinks,
     uri: Option<&str>,
+) -> io::Result<()> {
+    write_links_with_ids(output, links, uri, |index| {
+        Some(Cow::Owned(format!("rId{}", index + 1)))
+    })
+}
+pub(crate) fn write_links_with_ids<'a>(
+    output: &mut impl Write,
+    links: &Hyperlinks,
+    uri: Option<&str>,
+    mut identity: impl FnMut(usize) -> Option<Cow<'a, str>>,
 ) -> io::Result<()> {
     if links.is_empty() {
         return Ok(());
@@ -57,7 +87,13 @@ pub(crate) fn write_links(
             }
         }
         if link.target.is_some() {
-            write_attribute(output, "r:id", &format!("rId{}", index + 1))?;
+            let id = identity(index).ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Missing encoded hyperlink identity",
+                )
+            })?;
+            write_attribute(output, "r:id", &id)?;
         }
         output.write_all(b"/>")?;
     }

@@ -58,7 +58,30 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             sum
         }
-        _ => return Err("Expected scan, combined or loaded mode".into()),
+        "edit" => {
+            if count == 0 {
+                return Err("Edit mode requires at least one point".into());
+            }
+            let mut loaded = crabxl::LoadedWorkbook::open(&path)?;
+            let id = loaded
+                .sheet_id("Links")
+                .ok_or("Missing generated worksheet")?;
+            let last = CellAddress::new(count - 1, 0)?;
+            let mut changed = loaded
+                .hyperlinks(id)?
+                .get(last)
+                .ok_or("Missing last hyperlink")?
+                .clone();
+            changed.target = Some("https://example.org/changed?x=1&y=2#new".into());
+            loaded.set_hyperlink(id, last, Some(changed))?;
+            let sum = checksum(loaded.hyperlinks(id)?, count)?;
+            loaded.save(
+                File::create(format!("{path}.edited.xlsx"))?,
+                Default::default(),
+            )?;
+            sum
+        }
+        _ => return Err("Expected scan, combined, loaded or edit mode".into()),
     };
     #[cfg(target_os = "linux")]
     let peak_rss_kib = std::fs::read_to_string("/proc/self/status")?

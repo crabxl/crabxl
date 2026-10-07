@@ -1,0 +1,6 @@
+mode=edit rows=2000 prepare=0.000959 save=0.008952 scan=0.019352 checksum=2087884 peak_temp_xml_bytes=385622 peak_rss_kib=5260
+mode=edit rows=2000 prepare=0.000843 save=0.006923 scan=0.017668 checksum=2087884 peak_temp_xml_bytes=385622 peak_rss_kib=5328
+mode=edit rows=2000 prepare=0.000876 save=0.007289 scan=0.018702 checksum=2087884 peak_temp_xml_bytes=385622 peak_rss_kib=5192
+mode=edit rows=8000 prepare=0.004006 save=0.028093 scan=0.074476 checksum=32354884 peak_temp_xml_bytes=1561622 peak_rss_kib=10528
+mode=edit rows=8000 prepare=0.003969 save=0.031252 scan=0.073264 checksum=32354884 peak_temp_xml_bytes=1561622 peak_rss_kib=10244
+mode=edit rows=8000 prepare=0.003556 save=0.028314 scan=0.072758 checksum=32354884 peak_temp_xml_bytes=1561622 peak_rss_kib=10512
