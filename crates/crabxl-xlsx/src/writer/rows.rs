@@ -328,6 +328,7 @@ impl WorkbookWriter {
             visibility: active.visibility,
             relationships: active.relationships,
             relationship_spool,
+            live_events: active.live_events,
         });
         Ok(())
     }

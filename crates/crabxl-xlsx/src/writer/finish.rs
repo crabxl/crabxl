@@ -110,6 +110,9 @@ impl WorkbookWriter {
         for active in self.active.take().into_iter().chain(self.paused.drain(..)) {
             let (file, _) = active.output.into_parts();
             cleanup(file);
+            if let Some(events) = active.live_events {
+                cleanup(events.into_file());
+            }
             for file in active
                 .link_spool
                 .into_iter()
@@ -120,7 +123,15 @@ impl WorkbookWriter {
         }
         for sheet in self.sheets.drain(..) {
             cleanup(sheet.file);
+            if let Some(events) = sheet.live_events {
+                cleanup(events.into_file());
+            }
             if let Some(file) = sheet.relationship_spool {
+                cleanup(file);
+            }
+        }
+        if let Some(store) = self.live_links.take() {
+            for file in store.into_files() {
                 cleanup(file);
             }
         }
@@ -135,7 +146,16 @@ impl WorkbookWriter {
     }
     /// Package completed worksheets and return the output sink. An I/O failure
     /// may leave partial bytes in caller output; abort/Drop never imply save.
-    pub fn finish<W: Write + Seek>(mut self, output: W) -> Result<W> {
+    pub fn finish<W: Write + Seek>(self, output: W) -> Result<W> {
+        self.finish_with_hyperlink_ids(output, |_, _| Ok(()))
+    }
+    /// Package live metadata and report writer-local group output identities in
+    /// worksheet creation and owner order. Apply public IDs only after success.
+    pub fn finish_with_hyperlink_ids<W: Write + Seek>(
+        mut self,
+        output: W,
+        mut identity: impl FnMut(u64, Option<&str>) -> Result<()>,
+    ) -> Result<W> {
         self.close_sheet()?;
         while let Some(active) = self.paused.pop() {
             self.active = Some(active);
@@ -172,6 +192,11 @@ impl WorkbookWriter {
         }
         let mut zip = ZipWriter::new(output);
         let options = compression_options(self.options.compression_level);
+        let live_maximum = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes())
+            .saturating_sub(self.style_memory_bytes());
         for (index, sheet) in self.sheets.iter_mut().enumerate() {
             let part = format!("xl/worksheets/sheet{}.xml", index + 1);
             let size = sheet
@@ -185,18 +210,71 @@ impl WorkbookWriter {
             start_part(
                 &mut zip,
                 &part,
-                options.large_file(size >= u64::from(u32::MAX)),
+                options.large_file(sheet.live_events.is_some() || size >= u64::from(u32::MAX)),
             )?;
             sheet.file.rewind().map_err(|error| {
                 io_error("Cannot rewind worksheet temporary file", error).with_part(&part)
             })?;
-            io::copy(
-                &mut BufReader::with_capacity(self.options.buffer_bytes, sheet.file.as_file_mut()),
-                &mut zip,
-            )
-            .map_err(|error| {
-                io_error("Cannot package worksheet temporary file", error).with_part(part)
-            })?;
+            let external = if let Some(events) = &mut sheet.live_events {
+                use std::io::Read;
+                let body = size
+                    .checked_sub(FOOTER.len() as u64)
+                    .ok_or_else(|| state("Invalid deferred hyperlink worksheet footer"))?;
+                io::copy(&mut sheet.file.as_file_mut().take(body), &mut zip)
+                    .map_err(|cause| io_error("Cannot package live hyperlink worksheet", cause))?;
+                zip.write_all(b"</sheetData>")
+                    .map_err(|cause| io_error("Cannot close worksheet cells", cause))?;
+                let maximum = live_maximum;
+                let store = self
+                    .live_links
+                    .as_mut()
+                    .ok_or_else(|| state("Missing live hyperlink store"))?;
+                let external = live_hyperlinks::write_events(
+                    &mut zip,
+                    events,
+                    store,
+                    maximum,
+                    false,
+                    self.options
+                        .max_sheet_bytes
+                        .saturating_sub(body + FOOTER.len() as u64),
+                    &mut identity,
+                )?;
+                zip.write_all(b"</worksheet>")
+                    .map_err(|cause| io_error("Cannot close live worksheet", cause))?;
+                external
+            } else {
+                io::copy(
+                    &mut BufReader::with_capacity(
+                        self.options.buffer_bytes,
+                        sheet.file.as_file_mut(),
+                    ),
+                    &mut zip,
+                )
+                .map_err(|error| {
+                    io_error("Cannot package worksheet temporary file", error).with_part(&part)
+                })?;
+                false
+            };
+            if external {
+                let part = format!("xl/worksheets/_rels/sheet{}.xml.rels", index + 1);
+                start_part(&mut zip, &part, options.large_file(true))?;
+                let maximum = live_maximum;
+                live_hyperlinks::write_events(
+                    &mut zip,
+                    sheet
+                        .live_events
+                        .as_mut()
+                        .ok_or_else(|| state("Missing live hyperlink events"))?,
+                    self.live_links
+                        .as_mut()
+                        .ok_or_else(|| state("Missing live hyperlink store"))?,
+                    maximum,
+                    true,
+                    self.options.max_sheet_bytes,
+                    |_, _| Ok(()),
+                )?;
+            }
             if let Some(file) = &mut sheet.relationship_spool {
                 let part = format!("xl/worksheets/_rels/sheet{}.xml.rels", index + 1);
                 let size = file
@@ -207,7 +285,7 @@ impl WorkbookWriter {
                 start_part(
                     &mut zip,
                     &part,
-                    options.large_file(size >= u64::from(u32::MAX)),
+                    options.large_file(sheet.live_events.is_some() || size >= u64::from(u32::MAX)),
                 )?;
                 file.rewind()
                     .map_err(|cause| io_error("Cannot rewind hyperlink relationships", cause))?;

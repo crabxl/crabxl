@@ -302,6 +302,7 @@ impl WorkbookWriter {
             footer,
             relationships: None,
             link_spool: None,
+            live_events: None,
             visibility: crabxl_core::SheetVisibility::Visible,
         });
         self.write_active(header)?;
