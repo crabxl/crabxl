@@ -246,7 +246,7 @@
       "reference": "docs/decisions/0001-numeric-streaming.md",
       "modules": [
         "crates/crabxl-core/src/row.rs",
-        "crates/crabxl-xlsx/src/package.rs"
+        "crates/crabxl-xlsx/src/package/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/streaming.rs::materialized_sheet_matches_streaming_and_outlives_workbook",
@@ -16579,7 +16579,7 @@
       "reference": "openpyxl.cell.cell and public openpyxl 3.1.5 load_workbook behavior",
       "modules": [
         "crates/crabxl-core/src/row.rs",
-        "crates/crabxl-xlsx/src/reader.rs"
+        "crates/crabxl-xlsx/src/reader/mod.rs"
       ],
       "tests": [
         "boolean_literals_preserve_type_and_reuse_all_read_modes",
@@ -16610,7 +16610,7 @@
       "reference": "openpyxl 3.1.5 public scalar behavior and generated mixed-scalar fixtures",
       "modules": [
         "crates/crabxl-core/src/scalar.rs",
-        "crates/crabxl-xlsx/src/reader.rs"
+        "crates/crabxl-xlsx/src/reader/mod.rs"
       ],
       "tests": [
         "exact_integers_float_lexemes_errors_and_plain_inline_text"
@@ -16639,7 +16639,7 @@
       "reference": "openpyxl 3.1.5 public scalar behavior and generated mixed-scalar fixtures",
       "modules": [
         "crates/crabxl-core/src/scalar.rs",
-        "crates/crabxl-xlsx/src/reader.rs"
+        "crates/crabxl-xlsx/src/reader/mod.rs"
       ],
       "tests": [
         "exact_integers_float_lexemes_errors_and_plain_inline_text",
@@ -16669,7 +16669,7 @@
       "reference": "openpyxl 3.1.5 public scalar behavior and generated mixed-scalar fixtures",
       "modules": [
         "crates/crabxl-core/src/scalar.rs",
-        "crates/crabxl-xlsx/src/reader.rs"
+        "crates/crabxl-xlsx/src/reader/mod.rs"
       ],
       "tests": [
         "owned_text_payloads_are_counted_in_row_batch_and_materialization_limits",
@@ -16695,7 +16695,7 @@
       ],
       "reference": "Selected pinned rust_xlsxwriter serializers and constant-memory packager; see third_party/ports.json",
       "modules": [
-        "crates/crabxl-xlsx/src/writer.rs",
+        "crates/crabxl-xlsx/src/writer/mod.rs",
         "crates/crabxl-xlsx/src/encode.rs"
       ],
       "tests": [
@@ -16721,7 +16721,7 @@
       ],
       "reference": "Selected pinned rust_xlsxwriter serializers and constant-memory packager; see third_party/ports.json",
       "modules": [
-        "crates/crabxl-xlsx/src/writer.rs",
+        "crates/crabxl-xlsx/src/writer/mod.rs",
         "crates/crabxl-xlsx/src/encode.rs"
       ],
       "tests": [
@@ -16782,7 +16782,7 @@
       "reference": "Pinned rust_xlsxwriter serializers and public openpyxl 3.1.5 interoperability; third_party/ports.json",
       "modules": [
         "crates/crabxl-core/src/formula.rs",
-        "crates/crabxl-xlsx/src/reader.rs"
+        "crates/crabxl-xlsx/src/reader/mod.rs"
       ],
       "tests": [
         "normal_formula_round_trip_and_data_only_caches",
@@ -16806,8 +16806,8 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
       "modules": [
-        "crates/crabxl-core/src/worksheet.rs",
-        "crates/crabxl-xlsx/src/writer.rs"
+        "crates/crabxl-core/src/worksheet/mod.rs",
+        "crates/crabxl-xlsx/src/writer/mod.rs"
       ],
       "tests": [
         "crates/crabxl-core/tests/worksheet.rs",
@@ -16831,7 +16831,7 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
       "modules": [
-        "crates/crabxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/editor.rs"
@@ -16854,7 +16854,7 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
       "modules": [
-        "crates/crabxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/editor.rs",
@@ -16878,7 +16878,7 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "crates/crabxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/editor.rs::upserts_fill_sparse_gaps_and_preserve_inferred_positions_and_row_metadata",
@@ -16959,7 +16959,7 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
       "modules": [
-        "crates/crabxl-core/src/worksheet.rs"
+        "crates/crabxl-core/src/worksheet/mod.rs"
       ],
       "tests": [
         "crates/crabxl-core/tests/translate.rs",
@@ -16984,9 +16984,9 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "crates/crabxl-core/src/workbook.rs",
-        "crates/crabxl-xlsx/src/writer.rs",
-        "crates/crabxl-xlsx/src/loaded.rs"
+        "crates/crabxl-core/src/workbook/mod.rs",
+        "crates/crabxl-xlsx/src/writer/mod.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs"
       ],
       "tests": [
         "crates/crabxl-core/tests/workbook.rs",
@@ -17022,7 +17022,7 @@
       "modules": [
         "https://github.com/crabxl/crabxl-python/blob/main/src/lib.rs",
         "https://github.com/crabxl/crabxl-python/blob/main/python/crabxl/__init__.py",
-        "crates/crabxl-core/src/workbook.rs"
+        "crates/crabxl-core/src/workbook/mod.rs"
       ],
       "tests": [
         "https://github.com/crabxl/crabxl-python/blob/main/tests/test_upstream_workbook.py",
@@ -17048,8 +17048,8 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/formula.html",
       "modules": [
-        "crates/crabxl-xlsx/src/editor.rs",
-        "crates/crabxl-xlsx/src/package.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs",
+        "crates/crabxl-xlsx/src/package/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/editor.rs::edited_chain_removes_part_and_package_refs_with_repeat_save_and_revert",
@@ -17078,7 +17078,7 @@
       "reference": "https://openpyxl.readthedocs.io/en/3.1/optimized.html",
       "modules": [
         "crates/crabxl-xlsx/src/strings.rs",
-        "crates/crabxl-xlsx/src/package.rs"
+        "crates/crabxl-xlsx/src/package/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/streaming.rs::shared_text_modes_preserve_ids_entities_whitespace_and_owned_lifetimes",
@@ -17206,7 +17206,7 @@
       "modules": [
         "crates/crabxl-core/src/iso_date.rs",
         "crates/crabxl-core/src/date.rs",
-        "crates/crabxl-xlsx/src/reader.rs",
+        "crates/crabxl-xlsx/src/reader/mod.rs",
         "crates/crabxl-xlsx/src/encode.rs"
       ],
       "tests": [
@@ -17267,7 +17267,7 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/simple_formulae.html",
       "modules": [
-        "crates/crabxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/editor.rs::structured_formula_targets_replace_without_rewriting_unrelated_cells"
@@ -17293,7 +17293,7 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "crates/crabxl-xlsx/src/reader.rs",
+        "crates/crabxl-xlsx/src/reader/mod.rs",
         "crates/crabxl-xlsx/src/encode.rs"
       ],
       "tests": [
@@ -17353,7 +17353,7 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/styles.html",
       "modules": [
-        "crates/crabxl-core/src/style_registry.rs",
+        "crates/crabxl-core/src/style_registry/mod.rs",
         "crates/crabxl-core/src/style_hash.rs",
         "crates/crabxl-core/src/style_validation.rs",
         "crates/crabxl-xlsx/src/styles.rs"
@@ -17423,8 +17423,8 @@
       "reference": "https://openpyxl.readthedocs.io/en/3.1/simple_formulae.html",
       "modules": [
         "crates/crabxl-core/src/row.rs",
-        "crates/crabxl-xlsx/src/reader.rs",
-        "crates/crabxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/reader/mod.rs",
+        "crates/crabxl-xlsx/src/editor/mod.rs"
       ],
       "tests": [
         "benchmarks/probe_dynamic_formulas.py",
@@ -17454,8 +17454,8 @@
       "modules": [
         "crates/crabxl-xlsx/src/aggregate.rs",
         "crates/crabxl-xlsx/src/adaptive.rs",
-        "crates/crabxl-xlsx/src/package.rs",
-        "crates/crabxl-xlsx/src/reader.rs",
+        "crates/crabxl-xlsx/src/package/mod.rs",
+        "crates/crabxl-xlsx/src/reader/mod.rs",
         "crates/crabxl-xlsx/src/strings.rs"
       ],
       "tests": [
@@ -17492,7 +17492,7 @@
         "adaptive-materialized"
       ],
       "modules": [
-        "crates/crabxl-xlsx/src/reader.rs"
+        "crates/crabxl-xlsx/src/reader/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/streaming.rs::cache_only_projection_ignores_formula_semantics_without_ignoring_xml_or_values",
@@ -17577,8 +17577,8 @@
       ],
       "modules": [
         "crates/crabxl-core/src/theme.rs",
-        "crates/crabxl-core/src/workbook.rs",
-        "crates/crabxl-xlsx/src/writer.rs"
+        "crates/crabxl-core/src/workbook/mod.rs",
+        "crates/crabxl-xlsx/src/writer/mod.rs"
       ],
       "tests": [
         "crates/crabxl-core/tests/workbook.rs::themes_share_immutable_bytes_and_obey_the_bank_allowance_atomically",
@@ -17603,9 +17603,9 @@
         "streaming-catalog-transfer"
       ],
       "modules": [
-        "crates/crabxl-core/src/style_registry.rs",
+        "crates/crabxl-core/src/style_registry/mod.rs",
         "crates/crabxl-core/src/style_catalog.rs",
-        "crates/crabxl-xlsx/src/package.rs"
+        "crates/crabxl-xlsx/src/package/mod.rs"
       ],
       "tests": [
         "crates/crabxl-core/tests/style_registry.rs::imported_catalogs_preserve_ids_duplicates_and_sparse_number_format_identity",
@@ -17635,8 +17635,8 @@
         "sequential-write"
       ],
       "modules": [
-        "crates/crabxl-core/src/style_registry.rs",
-        "crates/crabxl-xlsx/src/writer.rs",
+        "crates/crabxl-core/src/style_registry/mod.rs",
+        "crates/crabxl-xlsx/src/writer/mod.rs",
         "crates/crabxl-xlsx/src/encode.rs",
         "crates/crabxl-xlsx/src/styles.rs"
       ],
@@ -17757,8 +17757,8 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "crates/crabxl-xlsx/src/editor.rs",
-        "crates/crabxl-xlsx/src/loaded.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/loaded.rs::active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_mutation"
@@ -17788,8 +17788,8 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "crates/crabxl-xlsx/src/editor.rs",
-        "crates/crabxl-xlsx/src/loaded.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/loaded.rs::active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_mutation"
@@ -17817,8 +17817,8 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html",
       "modules": [
-        "crates/crabxl-xlsx/src/editor.rs",
-        "crates/crabxl-xlsx/src/loaded.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/loaded.rs::active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_mutation"
@@ -17845,8 +17845,8 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/editing_worksheets.html",
       "modules": [
-        "crates/crabxl-xlsx/src/loaded.rs",
-        "crates/crabxl-xlsx/src/editor.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs",
+        "crates/crabxl-xlsx/src/editor/mod.rs",
         "crates/crabxl-xlsx/src/loaded_codec.rs"
       ],
       "tests": [
@@ -17874,7 +17874,7 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html#create-a-workbook",
       "modules": [
-        "crates/crabxl-xlsx/src/loaded.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs",
         "crates/crabxl-xlsx/src/editor/catalog.rs",
         "crates/crabxl-xlsx/src/loaded_codec.rs"
       ],
@@ -17903,9 +17903,9 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/tutorial.html#create-a-workbook",
       "modules": [
-        "crates/crabxl-xlsx/src/loaded.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs",
         "crates/crabxl-xlsx/src/editor/catalog.rs",
-        "crates/crabxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable",
@@ -17933,9 +17933,9 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/api/openpyxl.workbook.workbook.html#openpyxl.workbook.workbook.Workbook.remove",
       "modules": [
-        "crates/crabxl-xlsx/src/loaded.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs",
         "crates/crabxl-xlsx/src/editor/catalog.rs",
-        "crates/crabxl-xlsx/src/editor.rs"
+        "crates/crabxl-xlsx/src/editor/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable",
@@ -18011,9 +18011,9 @@
       ],
       "modules": [
         "crates/crabxl-core/src/row.rs",
-        "crates/crabxl-core/src/workbook.rs",
-        "crates/crabxl-xlsx/src/loaded.rs",
-        "crates/crabxl-xlsx/src/editor.rs"
+        "crates/crabxl-core/src/workbook/mod.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs",
+        "crates/crabxl-xlsx/src/editor/mod.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable",
@@ -18041,13 +18041,13 @@
       ],
       "reference": "https://openpyxl.readthedocs.io/en/stable/styles.html",
       "modules": [
-        "crates/crabxl-core/src/style_registry.rs",
-        "crates/crabxl-xlsx/src/loaded.rs",
-        "crates/crabxl-xlsx/src/writer.rs"
+        "crates/crabxl-core/src/style_registry/mod.rs",
+        "crates/crabxl-xlsx/src/loaded/mod.rs",
+        "crates/crabxl-xlsx/src/writer/mod.rs"
       ],
       "tests": [
         "crates/crabxl-core/tests/style_registry.rs::borrowed_number_format_variants_share_components_and_preserve_source_properties",
-        "crates/crabxl-core/src/style_registry.rs::accounting_tests::incremental_storage_ledger_matches_actual_catalog_and_index_capacities",
+        "crates/crabxl-core/src/style_registry/mod.rs::accounting_tests::incremental_storage_ledger_matches_actual_catalog_and_index_capacities",
         "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable"
       ],
       "limitations": "A10 component checkpoint only. Named styles/themes/row-column styles remain A11; advanced graph mutations remain their owning M5/M6 releases. Missing source stylesheets, signed/data-only packages and unknown/affected unmodeled graphs retain explicit guards. Caller-owned Python appearance snapshots are separate from workbook-managed allowances."

@@ -8,6 +8,8 @@ A11–A16 below are the current release numbers. W11–W28 are stable work-packa
 
 Rust and Python must expose each release's applicable usable functionality. Plan-only changes, refactors and disconnected ports do not advance alpha numbers. Numbers are manually selected; urgent usable fixes may insert a release and shift subsequent targets. No release dates or effort percentages are implied.
 
+The source architecture is organized by canonical ownership and operation responsibility, as documented in [architecture](architecture.md#source-module-boundaries). This refactor retains the release scope and numbering.
+
 ## Primary port source
 
 Use umya-spreadsheet 3.1.0, pinned at `aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b`, as the primary source for editable models and M5/M6 feature implementations. Candidate paths below are relative to its `src/` directory and have been checked against the local pinned checkout. They identify investigation/port starting points, not audited complete behavior or already imported modules.

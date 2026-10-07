@@ -1,4 +1,7 @@
 //! Owned workbook sheet bank with stable IDs and aggregate managed allowances.
+mod catalog;
+mod styles;
+
 use crate::{
     Cell, CellAddress, CellRange, CellValue, ColumnIndex, DateEpoch, EditLimits, Error, ErrorKind,
     Result, RowIndex, Worksheet,
@@ -164,115 +167,6 @@ impl Workbook {
             style_ceiling,
         })
     }
-    /// Create a uniquely named empty sheet at the end of display order.
-    /// Names are case-insensitively unique; format naming rules apply on output.
-    pub fn create_sheet(&mut self, name: impl Into<Box<str>>) -> Result<SheetId> {
-        let name = name.into();
-        self.validate_name(&name, None)?;
-        let capacity = self.next_capacity()?;
-        self.check(
-            capacity
-                .saturating_mul(SLOT_BYTES)
-                .saturating_add(self.model_bytes())
-                .saturating_add(name.len()),
-            self.cell_count(),
-        )?;
-        let remaining = self
-            .limits
-            .max_bytes
-            .saturating_sub(capacity.saturating_mul(SLOT_BYTES))
-            .saturating_sub(self.model_bytes());
-        let mut sheet = Worksheet::new(
-            name,
-            EditLimits {
-                max_bytes: self.limits.sheet.max_bytes.min(remaining),
-                max_cells: self.limits.sheet.max_cells,
-            },
-        )?;
-        sheet.set_edit_limits(self.limits.sheet);
-        self.insert(sheet, capacity)
-    }
-    /// Copy all owned scalar cells/styles/formulas and logical append extent.
-    /// This does not copy original-package drawings or other feature graphs.
-    pub fn copy_sheet(&mut self, id: SheetId, name: impl Into<Box<str>>) -> Result<SheetId> {
-        let name = name.into();
-        self.validate_name(&name, None)?;
-        let source = self.index(id)?;
-        let capacity = self.next_capacity()?;
-        let bytes = self.entries[source]
-            .sheet
-            .charged_bytes()
-            .saturating_sub(self.entries[source].sheet.name().len())
-            .saturating_add(name.len());
-        let cells = self
-            .cell_count()
-            .saturating_add(self.entries[source].sheet.len());
-        self.check(
-            capacity
-                .saturating_mul(SLOT_BYTES)
-                .saturating_add(self.model_bytes())
-                .saturating_add(bytes),
-            cells,
-        )?;
-        let remaining = self
-            .limits
-            .max_bytes
-            .saturating_sub(capacity.saturating_mul(SLOT_BYTES))
-            .saturating_sub(self.model_bytes());
-        let mut sheet = self.entries[source].sheet.copy_named(
-            name,
-            EditLimits {
-                max_bytes: self.limits.sheet.max_bytes.min(remaining),
-                max_cells: self.limits.sheet.max_cells,
-            },
-        )?;
-        sheet.set_edit_limits(self.limits.sheet);
-        self.insert(sheet, capacity)
-    }
-    /// Transfer an already decoded worksheet into this bank without cloning cells.
-    /// Validates aggregate/per-sheet limits, naming and any initialized style
-    /// catalog before allocating a stable identity. On error this bank is unchanged;
-    /// the caller-owned incoming model is dropped.
-    pub fn adopt_sheet(&mut self, mut sheet: Worksheet) -> Result<SheetId> {
-        self.validate_name(sheet.name(), None)?;
-        self.validate_incoming(&sheet)?;
-        let capacity = self.next_capacity()?;
-        self.check(
-            capacity
-                .saturating_mul(SLOT_BYTES)
-                .saturating_add(self.model_bytes())
-                .saturating_add(sheet.charged_bytes()),
-            self.cell_count().saturating_add(sheet.len()),
-        )?;
-        sheet.set_edit_limits(self.limits.sheet);
-        self.insert(sheet, capacity)
-    }
-    /// Replace a registered model by ownership transfer while retaining its ID.
-    /// Useful for atomic lazy loading: decode into a separately bounded model,
-    /// then commit only after all source and aggregate checks have passed.
-    /// The incoming model must have the same name. The former model is returned
-    /// to the caller and no longer participates in this bank's retained allowance.
-    pub fn replace_sheet(&mut self, id: SheetId, mut sheet: Worksheet) -> Result<Worksheet> {
-        let index = self.index(id)?;
-        let old = &self.entries[index].sheet;
-        if old.name() != sheet.name() {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                "Replacement worksheet must retain its registered name",
-            ));
-        }
-        self.validate_incoming(&sheet)?;
-        self.check(
-            self.charged_bytes()
-                .saturating_sub(old.charged_bytes())
-                .saturating_add(sheet.charged_bytes()),
-            self.cell_count()
-                .saturating_sub(old.len())
-                .saturating_add(sheet.len()),
-        )?;
-        sheet.set_edit_limits(self.limits.sheet);
-        Ok(std::mem::replace(&mut self.entries[index].sheet, sheet))
-    }
     /// Remaining managed space for a separately decoded incoming worksheet.
     /// Includes the existing models until replacement commits, so lazy decoding
     /// cannot silently use the same allowance twice. Source catalogs and I/O
@@ -291,7 +185,7 @@ impl Workbook {
         self.limits.max_bytes = max_bytes;
         Ok(())
     }
-    fn validate_incoming(&self, sheet: &Worksheet) -> Result<()> {
+    pub(super) fn validate_incoming(&self, sheet: &Worksheet) -> Result<()> {
         if sheet.charged_bytes() > self.limits.sheet.max_bytes
             || sheet.len() > self.limits.sheet.max_cells
         {
@@ -381,206 +275,6 @@ impl Workbook {
     pub fn set_epoch(&mut self, epoch: DateEpoch) {
         self.epoch = epoch;
     }
-    /// Borrow canonical workbook-local style identities, if explicitly initialized.
-    pub fn style_catalog(&self) -> Option<&crate::StyleCatalog> {
-        self.styles.as_ref().map(crate::StyleRegistry::catalog)
-    }
-    /// Adopt source style identities before registering styles. Existing cells must
-    /// refer to the imported table. Failure preserves this workbook's model state.
-    pub fn import_style_catalog(
-        &mut self,
-        catalog: crate::StyleCatalog,
-        mut limits: crate::StyleLimits,
-    ) -> Result<()> {
-        if self.styles.is_some() {
-            return Err(Error::new(
-                ErrorKind::InvalidState,
-                "Workbook styles already initialized",
-            ));
-        }
-        for (_, sheet) in self.sheets() {
-            for row in sheet.row_indices() {
-                for cell in sheet.row_cells(row) {
-                    catalog.cell_style(cell.style)?;
-                }
-            }
-        }
-        let requested = limits;
-        limits.max_bytes = limits
-            .max_bytes
-            .min(self.limits.max_bytes.saturating_sub(self.charged_bytes()));
-        let mut styles = crate::StyleRegistry::from_catalog(catalog, limits)?;
-        styles.set_limits(requested)?;
-        self.styles = Some(styles);
-        Ok(())
-    }
-    /// Register appearance using the same aggregate allowance as all worksheets.
-    /// An initial default registry is created lazily; existing source IDs are retained.
-    pub fn register_style(&mut self, style: crate::CellStyle) -> Result<crate::StyleId> {
-        let maximum = self.style_allowance();
-        if let Some(styles) = &mut self.styles {
-            return styles.register_with_limit(style, maximum);
-        }
-        let mut styles = crate::StyleRegistry::new(crate::StyleLimits {
-            max_bytes: maximum,
-            ..Default::default()
-        })?;
-        let id = styles.register(style)?;
-        styles.set_limits(crate::StyleLimits {
-            max_bytes: self.limits.max_bytes,
-            ..Default::default()
-        })?;
-        self.styles = Some(styles);
-        Ok(id)
-    }
-    /// Register a raw format referencing this bank's imported/shared components.
-    pub fn register_format(&mut self, format: crate::CellFormat) -> Result<crate::StyleId> {
-        let maximum = self.style_allowance();
-        self.styles
-            .as_mut()
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::InvalidState,
-                    "Workbook styles are not initialized",
-                )
-            })?
-            .register_format_with_limit(format, maximum)
-    }
-    /// Intern a literal number-format code without rebuilding component payloads.
-    pub fn register_number_format(&mut self, code: Box<str>) -> Result<u32> {
-        let maximum = self.style_allowance();
-        self.styles
-            .as_mut()
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::InvalidState,
-                    "Workbook styles are not initialized",
-                )
-            })?
-            .register_number_format_with_limit(code, maximum)
-    }
-    /// Register a unique named appearance under the joint workbook allowance.
-    pub fn register_named_style(
-        &mut self,
-        name: Box<str>,
-        style: crate::StyleId,
-        options: crate::NamedStyleOptions,
-    ) -> Result<crate::StyleId> {
-        if self.styles.is_none() {
-            if style.get() != 0 {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Unknown named appearance identity",
-                ));
-            }
-            self.register_style(crate::CellStyle::default())?;
-        }
-        let maximum = self.style_allowance();
-        self.styles
-            .as_mut()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing canonical styles"))?
-            .register_named_style_with_limit(name, style, options, maximum)
-    }
-    /// Resolve a named appearance into a workbook-local cell format.
-    pub fn named_style_format(&mut self, name: &str) -> Result<crate::StyleId> {
-        if self.styles.is_none() {
-            self.register_style(crate::CellStyle::default())?;
-        }
-        let maximum = self.style_allowance();
-        self.styles
-            .as_mut()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing canonical styles"))?
-            .named_style_format_with_limit(name, maximum)
-    }
-    /// Rename/update a named declaration under the shared workbook allowance.
-    pub fn update_named_metadata(
-        &mut self,
-        name: &str,
-        new_name: Box<str>,
-        options: crate::NamedStyleOptions,
-    ) -> Result<()> {
-        let maximum = self.style_allowance();
-        self.styles
-            .as_mut()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown named style"))?
-            .update_named_metadata_with_limit(name, new_name, options, maximum)
-    }
-    /// Update a registered named appearance without modifying existing cell formats.
-    pub fn update_named_style(
-        &mut self,
-        name: &str,
-        style: crate::StyleId,
-    ) -> Result<crate::StyleId> {
-        let maximum = self.style_allowance();
-        self.styles
-            .as_mut()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown named style"))?
-            .update_named_style_with_limit(name, style, maximum)
-    }
-    /// Derive a format by replacing one appearance component under the bank cap.
-    /// All other component identities, base links and flags remain unchanged.
-    pub fn derive_style_component(
-        &mut self,
-        style: crate::StyleId,
-        component: crate::StyleComponent,
-    ) -> Result<crate::StyleId> {
-        if self.styles.is_none() {
-            if style.get() != 0 {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Unknown workbook style identity",
-                ));
-            }
-            self.register_style(crate::CellStyle::default())?;
-        }
-        let maximum = self.style_allowance();
-        self.styles
-            .as_mut()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing canonical styles"))?
-            .derive_component_with_limit(style, component, maximum)
-    }
-    /// Derive a cell format by changing only its number-format code.
-    /// Component identities, inheritance and unrelated flags remain unchanged.
-    pub fn derive_number_format(
-        &mut self,
-        style: crate::StyleId,
-        code: Box<str>,
-    ) -> Result<crate::StyleId> {
-        if self.styles.is_none() {
-            if style.get() != 0 {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Unknown workbook style identity",
-                ));
-            }
-            self.register_style(crate::CellStyle::default())?;
-        }
-        let mut format = self
-            .style_catalog()
-            .and_then(|catalog| catalog.cell_format(style))
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown workbook style identity"))?
-            .clone();
-        if self
-            .style_catalog()
-            .and_then(|catalog| catalog.number_format(format.number_format_id))
-            == Some(code.as_ref())
-        {
-            return Ok(style);
-        }
-        format.number_format_id = self.register_number_format(code)?;
-        format.apply_number_format = Some(true);
-        self.register_format(format)
-    }
-    fn style_allowance(&self) -> usize {
-        self.limits
-            .max_bytes
-            .saturating_sub(self.charged_bytes().saturating_sub(self.style_bytes()))
-    }
-    fn style_bytes(&self) -> usize {
-        self.styles
-            .as_ref()
-            .map_or(0, crate::StyleRegistry::memory_bytes)
-    }
     /// Transfer catalogs and sheets without cloning cell or style payloads.
     /// This consumes stable handles' owner; the returned sheets retain display order.
     pub fn into_parts(self) -> WorkbookParts {
@@ -610,7 +304,7 @@ impl Workbook {
         self.theme = theme;
         Ok(())
     }
-    fn theme_bytes(&self) -> usize {
+    pub(super) fn theme_bytes(&self) -> usize {
         self.theme.as_ref().map_or(0, crate::Theme::memory_bytes)
     }
     /// Total physical cells in the owned sheet bank.
@@ -621,10 +315,10 @@ impl Workbook {
     pub fn charged_bytes(&self) -> usize {
         self.slot_bytes().saturating_add(self.model_bytes())
     }
-    fn slot_bytes(&self) -> usize {
+    pub(super) fn slot_bytes(&self) -> usize {
         self.entries.capacity().saturating_mul(SLOT_BYTES)
     }
-    fn model_bytes(&self) -> usize {
+    pub(super) fn model_bytes(&self) -> usize {
         self.entries
             .iter()
             .map(|entry| entry.sheet.charged_bytes())
@@ -632,7 +326,7 @@ impl Workbook {
             .saturating_add(self.theme_bytes())
             .saturating_add(self.style_bytes())
     }
-    fn index(&self, id: SheetId) -> Result<usize> {
+    pub(super) fn index(&self, id: SheetId) -> Result<usize> {
         if id.owner != self.owner {
             return Err(missing());
         }
@@ -641,7 +335,7 @@ impl Workbook {
             .position(|entry| entry.id == id)
             .ok_or_else(missing)
     }
-    fn next_capacity(&self) -> Result<usize> {
+    pub(super) fn next_capacity(&self) -> Result<usize> {
         if self.entries.len() >= self.limits.max_sheets {
             return Err(Error::new(
                 ErrorKind::LimitExceeded,
@@ -658,14 +352,14 @@ impl Workbook {
                 .min(self.limits.max_sheets)
         })
     }
-    fn check(&self, bytes: usize, cells: usize) -> Result<()> {
+    pub(super) fn check(&self, bytes: usize, cells: usize) -> Result<()> {
         if bytes > self.limits.max_bytes || cells > self.limits.max_cells {
             Err(budget())
         } else {
             Ok(())
         }
     }
-    fn validate_name(&self, name: &str, except: Option<SheetId>) -> Result<()> {
+    pub(super) fn validate_name(&self, name: &str, except: Option<SheetId>) -> Result<()> {
         if name.is_empty() {
             return Err(Error::new(
                 ErrorKind::InvalidData,
@@ -685,7 +379,7 @@ impl Workbook {
         }
         Ok(())
     }
-    fn insert(&mut self, sheet: Worksheet, capacity: usize) -> Result<SheetId> {
+    pub(super) fn insert(&mut self, sheet: Worksheet, capacity: usize) -> Result<SheetId> {
         let next = self
             .next_serial
             .checked_add(1)
