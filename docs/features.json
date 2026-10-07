@@ -17993,6 +17993,34 @@
         "crates/crabxl-core/tests/translate.rs::invalid_boundaries_syntax_and_output_capacity_do_not_return_partial_results"
       ],
       "limitations": "Selected native token behavior only; complete Python token objects and malformed-input acceptance remain staged. Newline words use separately budgeted owned storage. Unmatched closers return typed errors; generated-reference colon operator fixes MR !345. Spill/unknown errors explicitly reject. No formula evaluation."
+    },
+    {
+      "id": "model.source.style-assignment",
+      "description": "Guarded canonical style-ID and number-format edits for supported source-backed cells",
+      "status": "verified",
+      "milestone": "M5",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "materialized-editable",
+        "sequential-write"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/row.rs",
+        "crates/crabxl-core/src/workbook.rs",
+        "crates/crabxl-xlsx/src/loaded.rs",
+        "crates/crabxl-xlsx/src/editor.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable",
+        "crates/crabxl-xlsx/tests/writer.rs::date_serials_formats_and_epoch_flags_are_encoded_consistently",
+        "crates/crabxl-xlsx/tests/writer.rs::owned_workbook_export_preserves_order_epoch_active_sheet_and_borrowed_values"
+      ],
+      "limitations": "Existing canonical IDs and derived number formats only. Original source styling materializes once and reuses guarded model output. Signed packages, sources without stylesheets, unknown style sections, data-only edits and affected unmodeled graphs reject explicitly. General temporal assignment preserves the live value but requests numeric encoding. Complete component/Python style APIs and deferred graph interactions remain later M5/M6 work. No full milestone closure."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",
