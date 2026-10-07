@@ -6,6 +6,81 @@
 use crate::{CellAddress, CellRange, ColumnIndex, Error, ErrorKind, Result, RowIndex};
 use std::{fmt, str::FromStr};
 
+impl CellRange {
+    /// Intersection of two finite rectangles without allocating coordinates.
+    pub fn intersection(self, other: Self) -> Option<Self> {
+        self.intersects(other).then(|| Self {
+            start: CellAddress {
+                row: self.start.row.max(other.start.row),
+                column: self.start.column.max(other.start.column),
+            },
+            end: CellAddress {
+                row: self.end.row.min(other.end.row),
+                column: self.end.column.min(other.end.column),
+            },
+        })
+    }
+    /// Disjoint rectangles remaining after removing another rectangle.
+    /// At most four pieces are returned, even for a whole worksheet range.
+    pub fn difference(self, other: Self) -> [Option<Self>; 4] {
+        let Some(overlap) = self.intersection(other) else {
+            return [Some(self), None, None, None];
+        };
+        let mut pieces = [None; 4];
+        if self.start.row < overlap.start.row {
+            pieces[0] = RowIndex::new(overlap.start.row.get() - 1)
+                .ok()
+                .map(|row| Self {
+                    start: self.start,
+                    end: CellAddress {
+                        row,
+                        column: self.end.column,
+                    },
+                });
+        }
+        if overlap.end.row < self.end.row {
+            pieces[1] = RowIndex::new(overlap.end.row.get() + 1)
+                .ok()
+                .map(|row| Self {
+                    start: CellAddress {
+                        row,
+                        column: self.start.column,
+                    },
+                    end: self.end,
+                });
+        }
+        if self.start.column < overlap.start.column {
+            pieces[2] = ColumnIndex::new(overlap.start.column.get() - 1)
+                .ok()
+                .map(|column| Self {
+                    start: CellAddress {
+                        row: overlap.start.row,
+                        column: self.start.column,
+                    },
+                    end: CellAddress {
+                        row: overlap.end.row,
+                        column,
+                    },
+                });
+        }
+        if overlap.end.column < self.end.column {
+            pieces[3] = ColumnIndex::new(overlap.end.column.get() + 1)
+                .ok()
+                .map(|column| Self {
+                    start: CellAddress {
+                        row: overlap.start.row,
+                        column,
+                    },
+                    end: CellAddress {
+                        row: overlap.end.row,
+                        column: self.end.column,
+                    },
+                });
+        }
+        pieces
+    }
+}
+
 /// A worksheet-local range without allocating its covered cells.
 /// Absolute markers are accepted when parsing; geometry does not retain them.
 /// Sheet qualification belongs to the owning feature, rather than this type.

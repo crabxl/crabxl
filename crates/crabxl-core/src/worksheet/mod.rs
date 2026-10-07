@@ -361,9 +361,16 @@ impl Worksheet {
         Ok((bytes, peak))
     }
     /// Remove a physical cell; existing append position is retained.
-    pub fn remove(&mut self, address: CellAddress) -> Option<Cell> {
+    /// Clearing a covered hyperlink coordinate can split metadata and fail its
+    /// allowance check; failure leaves the physical cell and declarations intact.
+    pub fn remove(&mut self, address: CellAddress) -> Result<Option<Cell>> {
         let old_links = self.hyperlinks.heap_bytes();
-        if self.hyperlinks.remove(address).is_some() {
+        let other = self.charged.saturating_sub(old_links);
+        if self
+            .hyperlinks
+            .clear(address, self.limits.max_bytes.saturating_sub(other))?
+            .is_some()
+        {
             self.charged = self
                 .charged
                 .saturating_sub(old_links)
@@ -383,7 +390,7 @@ impl Worksheet {
                 .saturating_add(self.cells.storage_bytes());
             self.dirty = true;
         }
-        cell
+        Ok(cell)
     }
     /// Append a row after the logical extent. Empty rows advance the cursor
     /// without allocating cells. Appending is atomic on count/budget failures.

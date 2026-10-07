@@ -5,6 +5,7 @@
 
 use crate::{CellAddress, ColumnIndex, Error, ErrorKind, Result, RowIndex};
 use std::collections::BTreeMap;
+mod ranges;
 
 const POINT_BYTES: usize = 256;
 
@@ -49,18 +50,17 @@ impl Hyperlink {
             ..Default::default()
         }
     }
-    /// Validate a finite point declaration reference before committing metadata.
+    /// Validate a finite declaration reference before committing metadata.
     pub fn validate_reference(&self) -> Result<()> {
         if let Some(reference) = &self.reference {
-            let range: crate::CellRange = reference.parse()?;
-            if range.start != range.end {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Range hyperlink editing remains unimplemented",
-                ));
-            }
+            let _: crate::CellRange = reference.parse()?;
         }
         Ok(())
+    }
+    /// Validate declaration spelling with the owning cell's error context.
+    pub fn validate_owner(&self, address: CellAddress) -> Result<()> {
+        self.validate_reference()
+            .map_err(|error| error.with_cell(address))
     }
     /// Initial value for an empty anchor, with compatible empty-target fallback.
     pub fn initial_cell_value(&self) -> crate::CellValue {
@@ -89,13 +89,13 @@ impl Hyperlink {
 }
 
 /// Sparse point links with logarithmic lookup and constant-time byte accounting.
-/// Finite range declarations require the later range-aware feature coordinator;
-/// callers must not expand them into a dense rectangle.
+/// Range metadata remains compact; covered coordinates borrow the same payload.
 #[derive(Clone, Debug, Default)]
 pub struct Hyperlinks {
     points: BTreeMap<(RowIndex, ColumnIndex), Hyperlink>,
     bytes: usize,
     references: usize,
+    ranges: BTreeMap<(RowIndex, ColumnIndex), crate::CellRange>,
 }
 impl Hyperlinks {
     /// Number of stored declarations.
@@ -112,7 +112,12 @@ impl Hyperlinks {
     }
     /// Borrow a declaration without copying its target or tooltip.
     pub fn get(&self, address: CellAddress) -> Option<&Hyperlink> {
-        self.points.get(&(address.row, address.column))
+        self.points.get(&(address.row, address.column)).or_else(|| {
+            self.ranges
+                .iter()
+                .find(|(_, range)| range.contains(address))
+                .and_then(|(owner, _)| self.points.get(owner))
+        })
     }
     /// Borrow declarations in coordinate order for deterministic output.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = (CellAddress, &Hyperlink)> {
@@ -153,13 +158,23 @@ impl Hyperlinks {
     /// Remove one declaration and release its managed charge.
     pub fn remove(&mut self, address: CellAddress) -> Option<Hyperlink> {
         let value = self.points.remove(&(address.row, address.column))?;
-        self.bytes = self.bytes.saturating_sub(POINT_BYTES + value.heap_bytes());
+        let range = self.ranges.remove(&(address.row, address.column));
+        self.bytes = self.bytes.saturating_sub(
+            POINT_BYTES + value.heap_bytes() + usize::from(range.is_some()) * ranges::RANGE_BYTES,
+        );
+        self.references -= usize::from(value.reference.is_some());
         Some(value)
     }
     /// Managed charge after replacing one declaration, without mutation.
     pub fn replacement_bytes(&self, address: CellAddress, value: Option<&Hyperlink>) -> usize {
+        if self.needs_coverage_edit(address, value) {
+            return self
+                .coverage_plan(address, value, false)
+                .map_or(usize::MAX, |(bytes, _)| bytes);
+        }
         let old = self
-            .get(address)
+            .points
+            .get(&(address.row, address.column))
             .map_or(0, |v| POINT_BYTES + v.heap_bytes());
         self.bytes
             .saturating_sub(old)
@@ -174,8 +189,11 @@ impl Hyperlinks {
         maximum: usize,
     ) -> Result<()> {
         if let Some(link) = &value {
-            link.validate_reference()
+            link.validate_owner(address)
                 .map_err(|error| error.with_cell(address))?;
+        }
+        if self.needs_coverage_edit(address, value.as_ref()) {
+            return self.set_coverage(address, value, maximum);
         }
         let bytes = self.replacement_bytes(address, value.as_ref());
         if bytes > maximum {
@@ -209,8 +227,10 @@ impl Hyperlinks {
                 reference
                     .parse::<crate::CellRange>()
                     .map_or(true, |declared| {
-                        range.contains(declared.start)
-                            && (!non_anchor || declared.start != range.start)
+                        range.intersects(declared)
+                            && (!non_anchor
+                                || declared.start != range.start
+                                || declared.end != range.start)
                     })
             })
         })

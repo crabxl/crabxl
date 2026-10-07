@@ -77,10 +77,10 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 "Captured hyperlinks exceed resolution allowance",
             ));
         }
+        let part = self.hyperlink_sheet_part(name)?;
         if !links.iter().any(|(_, link)| link.relationship_id.is_some()) {
             return Ok(links);
         }
-        let part = self.hyperlink_sheet_part(name)?;
         let relationship_part = relationship_part(&part);
         let available = maximum.checked_sub(links.heap_bytes()).ok_or_else(|| {
             Error::new(
