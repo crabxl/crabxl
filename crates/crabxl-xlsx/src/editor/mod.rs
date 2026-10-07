@@ -22,6 +22,7 @@ use zip::ZipWriter;
 
 mod catalog;
 mod catalog_edits;
+mod catalog_parts;
 mod graph;
 mod hyperlinks;
 mod metadata_edits;
