@@ -2044,14 +2044,56 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
                 .replace("sharedStrings.xml", "shared-renamed.xml");
             shared.insert(path.into(), xml.into_bytes());
         }
+        let input = package(shared);
         let mut book =
-            LoadedWorkbook::with_options(Cursor::new(package(shared)), Default::default()).unwrap();
+            LoadedWorkbook::with_options(Cursor::new(input.clone()), Default::default()).unwrap();
         let id = book.sheet_id("First").unwrap();
         let result = book.insert_rows(id, RowIndex::new(0).unwrap(), 1);
         if rich {
             assert_eq!(result.unwrap_err().kind(), ErrorKind::Unsupported);
             assert!(!book.is_materialized(id));
             assert_eq!(book.patch_bytes(), 0);
+            let mut typed = LoadedWorkbook::with_options(
+                Cursor::new(input),
+                LoadOptions {
+                    read: crabxl_core::ReadOptions {
+                        rich_text: true,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            let first = typed.sheet_id("First").unwrap();
+            typed
+                .insert_rows(first, RowIndex::new(0).unwrap(), 1)
+                .unwrap();
+            let copied = typed.copy_sheet(first, "RichCopy").unwrap();
+            assert!(
+                matches!(&typed.sheet(copied).unwrap().get("A2".parse().unwrap()).unwrap().value,
+                CellValue::RichText(value) if value.plain_text().unwrap().starts_with("00000000"))
+            );
+            for _ in 0..2 {
+                let saved = typed
+                    .save(Cursor::new(Vec::new()), Default::default())
+                    .unwrap()
+                    .0
+                    .into_inner();
+                let mut reader = crabxl_xlsx::WorkbookReader::new(Cursor::new(saved)).unwrap();
+                let mut rows = reader
+                    .rows_with_options(
+                        "RichCopy",
+                        crabxl_core::ReadOptions {
+                            rich_text: true,
+                            ..Default::default()
+                        },
+                    )
+                    .unwrap();
+                let mut row = crabxl_core::Row::new(RowIndex::new(0).unwrap());
+                assert!(rows.read_row_into(&mut row).unwrap());
+                assert!(matches!(&row.cells[0].value, CellValue::RichText(value)
+                    if value.plain_text().unwrap().starts_with("00000000")));
+            }
         } else {
             result.unwrap();
             let saved = book

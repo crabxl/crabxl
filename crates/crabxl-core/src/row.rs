@@ -215,6 +215,10 @@ pub struct ReadOptions {
     /// Preserve rich-text runs and pronunciation metadata rather than projecting
     /// display text. Plain projection is the reference-compatible default.
     pub rich_text: bool,
+    /// Override inline run preservation independently of shared-string runs.
+    /// None follows rich_text. Reference-compatible read-only adapters can
+    /// project inline runs while retaining rich shared strings.
+    pub inline_rich_text: Option<bool>,
     /// Baseline date errors by default; exact raw-serial retention is an extension.
     pub date_policy: DateReadPolicy,
     /// Expose shared source metadata instead of only expanded normal expressions.

@@ -17110,16 +17110,20 @@
       "modules": [
         "crates/crabxl-core/src/rich_text.rs",
         "crates/crabxl-xlsx/src/rich_text.rs",
-        "crates/crabxl-xlsx/src/strings.rs"
+        "crates/crabxl-xlsx/src/strings.rs",
+        "crates/crabxl-xlsx/src/loaded_codec.rs",
+        "crates/crabxl-xlsx/src/loaded/values.rs",
+        "crates/crabxl-xlsx/src/reader/values.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/streaming.rs::shared_rich_metadata_upgrade_disk_cache_and_protected_run_boundaries",
         "crates/crabxl-xlsx/tests/writer.rs::typed_rich_runs_fonts_colors_phonetics_and_empty_style_round_trip",
-        "crates/crabxl-xlsx/tests/writer.rs::rich_existing_literal_replacement_preserves_other_cells_and_repeats"
+        "crates/crabxl-xlsx/tests/writer.rs::rich_existing_literal_replacement_preserves_other_cells_and_repeats",
+        "crates/crabxl-xlsx/tests/loaded.rs::preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_usable"
       ],
-      "limitations": "Core typed rich/phonetic read/create is verified. Complete Python rich proxies, existing-file phonetic font assignment and unknown extension semantics remain staged; selected unsupported content rejects explicitly.",
+      "limitations": "Typed read/create and known loaded-model rich/phonetic edits are supported. Complete public XML-tree utilities, copied-sheet Python rich aliases and unknown extensions retain staged acceptance or explicit errors; bare package phonetic assignment requires an imported font catalog.",
       "acceptance_reference": "docs/validation/alpha5-m2-acceptance.md",
-      "checkpoint_limitations": "Narrow checkpoint, not the full rich public baseline. Imported font/theme resolution and new phonetic font assignment in existing packages are staged. Unknown extensions reject typed access. Python rich_text=True remains explicitly unsupported until compatible rich classes/conversion exist."
+      "checkpoint_limitations": "W13 checkpoint (ADR 0088), not complete rich public-module acceptance. Python CellRichText/TextBlock/InlineFont, rich loading and nested/shared mutation are usable. Read-only inline projection versus typed SST follows the pinned reference; native inline policy is independent. Hyperlinks and consolidated A11 remain open."
     },
     {
       "id": "read.styles-catalog.numeric-dates",

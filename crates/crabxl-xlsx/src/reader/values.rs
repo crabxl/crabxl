@@ -106,14 +106,18 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         Ok(CellValue::DateTime(Box::new(date)))
     }
     pub(super) fn read_inline_text(&mut self) -> Result<CellValue> {
+        let preserve = self
+            .options
+            .inline_rich_text
+            .unwrap_or(self.options.rich_text);
         let mut parsed = crate::rich_text::read_container(
             &mut self.xml,
             5,
             b"is",
             self.limits.max_cell_bytes,
-            self.options.rich_text,
+            preserve,
         )?;
-        if self.options.rich_text {
+        if preserve {
             parsed.unprotect();
         }
         Ok(parsed.into_value())

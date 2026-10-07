@@ -20,7 +20,11 @@ fn unsupported() -> Error {
 /// Validate the entire original worksheet before mutating its canonical cells.
 /// Unaffected package parts remain on the source; affected unmodeled graphs must
 /// not be silently erased when sheetData is serialized from the canonical bank.
-pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
+pub(crate) fn guard<B: BufRead>(
+    xml: &mut XmlStream<B>,
+    rich_text: bool,
+    maximum: usize,
+) -> Result<bool> {
     let mut shared_strings = false;
     let mut data = false;
     let mut seen_data = false;
@@ -185,6 +189,9 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
                             return Err(unsupported());
                         }
                     }
+                    if rich_text && frame.depth == 5 && name == b"is" {
+                        crate::rich_text::read_container(xml, 5, b"is", maximum, true)?;
+                    }
                 }
             }
             Event::End(e) if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"cols" => {
@@ -244,7 +251,11 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
 }
 /// Plain shared strings can be re-encoded inline; rich/phonetic payloads must
 /// not be flattened by a model loaded with the caller's plain-text projection.
-pub(crate) fn guard_strings<B: BufRead>(xml: &mut XmlStream<B>) -> Result<()> {
+pub(crate) fn guard_strings<B: BufRead>(
+    xml: &mut XmlStream<B>,
+    rich_text: bool,
+    maximum: usize,
+) -> Result<()> {
     loop {
         let frame = xml.next()?;
         match &frame.event {
@@ -273,6 +284,9 @@ pub(crate) fn guard_strings<B: BufRead>(xml: &mut XmlStream<B>) -> Result<()> {
                             return Err(unsupported());
                         }
                     }
+                }
+                if rich_text && frame.depth == 2 && name.as_ref().as_bytes() == b"si" {
+                    crate::rich_text::read_container(xml, 2, b"si", maximum, true)?;
                 }
             }
             Event::Comment(_) | Event::PI(_) if frame.depth >= 2 => return Err(unsupported()),
