@@ -42,6 +42,22 @@ impl Worksheet {
         address: CellAddress,
         value: Option<crate::Hyperlink>,
     ) -> Result<()> {
+        self.replace_hyperlink(address, value, true)
+    }
+    /// Change a declaration without initializing or changing its cell value.
+    pub fn update_hyperlink(
+        &mut self,
+        address: CellAddress,
+        value: Option<crate::Hyperlink>,
+    ) -> Result<()> {
+        self.replace_hyperlink(address, value, false)
+    }
+    fn replace_hyperlink(
+        &mut self,
+        address: CellAddress,
+        value: Option<crate::Hyperlink>,
+        initialize_value: bool,
+    ) -> Result<()> {
         if value.is_some() && self.merges.virtual_style(address).is_some() {
             return Err(Error::new(
                 ErrorKind::InvalidState,
@@ -57,7 +73,7 @@ impl Worksheet {
         let new = self.hyperlinks.replacement_bytes(address, value.as_ref());
         let other = self.charged.saturating_sub(old);
         self.check(other.saturating_add(new), self.len())?;
-        if let Some(link) = &value {
+        if initialize_value && let Some(link) = &value {
             let current = self.get(address);
             if current.is_none_or(|cell| matches!(cell.value, CellValue::Empty)) {
                 let cell = Cell {
