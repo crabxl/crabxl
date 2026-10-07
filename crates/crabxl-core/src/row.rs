@@ -80,6 +80,21 @@ pub struct Cell {
     pub style: StyleId,
 }
 
+impl Cell {
+    /// Assign an explicit format without copying the value or inferring dates.
+    /// Returns whether the style or temporal serialization preference changed.
+    /// The owner/writer must validate this workbook-local identity.
+    pub fn set_style(&mut self, style: StyleId) -> bool {
+        let temporal_changed = match &mut self.value {
+            CellValue::DateTime(date) => date.prefer_serial_encoding(),
+            _ => false,
+        };
+        let changed = self.style != style || temporal_changed;
+        self.style = style;
+        changed
+    }
+}
+
 /// An owned sparse row. Missing columns are not expanded into empty cells.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Row {
