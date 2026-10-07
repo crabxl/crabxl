@@ -17,6 +17,20 @@ impl WorkbookWriter {
     pub fn update_hyperlink_group(&mut self, group: u64, link: &Hyperlink) -> Result<()> {
         self.store_hyperlink_group(group, link, false)
     }
+    /// Read the current owned metadata for a registered alias, using the same
+    /// bounded decoder as packaging. Primarily useful for transactional adapters.
+    pub fn hyperlink_group(&mut self, group: u64) -> Result<Hyperlink> {
+        self.ensure_open()?;
+        let maximum = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes())
+            .saturating_sub(self.style_memory_bytes());
+        self.live_links
+            .as_mut()
+            .ok_or_else(|| state("Unknown hyperlink group"))?
+            .read(group, maximum)
+    }
     fn store_hyperlink_group(&mut self, group: u64, link: &Hyperlink, new: bool) -> Result<()> {
         self.ensure_open()?;
         crate::hyperlinks::validate_link(CellAddress::new(0, 0)?, link)?;

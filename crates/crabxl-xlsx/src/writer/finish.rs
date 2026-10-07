@@ -147,15 +147,30 @@ impl WorkbookWriter {
     /// Package completed worksheets and return the output sink. An I/O failure
     /// may leave partial bytes in caller output; abort/Drop never imply save.
     pub fn finish<W: Write + Seek>(self, output: W) -> Result<W> {
-        self.finish_with_hyperlink_ids(output, |_, _| Ok(()))
+        self.finish_with_hyperlink_ids(output, 0, |_, _| Ok(()))
     }
     /// Package live metadata and report writer-local group output identities in
     /// worksheet creation and owner order. Apply public IDs only after success.
     pub fn finish_with_hyperlink_ids<W: Write + Seek>(
         mut self,
         output: W,
+        workspace_bytes: usize,
         mut identity: impl FnMut(u64, Option<&str>) -> Result<()>,
     ) -> Result<W> {
+        self.options.max_metadata_bytes = self
+            .options
+            .max_metadata_bytes
+            .checked_sub(workspace_bytes)
+            .ok_or_else(|| limit("Hyperlink visitor workspace exceeds metadata budget"))?;
+        if self
+            .catalog_bytes()
+            .saturating_add(self.style_memory_bytes())
+            > self.options.max_metadata_bytes
+        {
+            return Err(limit(
+                "Hyperlink visitor workspace exceeds remaining metadata allowance",
+            ));
+        }
         self.close_sheet()?;
         while let Some(active) = self.paused.pop() {
             self.active = Some(active);

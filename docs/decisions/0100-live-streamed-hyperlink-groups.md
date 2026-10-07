@@ -12,7 +12,9 @@ It streams declarations into the worksheet footer and relationships into their
 own package part, using the shared hyperlink encoder. A single bounded decoded
 payload cache avoids repeated group decoding for adjacent aliases. The optional
 finish identity visitor reports final public IDs in actual output order; callers
-apply them only after the whole save succeeds.
+apply them only after the whole save succeeds. The visitor declares its retained
+workspace so requests/results share the writer metadata allowance. A bounded
+current-group read supports transactional adapter rollback without a resident map.
 
 Buffer/path/payload accounting participates in writer metadata budgets. Generated
 parts enforce byte limits, temporary storage counts index/payload/event files,
