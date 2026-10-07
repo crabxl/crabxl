@@ -311,7 +311,11 @@ impl Worksheet {
     /// Standalone callers validate identities against their writer's catalog.
     pub fn set_style(&mut self, address: CellAddress, style: StyleId) -> Result<()> {
         if let Some(cell) = self.cells.get_mut(&key(address)) {
-            if cell.style != style {
+            let temporal_changed = match &mut cell.value {
+                CellValue::DateTime(date) => date.prefer_serial_encoding(),
+                _ => false,
+            };
+            if cell.style != style || temporal_changed {
                 cell.style = style;
                 self.dirty = true;
             }

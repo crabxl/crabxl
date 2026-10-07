@@ -188,6 +188,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     catalog_order: Option<Box<CatalogOrder>>,
     model_patches: BTreeMap<usize, crabxl_core::SheetId>,
     structural_plain_strings: bool,
+    styles_dirty: bool,
     membership: Option<Box<catalog::Membership>>,
     options: EditorOptions,
     patch_bytes: usize,
@@ -337,6 +338,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             name_patches: BTreeMap::new(),
             catalog_order: None,
             model_patches: BTreeMap::new(),
+            styles_dirty: false,
             structural_plain_strings: false,
             membership: None,
             options,
@@ -361,7 +363,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     }
     /// Whether pending overlays are present. Saving does not discard overlays.
     pub fn is_dirty(&self) -> bool {
-        self.patch_cells != 0
+        self.styles_dirty
+            || self.patch_cells != 0
             || self.membership.is_some()
             || !self.model_patches.is_empty()
             || !self.view_patches.is_empty()
@@ -1256,6 +1259,24 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         Ok(sheet)
     }
+    pub(crate) fn validate_style_edit(&self, catalog: &crabxl_core::StyleCatalog) -> Result<()> {
+        if self.signed {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Signed style editing remains unimplemented",
+            ));
+        }
+        if self.book.style_part.is_none() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source stylesheet remains unimplemented",
+            ));
+        }
+        crate::styles::validate_catalog(catalog)
+    }
+    pub(crate) fn styles_changed(&mut self) {
+        self.styles_dirty = true;
+    }
     pub(crate) fn model_is_dirty(&self, sheet: &str) -> bool {
         self.book
             .sheets()
@@ -1588,6 +1609,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             ));
         }
         crate::writer::validate_compression_level(options.compression_level)?;
+        if self.styles_dirty {
+            let catalog = bank
+                .and_then(crabxl_core::Workbook::style_catalog)
+                .ok_or_else(|| invalid("Style rewrite requires its canonical catalog"))?;
+            self.validate_style_edit(catalog)?;
+        }
         let membership = self.membership.as_deref().zip(bank);
         let active = if let Some((_, bank)) = membership {
             Some(crabxl_core::normalize_active_view(
@@ -1666,7 +1693,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 || membership.is_some())
                 && part.name.as_ref() == self.book.workbook_part;
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
-            if worksheet || workbook || shared_strings || chain_metadata {
+            let styles =
+                self.styles_dirty && self.book.style_part.as_deref() == Some(part.name.as_ref());
+            if styles || worksheet || workbook || shared_strings || chain_metadata {
                 let file = self.book.archive.by_index(index).map_err(|error| {
                     zip_error("Cannot read affected XML part", error).with_part(part.name.as_ref())
                 })?;
@@ -1686,7 +1715,22 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     bytes: 0,
                     maximum: self.options.resources.max_part_bytes,
                 };
-                let written = if worksheet {
+                let written = if styles {
+                    drop(file);
+                    let mut budget = budget;
+                    crate::styles::write_styles(
+                        &mut budget,
+                        bank.and_then(crabxl_core::Workbook::style_catalog)
+                            .ok_or_else(|| invalid("Missing canonical style catalog"))?,
+                        crate::StyleWritePolicy::RetainExplicit,
+                    )
+                    .map_err(|cause| io_error("Cannot rewrite source stylesheet", cause))?;
+                    budget
+                        .inner
+                        .flush()
+                        .map_err(|cause| io_error("Cannot flush source stylesheet", cause))?;
+                    Ok(budget.bytes)
+                } else if worksheet {
                     patch_worksheet(
                         file,
                         budget,

@@ -39,12 +39,13 @@ impl DateKind {
 /// Exact finite XLSX serial and its interpretation. No timezone is implied.
 /// Serial 60 in the Windows epoch is retained as Excel's fictitious leap day;
 /// converting that value to another calendar epoch is rejected.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub struct ExcelDateTime {
     serial: f64,
     epoch: DateEpoch,
     kind: DateKind,
     source: DateSource,
+    serial_encoding: bool,
 }
 
 // Literal values keep their native precision/calendar identity; loaded serials
@@ -57,7 +58,25 @@ enum DateSource {
     Clock(NaiveTime),
     Elapsed(TimeDelta),
 }
+impl PartialEq for ExcelDateTime {
+    fn eq(&self, other: &Self) -> bool {
+        self.serial == other.serial
+            && self.epoch == other.epoch
+            && self.kind == other.kind
+            && self.source == other.source
+    }
+}
 impl ExcelDateTime {
+    /// Whether an explicit cell-style assignment requires numeric serialization.
+    /// This output preference does not change temporal value equality.
+    pub const fn requires_serial_encoding(self) -> bool {
+        self.serial_encoding
+    }
+    pub(crate) fn prefer_serial_encoding(&mut self) -> bool {
+        let changed = !self.serial_encoding;
+        self.serial_encoding = true;
+        changed
+    }
     /// Construct a serial; clock values lie in [0, 1), date-only values use integral days.
     pub fn from_serial(serial: f64, epoch: DateEpoch, kind: DateKind) -> Result<Self> {
         if !serial.is_finite()
@@ -73,6 +92,7 @@ impl ExcelDateTime {
             serial,
             epoch,
             kind,
+            serial_encoding: false,
             source: DateSource::Serial,
         })
     }
@@ -113,6 +133,7 @@ impl ExcelDateTime {
             serial: calendar_serial(date, DateEpoch::Windows1900)?,
             epoch: DateEpoch::Windows1900,
             kind: DateKind::DateTime,
+            serial_encoding: false,
             source: DateSource::Calendar(date),
         })
     }
@@ -128,6 +149,7 @@ impl ExcelDateTime {
             serial: calendar_serial(midnight, DateEpoch::Windows1900)?,
             epoch: DateEpoch::Windows1900,
             kind: DateKind::Date,
+            serial_encoding: false,
             source: DateSource::Date(date),
         })
     }
@@ -143,6 +165,7 @@ impl ExcelDateTime {
             serial,
             epoch: DateEpoch::Windows1900,
             kind: DateKind::Time,
+            serial_encoding: false,
             source: DateSource::Clock(time),
         })
     }
@@ -171,6 +194,7 @@ impl ExcelDateTime {
             serial,
             epoch: DateEpoch::Windows1900,
             kind: DateKind::Duration,
+            serial_encoding: false,
             source: DateSource::Elapsed(duration),
         })
     }

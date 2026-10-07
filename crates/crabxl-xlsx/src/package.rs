@@ -77,7 +77,7 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     shared_string_part: Option<String>,
     shared_strings: Option<SharedStrings>,
     shared_string_options: SharedStringOptions,
-    style_part: Option<String>,
+    pub(crate) style_part: Option<String>,
     theme_part: Option<String>,
     theme: Option<crabxl_core::Theme>,
     imported_styles: Option<crate::style_reader::ImportedStyles>,

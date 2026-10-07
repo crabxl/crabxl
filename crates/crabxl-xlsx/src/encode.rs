@@ -65,8 +65,10 @@ impl StyleContext<'_> {
     fn iso_dates_for(&self, cell: &crabxl_core::Cell, requested: bool) -> bool {
         requested
             || matches!(self, Self::Catalog(_))
-                && date_value(&cell.value)
-                    .is_some_and(|date| date.kind() != crabxl_core::DateKind::Duration)
+                && date_value(&cell.value).is_some_and(|date| {
+                    date.kind() != crabxl_core::DateKind::Duration
+                        && !date.requires_serial_encoding()
+                })
                 && self
                     .number_format(cell.style.get())
                     .and_then(crabxl_core::classify_number_format)
@@ -77,7 +79,7 @@ impl StyleContext<'_> {
         id: u32,
         date: &crabxl_core::ExcelDateTime,
     ) -> Result<()> {
-        if matches!(self, Self::Canonical(_)) {
+        if matches!(self, Self::Canonical(_)) || date.requires_serial_encoding() {
             return Ok(());
         }
         if matches!(self, Self::Catalog(_))
