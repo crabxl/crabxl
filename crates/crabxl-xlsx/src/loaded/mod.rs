@@ -1,6 +1,7 @@
 //! Lazy materialization into the canonical owned bank, with joint source accounting.
 mod catalog;
 mod dimensions;
+mod hyperlink_values;
 mod hyperlinks;
 mod merges;
 mod structure;
@@ -34,6 +35,9 @@ pub struct LoadOptions {
     pub read: ReadOptions,
     /// Overlay and output policies; resources/memory policy use the enclosing settings.
     pub editor: EditorOptions,
+    /// Initialize empty hyperlink cells in an explicit editable model.
+    /// Defaults to preserving physical source values; normal Python loading enables it.
+    pub bind_hyperlink_values: bool,
 }
 struct SourceSheet {
     id: SheetId,
@@ -44,6 +48,7 @@ struct SourceSheet {
     normalized_styles: bool,
     hyperlinks_requested: bool,
     hyperlinks_loaded: bool,
+    hyperlink_values_dirty: bool,
 }
 /// Owns a seekable original package and the canonical workbook bank. Source
 /// styles transfer into the bank without cloning; only date classifications stay
@@ -156,6 +161,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 normalized_styles: false,
                 hyperlinks_requested: false,
                 hyperlinks_loaded: false,
+                hyperlink_values_dirty: false,
             });
         }
         bank.set_active_view_index(reader.active_view_index());
@@ -313,6 +319,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             ));
         }
         if !self.sheets[index].loaded {
+            self.sheets[index].hyperlinks_requested |= self.options.bind_hyperlink_values;
             self.rebalance()?;
             let maximum = self
                 .allowance
@@ -466,6 +473,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 self.rebalance()?;
                 return Err(error);
             }
+            let mut hyperlink_values_dirty = false;
             if self.sheets[index].hyperlinks_requested {
                 let available = maximum
                     .saturating_sub(self.managed_retained_bytes())
@@ -476,13 +484,28 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                         links,
                         available,
                     )?;
-                    incoming.set_memory_allowance(
-                        incoming
-                            .charged_bytes()
-                            .saturating_add(available)
-                            .min(self.options.workbook.sheet.max_bytes)
-                            .min(self.options.resources.max_materialized_bytes),
-                    )?;
+                    let model_maximum = incoming
+                        .charged_bytes()
+                        .saturating_add(available)
+                        .min(self.options.workbook.sheet.max_bytes)
+                        .min(self.options.resources.max_materialized_bytes);
+                    incoming.set_memory_allowance(model_maximum)?;
+                    if self.options.bind_hyperlink_values {
+                        let value_maximum = model_maximum.saturating_sub(links.heap_bytes());
+                        incoming.set_memory_allowance(value_maximum)?;
+                        hyperlink_values_dirty = hyperlink_values::bind(
+                            &mut incoming,
+                            &links,
+                            self.options.resources,
+                            value_maximum,
+                            |address| {
+                                self.editor
+                                    .pending_value(self.sheets[index].name.as_ref(), address)
+                                    .is_some()
+                            },
+                        )?;
+                    }
+                    incoming.set_memory_allowance(model_maximum)?;
                     incoming.set_hyperlinks(links)
                 })();
                 if let Err(error) = result {
@@ -510,6 +533,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             incoming.mark_clean();
             self.rebalance()?;
             self.bank.replace_sheet(id, incoming)?;
+            self.sheets[index].hyperlink_values_dirty = hyperlink_values_dirty;
             self.sheets[index].hyperlinks_loaded = self.sheets[index].hyperlinks_requested;
             self.sheets[index].loaded = true;
             self.sheets[index].normalized_styles = normalized_styles;
@@ -526,6 +550,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         output: W,
         options: SaveOptions,
     ) -> Result<(W, SaveStats)> {
+        self.prepare_hyperlink_values_for_save()?;
         if self.options.read.data_only && self.editor.is_dirty() {
             return Err(Error::new(
                 ErrorKind::Unsupported,

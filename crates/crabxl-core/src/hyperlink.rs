@@ -69,7 +69,14 @@ impl Hyperlink {
             .filter(|text| !text.is_empty())
             .or(self.location.as_ref())
             .map_or(crate::CellValue::Empty, |text| {
-                crate::CellValue::text(text.clone())
+                let end = if text.len() <= 32767 {
+                    text.len()
+                } else {
+                    text.char_indices()
+                        .nth(32767)
+                        .map_or(text.len(), |(offset, _)| offset)
+                };
+                crate::CellValue::text(&text[..end])
             })
     }
     /// Owned text payload; collection node charging includes inline records.
@@ -96,6 +103,7 @@ pub struct Hyperlinks {
     bytes: usize,
     references: usize,
     ranges: BTreeMap<(RowIndex, ColumnIndex), crate::CellRange>,
+    source_overlaps: bool,
 }
 impl Hyperlinks {
     /// Number of stored declarations.
