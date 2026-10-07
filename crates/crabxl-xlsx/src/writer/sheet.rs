@@ -58,7 +58,7 @@ impl WorkbookWriter {
         views: Option<&crabxl_core::SheetViews>,
         printing: Option<&crabxl_core::PrintSettings>,
     ) -> Result<()> {
-        self.start_sheet_with_dimensions(name, views, printing, &[], &[])
+        self.start_sheet_with_dimensions(name, views, printing, &[], &[], &Default::default())
     }
     pub(super) fn start_sheet_with_dimensions(
         &mut self,
@@ -67,9 +67,15 @@ impl WorkbookWriter {
         printing: Option<&crabxl_core::PrintSettings>,
         columns: &[crabxl_core::ColumnDimension],
         merges: &[crabxl_core::MergedCellRange],
+        hyperlinks: &crabxl_core::Hyperlinks,
     ) -> Result<()> {
         self.ensure_open()?;
-        if views.is_none() && printing.is_none() && columns.is_empty() && merges.is_empty() {
+        if views.is_none()
+            && printing.is_none()
+            && columns.is_empty()
+            && merges.is_empty()
+            && hyperlinks.is_empty()
+        {
             return self.start_sheet(name);
         }
         if let Some(views) = views {
@@ -114,6 +120,8 @@ impl WorkbookWriter {
             .max_metadata_bytes
             .saturating_sub(self.style_memory_bytes())
             .saturating_sub(self.catalog_bytes());
+        let relationships = crate::hyperlinks::relationships(hyperlinks, maximum)?;
+        let maximum = maximum.saturating_sub(relationships.as_ref().map_or(0, Vec::capacity));
         let mut header = RowBuffer {
             data: Vec::new(),
             maximum,
@@ -132,7 +140,7 @@ impl WorkbookWriter {
             }
             crate::dimension_codec::write_columns(&mut header, columns, None)?;
             header.write_all(b"<sheetData>")?;
-            if printing.is_some() || !merges.is_empty() {
+            if printing.is_some() || !merges.is_empty() || !hyperlinks.is_empty() {
                 footer.maximum = maximum.saturating_sub(header.data.capacity());
                 footer.write_all(b"</sheetData>")?;
                 if !merges.is_empty() {
@@ -142,6 +150,7 @@ impl WorkbookWriter {
                     }
                     footer.write_all(b"</mergeCells>")?;
                 }
+                crate::hyperlinks::write_links(&mut footer, hyperlinks, None)?;
                 if let Some(printing) = printing {
                     crate::printing::write_page(&mut footer, printing, None)?;
                     crate::printing::write_breaks(
@@ -175,13 +184,19 @@ impl WorkbookWriter {
         let scratch_bytes = header
             .data
             .capacity()
-            .saturating_add(footer.data.capacity());
+            .saturating_add(footer.data.capacity())
+            .saturating_add(relationships.as_ref().map_or(0, Vec::capacity));
         self.start_sheet_with_header(
             name.into(),
             &header.data,
-            (printing.is_some() || !merges.is_empty()).then_some(footer.data),
+            (printing.is_some() || !merges.is_empty() || !hyperlinks.is_empty())
+                .then_some(footer.data),
             scratch_bytes,
-        )
+        )?;
+        if let Some(active) = &mut self.active {
+            active.relationships = relationships;
+        }
+        Ok(())
     }
     pub(super) fn start_sheet_with_header(
         &mut self,
@@ -285,6 +300,7 @@ impl WorkbookWriter {
             header_prefix_bytes: header.len().saturating_sub(b"<sheetData>".len()) as u64,
             columns_written: false,
             footer,
+            relationships: None,
             visibility: crabxl_core::SheetVisibility::Visible,
         });
         self.write_active(header)?;

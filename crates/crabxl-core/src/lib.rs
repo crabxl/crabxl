@@ -6,6 +6,7 @@ mod date;
 mod error;
 mod formula;
 mod formula_metadata;
+mod hyperlink;
 mod iso_date;
 mod limits;
 mod memory;
@@ -22,6 +23,7 @@ pub use formula_metadata::{
     DataTableOptions, FormulaAnnotations, FormulaFlag, FormulaFlags, FormulaMetadata, FormulaRange,
     FormulaReference, FormulaType,
 };
+pub use hyperlink::{Hyperlink, Hyperlinks};
 pub use iso_date::parse_iso8601;
 pub use limits::ResourceLimits;
 pub use memory::{

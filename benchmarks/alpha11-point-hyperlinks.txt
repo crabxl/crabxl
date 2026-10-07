@@ -1,0 +1,6 @@
+repeat=1 rows=2000 prepare=0.000812 save=0.007013 scan=0.005521 checksum=2087890 peak_temp_xml_bytes=385622 peak_rss_kib=3488
+repeat=2 rows=2000 prepare=0.000910 save=0.006812 scan=0.007114 checksum=2087890 peak_temp_xml_bytes=385622 peak_rss_kib=3488
+repeat=3 rows=2000 prepare=0.000801 save=0.006906 scan=0.005700 checksum=2087890 peak_temp_xml_bytes=385622 peak_rss_kib=3512
+repeat=1 rows=8000 prepare=0.003431 save=0.029616 scan=0.025023 checksum=32354890 peak_temp_xml_bytes=1561622 peak_rss_kib=7324
+repeat=2 rows=8000 prepare=0.003334 save=0.025850 scan=0.022302 checksum=32354890 peak_temp_xml_bytes=1561622 peak_rss_kib=7412
+repeat=3 rows=8000 prepare=0.003599 save=0.030154 scan=0.022970 checksum=32354890 peak_temp_xml_bytes=1561622 peak_rss_kib=7424

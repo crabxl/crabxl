@@ -195,6 +195,14 @@ impl WorkbookWriter {
             .map_err(|error| {
                 io_error("Cannot package worksheet temporary file", error).with_part(part)
             })?;
+            if let Some(relationships) = &sheet.relationships {
+                let relationship_part = format!("xl/worksheets/_rels/sheet{}.xml.rels", index + 1);
+                start_part(&mut zip, &relationship_part, options)?;
+                zip.write_all(relationships).map_err(|error| {
+                    io_error("Cannot package hyperlink relationships", error)
+                        .with_part(relationship_part)
+                })?;
+            }
         }
         package_metadata(
             &mut zip,

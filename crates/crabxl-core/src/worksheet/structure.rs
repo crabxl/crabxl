@@ -217,6 +217,18 @@ impl Worksheet {
         if count == 0 || at.checked_add(count).is_none_or(|end| end > maximum) {
             return Err(invalid("Invalid structural edit count"));
         }
+        if self.hyperlinks.iter().any(|(address, _)| {
+            if rows {
+                address.row.get() >= at
+            } else {
+                address.column.get() >= at
+            }
+        }) {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Affected hyperlink structural edits remain unimplemented",
+            ));
+        }
         if self.merges.ranges().iter().any(|merge| {
             if rows {
                 merge.range().end.row.get() >= at

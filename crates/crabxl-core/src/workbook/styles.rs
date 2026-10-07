@@ -141,6 +141,7 @@ impl Workbook {
         if sheet.merged_ranges().contains(range) {
             return Ok(());
         }
+        sheet.guard_merge_hyperlinks(range)?;
         let anchor = sheet.style_at(range.start);
         let corner = (sheet.get(range.end).is_some()
             || sheet.merged_ranges().virtual_style(range.end).is_some())

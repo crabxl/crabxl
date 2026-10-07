@@ -18085,6 +18085,33 @@
         "crates/crabxl-xlsx/tests/loaded.rs"
       ],
       "notes": "Narrow high-level merge/unmerge checkpoint; raw live metadata mutation, affected row/column/range structural integration and missing source style graph creation remain explicitly unsupported. Full baseline and consolidated A11/A15 acceptance are not claimed."
+    },
+    {
+      "id": "model.hyperlinks.points",
+      "description": "Canonical sparse point hyperlinks with optional properties, owned external relationship output and explicit streamed typed reads",
+      "status": "verified",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "planned"
+      },
+      "modes": [
+        "owned-model",
+        "explicit-metadata-streaming"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/api/openpyxl.worksheet.hyperlink.html",
+      "modules": [
+        "crates/crabxl-core/src/hyperlink.rs",
+        "crates/crabxl-core/src/worksheet/hyperlinks.rs",
+        "crates/crabxl-xlsx/src/package/hyperlinks.rs",
+        "crates/crabxl-xlsx/src/hyperlinks.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/writer.rs: canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically"
+      ],
+      "notes": "Narrow native point checkpoint. Source preserving edits, Python public objects, range declarations and affected structural integration remain pending. Full baseline module and A11 release acceptance remain open."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

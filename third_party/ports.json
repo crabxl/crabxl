@@ -390,6 +390,36 @@
         "model.merged-cells"
       ],
       "status": "integrated native/Python checkpoint verified; full structural dependency acceptance remains pending"
+    },
+    {
+      "project": "umya-spreadsheet",
+      "repository": "https://github.com/MathNya/umya-spreadsheet",
+      "commit": "aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b",
+      "license": "MIT",
+      "notice": "Copyright (c) 2020 MathNya",
+      "license_file": "third_party/licenses/umya-spreadsheet-MIT.txt",
+      "source_symbols": [
+        "src/structs/hyperlink.rs: URL/tooltip/location separation",
+        "src/writer/xlsx/worksheet_rels.rs: external hyperlink relationship ordering"
+      ],
+      "destinations": [
+        "crates/crabxl-core/src/hyperlink.rs",
+        "crates/crabxl-xlsx/src/hyperlinks.rs"
+      ],
+      "changes": [
+        "Keep a canonical sparse point collection with optional target/location/display/tooltip and source relationship identity; no upstream object wrapper",
+        "Independently implement cached node/payload charges and atomic worksheet/aggregate-bank replacement",
+        "Bound relationship encoding and streamed typed reads; validate namespace-resolved relationship identities",
+        "Reject affected structural edits and internal/range graphs explicitly pending full A11 integration"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/writer.rs: canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically"
+      ],
+      "inventory_items": [
+        "model.hyperlinks.points",
+        "baseline.openpyxl.worksheet.hyperlink"
+      ],
+      "status": "owned native create and explicit read checkpoint; preserving edits, Python and full A11 acceptance pending"
     }
   ]
 }

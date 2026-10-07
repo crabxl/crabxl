@@ -29,6 +29,76 @@ fn files(directory: &tempfile::TempDir) -> usize {
 }
 
 #[test]
+fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
+    use crabxl_core::{EditLimits, Hyperlink, Worksheet};
+    let mut sheet = Worksheet::new("Links", EditLimits::default()).unwrap();
+    let a1: CellAddress = "A1".parse().unwrap();
+    let b2: CellAddress = "B2".parse().unwrap();
+    let mut external = Hyperlink::external("../report.xlsx?q=<&>#fragment");
+    external.tooltip = Some(" \"tooltip\" & details ".into());
+    external.display = Some("display differs from value".into());
+    sheet.set_hyperlink(a1, Some(external.clone())).unwrap();
+    sheet
+        .set_hyperlink(
+            b2,
+            Some(Hyperlink {
+                location: Some("'Links'!A1".into()),
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+    let value_before_shift = sheet.get(a1).unwrap().clone();
+    assert_eq!(
+        sheet
+            .insert_columns(crabxl_core::ColumnIndex::new(0).unwrap(), 1)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(sheet.get(a1), Some(&value_before_shift));
+    let charged = sheet.charged_bytes();
+    sheet.set_memory_allowance(charged).unwrap();
+    let mut too_large = external.clone();
+    too_large.tooltip = Some("x".repeat(2048).into());
+    assert_eq!(
+        sheet.set_hyperlink(a1, Some(too_large)).unwrap_err().kind(),
+        ErrorKind::MemoryBudgetExceeded
+    );
+    assert_eq!(sheet.charged_bytes(), charged);
+    assert_eq!(sheet.hyperlinks().get(a1), Some(&external));
+    assert_eq!(
+        sheet.get(a1).unwrap().value,
+        CellValue::text("../report.xlsx?q=<&>#fragment")
+    );
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Empty").unwrap();
+    writer.write_worksheet(&sheet).unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    assert!(reader.hyperlinks("Empty").unwrap().is_empty());
+    let links = reader.hyperlinks("Links").unwrap();
+    let decoded = links.get(a1).unwrap();
+    assert_eq!(decoded.target, external.target);
+    assert_eq!(decoded.tooltip, external.tooltip);
+    assert_eq!(decoded.display, external.display);
+    assert!(decoded.external);
+    assert_eq!(decoded.relationship_id.as_deref(), Some("rId1"));
+    assert_eq!(
+        links.get(b2).unwrap().location.as_deref(),
+        Some("'Links'!A1")
+    );
+    sheet.set_hyperlink(a1, None).unwrap();
+    assert!(sheet.hyperlinks().get(a1).is_none());
+    assert_eq!(
+        sheet.get(a1).unwrap().value,
+        CellValue::text("../report.xlsx?q=<&>#fragment")
+    );
+    sheet.remove(b2);
+    assert!(sheet.hyperlinks().is_empty());
+    assert!(sheet.charged_bytes() < charged);
+}
+
+#[test]
 fn scalar_round_trip_sparse_rows_empty_sheet_and_epoch() {
     let directory = tempfile::tempdir().unwrap();
     let mut writer = WorkbookWriter::new(WriteOptions {

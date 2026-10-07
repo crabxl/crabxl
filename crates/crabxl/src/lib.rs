@@ -48,6 +48,7 @@ pub use crabxl_core::{
 
 pub use crabxl_core::{ActiveViewSelection, normalize_active_view, resolve_sheet_index};
 pub use crabxl_core::{CellRange, EditLimits, SheetVisibility, Worksheet, WorksheetRange};
+pub use crabxl_core::{Hyperlink, Hyperlinks};
 pub use crabxl_core::{MergedCellRange, MergedRangeIter, MergedRanges};
 
 pub use crabxl_xlsx::{

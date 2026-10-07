@@ -141,6 +141,7 @@ struct StoredSheet {
     name: String,
     file: NamedTempFile,
     visibility: crabxl_core::SheetVisibility,
+    relationships: Option<Vec<u8>>,
 }
 struct ActiveSheet {
     id: usize,
@@ -150,6 +151,7 @@ struct ActiveSheet {
     last_row: Option<RowIndex>,
     footer: Option<Vec<u8>>,
     visibility: crabxl_core::SheetVisibility,
+    relationships: Option<Vec<u8>>,
     dimensions: crabxl_core::SheetDimensions,
     header_prefix_bytes: u64,
     columns_written: bool,

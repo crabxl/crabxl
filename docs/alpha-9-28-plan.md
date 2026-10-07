@@ -84,3 +84,12 @@ Performance work accompanies every relevant port, not only W27. Compare equivale
 ## Milestone closure
 
 W19 targets full M5 closure; W26 targets full M4/M6 closure; W28 targets M7 closure. Each closure requires its entire behavioral acceptance definition, including missing upstream capabilities and Python integration where promised. If cases remain unresolved, leave the milestone open and schedule an additional usable alpha. Formula evaluation, other language bindings and capabilities outside the pinned baseline are not added as hidden completion requirements.
+
+### W13 native hyperlink checkpoint
+
+Canonical sparse point links, explicit relationship-resolved reads and owned
+package creation are usable (ADR 0089). Relative targets/fragments, optional
+location/display/tooltip, shared budget rollback and physical removal are covered.
+Affected structural edits reject before mutation. Loaded preserving relationship
+patches, Python live APIs, range declarations and full public-surface acceptance
+remain pending; A11 is not released by this checkpoint.

@@ -337,3 +337,8 @@ guidelines, not hard limits: coherent parsers and tables may be longer. Do not
 split into numbered fragments, use `include!` to hide file length, or add wrappers
 and allocations solely to satisfy a line count. Tests are grouped by observable
 behavior; source modularization does not require new helper-level tests.
+
+Canonical point hyperlinks live in the core worksheet owner and share the bank
+allowance. Explicit XLSX metadata scans and owned relationship encoding remain in
+the format layer; normal scalar streams stay lazy. Preserving source edits and
+full range/Python integration remain A11 gates; see [ADR 0089](decisions/0089-canonical-point-hyperlinks.md).
