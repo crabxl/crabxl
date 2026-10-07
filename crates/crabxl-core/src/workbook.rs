@@ -459,6 +459,38 @@ impl Workbook {
             })?
             .register_number_format_with_limit(code, maximum)
     }
+    /// Derive a cell format by changing only its number-format code.
+    /// Component identities, inheritance and unrelated flags remain unchanged.
+    pub fn derive_number_format(
+        &mut self,
+        style: crate::StyleId,
+        code: Box<str>,
+    ) -> Result<crate::StyleId> {
+        if self.styles.is_none() {
+            if style.get() != 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Unknown workbook style identity",
+                ));
+            }
+            self.register_style(crate::CellStyle::default())?;
+        }
+        let mut format = self
+            .style_catalog()
+            .and_then(|catalog| catalog.cell_format(style))
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown workbook style identity"))?
+            .clone();
+        if self
+            .style_catalog()
+            .and_then(|catalog| catalog.number_format(format.number_format_id))
+            == Some(code.as_ref())
+        {
+            return Ok(style);
+        }
+        format.number_format_id = self.register_number_format(code)?;
+        format.apply_number_format = Some(true);
+        self.register_format(format)
+    }
     fn style_allowance(&self) -> usize {
         self.limits
             .max_bytes

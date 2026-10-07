@@ -142,6 +142,84 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
     assert!(!workbook.is_materialized(first));
     assert!(!workbook.is_materialized(second));
     assert_eq!(workbook.model().cell_count(), 0);
+    // Explicit source styles are canonical, repeatable and do not replace dates.
+    let mut styled =
+        LoadedWorkbook::with_options(Cursor::new(bytes.clone()), Default::default()).unwrap();
+    let id = styled.sheet_id("First").unwrap();
+    let date_address = CellAddress::new(3, 0).unwrap();
+    assert!(
+        styled
+            .set_style(id, date_address, StyleId::new(u32::MAX))
+            .is_err()
+    );
+    assert!(!styled.is_materialized(id));
+    styled.set_style(id, date_address, StyleId::new(0)).unwrap();
+    assert!(matches!(
+        styled
+            .model()
+            .sheet(id)
+            .unwrap()
+            .get(date_address)
+            .unwrap()
+            .value,
+        CellValue::DateTime(_)
+    ));
+    for _ in 0..2 {
+        let output = styled
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0;
+        let mut reader = crabxl_xlsx::WorkbookReader::new(output).unwrap();
+        let data = reader.read_sheet("First").unwrap();
+        let date = data
+            .rows
+            .iter()
+            .flat_map(|row| &row.cells)
+            .find(|cell| cell.address == date_address)
+            .unwrap();
+        assert_eq!(date.style, StyleId::new(0));
+        assert_eq!(date.value, CellValue::Number(2.5));
+    }
+    // New number formats retain source component IDs and survive repeated saves.
+    styled
+        .set_number_format(id, CellAddress::new(0, 0).unwrap(), "0.0000".into())
+        .unwrap();
+    styled
+        .set_number_format(id, CellAddress::new(50, 2).unwrap(), "0.0000".into())
+        .unwrap();
+    let styled_id = styled
+        .model()
+        .sheet(id)
+        .unwrap()
+        .get(CellAddress::new(0, 0).unwrap())
+        .unwrap()
+        .style;
+    let catalog = styled.model().style_catalog().unwrap();
+    let format = catalog.cell_format(styled_id).unwrap();
+    assert_eq!(
+        catalog.number_format(format.number_format_id),
+        Some("0.0000")
+    );
+    assert_eq!(
+        format.font_id,
+        catalog.cell_format(StyleId::new(1)).unwrap().font_id
+    );
+    for _ in 0..2 {
+        let output = styled
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0;
+        let mut reader = crabxl_xlsx::WorkbookReader::new(output).unwrap();
+        let data = reader.read_sheet("First").unwrap();
+        let cell = &data.rows[0].cells[0];
+        assert_eq!(cell.value, CellValue::Integer(0));
+        assert_eq!(cell.style, styled_id);
+        let catalog = reader.style_catalog().unwrap().unwrap();
+        assert_eq!(
+            catalog.number_format(catalog.cell_format(styled_id).unwrap().number_format_id),
+            Some("0.0000")
+        );
+    }
     // Removing a missing physical cell does not rewrite source XML or caches.
     let mut missing =
         LoadedWorkbook::with_options(Cursor::new(bytes.clone()), Default::default()).unwrap();

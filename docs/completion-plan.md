@@ -18,7 +18,7 @@ A7 accepts M4 loaded-model/package/structural operations for implemented content
 A8 addressed the measured performance backlog and is published. The
 [Alpha 9–28 umya integration plan](alpha-9-28-plan.md) splits M5 across A9–A19,
 M6/deferred M4 across A20–A26, and performance/M7 across A27–A28. These future
-stages remain open and implementation is paused.
+stages remain open; implementation has resumed at A9.
 
 The user selected staged M4 acceptance: reject operations affecting unimplemented
 M5/M6 graphs atomically, preserve unrelated opaque content, and retain the missing

@@ -643,6 +643,83 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     ) -> Result<()> {
         self.edit_value(id, address, value, true)
     }
+    /// Derive a source cell's number format while retaining its other style fields.
+    /// Unknown style extensions and signed packages reject before registration.
+    /// Successfully interned formats remain reusable if a later cell edit fails.
+    pub fn set_number_format(
+        &mut self,
+        id: SheetId,
+        address: CellAddress,
+        code: Box<str>,
+    ) -> Result<()> {
+        if self.options.read.data_only {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Data-only style editing remains unimplemented",
+            ));
+        }
+        crate::encode::validate_xml_text(&code)?;
+        let catalog = self.bank.style_catalog().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source stylesheet remains unimplemented",
+            )
+        })?;
+        self.editor.validate_style_edit(catalog)?;
+        let index = self
+            .sheets
+            .iter()
+            .position(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        if self.sheets[index].original.is_some() {
+            self.editor.prepare_model(&self.sheets[index].name)?;
+        }
+        let style = self
+            .sheet(id)?
+            .get(address)
+            .map_or(crabxl_core::StyleId::new(0), |cell| cell.style);
+        self.rebalance()?;
+        let result = self.bank.derive_number_format(style, code);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        self.set_style(id, address, result?)
+    }
+    /// Assign an existing workbook-local format without copying the cell value.
+    /// Supported source worksheets materialize once and use the canonical save
+    /// path. Affected unmodeled graphs reject before mutation. Unknown format
+    /// identities reject before materialization; a missing coordinate becomes an
+    /// empty styled cell under the same aggregate allowance.
+    pub fn set_style(
+        &mut self,
+        id: SheetId,
+        address: CellAddress,
+        style: crabxl_core::StyleId,
+    ) -> Result<()> {
+        let valid = self
+            .bank
+            .style_catalog()
+            .map_or(style.get() == 0, |catalog| {
+                catalog.cell_format(style).is_some()
+            });
+        if !valid {
+            return Err(
+                Error::new(ErrorKind::InvalidData, "Unknown workbook style identity")
+                    .with_cell(address),
+            );
+        }
+        self.edit_structure_when(
+            id,
+            |sheet| {
+                let changed = sheet.get(address).is_none_or(|cell| cell.style != style || matches!(&cell.value, CellValue::DateTime(date) if !date.requires_serial_encoding()));
+                sheet.set_style(address, style)?;
+                Ok(changed)
+            },
+            |changed| *changed,
+        )?;
+        Ok(())
+    }
     /// Remove one physical cell from a supported source-backed model and
     /// transfer its owned value/style to the caller. Logical append extent stays.
     /// Affected unmodeled graphs reject before any cell or package mutation.

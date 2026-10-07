@@ -10,7 +10,7 @@ Alpha 6–8 are published history. The active finer release split is defined in
 [the Alpha 9–28 umya integration plan](alpha-9-28-plan.md). It supersedes the
 previous single-release M5 target: A9–A19 deliver M5, A20–A26 deliver M6 and
 remaining M4 interactions, and A27–A28 target performance and M7 closure.
-Implementation is paused; updating the plan does not request publication.
+Implementation has resumed at A9. Each release still requires its usable gate.
 
 | Release | Scope | Acceptance boundary |
 | --- | --- | --- |
