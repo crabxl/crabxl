@@ -307,3 +307,33 @@ cgroup v1/v2 limits, conservatively excluding dirty/writeback pages and retainin
 parent/host/process and policy constraints; see
 [ADR 0076](decisions/0076-reclaimable-cgroup-cache.md). Missing cache statistics
 retain the earlier raw-headroom estimate. Explicit budgets remain independent.
+
+## Source module boundaries
+
+Dependencies flow from adapters and the public facade to XLSX coordination,
+then to the I/O-free core model. The core never imports XLSX or a language
+runtime. Each workbook/source has one owner; child modules implement operations
+on that owner rather than maintain another model or cache.
+
+| Layer | Responsibilities and source directories |
+| --- | --- |
+| `crabxl-core` | Canonical values and styles; `workbook/` owns the bank, catalog and style operations; `worksheet/` separates metadata, dimensions and structural edits; `style_registry/` separates import, named styles and format registration |
+| `crabxl-xlsx/package/` | ZIP/source owner, worksheet metadata, style/theme catalogs and stream construction |
+| `crabxl-xlsx/reader/` | Borrowed row-stream owner, budget accounting, metadata capture, cell parsing and value decoding |
+| `crabxl-xlsx/writer/` | Writer owner and package composition; style registration, interleaved spools, sheet headers, row emission and finalization |
+| `crabxl-xlsx/editor/` | Original-package owner; catalog and metadata edits, value overlays, save orchestration, bounded output, worksheet/workbook XML rewrites and relationship graph updates |
+| `crabxl-xlsx/loaded/` | Canonical model/source coordinator; catalog, styles, dimensions, structural edits and values |
+| `crabxl` | Public Rust API composition and reexports; no duplicated engine |
+| Standalone Python adapter | Runtime handles and conversion over the pinned canonical core; Python objects provide compatible views |
+
+`mod.rs` defines ownership and composition. Operation modules share that owner's
+state through private Rust module boundaries; internal helpers do not become
+public API. XML codecs remain in XLSX, and validation/model algorithms remain in
+core. Streaming operations retain the existing borrowing and allocation strategy.
+
+Aim for roughly 300–600 lines when a responsibility naturally fits that size.
+Review files beyond 800–1,000 lines for mixed responsibilities. These are review
+guidelines, not hard limits: coherent parsers and tables may be longer. Do not
+split into numbered fragments, use `include!` to hide file length, or add wrappers
+and allocations solely to satisfy a line count. Tests are grouped by observable
+behavior; source modularization does not require new helper-level tests.
