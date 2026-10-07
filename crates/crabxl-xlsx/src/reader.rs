@@ -372,10 +372,16 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         && e.local_name().as_ref().as_bytes() == b"row" =>
                 {
                     let mut index = self.next_row_index;
+                    let mut dimension_attributes = false;
                     for attr in e.attributes() {
                         let attr = attr.map_err(|e| {
                             Error::caused_by(ErrorKind::Xml, "Invalid row attribute", e)
                         })?;
+                        if self.capture_dimensions
+                            && !matches!(attr.key.as_ref().as_bytes(), b"r" | b"spans")
+                        {
+                            dimension_attributes = true;
+                        }
                         if attr.key.as_ref().as_bytes() == b"r" {
                             let value = attr
                                 .normalized_value(quick_xml::XmlVersion::Implicit1_0)
@@ -393,7 +399,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     }
                     let index = RowIndex::new(index)?;
                     if self.capture_dimensions {
-                        self.row_dimension = crate::dimension_codec::read_row(&e, index)?;
+                        self.row_dimension = if dimension_attributes {
+                            crate::dimension_codec::read_row(&e, index)?
+                        } else {
+                            None
+                        };
                     }
                     if self.last_row.is_some_and(|last| index <= last) {
                         return Err(self.invalid("Rows must be in strictly increasing order"));

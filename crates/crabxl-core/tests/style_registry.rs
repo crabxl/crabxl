@@ -112,6 +112,60 @@ fn independent_styles_share_components_and_exact_builtin_codes() {
             .base_format_id,
         1
     );
+    let replacement = registry
+        .update_named_style_with_limit("Percent named", id, usize::MAX)
+        .unwrap();
+    assert_eq!(
+        registry.catalog().cell_style(named).unwrap().number_format,
+        Some("0%")
+    );
+    assert_eq!(
+        registry
+            .catalog()
+            .cell_style(replacement)
+            .unwrap()
+            .number_format,
+        Some("0.000")
+    );
+    registry
+        .update_named_metadata_with_limit(
+            "Percent named",
+            "Decimal named".into(),
+            Default::default(),
+            usize::MAX,
+        )
+        .unwrap();
+    assert!(registry.named_style("Percent named").is_none());
+    assert!(registry.named_style("Decimal named").is_some());
+    assert_eq!(
+        registry
+            .named_style_format_with_limit("Decimal named", usize::MAX)
+            .unwrap(),
+        replacement
+    );
+    let unchanged = registry.memory_bytes();
+    assert!(
+        registry
+            .update_named_metadata_with_limit(
+                "Decimal named",
+                "Normal".into(),
+                Default::default(),
+                usize::MAX
+            )
+            .is_err()
+    );
+    assert_eq!(registry.memory_bytes(), unchanged);
+    assert!(
+        registry
+            .update_named_metadata_with_limit(
+                "Decimal named",
+                "Much longer replacement name".into(),
+                Default::default(),
+                unchanged
+            )
+            .is_err()
+    );
+    assert!(registry.named_style("Decimal named").is_some());
 }
 #[test]
 fn signed_zero_hashes_follow_numeric_equality_and_optional_identity() {

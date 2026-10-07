@@ -1296,6 +1296,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         Ok(())
     }
+    pub(crate) fn theme_is_dirty(&self) -> bool {
+        self.theme_dirty
+    }
     pub(crate) fn theme_changed(&mut self) {
         self.theme_dirty = true;
     }
@@ -1642,8 +1645,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         if self.theme_dirty {
             self.validate_theme_edit()?;
-            if bank.and_then(crabxl_core::Workbook::theme).is_none() {
-                return Err(invalid("Theme rewrite requires its canonical theme owner"));
+            if bank.is_none() {
+                return Err(invalid(
+                    "Theme rewrite requires its canonical workbook owner",
+                ));
             }
         }
         let membership = self.membership.as_deref().zip(bank);
@@ -1766,11 +1771,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 } else if theme {
                     drop(file);
                     let mut budget = budget;
-                    let theme = bank
-                        .and_then(crabxl_core::Workbook::theme)
-                        .ok_or_else(|| invalid("Missing canonical theme"))?;
+                    let bytes = bank.and_then(crabxl_core::Workbook::theme).map_or(
+                        crate::default_theme::DEFAULT_THEME.as_bytes(),
+                        crabxl_core::Theme::bytes,
+                    );
                     budget
-                        .write_all(theme.bytes())
+                        .write_all(bytes)
                         .map_err(|cause| io_error("Cannot rewrite source theme", cause))?;
                     budget
                         .inner
@@ -2429,6 +2435,7 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     crate::dimension_codec::write_columns(
                         writer.get_mut(),
                         model.dimensions().columns(),
+                        frame.spreadsheet_uri,
                     )
                     .map_err(|error| io_error("Cannot write model columns", error))?;
                     super::loaded_codec::write_data(

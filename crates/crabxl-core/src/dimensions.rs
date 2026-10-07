@@ -204,6 +204,89 @@ impl SheetDimensions {
         }
         Ok(())
     }
+    /// Group a bounded row interval with one reservation and an in-place merge.
+    /// Existing height/style flags are retained; cells are not materialized.
+    pub fn group_rows(
+        &mut self,
+        start: RowIndex,
+        end: RowIndex,
+        level: u32,
+        hidden: bool,
+        maximum: usize,
+    ) -> Result<()> {
+        if start > end {
+            return Err(invalid("Reversed row group interval"));
+        }
+        let left = self.rows.partition_point(|row| row.index < start);
+        let right = self.rows.partition_point(|row| row.index <= end);
+        let count = (end.get() - start.get() + 1) as usize;
+        let missing = count - (right - left);
+        let old_len = self.rows.len();
+        let length = old_len.saturating_add(missing);
+        let other = self
+            .columns
+            .capacity()
+            .saturating_mul(size_of::<ColumnDimension>());
+        let capacity = self.rows.capacity().max(length);
+        if other.saturating_add(capacity.saturating_mul(size_of::<RowDimension>())) > maximum {
+            return Err(budget());
+        }
+        self.rows.try_reserve_exact(missing).map_err(|cause| {
+            Error::caused_by(
+                ErrorKind::MemoryBudgetExceeded,
+                "Cannot reserve grouped row metadata",
+                cause,
+            )
+        })?;
+        if self.heap_bytes() > maximum {
+            return Err(budget());
+        }
+        self.rows
+            .resize_with(length, || RowDimension::new(RowIndex::FIRST));
+        for source in (right..old_len).rev() {
+            let row = std::mem::replace(&mut self.rows[source], RowDimension::new(RowIndex::FIRST));
+            self.rows[source + missing] = row;
+        }
+        let mut existing = right;
+        for offset in (0..count).rev() {
+            let index = RowIndex::new(start.get() + offset as u32)?;
+            let mut row = if existing > left && self.rows[existing - 1].index == index {
+                existing -= 1;
+                std::mem::replace(&mut self.rows[existing], RowDimension::new(RowIndex::FIRST))
+            } else {
+                RowDimension::new(index)
+            };
+            row.outline_level = Some(level);
+            row.hidden = Some(hidden);
+            self.rows[left + offset] = row;
+        }
+        Ok(())
+    }
+    /// Group columns as one declaration, retaining its first column's appearance.
+    pub fn group_columns(
+        &mut self,
+        start: ColumnIndex,
+        end: ColumnIndex,
+        level: u32,
+        hidden: bool,
+        maximum: usize,
+    ) -> Result<()> {
+        let mut column = self
+            .column(start)
+            .cloned()
+            .unwrap_or(ColumnDimension::new(start, end)?);
+        column.end = end;
+        if column.width.is_none() {
+            column.width = Some(13.0);
+            column.custom_width = Some(true);
+        }
+        column.outline_level = Some(level);
+        column.hidden = Some(hidden);
+        self.set_column(column, maximum)?;
+        self.columns
+            .retain(|column| column.start <= start || column.start > end);
+        Ok(())
+    }
     /// Remove an explicit row without changing other row identities.
     pub fn remove_row(&mut self, index: RowIndex) -> Option<RowDimension> {
         let position = self.rows.binary_search_by_key(&index, |v| v.index).ok()?;

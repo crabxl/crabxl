@@ -492,6 +492,31 @@ impl Workbook {
             .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing canonical styles"))?
             .named_style_format_with_limit(name, maximum)
     }
+    /// Rename/update a named declaration under the shared workbook allowance.
+    pub fn update_named_metadata(
+        &mut self,
+        name: &str,
+        new_name: Box<str>,
+        options: crate::NamedStyleOptions,
+    ) -> Result<()> {
+        let maximum = self.style_allowance();
+        self.styles
+            .as_mut()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown named style"))?
+            .update_named_metadata_with_limit(name, new_name, options, maximum)
+    }
+    /// Update a registered named appearance without modifying existing cell formats.
+    pub fn update_named_style(
+        &mut self,
+        name: &str,
+        style: crate::StyleId,
+    ) -> Result<crate::StyleId> {
+        let maximum = self.style_allowance();
+        self.styles
+            .as_mut()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown named style"))?
+            .update_named_style_with_limit(name, style, maximum)
+    }
     /// Derive a format by replacing one appearance component under the bank cap.
     /// All other component identities, base links and flags remain unchanged.
     pub fn derive_style_component(
@@ -803,6 +828,37 @@ impl WorksheetEditor<'_> {
         self.sheet.set_dimensions(dimensions)
     }
 
+    /// Remove an explicit row dimension without changing its cells.
+    pub fn remove_row_dimension(&mut self, index: RowIndex) -> Option<crate::RowDimension> {
+        self.sheet.remove_row_dimension(index)
+    }
+    /// Remove a column declaration by its first column.
+    pub fn remove_column_dimension(
+        &mut self,
+        index: ColumnIndex,
+    ) -> Option<crate::ColumnDimension> {
+        self.sheet.remove_column_dimension(index)
+    }
+    /// Group sparse row metadata under the current joint workbook allowance.
+    pub fn group_rows(
+        &mut self,
+        start: RowIndex,
+        end: RowIndex,
+        level: u32,
+        hidden: bool,
+    ) -> Result<()> {
+        self.sheet.group_rows(start, end, level, hidden)
+    }
+    /// Group sparse column metadata under the current joint workbook allowance.
+    pub fn group_columns(
+        &mut self,
+        start: ColumnIndex,
+        end: ColumnIndex,
+        level: u32,
+        hidden: bool,
+    ) -> Result<()> {
+        self.sheet.group_columns(start, end, level, hidden)
+    }
     /// Replace canonical printing metadata under aggregate/per-sheet limits.
     pub fn set_print_settings(&mut self, settings: Option<crate::PrintSettings>) -> Result<()> {
         self.sheet.set_print_settings(settings)

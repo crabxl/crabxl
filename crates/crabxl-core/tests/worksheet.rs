@@ -64,6 +64,58 @@ fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
         );
         assert!(bounded.dimensions().rows().is_empty());
         assert_eq!(bounded.charged_bytes(), bounded_before);
+        for index in [0, 3, 6, 10] {
+            let mut row = crabxl_core::RowDimension::new(RowIndex::new(index).unwrap());
+            row.height = Some(f64::from(index + 21));
+            metadata.set_row_dimension(row).unwrap();
+        }
+        metadata
+            .group_rows(
+                RowIndex::new(1).unwrap(),
+                RowIndex::new(7).unwrap(),
+                2,
+                true,
+            )
+            .unwrap();
+        assert_eq!(
+            metadata
+                .dimensions()
+                .rows()
+                .iter()
+                .map(|row| row.index.get())
+                .collect::<Vec<_>>(),
+            [0, 1, 2, 3, 4, 5, 6, 7, 10, 999_999]
+        );
+        assert_eq!(
+            metadata
+                .dimensions()
+                .row(RowIndex::new(3).unwrap())
+                .unwrap()
+                .height,
+            Some(24.0)
+        );
+        assert_eq!(
+            metadata
+                .dimensions()
+                .row(RowIndex::new(6).unwrap())
+                .unwrap()
+                .height,
+            Some(27.0)
+        );
+        assert_eq!(
+            metadata.charged_bytes() - before,
+            metadata.dimensions().heap_bytes()
+        );
+        bounded.mark_clean();
+        assert_eq!(
+            bounded
+                .group_rows(RowIndex::FIRST, RowIndex::LAST, 1, false)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::MemoryBudgetExceeded
+        );
+        assert!(!bounded.is_dirty());
+        assert!(bounded.dimensions().rows().is_empty());
     }
     let mut sheet = Worksheet::new("Sheet", EditLimits::default()).unwrap();
     assert!(!sheet.is_dirty());
