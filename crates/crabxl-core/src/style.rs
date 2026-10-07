@@ -71,3 +71,19 @@ impl CellStyle {
             + self.borders.heap_bytes()
     }
 }
+
+/// One explicit appearance replacement, retaining all unrelated format fields.
+/// Large components are moved into the shared registry rather than cloned.
+#[derive(Clone, Debug, PartialEq)]
+pub enum StyleComponent {
+    /// Replace the shared font.
+    Font(Box<Font>),
+    /// Replace the pattern or gradient fill.
+    Fill(Box<crate::Fill>),
+    /// Replace the complete border.
+    Border(Box<crate::Border>),
+    /// Replace or clear explicit alignment overrides.
+    Alignment(Option<Box<crate::Alignment>>),
+    /// Replace or clear explicit protection overrides.
+    Protection(Option<crate::Protection>),
+}

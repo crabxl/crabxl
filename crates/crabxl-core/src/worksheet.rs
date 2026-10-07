@@ -320,6 +320,18 @@ impl Worksheet {
             style,
         })
     }
+    /// Replace appearance components while retaining temporal encoding preferences.
+    pub fn set_appearance_style(&mut self, address: CellAddress, style: StyleId) -> Result<()> {
+        if let Some(cell) = self.cells.get_mut(&key(address)) {
+            self.dirty |= cell.set_appearance_style(style);
+            return Ok(());
+        }
+        self.set(Cell {
+            address,
+            value: CellValue::Empty,
+            style,
+        })
+    }
     /// Iterate physical cells in row-major order; returned references borrow self.
     pub fn cells(&self) -> impl Iterator<Item = &Cell> {
         self.cells.values()

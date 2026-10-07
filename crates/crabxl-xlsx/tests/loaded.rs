@@ -220,6 +220,38 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
             Some("0.0000")
         );
     }
+    styled
+        .set_style_component(
+            id,
+            CellAddress::new(0, 0).unwrap(),
+            crabxl_core::StyleComponent::Font(Box::new(crabxl_core::Font {
+                name: Some("Component face".into()),
+                bold: Some(true),
+                ..Default::default()
+            })),
+        )
+        .unwrap();
+    let updated = styled
+        .model()
+        .sheet(id)
+        .unwrap()
+        .get(CellAddress::new(0, 0).unwrap())
+        .unwrap()
+        .style;
+    for _ in 0..2 {
+        let output = styled
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0;
+        let mut reader = crabxl_xlsx::WorkbookReader::new(output).unwrap();
+        let data = reader.read_sheet("First").unwrap();
+        assert_eq!(data.rows[0].cells[0].style, updated);
+        let catalog = reader.style_catalog().unwrap().unwrap();
+        let view = catalog.cell_style(updated).unwrap();
+        assert_eq!(view.font.name.as_deref(), Some("Component face"));
+        assert_eq!(view.font.bold, Some(true));
+        assert_eq!(view.number_format, Some("0.0000"));
+    }
     // Removing a missing physical cell does not rewrite source XML or caches.
     let mut missing =
         LoadedWorkbook::with_options(Cursor::new(bytes.clone()), Default::default()).unwrap();

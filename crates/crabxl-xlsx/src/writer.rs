@@ -318,6 +318,28 @@ impl WorkbookWriter {
             .register_with_limit(style, allowance)
             .map_err(writer_style_error)
     }
+    /// Replace one component of a workbook-local format without copying its peers.
+    pub fn derive_style_component(
+        &mut self,
+        base: StyleId,
+        component: crabxl_core::StyleComponent,
+    ) -> Result<StyleId> {
+        self.ensure_open()?;
+        if let crabxl_core::StyleComponent::Font(font) = &component
+            && let Some(name) = &font.name
+        {
+            validate_xml_text(name)?;
+        }
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes());
+        self.styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?
+            .derive_component_with_limit(base, component, allowance)
+            .map_err(writer_style_error)
+    }
     /// Register a literal code against imported declarations and built-in overrides.
     pub fn register_number_format(&mut self, code: Box<str>) -> Result<u32> {
         self.ensure_open()?;

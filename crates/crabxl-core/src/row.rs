@@ -93,6 +93,12 @@ impl Cell {
         self.style = style;
         changed
     }
+    /// Change appearance identity while preserving automatic temporal encoding.
+    pub fn set_appearance_style(&mut self, style: StyleId) -> bool {
+        let changed = self.style != style;
+        self.style = style;
+        changed
+    }
 }
 
 /// An owned sparse row. Missing columns are not expanded into empty cells.

@@ -459,6 +459,28 @@ impl Workbook {
             })?
             .register_number_format_with_limit(code, maximum)
     }
+    /// Derive a format by replacing one appearance component under the bank cap.
+    /// All other component identities, base links and flags remain unchanged.
+    pub fn derive_style_component(
+        &mut self,
+        style: crate::StyleId,
+        component: crate::StyleComponent,
+    ) -> Result<crate::StyleId> {
+        if self.styles.is_none() {
+            if style.get() != 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Unknown workbook style identity",
+                ));
+            }
+            self.register_style(crate::CellStyle::default())?;
+        }
+        let maximum = self.style_allowance();
+        self.styles
+            .as_mut()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing canonical styles"))?
+            .derive_component_with_limit(style, component, maximum)
+    }
     /// Derive a cell format by changing only its number-format code.
     /// Component identities, inheritance and unrelated flags remain unchanged.
     pub fn derive_number_format(
@@ -705,6 +727,26 @@ impl WorksheetEditor<'_> {
             }
         }
         self.sheet.set_style(address, style)
+    }
+    /// Assign derived appearance without overriding automatic temporal encoding.
+    pub fn set_appearance_style(
+        &mut self,
+        address: crate::CellAddress,
+        style: crate::StyleId,
+    ) -> Result<()> {
+        if let Some(styles) = self.styles.as_deref() {
+            let valid = styles.as_ref().map_or(style.get() == 0, |registry| {
+                registry.catalog().cell_format(style).is_some()
+            });
+            if !valid {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Unknown workbook cell style identity",
+                )
+                .with_cell(address));
+            }
+        }
+        self.sheet.set_appearance_style(address, style)
     }
     /// Replace canonical printing metadata under aggregate/per-sheet limits.
     pub fn set_print_settings(&mut self, settings: Option<crate::PrintSettings>) -> Result<()> {

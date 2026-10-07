@@ -544,6 +544,82 @@ fn borrowed_number_format_variants_share_components_and_preserve_source_properti
     expected.number_format_id = number;
     expected.apply_number_format = Some(true);
     assert_eq!(registry.register_format(expected).unwrap(), variant);
+    let large_font = crabxl_core::Font {
+        name: Some("x".repeat(1024 * 1024).into()),
+        ..Default::default()
+    };
+    let large = registry
+        .derive_component_with_limit(
+            variant,
+            crabxl_core::StyleComponent::Font(Box::new(large_font)),
+            usize::MAX,
+        )
+        .unwrap();
+    let font_id = registry.catalog().cell_format(large).unwrap().font_id;
+    let pointer = registry.catalog().fonts[font_id as usize]
+        .name
+        .as_ref()
+        .unwrap()
+        .as_ptr();
+    let aligned = registry
+        .derive_component_with_limit(
+            large,
+            crabxl_core::StyleComponent::Alignment(Some(Box::new(Alignment {
+                wrap_text: Some(true),
+                ..Default::default()
+            }))),
+            usize::MAX,
+        )
+        .unwrap();
+    let derived = registry.catalog().cell_format(aligned).unwrap();
+    assert_eq!(derived.font_id, font_id);
+    assert_eq!(derived.number_format_id, number);
+    assert_eq!(derived.quote_prefix, Some(true));
+    assert_eq!(
+        registry.catalog().fonts[font_id as usize]
+            .name
+            .as_ref()
+            .unwrap()
+            .as_ptr(),
+        pointer
+    );
+    let bytes = registry.memory_bytes();
+    let records = registry.catalog().cell_formats.len();
+    assert!(
+        registry
+            .derive_component_with_limit(
+                StyleId::new(u32::MAX),
+                crabxl_core::StyleComponent::Protection(None),
+                usize::MAX,
+            )
+            .is_err()
+    );
+    assert!(
+        registry
+            .derive_component_with_limit(
+                aligned,
+                crabxl_core::StyleComponent::Alignment(Some(Box::new(Alignment {
+                    rotation: Some(254),
+                    ..Default::default()
+                }))),
+                usize::MAX,
+            )
+            .is_err()
+    );
+    assert!(
+        registry
+            .derive_component_with_limit(
+                aligned,
+                crabxl_core::StyleComponent::Protection(Some(crabxl_core::Protection {
+                    locked: Some(false),
+                    hidden: Some(true),
+                })),
+                bytes,
+            )
+            .is_err()
+    );
+    assert_eq!(registry.memory_bytes(), bytes);
+    assert_eq!(registry.catalog().cell_formats.len(), records);
 }
 
 #[test]
