@@ -36,9 +36,11 @@ shared standalone rich XML codecs (ADR 0095), compact hyperlink range adoption
 and point edits (ADR 0096), and shared rectangle utilities (ADR 0097). Python
 integrates these published native revisions, retained/copied rich views and
 detached hyperlinks. These are compilation/formatting checkpoints; no additional
-tests or benchmarks have been run for them. Write-only live hyperlinks, imported
-empty-anchor values, post-save identities, standalone multi-range sets, raw live
-merged declarations and consolidated acceptance still prevent an A11 release.
+tests or benchmarks have been run for them. Normal post-save public identities
+(ADR 0098) and imported empty-anchor initialization with original-order overlap
+binding (ADR 0099) are integrated. Write-only live hyperlinks and their output
+identities, standalone multi-range sets, raw live merged declarations and
+consolidated acceptance still prevent an A11 release.
 
 ## Work-package matrix
 

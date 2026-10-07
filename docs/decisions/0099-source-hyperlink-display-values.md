@@ -20,13 +20,23 @@ existing guarded model-save coordinator. Source/footer graph dependencies remain
 explicit staged errors. Value changes retain the original initialized display
 when a link target changes later.
 
-Overlapping source declarations need separate original-order display binding:
-later links replace metadata, but an earlier link can already have filled a value.
-The canonical collection records overlap history. Empty-value binding in such a
-source returns explicit Unsupported until ordered initialization is integrated;
-already populated values and the Rust preserve-values mode remain usable. This
-case remains an A11 gate, not a completed capability.
+Overlapping source declarations now use ordered replay into the private incoming
+model. Later declarations still replace canonical metadata, while only the first
+nonempty initializer fills an empty value. Destination-free declarations extend
+logical cell presence without constructing every covered empty coordinate. Queued
+value overrides and merged non-anchor cells retain the same exclusions.
 
-Rust 1.88 library compilation and formatting pass. Python policy integration,
-ordered overlap binding, resource/failure assertions and measurements belong to
-the remaining implementation and consolidated pre-release acceptance stages.
+The shared declaration codec supplies validated source-order events without
+retaining a second link collection. A bounded relationship map resolves original
+identities, including links discarded by final coverage normalization. Scan
+buffers, relationship storage and current declaration scratch reduce the model's
+available allowance. Failure discards the unpublished model. This replay requires
+an additional worksheet decompression pass only for overlapping declarations;
+ordinary non-overlapping and read-only loads retain their existing paths. Avoiding
+that exceptional replay pass remains a performance opportunity.
+
+Python enables the compatibility policy for ordinary editable loads. Normal
+post-save public identity synchronization is implemented separately in ADR 0098.
+Rust 1.88 library compilation and formatting pass. Consolidated resource/failure,
+ordering and compatibility acceptance remains deferred until the entire A11
+native and Python feature implementation is complete.

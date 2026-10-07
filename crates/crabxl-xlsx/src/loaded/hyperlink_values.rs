@@ -11,70 +11,92 @@ pub(super) fn bind(
 ) -> Result<bool> {
     let mut changed = false;
     for (owner, link) in links.iter() {
-        let Some(source) = link
-            .target
-            .as_ref()
-            .filter(|value| !value.is_empty())
-            .or(link.location.as_ref())
-        else {
-            continue;
-        };
         let area = links.covering_range(owner).unwrap_or(CellRange {
             start: owner,
             end: owner,
         });
-        let mut missing = false;
-        'search: for row in area.start.row.get()..=area.end.row.get() {
-            for column in area.start.column.get()..=area.end.column.get() {
-                let address = CellAddress::new(row, column)?;
-                if !overridden(address) && needs_value(incoming, address) {
-                    missing = true;
-                    break 'search;
-                }
+        changed |= bind_declaration(incoming, area, link, resources, maximum, &mut overridden)?;
+    }
+    Ok(changed)
+}
+
+pub(super) fn bind_declaration(
+    incoming: &mut Worksheet,
+    area: CellRange,
+    link: &crabxl_core::Hyperlink,
+    resources: ResourceLimits,
+    maximum: usize,
+    mut overridden: impl FnMut(CellAddress) -> bool,
+) -> Result<bool> {
+    let mut changed = false;
+    let Some(source) = link
+        .target
+        .as_ref()
+        .filter(|value| !value.is_empty())
+        .or(link.location.as_ref())
+    else {
+        // Preserve logical extent without constructing every covered empty cell.
+        if !overridden(area.end)
+            && incoming.get(area.end).is_none()
+            && incoming.merged_ranges().virtual_style(area.end).is_none()
+        {
+            incoming.set(Cell {
+                address: area.end,
+                style: incoming.style_at(area.end),
+                value: CellValue::Empty,
+            })?;
+            changed = true;
+        }
+        return Ok(changed);
+    };
+    let mut missing = false;
+    'search: for row in area.start.row.get()..=area.end.row.get() {
+        for column in area.start.column.get()..=area.end.column.get() {
+            let address = CellAddress::new(row, column)?;
+            if !overridden(address) && needs_value(incoming, address) {
+                missing = true;
+                break 'search;
             }
         }
-        if !missing {
-            continue;
-        }
-        if links.has_source_overlaps() {
-            return Err(Error::new(ErrorKind::Unsupported, "Initializing empty cells from overlapping source hyperlink declarations remains unimplemented").with_cell(owner));
-        }
-        let bytes = if source.len() <= 32767 {
-            source.len()
-        } else {
-            source
-                .char_indices()
-                .nth(32767)
-                .map_or(source.len(), |(offset, _)| offset)
-        };
-        let scratch = bytes.saturating_mul(2).saturating_add(64);
-        if scratch > maximum.saturating_sub(incoming.charged_bytes()) {
-            return Err(budget().with_cell(owner));
-        }
-        let CellValue::Text(text) = link.initial_cell_value() else {
-            continue;
-        };
-        if text.as_str().len() > resources.max_cell_bytes {
-            return Err(Error::new(
-                ErrorKind::LimitExceeded,
-                "Hyperlink display exceeds configured cell byte limit",
-            )
-            .with_cell(owner));
-        }
-        let text: Arc<str> = Arc::from((*text).into_string());
-        for row in area.start.row.get()..=area.end.row.get() {
-            for column in area.start.column.get()..=area.end.column.get() {
-                let address = CellAddress::new(row, column)?;
-                if overridden(address) || !needs_value(incoming, address) {
-                    continue;
-                }
-                incoming.set(Cell {
-                    address,
-                    style: incoming.style_at(address),
-                    value: CellValue::shared_text(Arc::clone(&text)),
-                })?;
-                changed = true;
+    }
+    if !missing {
+        return Ok(false);
+    }
+    let bytes = if source.len() <= 32767 {
+        source.len()
+    } else {
+        source
+            .char_indices()
+            .nth(32767)
+            .map_or(source.len(), |(offset, _)| offset)
+    };
+    let scratch = bytes.saturating_mul(2).saturating_add(64);
+    if scratch > maximum.saturating_sub(incoming.charged_bytes()) {
+        return Err(budget().with_cell(area.start));
+    }
+    let CellValue::Text(text) = link.initial_cell_value() else {
+        return Ok(false);
+    };
+    if text.as_str().len() > resources.max_cell_bytes {
+        return Err(Error::new(
+            ErrorKind::LimitExceeded,
+            "Hyperlink display exceeds configured cell byte limit",
+        )
+        .with_cell(area.start));
+    }
+    let text: Arc<str> = Arc::from((*text).into_string());
+    for row in area.start.row.get()..=area.end.row.get() {
+        for column in area.start.column.get()..=area.end.column.get() {
+            let address = CellAddress::new(row, column)?;
+            if overridden(address) || !needs_value(incoming, address) {
+                continue;
             }
+            incoming.set(Cell {
+                address,
+                style: incoming.style_at(address),
+                value: CellValue::shared_text(Arc::clone(&text)),
+            })?;
+            changed = true;
         }
     }
     Ok(changed)

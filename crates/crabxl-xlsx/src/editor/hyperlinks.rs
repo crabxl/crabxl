@@ -4,6 +4,35 @@ use super::*;
 pub(super) type HyperlinkPlans =
     BTreeMap<String, (crabxl_core::SheetId, crate::hyperlinks::source::Plan)>;
 impl<R: Read + Seek> WorkbookEditor<R> {
+    pub(crate) fn visit_hyperlink_values_in_source_order(
+        &mut self,
+        name: &str,
+        maximum: usize,
+        mut visit: impl FnMut(
+            crabxl_core::CellRange,
+            &crabxl_core::Hyperlink,
+            usize,
+            &dyn Fn(CellAddress) -> bool,
+        ) -> Result<()>,
+    ) -> Result<()> {
+        let part = self
+            .book
+            .sheets()
+            .iter()
+            .find(|sheet| sheet.name() == name)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet not found"))?
+            .part();
+        let pending = self.patches.get(part);
+        self.book
+            .visit_hyperlinks_in_source_order(name, maximum, |area, link, workspace| {
+                visit(area, link, workspace, &|address| {
+                    pending.is_some_and(|patches| {
+                        patches.contains_key(&(address.row.get(), address.column.get()))
+                    })
+                })
+            })
+    }
+
     pub(crate) fn prepare_hyperlink_patch(&self, index: usize, base_bytes: usize) -> Result<usize> {
         if self.signed {
             return Err(Error::new(
