@@ -31,7 +31,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             let catalog = bank
                 .and_then(crabxl_core::Workbook::style_catalog)
                 .ok_or_else(|| invalid("Style rewrite requires its canonical catalog"))?;
-            self.validate_style_edit(catalog)?;
+            self.validate_style_edit(Some(catalog))?;
         }
         if self.theme_dirty {
             self.validate_theme_edit()?;
@@ -41,7 +41,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 ));
             }
         }
-        let hyperlink_plans = self.prepare_hyperlink_save(bank, extra_retained)?;
+        let catalog_parts = self.prepare_catalog_parts(bank, extra_retained)?;
+        let catalog_bytes = catalog_parts.capacity() * size_of::<catalog_parts::CatalogPart>()
+            + catalog_parts
+                .iter()
+                .map(catalog_parts::CatalogPart::heap_bytes)
+                .sum::<usize>();
+        let hyperlink_plans =
+            self.prepare_hyperlink_save(bank, extra_retained.saturating_add(catalog_bytes))?;
         let relationship_plans: BTreeMap<_, _> = hyperlink_plans
             .iter()
             .filter(|(_, (_, plan))| plan.relationships.is_some())
@@ -77,6 +84,31 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 membership.removal_dirty
                     || membership.created.values().any(|entry| entry.values_dirty)
             });
+        let removed = self
+            .parts
+            .iter()
+            .filter(|part| {
+                dirty && self.chain_removals.contains(part.name.as_ref())
+                    || membership.is_some_and(|(member, _)| member.removes_part(&part.name))
+            })
+            .count();
+        let created = catalog_parts.len()
+            + relationship_plans
+                .keys()
+                .filter(|part| self.book.archive.index_for_name(part).is_none())
+                .count()
+            + membership.map_or(0, |(member, _)| member.created.len());
+        if self
+            .parts
+            .len()
+            .saturating_sub(removed)
+            .saturating_add(created)
+            > self.options.resources.max_archive_entries
+        {
+            return Err(limit(
+                "Created package parts exceed configured archive count",
+            ));
+        }
         let mut zip = ZipWriter::new(output);
         zip.set_raw_comment(self.book.archive.comment().to_vec().into_boxed_slice())
             .map_err(|error| zip_error("Cannot preserve ZIP archive comment", error))?;
@@ -99,7 +131,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 stats.removed_parts += 1;
                 continue;
             }
-            let chain_metadata = (membership.is_some()
+            let chain_metadata = (!catalog_parts.is_empty()
+                || membership.is_some()
                 || dirty && !self.calc_chain_parts.is_empty()
                 || relationships_added && part.name.as_ref() == "[Content_Types].xml")
                 && (part.name.as_ref() == "[Content_Types].xml"
@@ -259,18 +292,21 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 } else if shared_strings {
                     patch_shared_strings(file, budget, &part.name, self.options.resources)
                 } else {
-                    patch_chain_metadata(
+                    patch_package_graph(
                         file,
                         budget,
                         &part.name,
-                        if dirty {
-                            &self.calc_chain_parts
-                        } else {
-                            &empty_chains
+                        PackageGraphRewrite {
+                            chains: if dirty {
+                                &self.calc_chain_parts
+                            } else {
+                                &empty_chains
+                            },
+                            limits: self.options.resources,
+                            membership,
+                            relationships_added,
+                            additions: &catalog_parts,
                         },
-                        self.options.resources,
-                        membership,
-                        relationships_added,
                     )
                 }
                 .map_err(|error| error.with_part(part.name.as_ref()))?;
@@ -338,6 +374,46 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             }
             stats.created_parts += 1;
             stats.rewritten_xml_bytes += bytes.len() as u64;
+        }
+        for added in &catalog_parts {
+            let bank = bank.ok_or_else(|| invalid("Missing canonical catalog owner"))?;
+            zip.start_file(
+                &added.part,
+                crate::writer::compression_options(options.compression_level)
+                    .large_file(self.options.resources.max_part_bytes >= u64::from(u32::MAX)),
+            )
+            .map_err(|cause| {
+                zip_error("Cannot start created catalog part", cause).with_part(&added.part)
+            })?;
+            let mut budget = PartOutput {
+                inner: BufWriter::with_capacity(64 * 1024, &mut zip),
+                bytes: 0,
+                maximum: self.options.resources.max_part_bytes,
+            };
+            match added.kind {
+                catalog_parts::CatalogKind::Styles => crate::styles::write_styles(
+                    &mut budget,
+                    bank.style_catalog()
+                        .ok_or_else(|| invalid("Missing canonical stylesheet"))?,
+                    crate::StyleWritePolicy::RetainExplicit,
+                )
+                .map_err(|cause| io_error("Cannot create source stylesheet", cause))?,
+                catalog_parts::CatalogKind::Theme => budget
+                    .write_all(bank.theme().map_or(
+                        crate::default_theme::DEFAULT_THEME.as_bytes(),
+                        crabxl_core::Theme::bytes,
+                    ))
+                    .map_err(|cause| io_error("Cannot create source theme", cause))?,
+            }
+            budget
+                .flush()
+                .map_err(|cause| io_error("Cannot flush created catalog", cause))?;
+            total += u128::from(budget.bytes);
+            if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
+                return Err(limit("Created catalog package exceeds configured limit"));
+            }
+            stats.created_parts += 1;
+            stats.rewritten_xml_bytes += budget.bytes;
         }
         if let Some((membership, bank)) = membership {
             for created in membership.created.values() {

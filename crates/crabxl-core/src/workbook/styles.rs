@@ -6,6 +6,24 @@ impl Workbook {
     pub fn style_catalog(&self) -> Option<&crate::StyleCatalog> {
         self.styles.as_ref().map(crate::StyleRegistry::catalog)
     }
+    /// Initialize default canonical styles under explicit component and bank limits.
+    /// Existing catalogs are not replaced; a failed initialization changes nothing.
+    pub fn initialize_style_catalog(&mut self, mut limits: crate::StyleLimits) -> Result<()> {
+        if self.styles.is_some() {
+            return Err(Error::new(
+                ErrorKind::InvalidState,
+                "Workbook styles already initialized",
+            ));
+        }
+        let requested = limits;
+        limits.max_bytes = limits
+            .max_bytes
+            .min(self.limits.max_bytes.saturating_sub(self.charged_bytes()));
+        let mut styles = crate::StyleRegistry::new(limits)?;
+        styles.set_limits(requested)?;
+        self.styles = Some(styles);
+        Ok(())
+    }
     /// Adopt source style identities before registering styles. Existing cells must
     /// refer to the imported table. Failure preserves this workbook's model state.
     pub fn import_style_catalog(

@@ -150,15 +150,26 @@ pub(super) fn catalog_part_removal<R: Read + Seek>(
     }
     Ok((removals, safe))
 }
-pub(super) fn patch_chain_metadata<R: Read + Seek, W: Write>(
+pub(super) struct PackageGraphRewrite<'a> {
+    pub(super) chains: &'a HashSet<String>,
+    pub(super) limits: ResourceLimits,
+    pub(super) membership: Option<(&'a catalog::Membership, &'a crabxl_core::Workbook)>,
+    pub(super) relationships_added: bool,
+    pub(super) additions: &'a [catalog_parts::CatalogPart],
+}
+pub(super) fn patch_package_graph<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
     output: PartOutput<W>,
     part: &str,
-    chains: &HashSet<String>,
-    limits: ResourceLimits,
-    membership: Option<(&catalog::Membership, &crabxl_core::Workbook)>,
-    relationships_added: bool,
+    rewrite: PackageGraphRewrite<'_>,
 ) -> Result<u64> {
+    let PackageGraphRewrite {
+        chains,
+        limits,
+        membership,
+        relationships_added,
+        additions,
+    } = rewrite;
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
         part.into(),
@@ -191,7 +202,7 @@ pub(super) fn patch_chain_metadata<R: Read + Seek, W: Write>(
                         && e.local_name().as_ref().as_bytes() == b"Relationships"
                 };
                 if !valid {
-                    return Err(invalid("Invalid calculation-chain package metadata root"));
+                    return Err(invalid("Invalid package graph metadata root"));
                 }
                 emit(&mut writer, Event::Start(e))?;
             }
@@ -262,6 +273,9 @@ pub(super) fn patch_chain_metadata<R: Read + Seek, W: Write>(
                 }
                 if let Some((membership, bank)) = membership {
                     membership.write_additions(&mut writer, types, bank)?;
+                }
+                for addition in additions {
+                    addition.write_graph(&mut writer, types)?;
                 }
                 emit(&mut writer, Event::End(e))?;
             }

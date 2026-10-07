@@ -63,23 +63,22 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         Ok(sheet)
     }
-    pub(crate) fn validate_style_edit(&self, catalog: &crabxl_core::StyleCatalog) -> Result<()> {
+    pub(crate) fn validate_style_edit(
+        &self,
+        catalog: Option<&crabxl_core::StyleCatalog>,
+    ) -> Result<()> {
         if self.signed {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Signed style editing remains unimplemented",
             ));
         }
-        if self.book.style_part.is_none() {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source stylesheet remains unimplemented",
-            ));
-        }
         if self.styles_dirty {
             Ok(())
-        } else {
+        } else if let Some(catalog) = catalog {
             crate::styles::validate_catalog(catalog)
+        } else {
+            Ok(())
         }
     }
     pub(crate) fn validate_theme_edit(&self) -> Result<()> {
@@ -87,12 +86,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Signed theme editing remains unimplemented",
-            ));
-        }
-        if self.book.theme_part.is_none() {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source theme relationship remains unimplemented",
             ));
         }
         Ok(())

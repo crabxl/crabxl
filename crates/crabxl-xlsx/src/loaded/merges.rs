@@ -22,19 +22,13 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         } else {
             None
         };
+        self.hyperlinks(id)?;
         let sheet = self.sheet(id)?;
         if sheet.merged_ranges().contains(range) {
             return Ok(());
         }
         crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
-        if let Some(catalog) = self.bank.style_catalog() {
-            self.editor.validate_style_edit(catalog)?;
-        } else {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source style graph is not implemented",
-            ));
-        }
+        self.prepare_style_edit()?;
         if let Some(plan) = &plan {
             self.reserve_workbook_patch(plan.bytes.max(self.editor.patch_bytes()))?;
         }
@@ -65,7 +59,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             let catalog = self.bank.style_catalog().ok_or_else(|| {
                 Error::new(ErrorKind::InvalidState, "Missing normalized merge styles")
             })?;
-            self.editor.validate_style_edit(catalog)?;
+            self.editor.validate_style_edit(Some(catalog))?;
         }
         Ok(())
     }

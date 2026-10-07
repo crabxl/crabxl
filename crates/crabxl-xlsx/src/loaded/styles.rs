@@ -2,6 +2,18 @@
 use super::*;
 
 impl<R: Read + Seek> LoadedWorkbook<R> {
+    pub(super) fn prepare_style_edit(&mut self) -> Result<()> {
+        self.editor.validate_style_edit(self.bank.style_catalog())?;
+        if self.bank.style_catalog().is_none() {
+            self.rebalance()?;
+            self.bank.initialize_style_catalog(StyleLimits {
+                max_bytes: self.options.resources.max_style_bytes,
+                max_records: self.options.resources.max_style_records,
+            })?;
+            self.rebalance()?;
+        }
+        Ok(())
+    }
     /// Derive a source cell's number format while retaining its other style fields.
     /// Unknown style extensions and signed packages reject before registration.
     /// Successfully interned formats remain reusable if a later cell edit fails.
@@ -18,13 +30,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             ));
         }
         crate::encode::validate_xml_text(&code)?;
-        let catalog = self.bank.style_catalog().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source stylesheet remains unimplemented",
-            )
-        })?;
-        self.editor.validate_style_edit(catalog)?;
+        self.prepare_style_edit()?;
         let index = self
             .sheets
             .iter()
@@ -54,9 +60,8 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.rebalance()?;
         Ok(theme)
     }
-    /// Replace exact theme bytes at the existing relationship target.
-    /// Unknown DrawingML sections remain intact; None requests the standard theme.
-    /// Missing graph creation remains explicit.
+    /// Replace exact theme bytes; None requests the standard theme.
+    /// Missing stylesheet/theme graph records are created during preserving save.
     pub fn set_theme(&mut self, theme: Option<crabxl_core::Theme>) -> Result<()> {
         self.editor.validate_theme_edit()?;
         if theme.as_ref().is_some_and(|theme| {
@@ -89,13 +94,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         {
             crate::encode::validate_xml_text(name)?;
         }
-        let catalog = self.bank.style_catalog().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source stylesheet remains unimplemented",
-            )
-        })?;
-        self.editor.validate_style_edit(catalog)?;
+        self.prepare_style_edit()?;
         self.rebalance()?;
         let result = self.bank.derive_style_component(style, component);
         if result.is_ok() {
@@ -111,13 +110,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         code: Box<str>,
     ) -> Result<crabxl_core::StyleId> {
         crate::encode::validate_xml_text(&code)?;
-        let catalog = self.bank.style_catalog().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source stylesheet remains unimplemented",
-            )
-        })?;
-        self.editor.validate_style_edit(catalog)?;
+        self.prepare_style_edit()?;
         self.rebalance()?;
         let result = self.bank.derive_number_format(style, code);
         if result.is_ok() {
@@ -134,13 +127,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         options: crabxl_core::NamedStyleOptions,
     ) -> Result<crabxl_core::StyleId> {
         crate::encode::validate_xml_text(&name)?;
-        let catalog = self.bank.style_catalog().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source stylesheet remains unimplemented",
-            )
-        })?;
-        self.editor.validate_style_edit(catalog)?;
+        self.prepare_style_edit()?;
         self.rebalance()?;
         let result = self.bank.register_named_style(name, style, options);
         if result.is_ok() {
@@ -157,13 +144,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         options: crabxl_core::NamedStyleOptions,
     ) -> Result<()> {
         crate::encode::validate_xml_text(&new_name)?;
-        let catalog = self.bank.style_catalog().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source stylesheet remains unimplemented",
-            )
-        })?;
-        self.editor.validate_style_edit(catalog)?;
+        self.prepare_style_edit()?;
         self.rebalance()?;
         let result = self.bank.update_named_metadata(name, new_name, options);
         if result.is_ok() {
@@ -178,13 +159,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         name: &str,
         style: crabxl_core::StyleId,
     ) -> Result<crabxl_core::StyleId> {
-        let catalog = self.bank.style_catalog().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source stylesheet remains unimplemented",
-            )
-        })?;
-        self.editor.validate_style_edit(catalog)?;
+        self.prepare_style_edit()?;
         self.rebalance()?;
         let result = self.bank.update_named_style(name, style);
         if result.is_ok() {
@@ -195,13 +170,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     }
     /// Resolve a named source style into a workbook-local cell format.
     pub fn named_style_format(&mut self, name: &str) -> Result<crabxl_core::StyleId> {
-        let catalog = self.bank.style_catalog().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source stylesheet remains unimplemented",
-            )
-        })?;
-        self.editor.validate_style_edit(catalog)?;
+        self.prepare_style_edit()?;
         self.rebalance()?;
         let result = self.bank.named_style_format(name);
         if result.is_ok() {
@@ -229,13 +198,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         {
             crate::encode::validate_xml_text(name)?;
         }
-        let catalog = self.bank.style_catalog().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Unsupported,
-                "Adding a missing source stylesheet remains unimplemented",
-            )
-        })?;
-        self.editor.validate_style_edit(catalog)?;
+        self.prepare_style_edit()?;
         let index = self
             .sheets
             .iter()
