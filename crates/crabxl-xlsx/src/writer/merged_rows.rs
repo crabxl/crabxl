@@ -1,26 +1,38 @@
 //! Sparse merged-cell traversal without materializing virtual cell areas.
 use super::*;
 
-fn merged_row_bits(range: crabxl_core::CellRange, row: RowIndex) -> usize {
-    (usize::from(row == range.start.row) << 2) | (usize::from(row == range.end.row) << 3)
-}
 fn merged_row_has_style(merge: &crabxl_core::MergedCellRange, row: RowIndex) -> bool {
     let range = merge.range();
-    let bits = merged_row_bits(range, row);
-    let styles = merge.appearances();
-    if range.start.column == range.end.column {
-        styles[bits | 3].get() != 0
-    } else {
-        styles[bits | 1].get() != 0
-            || styles[bits | 2].get() != 0
-            || range.end.column.get() - range.start.column.get() > 1 && styles[bits].get() != 0
+    if merge.appearance_range() == Some(range) {
+        let bits =
+            (usize::from(row == range.start.row) << 2) | (usize::from(row == range.end.row) << 3);
+        let styles = merge.appearances();
+        return if range.start.column == range.end.column {
+            styles[bits | 3].get() != 0
+        } else {
+            styles[bits | 1].get() != 0
+                || styles[bits | 2].get() != 0
+                || range.end.column.get() - range.start.column.get() > 1 && styles[bits].get() != 0
+        };
     }
+    let first = range.start.column.get();
+    let last = range.end.column.get();
+    [first, last, first.saturating_add(1).min(last)]
+        .into_iter()
+        .any(|column| {
+            crabxl_core::CellAddress::new(row.get(), column)
+                .ok()
+                .and_then(|address| merge.virtual_style(address))
+                .is_some_and(|style| style.get() != 0)
+        })
 }
 pub(crate) fn next_merged_row(sheet: &crabxl_core::Worksheet, start: u32) -> Option<RowIndex> {
     let mut best: Option<RowIndex> = None;
     for merge in sheet.merged_ranges().styled_ranges_from(start) {
         let range = merge.range();
-        if best.is_some_and(|best| range.start.row >= best) {
+        if !sheet.merged_ranges().has_detached_appearances()
+            && best.is_some_and(|best| range.start.row >= best)
+        {
             break;
         }
         let mut row = RowIndex::new(start.max(range.start.row.get())).ok()?;
@@ -77,19 +89,20 @@ impl<'a> Iterator for MergedRowCells<'a> {
                 {
                     continue;
                 }
-                let bits = merged_row_bits(range, self.row);
                 let left = range.start.column.get();
                 let right = range.end.column.get();
-                let appearances = merge.appearances();
-                let mut include = |column: u32, style: StyleId| {
-                    if column >= self.column && style.get() != 0 {
+                let mut include = |column: u32| {
+                    let style = crabxl_core::CellAddress::new(self.row.get(), column)
+                        .ok()
+                        .and_then(|address| merge.virtual_style(address));
+                    if column >= self.column && style.is_some_and(|style| style.get() != 0) {
                         next = Some(next.map_or(column, |next| next.min(column)));
                     }
                 };
-                include(left, appearances[bits | if left == right { 3 } else { 1 }]);
-                include(right, appearances[bits | if left == right { 3 } else { 2 }]);
+                include(left);
+                include(right);
                 if right - left > 1 && self.column < right {
-                    include(self.column.max(left + 1), appearances[bits]);
+                    include(self.column.max(left + 1));
                 }
             }
             let next = next?;

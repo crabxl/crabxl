@@ -52,12 +52,53 @@ impl Worksheet {
     /// Remove an exact merge declaration and its physical non-anchor overrides.
     pub fn unmerge_cells(&mut self, range: CellRange) -> Result<()> {
         CellRange::new(range.start, range.end)?;
-        if self.merges.remove(range).is_none() {
+        if !self
+            .merges
+            .ranges()
+            .iter()
+            .any(|existing| existing.range() == range)
+        {
             return Err(invalid("Cell range is not merged"));
         }
+        let other = self.charged.saturating_sub(self.merges.heap_bytes());
+        let result = self
+            .merges
+            .clear_virtual(range, self.limits.max_bytes.saturating_sub(other));
+        self.charged = other.saturating_add(self.merges.heap_bytes());
+        result?;
+        self.merges.remove(range);
         self.remove_merge_interior(range);
         self.dirty = true;
         Ok(())
+    }
+    /// Add raw serialization metadata, retaining physical and virtual cells.
+    pub fn add_merge_declaration(&mut self, range: CellRange) -> Result<bool> {
+        self.edit_merge_metadata(|merges, maximum| merges.add_declaration(range, maximum))
+    }
+    /// Remove raw metadata without unmerging previously realized cells.
+    pub fn remove_merge_declaration(&mut self, range: CellRange) -> Result<bool> {
+        self.edit_merge_metadata(|merges, maximum| merges.remove_declaration(range, maximum))
+    }
+    /// Change a stable declaration's coordinates without relocating existing cells.
+    pub fn replace_merge_declaration(&mut self, identity: u64, range: CellRange) -> Result<()> {
+        self.edit_merge_metadata(|merges, maximum| {
+            merges.replace_declaration(identity, range, maximum)
+        })
+    }
+    fn edit_merge_metadata<T>(
+        &mut self,
+        edit: impl FnOnce(&mut crate::MergedRanges, usize) -> Result<T>,
+    ) -> Result<T> {
+        let other = self.charged.saturating_sub(self.merges.heap_bytes());
+        let result = edit(
+            &mut self.merges,
+            self.limits.max_bytes.saturating_sub(other),
+        );
+        self.charged = other.saturating_add(self.merges.heap_bytes());
+        if result.is_ok() {
+            self.dirty = true;
+        }
+        result
     }
     fn remove_merge_interior(&mut self, range: CellRange) {
         let storage = self.cells.storage_bytes();
@@ -107,12 +148,17 @@ impl Worksheet {
                 )
             })
         });
-        let merges = self.merges.ranges().iter().flat_map(|range| {
-            range
-                .appearances()
-                .iter()
-                .map(move |style| (range.range().start, *style))
-        });
+        let merges = self
+            .merges
+            .ranges()
+            .iter()
+            .chain(self.merges.virtual_ranges())
+            .flat_map(|range| {
+                range
+                    .appearances()
+                    .iter()
+                    .map(move |style| (range.range().start, *style))
+            });
         for (address, style) in cells.chain(rows).chain(columns).chain(merges) {
             if let Some(catalog) = catalog {
                 catalog

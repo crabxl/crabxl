@@ -50,6 +50,31 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.edit_structure(id, |sheet| sheet.unmerge_cells(range))
     }
 
+    /// Add serialization-only merge metadata through the preserving coordinator.
+    pub fn add_merge_declaration(&mut self, id: SheetId, range: CellRange) -> Result<bool> {
+        self.edit_structure_when(
+            id,
+            |sheet| sheet.add_merge_declaration(range),
+            |changed| *changed,
+        )
+    }
+    /// Remove raw merge metadata, retaining the already realized cell model.
+    pub fn remove_merge_declaration(&mut self, id: SheetId, range: CellRange) -> Result<bool> {
+        self.edit_structure_when(
+            id,
+            |sheet| sheet.remove_merge_declaration(range),
+            |changed| *changed,
+        )
+    }
+    /// Replace live declaration coordinates without moving existing cell contents.
+    pub fn replace_merge_declaration(
+        &mut self,
+        id: SheetId,
+        identity: u64,
+        range: CellRange,
+    ) -> Result<()> {
+        self.edit_structure(id, |sheet| sheet.replace_merge_declaration(identity, range))
+    }
     pub(super) fn validate_normalized_styles(&self, id: SheetId) -> Result<()> {
         if self
             .sheets

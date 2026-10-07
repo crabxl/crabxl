@@ -4,22 +4,39 @@
 //! Compact merged-cell geometry with shared virtual appearance IDs.
 
 use crate::{CellAddress, CellRange, Error, ErrorKind, Result, StyleId};
+mod mutation;
 
 /// A finite merged rectangle and its shared edge/interior appearances.
 /// No covered cell objects are allocated. The owning coordinator prepares
 /// styles before registering geometry and retains the anchor's physical value.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct MergedCellRange {
     range: CellRange,
     appearances: [StyleId; 16],
+    virtual_range: Option<CellRange>,
+    identity: u64,
 }
+
+impl PartialEq for MergedCellRange {
+    fn eq(&self, other: &Self) -> bool {
+        self.range == other.range
+            && self.appearances == other.appearances
+            && self.virtual_range == other.virtual_range
+    }
+}
+impl Eq for MergedCellRange {}
 
 impl MergedCellRange {
     /// Construct validated geometry with already resolved workbook-local IDs.
     /// Appearance slots use left=1, right=2, top=4 and bottom=8 edge bits.
     pub fn new(range: CellRange, appearances: [StyleId; 16]) -> Result<Self> {
         CellRange::new(range.start, range.end)?;
-        Ok(Self { range, appearances })
+        Ok(Self {
+            range,
+            appearances,
+            virtual_range: Some(range),
+            identity: 0,
+        })
     }
 
     /// Inclusive merged geometry.
@@ -32,15 +49,24 @@ impl MergedCellRange {
         &self.appearances
     }
 
+    /// Original virtual appearance geometry; raw declarations have none.
+    pub const fn appearance_range(&self) -> Option<CellRange> {
+        self.virtual_range
+    }
+    /// Stable declaration identity within this merge collection.
+    pub const fn identity(&self) -> u64 {
+        self.identity
+    }
     /// Resolve a covered non-anchor coordinate without materializing it.
     pub fn virtual_style(&self, address: CellAddress) -> Option<StyleId> {
-        if address == self.range.start || !self.range.contains(address) {
+        let original = self.virtual_range?;
+        if address == original.start || !self.range.contains(address) {
             return None;
         }
-        let mask = usize::from(address.column == self.range.start.column)
-            | (usize::from(address.column == self.range.end.column) << 1)
-            | (usize::from(address.row == self.range.start.row) << 2)
-            | (usize::from(address.row == self.range.end.row) << 3);
+        let mask = usize::from(address.column == original.start.column)
+            | (usize::from(address.column == original.end.column) << 1)
+            | (usize::from(address.row == original.start.row) << 2)
+            | (usize::from(address.row == original.end.row) << 3);
         Some(self.appearances[mask])
     }
 }
@@ -51,6 +77,8 @@ pub struct MergedRanges {
     ranges: Vec<MergedCellRange>,
     nodes: Vec<Node>,
     root: Option<u32>,
+    detached: Vec<MergedCellRange>,
+    next_identity: u64,
 }
 
 impl MergedRanges {
@@ -65,6 +93,11 @@ impl MergedRanges {
             .capacity()
             .saturating_mul(size_of::<MergedCellRange>())
             .saturating_add(self.nodes.capacity().saturating_mul(size_of::<Node>()))
+            .saturating_add(
+                self.detached
+                    .capacity()
+                    .saturating_mul(size_of::<MergedCellRange>()),
+            )
     }
 
     /// Register geometry; a declaration contained in an existing range is reused.
@@ -80,7 +113,7 @@ impl MergedRanges {
         if self.contains(range) {
             return Ok(false);
         }
-        if self.ranges.len() >= u32::MAX as usize {
+        if self.ranges.len() >= u32::MAX as usize || self.next_identity == u64::MAX {
             return Err(budget());
         }
         let retained = self.heap_bytes();
@@ -141,7 +174,9 @@ impl MergedRanges {
         }
         Ok(true)
     }
-    pub(crate) fn insert_reserved(&mut self, range: MergedCellRange) {
+    pub(crate) fn insert_reserved(&mut self, mut range: MergedCellRange) {
+        range.identity = self.next_identity;
+        self.next_identity += 1;
         let index = self.ranges.len() as u32;
         self.ranges.push(range);
         self.nodes
@@ -156,14 +191,7 @@ impl MergedRanges {
             .iter()
             .position(|existing| existing.range == range)?;
         let removed = self.ranges.remove(index);
-        self.nodes.clear();
-        self.root = None;
-        for index in 0..self.ranges.len() {
-            let index = index as u32;
-            self.nodes
-                .push(Node::new(index, &self.ranges[index as usize]));
-            self.root = Some(self.insert_node(self.root, index));
-        }
+        self.rebuild();
         Some(removed)
     }
 
@@ -171,7 +199,15 @@ impl MergedRanges {
     pub fn virtual_style(&self, address: CellAddress) -> Option<StyleId> {
         let mut best = None;
         self.find_covering(self.root, address, None, &mut best);
-        best.and_then(|index| self.ranges[index as usize].virtual_style(address))
+        let mut selected = best.map(|index| &self.ranges[index as usize]);
+        for range in &self.detached {
+            if range.virtual_style(address).is_some()
+                && selected.is_none_or(|previous| previous.identity < range.identity)
+            {
+                selected = Some(range);
+            }
+        }
+        selected.and_then(|range| range.virtual_style(address))
     }
     /// Whether an existing declaration contains the complete finite rectangle.
     pub fn contains(&self, range: CellRange) -> bool {
@@ -183,6 +219,10 @@ impl MergedRanges {
     pub fn has_virtual_styles(&self) -> bool {
         self.root
             .is_some_and(|root| self.nodes[root as usize].style_end != 0)
+            || self
+                .detached
+                .iter()
+                .any(|range| range.appearances.iter().any(|style| style.get() != 0))
     }
     /// Borrow styled ranges covering a row, using the bounded interval index.
     pub fn styled_ranges_at(&self, row: u32) -> MergedRangeIter<'_> {
@@ -203,7 +243,9 @@ impl MergedRanges {
         let range = &self.ranges[index as usize];
         node.max_end = range.range.end.row.get();
         node.max_id = index;
-        node.style_end = if range.appearances.iter().any(|style| style.get() != 0) {
+        node.style_end = if range.virtual_range.is_some()
+            && range.appearances.iter().any(|style| style.get() != 0)
+        {
             node.max_end + 1
         } else {
             0
@@ -291,7 +333,7 @@ impl MergedRanges {
         self.find_covering(node.right, address, end, best);
         if best.is_none_or(|best| root > best)
             && range.range.contains(address)
-            && end.map_or(address != range.range.start, |end| {
+            && end.map_or(range.virtual_style(address).is_some(), |end| {
                 range.range.contains(end)
             })
         {
@@ -325,7 +367,9 @@ impl Node {
             right: None,
             max_end,
             max_id: index,
-            style_end: if range.appearances.iter().any(|style| style.get() != 0) {
+            style_end: if range.virtual_range.is_some()
+                && range.appearances.iter().any(|style| style.get() != 0)
+            {
                 max_end + 1
             } else {
                 0
@@ -342,6 +386,7 @@ pub struct MergedRangeIter<'a> {
     exact: bool,
     stack: [u32; 64],
     len: usize,
+    detached: usize,
 }
 impl<'a> MergedRangeIter<'a> {
     fn new(ranges: &'a MergedRanges, row: u32, exact: bool) -> Self {
@@ -351,6 +396,7 @@ impl<'a> MergedRangeIter<'a> {
             exact,
             stack: [0; 64],
             len: 0,
+            detached: 0,
         };
         result.descend(ranges.root);
         result
@@ -382,7 +428,17 @@ impl<'a> Iterator for MergedRangeIter<'a> {
             let node = self.ranges.nodes[current as usize];
             self.descend(node.right);
             let range = &self.ranges.ranges[current as usize];
+            if range.virtual_range.is_some()
+                && range.range.end.row.get() >= self.row
+                && range.appearances.iter().any(|style| style.get() != 0)
+            {
+                return Some(range);
+            }
+        }
+        while let Some(range) = self.ranges.detached.get(self.detached) {
+            self.detached += 1;
             if range.range.end.row.get() >= self.row
+                && (!self.exact || range.range.start.row.get() <= self.row)
                 && range.appearances.iter().any(|style| style.get() != 0)
             {
                 return Some(range);
