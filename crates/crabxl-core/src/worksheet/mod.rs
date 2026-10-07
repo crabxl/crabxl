@@ -229,8 +229,7 @@ impl Worksheet {
     /// Visible row extent including compact merged geometry, distinct from append position.
     pub fn display_row_extent(&self) -> u32 {
         self.merges
-            .ranges()
-            .iter()
+            .virtual_ranges()
             .map(|range| range.range().end.row.get() + 1)
             .max()
             .unwrap_or(0)
@@ -487,6 +486,7 @@ impl Worksheet {
             .merges
             .ranges()
             .iter()
+            .chain(self.merges.virtual_ranges())
             .any(|merge| source.intersects(merge.range()) || destination.intersects(merge.range()))
         {
             return Err(Error::new(

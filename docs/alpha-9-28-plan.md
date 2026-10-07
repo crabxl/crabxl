@@ -38,9 +38,19 @@ integrates these published native revisions, retained/copied rich views and
 detached hyperlinks. These are compilation/formatting checkpoints; no additional
 tests or benchmarks have been run for them. Normal post-save public identities
 (ADR 0098) and imported empty-anchor initialization with original-order overlap
-binding (ADR 0099) are integrated. Write-only live hyperlinks and their output
-identities, standalone multi-range sets, raw live merged declarations and
-consolidated acceptance still prevent an A11 release.
+binding (ADR 0099) are integrated. Write-only live hyperlink groups and output identities are now implemented
+through core ADR 0100 and Python ADR 0041. Standalone mutable MultiCellRange is
+implemented in Python ADR 0040. Native raw merge declarations and independent
+realized virtual-cell patterns are implemented in ADR 0101; Python bound mutable
+sets/live coordinate views and bulk replacement remain unfinished. Rich utility
+and alias edge cases, applicable structural interactions and consolidated release
+acceptance still prevent an A11 release.
+
+On 2026-10-07 the user requested stopping development after committing and pushing
+the current progress. A11 remains unpublished; A12–A16 have not started. No new
+tests or benchmarks were added or run during these implementation checkpoints.
+Resume with the unfinished A11 feature integration, then perform the single
+consolidated pre-release acceptance stage before publishing.
 
 ## Work-package matrix
 

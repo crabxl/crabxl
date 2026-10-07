@@ -509,7 +509,7 @@ impl WorksheetEditor<'_> {
     }
     /// Adopt prepared merge geometry after validating workbook-local appearances.
     pub fn set_merged_ranges(&mut self, merges: crate::MergedRanges) -> Result<()> {
-        for range in merges.ranges() {
+        for range in merges.ranges().iter().chain(merges.virtual_ranges()) {
             for style in range.appearances() {
                 self.validate_style_id(*style, range.range().start)?;
             }
@@ -519,6 +519,22 @@ impl WorksheetEditor<'_> {
     /// Remove a merge declaration under the same canonical sheet ownership.
     pub fn unmerge_cells(&mut self, range: crate::CellRange) -> Result<()> {
         self.sheet.unmerge_cells(range)
+    }
+    /// Add raw merge metadata without formatting or removing covered cells.
+    pub fn add_merge_declaration(&mut self, range: crate::CellRange) -> Result<bool> {
+        self.sheet.add_merge_declaration(range)
+    }
+    /// Remove a raw declaration while retaining previously realized virtual cells.
+    pub fn remove_merge_declaration(&mut self, range: crate::CellRange) -> Result<bool> {
+        self.sheet.remove_merge_declaration(range)
+    }
+    /// Replace stable declaration geometry independently of existing cell objects.
+    pub fn replace_merge_declaration(
+        &mut self,
+        identity: u64,
+        range: crate::CellRange,
+    ) -> Result<()> {
+        self.sheet.replace_merge_declaration(identity, range)
     }
     /// Adopt sparse hyperlink metadata under the current joint allowance.
     pub fn set_hyperlinks(&mut self, links: crate::Hyperlinks) -> Result<()> {

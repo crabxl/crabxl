@@ -239,13 +239,19 @@ impl Worksheet {
                 "Affected hyperlink structural edits remain unimplemented",
             ));
         }
-        if self.merges.ranges().iter().any(|merge| {
-            if rows {
-                merge.range().end.row.get() >= at
-            } else {
-                merge.range().end.column.get() >= at
-            }
-        }) {
+        if self
+            .merges
+            .ranges()
+            .iter()
+            .chain(self.merges.virtual_ranges())
+            .any(|merge| {
+                if rows {
+                    merge.range().end.row.get() >= at
+                } else {
+                    merge.range().end.column.get() >= at
+                }
+            })
+        {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Affected merged geometry structural edits are not implemented",

@@ -375,8 +375,7 @@ pub(crate) fn dimension(sheet: &Worksheet) -> String {
         .chain(
             sheet
                 .merged_ranges()
-                .ranges()
-                .iter()
+                .virtual_ranges()
                 .map(|range| (range.range().start, range.range().end)),
         );
     let mut first: Option<crabxl_core::CellAddress> = None;
