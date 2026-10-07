@@ -402,7 +402,7 @@ pub(crate) fn write_new<W: Write>(
 ) -> Result<()> {
     write!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"{uri}\"><dimension ref=\"{}\"/><sheetFormatPr defaultRowHeight=\"15\"/>", dimension(sheet))
         .map_err(|cause| crate::writer::io_error("Cannot start new model worksheet", cause))?;
-    crate::dimension_codec::write_columns(output, sheet.dimensions().columns())
+    crate::dimension_codec::write_columns(output, sheet.dimensions().columns(), None)
         .map_err(|cause| crate::writer::io_error("Cannot write model columns", cause))?;
     write_data(output, sheet, catalog, limits, encoding, uri)?;
     output

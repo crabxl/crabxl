@@ -24,7 +24,29 @@ fn interleaved_spools_keep_creation_order_rows_names_and_active_sheet() {
     })
     .unwrap();
     let first = writer.start_interleaved_sheet("First").unwrap();
+    writer
+        .group_interleaved_rows(first, RowIndex::FIRST, RowIndex::new(2).unwrap(), 2, true)
+        .unwrap();
+    let mut trailing = crabxl_core::RowDimension::new(RowIndex::new(10).unwrap());
+    trailing.height = Some(31.0);
+    writer
+        .set_interleaved_row_dimension(first, trailing)
+        .unwrap();
+    let mut column = crabxl_core::ColumnDimension::new(
+        crabxl_core::ColumnIndex::new(1).unwrap(),
+        crabxl_core::ColumnIndex::new(4).unwrap(),
+    )
+    .unwrap();
+    column.width = Some(22.0);
+    writer
+        .set_interleaved_column_dimension(first, column.clone())
+        .unwrap();
     writer.write_row(&row(0, 1)).unwrap();
+    assert!(
+        writer
+            .set_interleaved_column_dimension(first, column)
+            .is_err()
+    );
     let second = writer.start_interleaved_sheet("Second").unwrap();
     writer.write_row(&row(0, 2)).unwrap();
     writer.activate_sheet(first).unwrap();
@@ -55,6 +77,7 @@ fn interleaved_spools_keep_creation_order_rows_names_and_active_sheet() {
             .unwrap()
             .rows
             .iter()
+            .filter(|row| !row.cells.is_empty())
             .map(|row| &row.cells[0].value)
             .collect::<Vec<_>>(),
         vec![
@@ -65,6 +88,17 @@ fn interleaved_spools_keep_creation_order_rows_names_and_active_sheet() {
     );
     assert_eq!(reader.read_sheet("Second").unwrap().rows.len(), 2);
     assert_eq!(reader.worksheet_dimension("Renamed").unwrap(), None);
+    let columns = reader.column_dimensions("Renamed").unwrap();
+    assert_eq!(columns.columns()[0].width, Some(22.0));
+    let mut rows = reader.rows("Renamed").unwrap();
+    rows.capture_dimensions();
+    let mut dimensions = Vec::new();
+    while rows.next_row().unwrap().is_some() {
+        dimensions.push(rows.row_dimension().cloned());
+    }
+    assert_eq!(dimensions.len(), 4);
+    assert_eq!(dimensions[0].as_ref().unwrap().outline_level, Some(2));
+    assert_eq!(dimensions[3].as_ref().unwrap().height, Some(31.0));
 }
 
 #[test]

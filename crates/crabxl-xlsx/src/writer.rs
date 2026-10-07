@@ -140,6 +140,9 @@ struct ActiveSheet {
     last_row: Option<RowIndex>,
     footer: Option<Vec<u8>>,
     visibility: crabxl_core::SheetVisibility,
+    dimensions: crabxl_core::SheetDimensions,
+    header_prefix_bytes: u64,
+    columns_written: bool,
 }
 
 /// One-shot XLSX writer using bounded rows and owned temporary worksheets.
@@ -171,6 +174,7 @@ pub struct WorkbookWriter {
 enum StyleSource {
     Default,
     Catalog(StyleCatalog),
+    CanonicalCatalog(StyleCatalog),
     Registry(StyleRegistry),
 }
 impl WorkbookWriter {
@@ -183,6 +187,14 @@ impl WorkbookWriter {
     /// Unmodeled extensions require original-package preservation and are rejected here.
     pub fn from_style_catalog(options: WriteOptions, catalog: StyleCatalog) -> Result<Self> {
         Self::new_with_styles(options, StyleSource::Catalog(catalog))
+    }
+    /// Adopt an owned-model catalog whose temporal IDs are already resolved.
+    /// No automatic presets are appended, preserving exact borrowed-bank identity.
+    pub fn from_canonical_style_catalog(
+        options: WriteOptions,
+        catalog: StyleCatalog,
+    ) -> Result<Self> {
+        Self::new_with_styles(options, StyleSource::CanonicalCatalog(catalog))
     }
     /// Consume an owned workbook into sequential output without cloning its styles
     /// or cells. Original-package preservation remains a separate editor operation.
@@ -259,9 +271,13 @@ impl WorkbookWriter {
                 .saturating_sub(options.theme.memory_bytes()),
             max_records: options.max_styles,
         };
+        let canonical_styles = matches!(
+            &source,
+            StyleSource::CanonicalCatalog(_) | StyleSource::Registry(_)
+        );
         let mut styles = match source {
             StyleSource::Default => StyleRegistry::new(style_limits).map_err(writer_style_error)?,
-            StyleSource::Catalog(catalog) => {
+            StyleSource::Catalog(catalog) | StyleSource::CanonicalCatalog(catalog) => {
                 crate::styles::validate_catalog(&catalog)?;
                 StyleRegistry::from_catalog(catalog, style_limits).map_err(writer_style_error)?
             }
@@ -278,12 +294,21 @@ impl WorkbookWriter {
                 .register(CellStyle::default())
                 .map_err(writer_style_error)?;
         }
-        let date_styles = register_date_styles(&mut styles)?;
+        let date_styles = if canonical_styles {
+            DateStyleIds {
+                datetime: StyleId::new(0),
+                time: StyleId::new(0),
+                duration: StyleId::new(0),
+                date: StyleId::new(0),
+            }
+        } else {
+            register_date_styles(&mut styles)?
+        };
         let writer = Self {
             options,
             sheets: Vec::new(),
             styles: Some(styles),
-            canonical_styles: false,
+            canonical_styles,
             date_styles,
             active: None,
             paused: Vec::new(),
@@ -333,6 +358,38 @@ impl WorkbookWriter {
             .as_mut()
             .ok_or_else(|| state("Writer style catalog is released"))?
             .register_named_style_with_limit(name, style, options, allowance)
+            .map_err(writer_style_error)
+    }
+    /// Rename/update a named declaration without rewriting previously spooled rows.
+    pub fn update_named_metadata(
+        &mut self,
+        name: &str,
+        new_name: Box<str>,
+        options: crabxl_core::NamedStyleOptions,
+    ) -> Result<()> {
+        self.ensure_open()?;
+        validate_xml_text(&new_name)?;
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes());
+        self.styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?
+            .update_named_metadata_with_limit(name, new_name, options, allowance)
+            .map_err(writer_style_error)
+    }
+    /// Update a named base appearance while retaining previously written formats.
+    pub fn update_named_style(&mut self, name: &str, style: StyleId) -> Result<StyleId> {
+        self.ensure_open()?;
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes());
+        self.styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?
+            .update_named_style_with_limit(name, style, allowance)
             .map_err(writer_style_error)
     }
     /// Resolve and deduplicate a registered named style's cell format.
@@ -411,6 +468,39 @@ impl WorkbookWriter {
     pub fn style_memory_bytes(&self) -> usize {
         self.styles.as_ref().map_or(0, StyleRegistry::memory_bytes)
     }
+    /// Replace the output theme policy before packaging under the metadata allowance.
+    pub fn set_theme(&mut self, theme: crate::ThemeWritePolicy) -> Result<()> {
+        self.ensure_open()?;
+        let retained = self
+            .catalog_bytes()
+            .saturating_sub(self.options.theme.memory_bytes())
+            .saturating_add(self.style_memory_bytes())
+            .saturating_add(theme.memory_bytes());
+        if retained > self.options.max_metadata_bytes {
+            return Err(limit("Theme exceeds writer metadata allowance"));
+        }
+        if let crate::ThemeWritePolicy::Validated(theme) = &theme {
+            crate::theme::validate(
+                theme.bytes(),
+                "xl/theme/theme1.xml",
+                crabxl_core::ResourceLimits {
+                    max_theme_bytes: self.options.max_metadata_bytes,
+                    ..Default::default()
+                },
+            )?;
+        }
+        self.options.theme = theme;
+        Ok(())
+    }
+    /// Borrow explicitly supplied theme bytes; standard/omitted themes have no owned payload.
+    pub fn theme(&self) -> Option<&crabxl_core::Theme> {
+        match &self.options.theme {
+            crate::ThemeWritePolicy::Custom(theme) | crate::ThemeWritePolicy::Validated(theme) => {
+                Some(theme)
+            }
+            _ => None,
+        }
+    }
     /// Managed custom-theme storage; the default theme uses static storage.
     pub fn theme_memory_bytes(&self) -> usize {
         self.options.theme.memory_bytes()
@@ -428,6 +518,7 @@ impl WorkbookWriter {
                 sheet.name.capacity()
                     + sheet.output.get_ref().path().as_os_str().len()
                     + sheet.footer.as_ref().map_or(0, Vec::capacity)
+                    + sheet.dimensions.heap_bytes()
             })
     }
     fn style_bytes(&self) -> usize {
@@ -443,6 +534,7 @@ impl WorkbookWriter {
                     sheet.name.capacity()
                         + sheet.output.capacity()
                         + sheet.output.get_ref().path().as_os_str().len()
+                        + sheet.dimensions.heap_bytes()
                         + sheet.footer.as_ref().map_or(0, Vec::capacity)
                 })
                 .sum::<usize>()
@@ -503,6 +595,243 @@ impl WorkbookWriter {
         if let Some(previous) = self.active.replace(selected) {
             self.paused.push(previous);
         }
+        Ok(())
+    }
+    /// Borrow sparse metadata for a live interleaved sheet.
+    pub fn interleaved_dimensions(&self, id: usize) -> Result<&crabxl_core::SheetDimensions> {
+        self.ensure_open()?;
+        self.active
+            .as_ref()
+            .filter(|sheet| sheet.id == id)
+            .or_else(|| self.paused.iter().find(|sheet| sheet.id == id))
+            .map(|sheet| &sheet.dimensions)
+            .ok_or_else(|| state("Worksheet is closed or unknown"))
+    }
+    /// Set row metadata before that row is flushed, without retaining its cells.
+    pub fn set_interleaved_row_dimension(
+        &mut self,
+        id: usize,
+        dimension: crabxl_core::RowDimension,
+    ) -> Result<()> {
+        dimension.validate()?;
+        self.validate_dimension_style(dimension.style)?;
+        if dimension.descent.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Extended row descent serialization is not implemented",
+            ));
+        }
+        self.activate_sheet(id)?;
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.last_row.is_some_and(|row| dimension.index <= row) {
+            return Err(state("Cannot change a flushed row dimension"));
+        }
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.style_memory_bytes())
+            .saturating_sub(
+                self.catalog_bytes()
+                    .saturating_sub(active.dimensions.heap_bytes()),
+            );
+        self.active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?
+            .dimensions
+            .set_row(dimension, allowance)
+    }
+    /// Set column metadata before the worksheet header is flushed with its first row.
+    pub fn set_interleaved_column_dimension(
+        &mut self,
+        id: usize,
+        dimension: crabxl_core::ColumnDimension,
+    ) -> Result<()> {
+        dimension.validate()?;
+        self.validate_dimension_style(dimension.style)?;
+        self.activate_sheet(id)?;
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.columns_written {
+            return Err(state("Cannot change flushed column dimensions"));
+        }
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.style_memory_bytes())
+            .saturating_sub(
+                self.catalog_bytes()
+                    .saturating_sub(active.dimensions.heap_bytes()),
+            );
+        self.active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?
+            .dimensions
+            .set_column(dimension, allowance)
+    }
+    /// Remove a live unflushed row declaration, retaining reusable metadata capacity.
+    pub fn remove_interleaved_row_dimension(&mut self, id: usize, index: RowIndex) -> Result<bool> {
+        self.activate_sheet(id)?;
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.last_row.is_some_and(|last| index <= last) {
+            return Err(state("Cannot change a flushed row dimension"));
+        }
+        Ok(active.dimensions.remove_row(index).is_some())
+    }
+    /// Remove a column declaration before its header is flushed.
+    pub fn remove_interleaved_column_dimension(
+        &mut self,
+        id: usize,
+        index: crabxl_core::ColumnIndex,
+    ) -> Result<bool> {
+        self.activate_sheet(id)?;
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.columns_written {
+            return Err(state("Cannot change flushed column dimensions"));
+        }
+        Ok(active.dimensions.remove_column(index).is_some())
+    }
+    /// Group future rows without retaining any cell values.
+    pub fn group_interleaved_rows(
+        &mut self,
+        id: usize,
+        start: RowIndex,
+        end: RowIndex,
+        level: u32,
+        hidden: bool,
+    ) -> Result<()> {
+        self.activate_sheet(id)?;
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.last_row.is_some_and(|last| start <= last) {
+            return Err(state("Cannot change a flushed row dimension"));
+        }
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.style_memory_bytes())
+            .saturating_sub(
+                self.catalog_bytes()
+                    .saturating_sub(active.dimensions.heap_bytes()),
+            );
+        self.active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?
+            .dimensions
+            .group_rows(start, end, level, hidden, allowance)
+    }
+    /// Group column declarations before writing the worksheet header.
+    pub fn group_interleaved_columns(
+        &mut self,
+        id: usize,
+        start: crabxl_core::ColumnIndex,
+        end: crabxl_core::ColumnIndex,
+        level: u32,
+        hidden: bool,
+    ) -> Result<()> {
+        self.activate_sheet(id)?;
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.columns_written {
+            return Err(state("Cannot change flushed column dimensions"));
+        }
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.style_memory_bytes())
+            .saturating_sub(
+                self.catalog_bytes()
+                    .saturating_sub(active.dimensions.heap_bytes()),
+            );
+        self.active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?
+            .dimensions
+            .group_columns(start, end, level, hidden, allowance)
+    }
+    fn validate_dimension_style(&self, style: Option<StyleId>) -> Result<()> {
+        if style.is_some_and(|style| {
+            self.style_catalog()
+                .is_none_or(|catalog| catalog.cell_format(style).is_none())
+        }) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Unknown dimension style identity",
+            ));
+        }
+        Ok(())
+    }
+    fn flush_column_dimensions(&mut self) -> Result<()> {
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.columns_written {
+            return Ok(());
+        }
+        if active.dimensions.columns().is_empty() {
+            self.active
+                .as_mut()
+                .ok_or_else(|| state("No active worksheet"))?
+                .columns_written = true;
+            return Ok(());
+        }
+        let mut header = RowBuffer {
+            data: Vec::new(),
+            maximum: self
+                .options
+                .max_metadata_bytes
+                .saturating_sub(self.style_memory_bytes())
+                .saturating_sub(self.catalog_bytes()),
+        };
+        crate::dimension_codec::write_columns(&mut header, active.dimensions.columns(), None)
+            .map_err(|cause| io_error("Cannot encode column dimensions", cause))?;
+        header
+            .write_all(b"<sheetData>")
+            .map_err(|cause| io_error("Cannot encode worksheet header", cause))?;
+        let bytes = active
+            .header_prefix_bytes
+            .saturating_add(header.data.len() as u64);
+        let growth = bytes.saturating_sub(active.bytes);
+        let footer = active.footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64;
+        if bytes.saturating_add(footer) > self.options.max_sheet_bytes {
+            return Err(limit("Writer sheet byte limit exceeded"));
+        }
+        self.check_temp(growth + self.paused_footers() + footer)?;
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        let rewrite = (|| -> io::Result<()> {
+            active
+                .output
+                .seek(std::io::SeekFrom::Start(active.header_prefix_bytes))?;
+            active.output.write_all(&header.data)?;
+            active.output.flush()?;
+            active.output.get_ref().as_file().set_len(bytes)
+        })();
+        if let Err(cause) = rewrite {
+            self.poisoned = true;
+            return Err(io_error("Cannot spool column dimensions", cause));
+        }
+        active.bytes = bytes;
+        active.columns_written = true;
+        self.temporary_bytes = self.temporary_bytes.saturating_add(growth);
+        self.stats.peak_temp_bytes = self.stats.peak_temp_bytes.max(self.temporary_bytes);
         Ok(())
     }
     /// Close one independently appendable sheet without closing other sheets.
@@ -674,7 +1003,7 @@ impl WorkbookWriter {
             if let Some(views) = views {
                 crate::worksheet_view::write_views(&mut header, views, None)?;
             }
-            crate::dimension_codec::write_columns(&mut header, columns)?;
+            crate::dimension_codec::write_columns(&mut header, columns, None)?;
             header.write_all(b"<sheetData>")?;
             if let Some(printing) = printing {
                 footer.maximum = maximum.saturating_sub(header.data.capacity());
@@ -769,6 +1098,7 @@ impl WorkbookWriter {
                 sheet.name.capacity()
                     + sheet.output.get_ref().path().as_os_str().len()
                     + sheet.footer.as_ref().map_or(0, Vec::capacity)
+                    + sheet.dimensions.heap_bytes()
             });
         if self
             .style_bytes()
@@ -815,6 +1145,9 @@ impl WorkbookWriter {
             output: BufWriter::with_capacity(self.options.buffer_bytes, file),
             bytes: 0,
             last_row: None,
+            dimensions: crabxl_core::SheetDimensions::default(),
+            header_prefix_bytes: header.len().saturating_sub(b"<sheetData>".len()) as u64,
+            columns_written: false,
             footer,
             visibility: crabxl_core::SheetVisibility::Visible,
         });
@@ -825,7 +1158,30 @@ impl WorkbookWriter {
     /// Write a complete sparse row. Validate/encode before spooling so invalid
     /// rows and budget failures do not partly commit worksheet content.
     pub fn write_row(&mut self, row: &Row) -> Result<()> {
-        self.write_cells_with_dimension(row.index, row.cells.iter(), None)
+        loop {
+            let active = self
+                .active
+                .as_ref()
+                .ok_or_else(|| state("No active worksheet"))?;
+            let dimensions = active.dimensions.rows();
+            let next = active.last_row.map_or(0, |last| {
+                dimensions.partition_point(|dimension| dimension.index <= last)
+            });
+            let dimension = dimensions
+                .get(next)
+                .filter(|dimension| dimension.index < row.index)
+                .cloned();
+            let Some(dimension) = dimension else {
+                break;
+            };
+            self.write_cells_with_dimension(dimension.index, std::iter::empty(), Some(&dimension))?;
+        }
+        let dimension = self
+            .active
+            .as_ref()
+            .and_then(|sheet| sheet.dimensions.row(row.index))
+            .cloned();
+        self.write_cells_with_dimension(row.index, row.cells.iter(), dimension.as_ref())
     }
     /// Write an explicitly materialized sparse sheet without cloning cell payloads.
     /// Style IDs must refer to this writer's registered formats. This creates a
@@ -1004,6 +1360,7 @@ impl WorkbookWriter {
             },
         )
         .map_err(|error| error.with_part(&part))?;
+        self.flush_column_dimensions()?;
         let length = self.row_buffer.data.len() as u64;
         self.check_temp(
             length
@@ -1043,6 +1400,22 @@ impl WorkbookWriter {
         self.ensure_open()?;
         if self.active.is_none() {
             return Ok(());
+        }
+        self.flush_column_dimensions()?;
+        loop {
+            let active = self
+                .active
+                .as_ref()
+                .ok_or_else(|| state("No active worksheet"))?;
+            let rows = active.dimensions.rows();
+            let next = active
+                .last_row
+                .map_or(0, |last| rows.partition_point(|row| row.index <= last));
+            let dimension = rows.get(next).cloned();
+            let Some(dimension) = dimension else {
+                break;
+            };
+            self.write_cells_with_dimension(dimension.index, std::iter::empty(), Some(&dimension))?;
         }
         let footer = self.active.as_mut().and_then(|sheet| sheet.footer.take());
         self.write_active(footer.as_deref().unwrap_or(FOOTER))?;

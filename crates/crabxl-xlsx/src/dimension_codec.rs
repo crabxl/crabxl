@@ -33,11 +33,16 @@ pub(crate) fn write_row_attributes(output: &mut impl Write, row: &RowDimension) 
 pub(crate) fn write_columns(
     output: &mut impl Write,
     columns: &[ColumnDimension],
+    namespace: Option<&str>,
 ) -> io::Result<()> {
     if columns.is_empty() {
         return Ok(());
     }
-    output.write_all(b"<cols>")?;
+    output.write_all(b"<cols")?;
+    if let Some(namespace) = namespace {
+        crate::encode::write_attribute(output, "xmlns", namespace)?;
+    }
+    output.write_all(b">")?;
     for column in columns {
         write!(
             output,

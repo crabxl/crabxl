@@ -1,4 +1,5 @@
 //! Sparse, runtime-independent worksheet editing with explicit allocation allowances.
+use crate::ColumnIndex;
 use crate::cell_store::CellStore;
 use crate::{
     Cell, CellAddress, CellValue, Error, ErrorKind, MAX_COLUMNS, MAX_ROWS, Result, RowIndex,
@@ -287,6 +288,69 @@ impl Worksheet {
         let result = self
             .dimensions
             .set_column(column, self.limits.max_bytes.saturating_sub(other));
+        self.charged = other.saturating_add(self.dimensions.heap_bytes());
+        if result.is_ok() {
+            self.dirty = true;
+        }
+        result
+    }
+    /// Remove one explicit row declaration, retaining reusable capacity.
+    pub fn remove_row_dimension(&mut self, index: RowIndex) -> Option<crate::RowDimension> {
+        let dimension = self.dimensions.remove_row(index);
+        if dimension.is_some() {
+            self.dirty = true;
+        }
+        dimension
+    }
+    /// Remove one column declaration by its first column.
+    pub fn remove_column_dimension(
+        &mut self,
+        index: ColumnIndex,
+    ) -> Option<crate::ColumnDimension> {
+        let dimension = self.dimensions.remove_column(index);
+        if dimension.is_some() {
+            self.dirty = true;
+        }
+        dimension
+    }
+    /// Group rows without cloning cell or metadata vectors.
+    pub fn group_rows(
+        &mut self,
+        start: RowIndex,
+        end: RowIndex,
+        level: u32,
+        hidden: bool,
+    ) -> Result<()> {
+        let other = self.charged.saturating_sub(self.dimensions.heap_bytes());
+        let result = self.dimensions.group_rows(
+            start,
+            end,
+            level,
+            hidden,
+            self.limits.max_bytes.saturating_sub(other),
+        );
+        self.charged = other.saturating_add(self.dimensions.heap_bytes());
+        if result.is_ok() {
+            self.dirty = true;
+        }
+        result
+    }
+    /// Group one column interval while preserving its first appearance.
+    pub fn group_columns(
+        &mut self,
+        start: ColumnIndex,
+        end: ColumnIndex,
+        level: u32,
+        hidden: bool,
+    ) -> Result<()> {
+        let other = self.charged.saturating_sub(self.dimensions.heap_bytes());
+        let result = self.dimensions.group_columns(
+            start,
+            end,
+            level,
+            hidden,
+            self.limits.max_bytes.saturating_sub(other),
+        );
         self.charged = other.saturating_add(self.dimensions.heap_bytes());
         if result.is_ok() {
             self.dirty = true;

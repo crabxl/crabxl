@@ -690,8 +690,8 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     }
     /// Borrowed-byte theme access returns shared ownership, not a payload copy.
     pub fn theme(&mut self) -> Result<Option<crabxl_core::Theme>> {
-        if let Some(theme) = self.bank.theme() {
-            return Ok(Some(theme.clone()));
+        if self.editor.theme_is_dirty() {
+            return Ok(self.bank.theme().cloned());
         }
         self.rebalance()?;
         let theme = self.editor.book.theme()?.cloned();
@@ -699,12 +699,14 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         Ok(theme)
     }
     /// Replace exact theme bytes at the existing relationship target.
-    /// Unknown DrawingML sections remain intact; missing graph creation is explicit.
-    pub fn set_theme(&mut self, theme: crabxl_core::Theme) -> Result<()> {
+    /// Unknown DrawingML sections remain intact; None requests the standard theme.
+    /// Missing graph creation remains explicit.
+    pub fn set_theme(&mut self, theme: Option<crabxl_core::Theme>) -> Result<()> {
         self.editor.validate_theme_edit()?;
-        if theme.bytes().len() > self.options.resources.max_theme_bytes
-            || theme.bytes().len() as u64 > self.options.resources.max_part_bytes
-        {
+        if theme.as_ref().is_some_and(|theme| {
+            theme.bytes().len() > self.options.resources.max_theme_bytes
+                || theme.bytes().len() as u64 > self.options.resources.max_part_bytes
+        }) {
             return Err(Error::new(
                 ErrorKind::LimitExceeded,
                 "Theme payload exceeds configured limit",
@@ -713,7 +715,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         // Validate the original entry's CRC before committing its replacement.
         self.editor.book.theme()?;
         self.rebalance()?;
-        let result = self.bank.set_theme(Some(theme));
+        let result = self.bank.set_theme(theme);
         if result.is_ok() {
             self.editor.theme_changed();
         }
@@ -785,6 +787,50 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.editor.validate_style_edit(catalog)?;
         self.rebalance()?;
         let result = self.bank.register_named_style(name, style, options);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        result
+    }
+    /// Rename/update source named-style metadata without touching source cell IDs.
+    pub fn update_named_metadata(
+        &mut self,
+        name: &str,
+        new_name: Box<str>,
+        options: crabxl_core::NamedStyleOptions,
+    ) -> Result<()> {
+        crate::encode::validate_xml_text(&new_name)?;
+        let catalog = self.bank.style_catalog().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source stylesheet remains unimplemented",
+            )
+        })?;
+        self.editor.validate_style_edit(catalog)?;
+        self.rebalance()?;
+        let result = self.bank.update_named_metadata(name, new_name, options);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        result
+    }
+    /// Update a named source appearance without changing already assigned cell IDs.
+    pub fn update_named_style(
+        &mut self,
+        name: &str,
+        style: crabxl_core::StyleId,
+    ) -> Result<crabxl_core::StyleId> {
+        let catalog = self.bank.style_catalog().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source stylesheet remains unimplemented",
+            )
+        })?;
+        self.editor.validate_style_edit(catalog)?;
+        self.rebalance()?;
+        let result = self.bank.update_named_style(name, style);
         if result.is_ok() {
             self.editor.styles_changed();
         }
@@ -938,15 +984,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 "Extended row descent serialization is not implemented",
             ));
         }
-        self.edit_structure_when(
-            id,
-            |sheet| {
-                sheet.set_row_dimension(dimension)?;
-                Ok(true)
-            },
-            |changed| *changed,
-        )?;
-        Ok(())
+        self.edit_dimension(id, |sheet| sheet.set_row_dimension(dimension))
     }
     /// Update canonical column metadata after validating the affected source graph.
     pub fn set_column_dimension(
@@ -955,10 +993,85 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         dimension: crabxl_core::ColumnDimension,
     ) -> Result<()> {
         dimension.validate()?;
+        self.edit_dimension(id, |sheet| sheet.set_column_dimension(dimension))
+    }
+    /// Remove row metadata through the preserving canonical coordinator.
+    pub fn remove_row_dimension(&mut self, id: SheetId, index: RowIndex) -> Result<bool> {
+        let existed = self.sheet(id)?.dimensions().row(index).is_some();
+        if existed {
+            self.edit_dimension(id, |sheet| {
+                sheet.remove_row_dimension(index);
+                Ok(())
+            })?;
+        }
+        Ok(existed)
+    }
+    /// Remove column metadata through the preserving canonical coordinator.
+    pub fn remove_column_dimension(
+        &mut self,
+        id: SheetId,
+        index: crabxl_core::ColumnIndex,
+    ) -> Result<bool> {
+        let existed = self.sheet(id)?.dimensions().column(index).is_some();
+        if existed {
+            self.edit_dimension(id, |sheet| {
+                sheet.remove_column_dimension(index);
+                Ok(())
+            })?;
+        }
+        Ok(existed)
+    }
+    /// Group row metadata without repeatedly scanning cells or source XML.
+    pub fn group_rows(
+        &mut self,
+        id: SheetId,
+        start: RowIndex,
+        end: RowIndex,
+        level: u32,
+        hidden: bool,
+    ) -> Result<()> {
+        self.edit_dimension(id, |sheet| sheet.group_rows(start, end, level, hidden))
+    }
+    /// Group a column interval through the preserving canonical coordinator.
+    pub fn group_columns(
+        &mut self,
+        id: SheetId,
+        start: crabxl_core::ColumnIndex,
+        end: crabxl_core::ColumnIndex,
+        level: u32,
+        hidden: bool,
+    ) -> Result<()> {
+        self.edit_dimension(id, |sheet| sheet.group_columns(start, end, level, hidden))
+    }
+    fn edit_dimension(
+        &mut self,
+        id: SheetId,
+        edit: impl FnOnce(&mut crabxl_core::WorksheetEditor<'_>) -> Result<()>,
+    ) -> Result<()> {
+        if self.options.read.data_only {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Data-only dimension editing remains unimplemented",
+            ));
+        }
+        let source = self
+            .sheets
+            .iter()
+            .find(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        if source.original.is_none() || self.editor.model_is_dirty(&source.name) {
+            let created = source.original.is_none();
+            let result = edit(&mut self.bank.sheet_mut(id)?);
+            if result.is_ok() && created {
+                self.editor.created_values_dirty(id);
+            }
+            self.rebalance()?;
+            return result;
+        }
         self.edit_structure_when(
             id,
             |sheet| {
-                sheet.set_column_dimension(dimension)?;
+                edit(sheet)?;
                 Ok(true)
             },
             |changed| *changed,
