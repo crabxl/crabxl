@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This is the active planning document for the user-approved finer release split. Alpha 6, 7 and 8 are published history. The previous target of completing all M5 in A9 is superseded: A9–A19 deliver M5, A20–A26 deliver M6 and deferred M4 interactions, and A27–A28 finish performance and M7 acceptance. These are delivery targets, not completed features or publication requests. Implementation resumed on 2026-10-07 under the user's instruction to complete A9 through A28. A9 is in progress; later targets remain planned.
+This is the active planning document for the user-approved finer release split. Alpha 6, 7, 8 and 9 are published history. The previous target of completing all M5 in A9 is superseded: A9–A19 deliver M5, A20–A26 deliver M6 and deferred M4 interactions, and A27–A28 finish performance and M7 acceptance. These are delivery targets, not completed features or publication requests. Implementation resumed on 2026-10-07 under the user's instruction to complete A9 through A28. A9 is in progress; later targets remain planned.
 
 Rust and Python must expose each release's applicable usable functionality. Plan-only changes, refactors and disconnected ports do not advance alpha numbers. Numbers are manually selected; urgent usable fixes may insert a release and shift subsequent targets. No release dates or effort percentages are implied.
 
@@ -10,7 +10,7 @@ Rust and Python must expose each release's applicable usable functionality. Plan
 
 Use umya-spreadsheet 3.1.0, pinned at `aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b`, as the primary source for editable models and M5/M6 feature implementations. Candidate paths below are relative to its `src/` directory and have been checked against the local pinned checkout. They identify investigation/port starting points, not audited complete behavior or already imported modules.
 
-Existing compact worksheet ranges and native formula lexical states are selected umya adaptations. Native style-only assignment and canonical temporal export are implemented in [ADR 0083](decisions/0083-style-only-cell-assignment.md); loaded-model integration and Python style exposure remain pending. Existing calamine-derived parsing and rust_xlsxwriter-derived serializers stay where suitable; do not replace working fast codecs merely to standardize origin.
+Existing compact worksheet ranges and native formula lexical states are selected umya adaptations. Native style-only assignment and canonical temporal export are implemented in [ADR 0083](decisions/0083-style-only-cell-assignment.md); A9 completes loaded-model integration and Python number-format exposure; complete component objects follow in A10. Existing calamine-derived parsing and rust_xlsxwriter-derived serializers stay where suitable; do not replace working fast codecs merely to standardize origin.
 
 ## Release matrix
 

@@ -1,6 +1,6 @@
 # Alpha 9 style-assignment acceptance
 
-Status: usable native and Python checkpoint verified; publication pending.
+Status: published and verified from the public Rust and Python registries.
 
 ## Scope
 
@@ -47,9 +47,26 @@ an observation at 5 ms intervals, not an exact peak-disk guarantee. Repeatable
 Python new-book export currently clones bounded style metadata into the writer,
 which remains an optimization opportunity.
 
+## Public release verification
+
+Rust release workflow 37559496335 succeeded at
+`511d91e60df0b2cc492658f0d867362646f1da20`; remote tag
+`0.1.0-alpha.9` points to that commit. All three exact-version crates are on
+crates.io. A fresh registry-only Rust 1.88 consumer verified explicit General
+dates and two loaded number-format save/reopen cycles.
+
+Python release workflow 37559875709 succeeded at
+`8c0ba707fc0186654c586305be0e88c124589c79`, including all five platforms and
+CPython 3.11–3.15, followed by OIDC publication. PyPI exposes 25 wheels and one
+source archive for `0.1.0a9`. A clean CPython 3.12 environment installed the
+public manylinux 2.28 x86_64 wheel and ran the release commit's unchanged
+547 compatibility cases: all passed (4.60 seconds). The freshly published
+version was not yet visible through the configured/simple index cache, so the
+installation used the wheel URL returned by the public PyPI version JSON.
+See [release receipt](alpha9-release.json) for artifact identities.
+
 ## Closure
 
 A9 completes its usable style-assignment scope. M4 graph dependencies, complete
-M5/A10–A19, M6 and M7 remain open. Publish only after Rust MSRV/package and Python
-five-platform CPython 3.11–3.15 gates pass, then verify public registries and fresh
-installations before marking publication complete.
+M5/A10–A19, M6 and M7 remain open. The Rust MSRV/package and Python five-platform publication gates passed,
+and fresh public installations were verified.
