@@ -66,13 +66,16 @@ impl Worksheet {
             .with_cell(address));
         }
         if let Some(link) = &value {
-            link.validate_reference()
+            link.validate_owner(address)
                 .map_err(|error| error.with_cell(address))?;
         }
         let old = self.hyperlinks.heap_bytes();
         let new = self.hyperlinks.replacement_bytes(address, value.as_ref());
+        let peak = self
+            .hyperlinks
+            .replacement_peak_bytes(address, value.as_ref());
         let other = self.charged.saturating_sub(old);
-        self.check(other.saturating_add(new), self.len())?;
+        self.check(other.saturating_add(peak), self.len())?;
         if initialize_value && let Some(link) = &value {
             let current = self.get(address);
             if current.is_none_or(|cell| matches!(cell.value, CellValue::Empty)) {

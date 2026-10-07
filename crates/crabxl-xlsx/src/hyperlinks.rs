@@ -27,7 +27,7 @@ pub(crate) fn validate_link(
     address: crabxl_core::CellAddress,
     link: &crabxl_core::Hyperlink,
 ) -> Result<()> {
-    link.validate_reference()
+    link.validate_owner(address)
         .map_err(|error| error.with_cell(address))?;
     if link.target.is_none() && link.relationship_id.is_some() {
         return Err(Error::new(

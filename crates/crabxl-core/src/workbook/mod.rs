@@ -685,7 +685,7 @@ impl WorksheetEditor<'_> {
         result
     }
     /// Remove and transfer one physical cell.
-    pub fn remove(&mut self, address: CellAddress) -> Option<Cell> {
+    pub fn remove(&mut self, address: CellAddress) -> Result<Option<Cell>> {
         self.sheet.remove(address)
     }
     /// Insert rows under the combined work allowance.

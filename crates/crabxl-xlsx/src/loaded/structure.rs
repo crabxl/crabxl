@@ -10,7 +10,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             id,
             |sheet| {
                 let linked = sheet.hyperlinks().get(address).is_some();
-                let cell = sheet.remove(address);
+                let cell = sheet.remove(address)?;
                 let changed = linked || cell.is_some();
                 Ok((cell, changed))
             },

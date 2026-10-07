@@ -58,18 +58,17 @@ impl Capture {
                     }
                 }
                 let range: CellRange = required_attribute(e, b"ref")?.parse()?;
-                if range.start != range.end {
-                    return Err(unsupported("Range hyperlink editing remains unimplemented"));
-                }
                 let link = Hyperlink {
+                    reference: (range.start != range.end)
+                        .then(|| range.to_string().into_boxed_str()),
                     location: attribute(e, b"location")?.map(String::into_boxed_str),
                     display: attribute(e, b"display")?.map(String::into_boxed_str),
                     tooltip: attribute(e, b"tooltip")?.map(String::into_boxed_str),
                     relationship_id: frame.office_relationship.as_deref().map(Into::into),
                     ..Default::default()
                 };
-                reserve(self.links.replacement_bytes(range.start, Some(&link)))?;
-                self.links.set(range.start, Some(link), maximum)?;
+                reserve(self.links.declaration_peak_bytes(range.start, &link)?)?;
+                self.links.set_declaration(range.start, link, maximum)?;
             }
             Event::End(e)
                 if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"hyperlinks" =>
