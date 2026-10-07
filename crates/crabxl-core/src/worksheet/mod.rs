@@ -364,13 +364,19 @@ impl Worksheet {
     /// Clearing a covered hyperlink coordinate can split metadata and fail its
     /// allowance check; failure leaves the physical cell and declarations intact.
     pub fn remove(&mut self, address: CellAddress) -> Result<Option<Cell>> {
+        self.remove_with_hyperlink(address).map(|(cell, _)| cell)
+    }
+    /// Transfer a removed cell and its hyperlink to a detached caller-owned view.
+    pub fn remove_with_hyperlink(
+        &mut self,
+        address: CellAddress,
+    ) -> Result<(Option<Cell>, Option<crate::Hyperlink>)> {
         let old_links = self.hyperlinks.heap_bytes();
         let other = self.charged.saturating_sub(old_links);
-        if self
+        let hyperlink = self
             .hyperlinks
-            .clear(address, self.limits.max_bytes.saturating_sub(other))?
-            .is_some()
-        {
+            .clear(address, self.limits.max_bytes.saturating_sub(other))?;
+        if hyperlink.is_some() {
             self.charged = self
                 .charged
                 .saturating_sub(old_links)
@@ -390,7 +396,7 @@ impl Worksheet {
                 .saturating_add(self.cells.storage_bytes());
             self.dirty = true;
         }
-        Ok(cell)
+        Ok((cell, hyperlink))
     }
     /// Append a row after the logical extent. Empty rows advance the cursor
     /// without allocating cells. Appending is atomic on count/budget failures.

@@ -248,7 +248,12 @@ impl Hyperlinks {
             )
             .with_cell(address));
         }
-        let value = self.get(address).cloned();
+        let mut value = self.get(address).cloned();
+        if let Some(link) = &mut value {
+            // Transfer the removed point, rather than claiming the remaining
+            // rectangle still belongs to the caller's detached cell.
+            link.reference = None;
+        }
         self.set(address, None, available)?;
         Ok(value)
     }
