@@ -1,6 +1,6 @@
 # Alpha 10 appearance component acceptance
 
-Status: local native, pinned Python and performance acceptance passed; publication requested.
+Status: published and verified from public registries.
 
 ## Behavior
 
@@ -64,3 +64,17 @@ signed/data-only sources, unknown style sections and missing source stylesheets
 retain explicit errors before mutation. Opaque preservation is not typed graph
 editing. Native calamine/rust_xlsxwriter comparisons and broad performance/RAM
 acceptance remain scheduled; the public workload is not a universal speed claim.
+
+## Public release verification
+
+Rust workflow 37561763186 succeeded and remote tag `0.1.0-alpha.10` resolves to
+`50e4861336a5a4b019f671dee8fa65f488bb4053`. All three crates are public. A fresh
+registry-only Rust 1.88 consumer verified font replacement while retaining the
+assigned number format and value across two loaded save/reopen cycles.
+
+Python workflow 37561869461 succeeded at
+`03ea5211ff7a2f9832c24052a7303d3415851763`, including five platforms, CPython
+3.11–3.15 and OIDC publication. PyPI exposes 25 wheels and one source archive.
+A clean environment installed the public manylinux 2.28 CPython 3.12 wheel and
+passed the release commit's unchanged 547 cases in 4.88 seconds.
+[Artifact receipt](alpha10-release.json) retains wheel identities and hashes.
