@@ -16,8 +16,11 @@ The [Alpha.3 through Alpha.5 plan](alpha-3-4-plan.md) is completed history.
 Current delivery follows the [Alpha.6 and later release plan](alpha-6-and-later-plan.md):
 A6 urgent archive-limit/descriptor fixes (published), A7 staged M4 acceptance,
 A8 performance backlog (published), then the [Alpha 9–28 integration plan](alpha-9-28-plan.md):
-A9–A19 for M5, A20–A26 for M6 and deferred M4, and A27–A28 for performance/M7
-acceptance. Target numbers may shift; these stages remain incomplete. Deferred M4 graph interactions stay tracked through M5/M6; the urgent
+A9/A10 are published and verified. The remaining unchanged feature scope is
+consolidated into six releases: A11 worksheet/style foundations, A12 full M5,
+A13 images/charts, A14 pivots/complex metadata, A15 full M4/M6 acceptance,
+and A16 performance/M7 quality. Former A11–A28 targets are work-package IDs,
+not separate publication tasks. These stages remain incomplete. Deferred M4 graph interactions stay tracked through M5/M6; the urgent
 A6 release does not claim staged M4 completion.
 
 ## Scope and completion
