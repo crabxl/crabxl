@@ -4,11 +4,15 @@
 
 mod finish;
 mod interleaved;
+mod merged_rows;
 mod rows;
 mod sheet;
 mod styles;
+pub(crate) use merged_rows::{MergedRowCells, next_merged_row};
 
-use crate::encode::{DateStyleIds, RowBuffer, StyleContext, ValueEncoding, validate_xml_text};
+use crate::encode::{
+    CellView, DateStyleIds, RowBuffer, StyleContext, ValueEncoding, validate_xml_text,
+};
 use crabxl_core::{
     CellStyle, DateEpoch, Error, ErrorKind, MAX_COLUMNS, Result, Row, RowIndex, StyleCatalog,
     StyleId, StyleLimits, StyleRegistry,
@@ -449,6 +453,7 @@ fn writer_style_error(error: Error) -> Error {
         error
     }
 }
+
 fn package_metadata<W: Write + Seek>(
     zip: &mut ZipWriter<W>,
     sheets: &[StoredSheet],

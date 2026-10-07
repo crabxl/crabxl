@@ -1,5 +1,6 @@
 //! Sparse, runtime-independent worksheet editing with explicit allocation allowances.
 mod dimensions;
+mod merges;
 mod metadata;
 mod structure;
 
@@ -55,6 +56,13 @@ impl CellRange {
         (self.start.row..=self.end.row).contains(&address.row)
             && (self.start.column..=self.end.column).contains(&address.column)
     }
+    /// Whether two inclusive finite rectangles overlap.
+    pub fn intersects(self, other: Self) -> bool {
+        self.start.row <= other.end.row
+            && self.end.row >= other.start.row
+            && self.start.column <= other.end.column
+            && self.end.column >= other.start.column
+    }
 }
 impl std::str::FromStr for CellRange {
     type Err = Error;
@@ -106,6 +114,7 @@ pub struct Worksheet {
     views: Option<Box<crate::SheetViews>>,
     printing: Option<Box<crate::PrintSettings>>,
     dimensions: crate::SheetDimensions,
+    merges: crate::MergedRanges,
     visibility: SheetVisibility,
 }
 impl Worksheet {
@@ -128,6 +137,7 @@ impl Worksheet {
             views: None,
             printing: None,
             dimensions: Default::default(),
+            merges: Default::default(),
             visibility: SheetVisibility::Visible,
         })
     }
@@ -172,6 +182,14 @@ impl Worksheet {
     pub(crate) fn set_edit_limits(&mut self, limits: EditLimits) {
         self.limits = limits;
     }
+    /// Adjust a prospective retained-data allowance without changing cell limits.
+    pub fn set_memory_allowance(&mut self, max_bytes: usize) -> Result<()> {
+        if max_bytes == 0 || self.charged > max_bytes {
+            return Err(budget());
+        }
+        self.limits.max_bytes = max_bytes;
+        Ok(())
+    }
     pub(crate) fn copy_named(&self, name: Box<str>, limits: EditLimits) -> Result<Self> {
         let bytes = self
             .charged
@@ -187,6 +205,7 @@ impl Worksheet {
         copy.set_sheet_views(self.views.as_deref().cloned())?;
         copy.set_print_settings(self.printing.as_deref().cloned())?;
         copy.set_dimensions(self.dimensions.clone())?;
+        copy.set_merged_ranges(self.merges.clone())?;
         copy.append_cursor = self.append_cursor;
         copy.dirty = true;
         Ok(copy)
@@ -202,6 +221,16 @@ impl Worksheet {
     /// Logical row extent, including empty appends; no dense rows are allocated.
     pub fn row_extent(&self) -> u32 {
         self.append_cursor
+    }
+    /// Visible row extent including compact merged geometry, distinct from append position.
+    pub fn display_row_extent(&self) -> u32 {
+        self.merges
+            .ranges()
+            .iter()
+            .map(|range| range.range().end.row.get() + 1)
+            .max()
+            .unwrap_or(0)
+            .max(self.append_cursor)
     }
     /// Extend the logical row count without allocating cells. This records
     /// explicitly present empty source rows and advances subsequent appends.
@@ -229,6 +258,16 @@ impl Worksheet {
     pub fn row_cells(&self, index: RowIndex) -> impl Iterator<Item = &Cell> + Clone {
         self.cells
             .range((index.get(), 0)..=(index.get(), u32::MAX))
+            .map(|(_, cell)| cell)
+    }
+    /// Borrow physical row cells starting at a selected column.
+    pub fn row_cells_from(
+        &self,
+        index: RowIndex,
+        column: ColumnIndex,
+    ) -> impl Iterator<Item = &Cell> + Clone {
+        self.cells
+            .range((index.get(), column.get())..=(index.get(), u32::MAX))
             .map(|(_, cell)| cell)
     }
     /// Conservative retained block capacity, tree allowances and value/name payload.
@@ -295,6 +334,14 @@ impl Worksheet {
     }
     #[inline(always)]
     pub(super) fn plan_set(&self, cell: &Cell) -> Result<(usize, usize)> {
+        if !matches!(cell.value, CellValue::Empty)
+            && self.merges.virtual_style(cell.address).is_some()
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidState,
+                "Merged non-anchor values are read-only",
+            ));
+        }
         let previous = self.get(cell.address);
         let old = previous.map_or(0, charge);
         let present = previous.is_some();
@@ -335,7 +382,19 @@ impl Worksheet {
     /// sheet bytes. Coordinators can reserve shared operation space before
     /// calling `append`; subsequent mutation requires a fresh validation.
     pub fn preflight_append(&self, values: &[CellValue]) -> Result<usize> {
-        RowIndex::new(self.append_cursor)?;
+        let row = RowIndex::new(self.row_extent())?;
+        for column in 0..values.len() {
+            let address = CellAddress::new(row.get(), column as u32)?;
+            if self.merges.virtual_style(address).is_some() {
+                return Err(Error::new(
+                    ErrorKind::Unsupported,
+                    "Appending over covered merged coordinates is not implemented",
+                )
+                .with_cell(address));
+            }
+        }
+
+        RowIndex::new(self.row_extent())?;
         if values.len() > MAX_COLUMNS as usize {
             return Err(invalid("Appended row exceeds column bounds"));
         }
@@ -359,7 +418,7 @@ impl Worksheet {
             .map(CellValue::heap_bytes)
             .fold(0usize, usize::saturating_add);
         let storage = self.cells.storage_bytes();
-        let index = RowIndex::new(self.append_cursor)?;
+        let index = RowIndex::new(self.row_extent())?;
         for (column, value) in values.into_iter().enumerate() {
             let style = style(&value);
             let cell = Cell {
@@ -374,7 +433,7 @@ impl Worksheet {
             .saturating_sub(storage)
             .saturating_add(self.cells.storage_bytes())
             .saturating_add(payload);
-        self.append_cursor += 1;
+        self.append_cursor = index.get() + 1;
         self.dirty = true;
         Ok(index)
     }
@@ -383,8 +442,27 @@ impl Worksheet {
             + self.view_bytes()
             + self.print_bytes()
             + self.dimensions.heap_bytes()
+            + self.merges.heap_bytes()
             + self.cells.storage_bytes()
             + self.cells.values().map(charge).sum::<usize>();
+    }
+    pub(super) fn guard_merged_structure(
+        &self,
+        source: CellRange,
+        destination: CellRange,
+    ) -> Result<()> {
+        if self
+            .merges
+            .ranges()
+            .iter()
+            .any(|merge| source.intersects(merge.range()) || destination.intersects(merge.range()))
+        {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Affected merged geometry structural edits are not implemented",
+            ));
+        }
+        Ok(())
     }
     pub(super) fn work_allowance(&self, extra: usize) -> Result<()> {
         self.check(

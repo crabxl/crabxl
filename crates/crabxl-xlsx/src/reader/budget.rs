@@ -43,6 +43,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             pool.pool_bytes
                 .checked_sub(shared)
                 .and_then(|n| n.checked_sub(self.shared_formulas.stats().accounted_bytes))
+                .and_then(|n| n.checked_sub(self.merge_bytes()))
                 .ok_or_else(|| {
                     Error::new(
                         ErrorKind::MemoryBudgetExceeded,
@@ -59,7 +60,12 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     }
     pub(super) fn limit_string_cache(&mut self) -> Result<()> {
         if let Some(pool) = &self.aggregate {
-            let maximum = pool.available(self.shared_formulas.stats().accounted_bytes)?;
+            let maximum = pool.available(
+                self.shared_formulas
+                    .stats()
+                    .accounted_bytes
+                    .saturating_add(self.merge_bytes()),
+            )?;
             if let Some(strings) = &mut self.shared_strings {
                 if let Some(policy) = self.shared_string_policy {
                     strings.limit_or_spill(policy, maximum)?;
@@ -105,7 +111,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             .shared_strings
             .as_ref()
             .map_or(0, |strings| strings.stats().managed_bytes);
-        let formula = self.shared_formulas.stats().accounted_bytes;
+        let formula = self
+            .shared_formulas
+            .stats()
+            .accounted_bytes
+            .saturating_add(self.merge_bytes());
         self.aggregate
             .as_ref()
             .map_or(shared.saturating_add(formula), |pool| {

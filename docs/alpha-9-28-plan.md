@@ -29,6 +29,8 @@ Existing compact worksheet ranges and native formula lexical states are selected
 
 Implement a coherent feature group through the native model, codecs and Python interfaces before adding missing behavioral checks and fixing acceptance failures together. During implementation, prefer necessary compilation checks over repeatedly running the full suite. Reuse existing high-value regression cases; do not add tests for every small helper or merge cases merely to make the test count smaller. Every publication still requires its relevant correctness, data preservation, performance and packaging gates.
 
+W12 now has a verified [sparse merge checkpoint](decisions/0087-sparse-merged-geometry.md) and narrow [measurements](../benchmarks/alpha11-merged-geometry.md). High-level owned/loaded merge/unmerge is usable; affected structural operations and raw live metadata mutation remain tracked dependencies. W13 hyperlinks/editable rich text and complete A11 acceptance remain open.
+
 ## Work-package matrix
 
 | Work package | Usable scope | umya candidate sources | Integration and acceptance focus |

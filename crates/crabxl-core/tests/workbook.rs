@@ -69,6 +69,119 @@ fn sheet_ids_survive_copy_reorder_rename_and_reject_removed_foreign_handles() {
     }
     assert_eq!(book.sheets().count(), 1028);
     assert_eq!(book.active_sheet(), Some(copied));
+    // Full-grid geometry remains sparse, and non-anchor writes cannot erase it.
+    let mut merged = Workbook::new(WorkbookLimits::default()).unwrap();
+    let id = merged.create_sheet("Merged").unwrap();
+    merged
+        .merge_cells(id, "A1:XFD1048576".parse().unwrap())
+        .unwrap();
+    assert_eq!(merged.sheet(id).unwrap().len(), 1);
+    assert!(merged.charged_bytes() < 1024 * 1024);
+    merged
+        .sheet_mut(id)
+        .unwrap()
+        .unmerge_cells("A1:XFD1048576".parse().unwrap())
+        .unwrap();
+    let normal_protection = merged
+        .register_style(crabxl_core::CellStyle {
+            protection: crabxl_core::Protection {
+                locked: Some(true),
+                hidden: Some(false),
+            },
+            ..Default::default()
+        })
+        .unwrap();
+    merged
+        .sheet_mut(id)
+        .unwrap()
+        .set_style("A1".parse().unwrap(), normal_protection)
+        .unwrap();
+    merged
+        .merge_cells(id, "A1:XFD1048576".parse().unwrap())
+        .unwrap();
+    assert!(
+        !merged
+            .sheet(id)
+            .unwrap()
+            .merged_ranges()
+            .has_virtual_styles()
+    );
+    // Exercise ordered and reverse interval insertions, overlap precedence and rebuilds.
+    let mut ranges = crabxl_core::MergedRanges::default();
+    for row in (0..512u32).rev() {
+        let range = crabxl_core::CellRange::new(
+            CellAddress::new(row * 2, 0).unwrap(),
+            CellAddress::new(row * 2 + 1, 2).unwrap(),
+        )
+        .unwrap();
+        ranges
+            .insert_with_limit(
+                crabxl_core::MergedCellRange::new(range, [StyleId::new(row + 1); 16]).unwrap(),
+                1024 * 1024,
+            )
+            .unwrap();
+    }
+    for row in 0..1024u32 {
+        let address = CellAddress::new(row, 1).unwrap();
+        assert_eq!(
+            ranges.virtual_style(address),
+            Some(StyleId::new(row / 2 + 1))
+        );
+        assert_eq!(ranges.styled_ranges_at(row).count(), 1);
+    }
+    let removed = "A1:C2".parse().unwrap();
+    ranges.remove(removed).unwrap();
+    assert_eq!(ranges.virtual_style("B1".parse().unwrap()), None);
+    assert_eq!(
+        ranges.virtual_style("B3".parse().unwrap()),
+        Some(StyleId::new(2))
+    );
+    let overlap = "B3:D5".parse().unwrap();
+    ranges
+        .insert_with_limit(
+            crabxl_core::MergedCellRange::new(overlap, [StyleId::new(900); 16]).unwrap(),
+            1024 * 1024,
+        )
+        .unwrap();
+    assert_eq!(
+        ranges.virtual_style("C4".parse().unwrap()),
+        Some(StyleId::new(900))
+    );
+    assert!(ranges.contains("C4:D5".parse().unwrap()));
+
+    assert_eq!(
+        merged.sheet(id).unwrap().display_row_extent(),
+        crabxl_core::MAX_ROWS
+    );
+    assert_eq!(
+        merged
+            .sheet_mut(id)
+            .unwrap()
+            .set(cell(1, 7))
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidState
+    );
+    let bytes = merged.charged_bytes();
+    let cloned = merged.copy_sheet(id, "Copy").unwrap();
+    assert_eq!(
+        merged.sheet(cloned).unwrap().merged_ranges().ranges().len(),
+        1
+    );
+    assert!(merged.charged_bytes() > bytes);
+    merged
+        .sheet_mut(id)
+        .unwrap()
+        .unmerge_cells("A1:XFD1048576".parse().unwrap())
+        .unwrap();
+    assert!(
+        merged
+            .sheet(id)
+            .unwrap()
+            .merged_ranges()
+            .ranges()
+            .is_empty()
+    );
 }
 #[test]
 fn aggregate_bytes_cells_and_work_budget_fail_without_changing_models() {

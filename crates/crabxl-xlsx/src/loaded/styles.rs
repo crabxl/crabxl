@@ -35,10 +35,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         {
             self.editor.prepare_model(&self.sheets[index].name)?;
         }
-        let style = self
-            .sheet(id)?
-            .get(address)
-            .map_or(crabxl_core::StyleId::new(0), |cell| cell.style);
+        let style = self.sheet(id)?.style_at(address);
         self.rebalance()?;
         let result = self.bank.derive_number_format(style, code);
         if result.is_ok() {
@@ -249,10 +246,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         {
             self.editor.prepare_model(&self.sheets[index].name)?;
         }
-        let style = self
-            .sheet(id)?
-            .get(address)
-            .map_or(crabxl_core::StyleId::new(0), |cell| cell.style);
+        let style = self.sheet(id)?.style_at(address);
         self.rebalance()?;
         let result = self.bank.derive_style_component(style, component);
         if result.is_ok() {

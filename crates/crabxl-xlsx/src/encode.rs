@@ -62,10 +62,10 @@ impl StyleContext<'_> {
                 .map(|style| style.number_format.as_ref()),
         }
     }
-    fn iso_dates_for(&self, cell: &crabxl_core::Cell, requested: bool) -> bool {
+    fn iso_dates_for(&self, cell: CellView<'_>, requested: bool) -> bool {
         requested
             || matches!(self, Self::Catalog(_))
-                && date_value(&cell.value).is_some_and(|date| {
+                && date_value(cell.value).is_some_and(|date| {
                     date.kind() != crabxl_core::DateKind::Duration
                         && !date.requires_serial_encoding()
                 })
@@ -119,12 +119,12 @@ impl StyleContext<'_> {
             )),
         }
     }
-    fn resolved_style(&self, cell: &crabxl_core::Cell, dates: DateStyleIds) -> Result<u32> {
+    fn resolved_style(&self, cell: CellView<'_>, dates: DateStyleIds) -> Result<u32> {
         let id = cell.style.get();
         if matches!(self, Self::Catalog(_) | Self::Canonical(_)) {
             return Ok(id);
         }
-        let Some(date) = date_value(&cell.value) else {
+        let Some(date) = date_value(cell.value) else {
             return Ok(id);
         };
         if date.requires_serial_encoding() {
@@ -245,10 +245,44 @@ pub(crate) fn encode_cells<'a>(
     )
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct CellView<'a> {
+    pub(crate) address: crabxl_core::CellAddress,
+    pub(crate) value: &'a CellValue,
+    pub(crate) style: crabxl_core::StyleId,
+}
+impl<'a> From<&'a crabxl_core::Cell> for CellView<'a> {
+    fn from(cell: &'a crabxl_core::Cell) -> Self {
+        Self {
+            address: cell.address,
+            value: &cell.value,
+            style: cell.style,
+        }
+    }
+}
 pub(crate) fn encode_cells_with_dimension<'a>(
     buffer: &mut RowBuffer,
     row: (crabxl_core::RowIndex, Option<&crabxl_core::RowDimension>),
     cells: impl Iterator<Item = &'a crabxl_core::Cell> + Clone,
+    maximum_cell: usize,
+    maximum_cells: usize,
+    styles: StyleContext<'_>,
+    date_encoding: ValueEncoding,
+) -> Result<()> {
+    encode_cell_views_with_dimension(
+        buffer,
+        row,
+        cells.map(CellView::from),
+        maximum_cell,
+        maximum_cells,
+        styles,
+        date_encoding,
+    )
+}
+pub(crate) fn encode_cell_views_with_dimension<'a>(
+    buffer: &mut RowBuffer,
+    row: (crabxl_core::RowIndex, Option<&crabxl_core::RowDimension>),
+    cells: impl Iterator<Item = CellView<'a>> + Clone,
     maximum_cell: usize,
     maximum_cells: usize,
     mut styles: StyleContext<'_>,
@@ -309,22 +343,22 @@ pub(crate) fn encode_cells_with_dimension<'a>(
             .with_cell(cell.address));
         }
         let iso_date = styles.iso_dates_for(cell, iso_dates)
-            && date_value(&cell.value)
+            && date_value(cell.value)
                 .is_some_and(|date| date.kind() != crabxl_core::DateKind::Duration);
         let validation_epoch = if iso_date {
-            date_value(&cell.value).map_or(epoch, |date| date.epoch())
+            date_value(cell.value).map_or(epoch, |date| date.epoch())
         } else {
             epoch
         };
-        validate_non_finite(&cell.value, non_finite)
+        validate_non_finite(cell.value, non_finite)
             .map_err(|error| error.with_cell(cell.address))?;
-        validate_value(&cell.value, maximum_cell, validation_epoch)
+        validate_value(cell.value, maximum_cell, validation_epoch)
             .map_err(|error| error.with_cell(cell.address))?;
-        if iso_date && let Some(date) = date_value(&cell.value) {
+        if iso_date && let Some(date) = date_value(cell.value) {
             validate_text(&date.to_iso8601()?, maximum_cell)
                 .map_err(|error| error.with_cell(cell.address))?;
         }
-        if let CellValue::RichText(value) = &cell.value
+        if let CellValue::RichText(value) = cell.value
             && value
                 .phonetic_properties
                 .as_ref()
@@ -340,7 +374,7 @@ pub(crate) fn encode_cells_with_dimension<'a>(
     // Validate every input before interning any derived style. A later encoded
     // byte-limit failure may retain a reusable variant, but commits no row bytes.
     for cell in cells.clone() {
-        if let Some(date) = date_value(&cell.value) {
+        if let Some(date) = date_value(cell.value) {
             styles
                 .prepare_date_format(cell.style.get(), date)
                 .map_err(|error| error.with_cell(cell.address))?;
@@ -361,7 +395,7 @@ pub(crate) fn encode_cells_with_dimension<'a>(
             if style != 0 {
                 write!(buffer, " s=\"{style}\"")?;
             }
-            let (literal, formula) = match &cell.value {
+            let (literal, formula) = match cell.value {
                 CellValue::Formula(formula) => (
                     formula.cached().filter(|_| !invalidate_caches),
                     Some(formula),

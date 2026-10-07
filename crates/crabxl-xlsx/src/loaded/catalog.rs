@@ -63,6 +63,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 cause,
             )
         })?;
+        if let Some(source) = source {
+            self.validate_normalized_styles(source)?;
+        }
         self.reserve_workbook_patch(plan.bytes.saturating_add(plan.scratch_bytes))?;
         let view = self.active_view_index();
         let incoming = if let Some(id) = source {
@@ -83,8 +86,12 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             loaded: true,
             kind: crate::SheetKind::Worksheet,
             original: None,
+            normalized_styles: false,
         });
         self.editor.commit_create(plan, id);
+        if let Some(source) = source {
+            self.export_normalized_styles(source);
+        }
         self.bank.set_active_view_index(view);
         self.rebalance()?;
         Ok(id)
