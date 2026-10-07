@@ -50,6 +50,7 @@ pub use crabxl_core::{ActiveViewSelection, normalize_active_view, resolve_sheet_
 pub use crabxl_core::{CellRange, EditLimits, SheetVisibility, Worksheet, WorksheetRange};
 pub use crabxl_core::{Hyperlink, Hyperlinks};
 pub use crabxl_core::{MergedCellRange, MergedRangeIter, MergedRanges};
+pub use crabxl_xlsx::{read_rich_text, write_rich_text};
 
 pub use crabxl_xlsx::{
     CalculationChainPolicy, EditorOptions, PartInfo, SaveOptions, SaveStats, WorkbookEditor,

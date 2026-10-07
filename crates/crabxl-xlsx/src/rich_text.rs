@@ -352,6 +352,17 @@ pub(crate) fn validate(value: &RichText, maximum: usize) -> Result<()> {
 }
 pub(crate) fn write_container(output: &mut impl Write, value: &RichText) -> io::Result<()> {
     output.write_all(b"<is>")?;
+    write_contents(output, value)
+}
+pub(crate) fn write_namespaced_container(
+    output: &mut impl Write,
+    value: &RichText,
+) -> io::Result<()> {
+    output
+        .write_all(b"<is xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">")?;
+    write_contents(output, value)
+}
+fn write_contents(output: &mut impl Write, value: &RichText) -> io::Result<()> {
     for run in &value.runs {
         output.write_all(b"<r>")?;
         if let Some(font) = &run.font {
