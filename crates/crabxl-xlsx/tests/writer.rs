@@ -76,7 +76,50 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
     let output = writer.finish(Cursor::new(Vec::new())).unwrap();
     let mut reader = WorkbookReader::new(output).unwrap();
     assert!(reader.hyperlinks("Empty").unwrap().is_empty());
-    let links = reader.hyperlinks("Links").unwrap();
+    let mut rows = reader.rows("Links").unwrap();
+    rows.capture_hyperlinks();
+    let mut row = Row::new(RowIndex::new(0).unwrap());
+    while rows.read_row_into(&mut row).unwrap() {}
+    let captured = rows.take_hyperlinks();
+    assert_eq!(captured.len(), 2);
+    assert!(captured.get(a1).unwrap().target.is_none());
+    drop(rows);
+    let links = reader
+        .resolve_hyperlinks("Links", captured, 16 * 1024 * 1024)
+        .unwrap();
+    let scanned = reader.hyperlinks("Links").unwrap();
+    assert_eq!(scanned.get(a1), links.get(a1));
+    for materialize_first in [false, true] {
+        let mut owned = WorkbookWriter::new(WriteOptions::default()).unwrap();
+        owned.write_worksheet(&sheet).unwrap();
+        let mut loaded = crabxl_xlsx::LoadedWorkbook::with_options(
+            owned.finish(Cursor::new(Vec::new())).unwrap(),
+            Default::default(),
+        )
+        .unwrap();
+        let id = loaded.sheet_id("Links").unwrap();
+        if materialize_first {
+            loaded.sheet(id).unwrap();
+        }
+        assert_eq!(loaded.hyperlinks(id).unwrap().get(a1), links.get(a1));
+        assert_eq!(loaded.hyperlinks(id).unwrap().len(), 2);
+        assert!(!loaded.sheet(id).unwrap().is_dirty());
+        let (saved, _) = loaded
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+        assert_eq!(
+            WorkbookReader::new(saved)
+                .unwrap()
+                .hyperlinks("Links")
+                .unwrap()
+                .get(a1),
+            links.get(a1)
+        );
+        assert_eq!(
+            loaded.sheet(id).unwrap().get(a1).unwrap().value,
+            sheet.get(a1).unwrap().value
+        );
+    }
     let decoded = links.get(a1).unwrap();
     assert_eq!(decoded.target, external.target);
     assert_eq!(decoded.tooltip, external.tooltip);

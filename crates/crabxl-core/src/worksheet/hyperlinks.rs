@@ -28,6 +28,13 @@ impl Worksheet {
         self.dirty = true;
         Ok(())
     }
+    /// Adopt source metadata while retaining the model's existing dirty state.
+    pub fn adopt_hyperlinks(&mut self, links: crate::Hyperlinks) -> Result<()> {
+        let dirty = self.dirty;
+        self.set_hyperlinks(links)?;
+        self.dirty = dirty;
+        Ok(())
+    }
     /// Replace one link and fill an empty anchor from target/location atomically.
     /// Removing a link leaves its cell value and logical append extent intact.
     pub fn set_hyperlink(
@@ -43,7 +50,7 @@ impl Worksheet {
             .with_cell(address));
         }
         let old = self.hyperlinks.heap_bytes();
-        let new = self.hyperlinks.proposed_bytes(address, value.as_ref());
+        let new = self.hyperlinks.replacement_bytes(address, value.as_ref());
         let other = self.charged.saturating_sub(old);
         self.check(other.saturating_add(new), self.len())?;
         if let Some(link) = &value {

@@ -18099,19 +18099,23 @@
       },
       "modes": [
         "owned-model",
-        "explicit-metadata-streaming"
+        "explicit-metadata-streaming",
+        "opt-in-row-metadata",
+        "source-backed-model-read"
       ],
       "reference": "https://openpyxl.readthedocs.io/en/3.1/api/openpyxl.worksheet.hyperlink.html",
       "modules": [
         "crates/crabxl-core/src/hyperlink.rs",
         "crates/crabxl-core/src/worksheet/hyperlinks.rs",
         "crates/crabxl-xlsx/src/package/hyperlinks.rs",
-        "crates/crabxl-xlsx/src/hyperlinks.rs"
+        "crates/crabxl-xlsx/src/hyperlinks.rs",
+        "crates/crabxl-xlsx/src/hyperlinks/scan.rs",
+        "crates/crabxl-xlsx/src/loaded/hyperlinks.rs"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/writer.rs: canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically"
       ],
-      "notes": "Narrow native point checkpoint. Source preserving edits, Python public objects, range declarations and affected structural integration remain pending. Full baseline module and A11 release acceptance remain open."
+      "notes": "Native point checkpoint includes combined row/metadata capture, post-stream relationship resolution and lazy canonical loaded reads with clean adoption. Source preserving mutation, Python objects, range declarations and affected structural integration remain pending. Full baseline module and A11 release acceptance remain open."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

@@ -1,6 +1,7 @@
 //! Lazy materialization into the canonical owned bank, with joint source accounting.
 mod catalog;
 mod dimensions;
+mod hyperlinks;
 mod merges;
 mod structure;
 mod styles;
@@ -41,6 +42,8 @@ struct SourceSheet {
     kind: crate::SheetKind,
     original: Option<usize>,
     normalized_styles: bool,
+    hyperlinks_requested: bool,
+    hyperlinks_loaded: bool,
 }
 /// Owns a seekable original package and the canonical workbook bank. Source
 /// styles transfer into the bank without cloning; only date classifications stay
@@ -151,6 +154,8 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 kind: sheet.kind(),
                 original: Some(index),
                 normalized_styles: false,
+                hyperlinks_requested: false,
+                hyperlinks_loaded: false,
             });
         }
         bank.set_active_view_index(reader.active_view_index());
@@ -369,6 +374,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 )?;
                 rows.capture_dimensions();
                 rows.capture_merges();
+                if self.sheets[index].hyperlinks_requested {
+                    rows.capture_hyperlinks();
+                }
                 let mut row = Row::new(RowIndex::new(0)?);
                 rows.set_aggregate_retained(retained.saturating_add(incoming.charged_bytes()))?;
                 while rows.read_row_into(&mut row)? {
@@ -390,9 +398,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                             .saturating_add(row.memory_bytes()),
                     )?;
                 }
-                Ok(rows.take_merge_ranges())
+                Ok((rows.take_merge_ranges(), rows.take_hyperlinks()))
             })();
-            let merges = match decode {
+            let (merges, links) = match decode {
                 Ok(merges) => merges,
                 Err(error) => {
                     drop(incoming);
@@ -400,11 +408,13 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                     return Err(error);
                 }
             };
+            let hyperlink_bytes = links.heap_bytes();
             let mut normalized_styles = false;
             let normalized = (|| {
                 let geometry_bytes = merges
                     .capacity()
-                    .saturating_mul(size_of::<crabxl_core::CellRange>());
+                    .saturating_mul(size_of::<crabxl_core::CellRange>())
+                    .saturating_add(hyperlink_bytes);
                 for range in &merges {
                     self.editor.book.rebalance_strings_for_retained(
                         self.bank
@@ -456,6 +466,31 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 self.rebalance()?;
                 return Err(error);
             }
+            if self.sheets[index].hyperlinks_requested {
+                let available = maximum
+                    .saturating_sub(self.managed_retained_bytes())
+                    .saturating_sub(incoming.charged_bytes());
+                let result = (|| {
+                    let links = self.editor.book.resolve_hyperlinks(
+                        self.sheets[index].name.as_ref(),
+                        links,
+                        available,
+                    )?;
+                    incoming.set_memory_allowance(
+                        incoming
+                            .charged_bytes()
+                            .saturating_add(available)
+                            .min(self.options.workbook.sheet.max_bytes)
+                            .min(self.options.resources.max_materialized_bytes),
+                    )?;
+                    incoming.set_hyperlinks(links)
+                })();
+                if let Err(error) = result {
+                    drop(incoming);
+                    self.rebalance()?;
+                    return Err(error);
+                }
+            }
             let retained = self
                 .bank
                 .charged_bytes()
@@ -475,6 +510,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             incoming.mark_clean();
             self.rebalance()?;
             self.bank.replace_sheet(id, incoming)?;
+            self.sheets[index].hyperlinks_loaded = self.sheets[index].hyperlinks_requested;
             self.sheets[index].loaded = true;
             self.sheets[index].normalized_styles = normalized_styles;
             self.rebalance()?;

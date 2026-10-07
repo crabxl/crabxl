@@ -2,6 +2,9 @@
 // External hyperlink relationship ordering adapted from umya-spreadsheet,
 // Copyright (c) 2020 MathNya. Bounded codecs and full optional fields are CrabXL.
 //! Point hyperlink metadata and owned-package relationship encoding.
+mod scan;
+pub(crate) use scan::Capture;
+
 use crate::{
     encode::{RowBuffer, validate_xml_text, write_attribute},
     xml::OFFICE_REL_URI,

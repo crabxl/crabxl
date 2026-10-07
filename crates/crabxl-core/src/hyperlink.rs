@@ -91,13 +91,44 @@ impl Hyperlinks {
             .iter()
             .map(|(&(row, column), value)| (CellAddress { row, column }, value))
     }
+    /// Resolve one retained relationship target without cloning unrelated fields.
+    /// A failed budget check leaves this declaration unchanged.
+    pub fn set_relationship_target(
+        &mut self,
+        address: CellAddress,
+        target: Box<str>,
+        external: bool,
+        maximum: usize,
+    ) -> Result<()> {
+        let old = self.get(address).ok_or_else(|| {
+            Error::new(ErrorKind::InvalidData, "Unknown hyperlink declaration").with_cell(address)
+        })?;
+        let bytes = self
+            .bytes
+            .saturating_sub(old.target.as_ref().map_or(0, |value| value.len()))
+            .saturating_add(target.len());
+        if bytes > maximum {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Resolved hyperlink target exceeds allowance",
+            )
+            .with_cell(address));
+        }
+        if let Some(link) = self.points.get_mut(&(address.row, address.column)) {
+            link.target = Some(target);
+            link.external = external;
+        }
+        self.bytes = bytes;
+        Ok(())
+    }
     /// Remove one declaration and release its managed charge.
     pub fn remove(&mut self, address: CellAddress) -> Option<Hyperlink> {
         let value = self.points.remove(&(address.row, address.column))?;
         self.bytes = self.bytes.saturating_sub(POINT_BYTES + value.heap_bytes());
         Some(value)
     }
-    pub(crate) fn proposed_bytes(&self, address: CellAddress, value: Option<&Hyperlink>) -> usize {
+    /// Managed charge after replacing one declaration, without mutation.
+    pub fn replacement_bytes(&self, address: CellAddress, value: Option<&Hyperlink>) -> usize {
         let old = self
             .get(address)
             .map_or(0, |v| POINT_BYTES + v.heap_bytes());
@@ -113,7 +144,7 @@ impl Hyperlinks {
         value: Option<Hyperlink>,
         maximum: usize,
     ) -> Result<()> {
-        let bytes = self.proposed_bytes(address, value.as_ref());
+        let bytes = self.replacement_bytes(address, value.as_ref());
         if bytes > maximum {
             return Err(Error::new(
                 ErrorKind::MemoryBudgetExceeded,
