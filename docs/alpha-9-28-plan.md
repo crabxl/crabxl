@@ -31,6 +31,15 @@ Complete the entire release scope through the native model, codecs and Python in
 
 W12 now has a verified [sparse merge checkpoint](decisions/0087-sparse-merged-geometry.md) and narrow [measurements](../benchmarks/alpha11-merged-geometry.md). High-level owned/loaded merge/unmerge is usable; affected structural operations and raw live metadata mutation remain tracked dependencies. W13 hyperlinks/editable rich text and complete A11 acceptance remain open.
 
+Subsequent A11 implementation adds missing source style/theme graphs (ADR 0094),
+shared standalone rich XML codecs (ADR 0095), compact hyperlink range adoption
+and point edits (ADR 0096), and shared rectangle utilities (ADR 0097). Python
+integrates these published native revisions, retained/copied rich views and
+detached hyperlinks. These are compilation/formatting checkpoints; no additional
+tests or benchmarks have been run for them. Write-only live hyperlinks, imported
+empty-anchor values, post-save identities, standalone multi-range sets, raw live
+merged declarations and consolidated acceptance still prevent an A11 release.
+
 ## Work-package matrix
 
 | Work package | Usable scope | umya candidate sources | Integration and acceptance focus |
