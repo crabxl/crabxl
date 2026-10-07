@@ -127,6 +127,9 @@ impl StyleContext<'_> {
         let Some(date) = date_value(&cell.value) else {
             return Ok(id);
         };
+        if date.requires_serial_encoding() {
+            return Ok(id);
+        }
         if self
             .number_format(id)
             .and_then(crabxl_core::classify_number_format)

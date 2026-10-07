@@ -483,8 +483,29 @@ fn shared_styles_are_deduplicated_bounded_and_references_are_checked() {
 
 #[test]
 fn date_serials_formats_and_epoch_flags_are_encoded_consistently() {
-    use crabxl_core::{DateEpoch, DateKind, ExcelDateTime};
+    use crabxl_core::{DateEpoch, DateKind, ExcelDateTime, StyleId};
     use std::io::Read;
+    // Direct streamed rows can explicitly override automatic date formatting.
+    let mut explicit = WorkbookWriter::new(Default::default()).unwrap();
+    explicit.start_sheet("General").unwrap();
+    let mut cell = Cell {
+        address: CellAddress::new(0, 0).unwrap(),
+        value: CellValue::DateTime(Box::new(ExcelDateTime::from_ymd(2024, 1, 2).unwrap())),
+        style: StyleId::new(0),
+    };
+    assert!(cell.set_style(StyleId::new(0)));
+    assert!(!cell.set_style(StyleId::new(0)));
+    explicit
+        .write_row(&Row {
+            index: RowIndex::new(0).unwrap(),
+            cells: vec![cell],
+        })
+        .unwrap();
+    let mut reader =
+        WorkbookReader::new(explicit.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
+    let data = reader.read_sheet("General").unwrap();
+    assert_eq!(data.rows[0].cells[0].style, StyleId::new(0));
+    assert_eq!(data.rows[0].cells[0].value, CellValue::Integer(45293));
     for date_1904 in [false, true] {
         let mut writer = WorkbookWriter::new(WriteOptions {
             date_1904,
