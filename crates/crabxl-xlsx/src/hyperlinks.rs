@@ -2,6 +2,7 @@
 // External hyperlink relationship ordering adapted from umya-spreadsheet,
 // Copyright (c) 2020 MathNya. Bounded codecs and full optional fields are CrabXL.
 //! Point hyperlink metadata and owned-package relationship encoding.
+pub(crate) mod output;
 pub(crate) mod rewrite;
 mod scan;
 pub(crate) mod source;
