@@ -536,6 +536,14 @@ impl WorksheetEditor<'_> {
     ) -> Result<()> {
         self.sheet.set_hyperlink(address, link)
     }
+    /// Change declaration fields while preserving the anchor's physical value.
+    pub fn update_hyperlink(
+        &mut self,
+        address: CellAddress,
+        link: Option<crate::Hyperlink>,
+    ) -> Result<()> {
+        self.sheet.update_hyperlink(address, link)
+    }
     /// Apply a prepared merge after validating every local appearance reference.
     pub fn merge_prepared(
         &mut self,

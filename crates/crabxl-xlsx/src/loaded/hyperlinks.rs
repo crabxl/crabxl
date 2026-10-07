@@ -40,6 +40,24 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         address: CellAddress,
         link: Option<crabxl_core::Hyperlink>,
     ) -> Result<()> {
+        self.replace_hyperlink(id, address, link, true)
+    }
+    /// Update declaration fields without filling an empty source anchor.
+    pub fn update_hyperlink(
+        &mut self,
+        id: SheetId,
+        address: CellAddress,
+        link: Option<crabxl_core::Hyperlink>,
+    ) -> Result<()> {
+        self.replace_hyperlink(id, address, link, false)
+    }
+    fn replace_hyperlink(
+        &mut self,
+        id: SheetId,
+        address: CellAddress,
+        link: Option<crabxl_core::Hyperlink>,
+        initialize_value: bool,
+    ) -> Result<()> {
         if self.options.read.data_only {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -57,7 +75,13 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 Error::new(ErrorKind::SheetNotFound, "Unknown hyperlink sheet identity")
             })?;
         if self.sheets[index].original.is_none() {
-            let result = self.bank.sheet_mut(id)?.set_hyperlink(address, link);
+            let mut sheet = self.bank.sheet_mut(id)?;
+            let result = if initialize_value {
+                sheet.set_hyperlink(address, link)
+            } else {
+                sheet.update_hyperlink(address, link)
+            };
+            drop(sheet);
             if result.is_ok() {
                 self.editor.created_values_dirty(id);
             }
@@ -74,9 +98,10 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         let filler = link
             .as_ref()
             .filter(|_| {
-                sheet
-                    .get(address)
-                    .is_none_or(|cell| matches!(cell.value, CellValue::Empty))
+                initialize_value
+                    && sheet
+                        .get(address)
+                        .is_none_or(|cell| matches!(cell.value, CellValue::Empty))
             })
             .map(crabxl_core::Hyperlink::initial_cell_value);
         let model_dirty = self.editor.model_is_dirty(&self.sheets[index].name);
@@ -92,7 +117,13 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .map_or(self.editor.patch_bytes(), |plan| plan.bytes);
         let planned = self.editor.prepare_hyperlink_patch(original, base)?;
         self.reserve_workbook_patch(planned)?;
-        let result = self.bank.sheet_mut(id)?.set_hyperlink(address, link);
+        let mut sheet = self.bank.sheet_mut(id)?;
+        let result = if initialize_value {
+            sheet.set_hyperlink(address, link)
+        } else {
+            sheet.update_hyperlink(address, link)
+        };
+        drop(sheet);
         if let Err(error) = result {
             self.rebalance()?;
             return Err(error);

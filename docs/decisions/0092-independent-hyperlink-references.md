@@ -23,3 +23,12 @@ one declaration coordinate, verifies last-target readback, and checks invalid ra
 rejection retains values and affected row shifts fail. Rust 1.88 workspace tests
 and Rust 1.99 strict Clippy verify the foundation; the cached-count refinement is
 also covered by its targeted lifecycle rerun. This does not release A11.
+# Declaration mutation and cell assignment
+
+Owned and source-backed sheets expose `update_hyperlink` for changing metadata
+without filling an empty anchor. `set_hyperlink` retains assignment semantics,
+including initialization from the target or location. Both paths share canonical
+validation, resource accounting and source relationship planning. Live binding
+field changes and rollback must use the metadata-only path. This follow-up is an
+implementation checkpoint; its additional acceptance cases are deferred until
+the complete A11 scope is ready for publication.
