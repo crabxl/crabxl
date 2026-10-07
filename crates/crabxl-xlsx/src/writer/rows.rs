@@ -203,7 +203,8 @@ impl WorkbookWriter {
         let style_allowance = self
             .options
             .max_metadata_bytes
-            .saturating_sub(self.catalog_bytes());
+            .saturating_sub(self.catalog_bytes())
+            .saturating_sub(self.pending_link_metadata_bytes);
         let styles = self
             .styles
             .as_mut()
@@ -241,6 +242,12 @@ impl WorkbookWriter {
         let length = self.row_buffer.data.len() as u64;
         self.check_temp(
             length
+                + self.pending_link_bytes
+                + self
+                    .active
+                    .as_ref()
+                    .and_then(|sheet| sheet.link_spool.as_ref())
+                    .map_or(0, hyperlinks::LinkSpool::pending_bytes)
                 + self.paused_footers()
                 + self.active.as_ref().map_or(FOOTER.len(), |sheet| {
                     sheet.footer.as_ref().map_or(FOOTER.len(), Vec::len)
@@ -254,6 +261,13 @@ impl WorkbookWriter {
         if active
             .bytes
             .saturating_add(length)
+            .saturating_add(self.pending_link_sheet_bytes)
+            .saturating_add(
+                active
+                    .link_spool
+                    .as_ref()
+                    .map_or(0, hyperlinks::LinkSpool::pending_sheet_bytes),
+            )
             .saturating_add(active.footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64)
             > self.options.max_sheet_bytes
         {
@@ -294,8 +308,11 @@ impl WorkbookWriter {
             };
             self.write_cells_with_dimension(dimension.index, std::iter::empty(), Some(&dimension))?;
         }
-        let footer = self.active.as_mut().and_then(|sheet| sheet.footer.take());
-        self.write_active(footer.as_deref().unwrap_or(FOOTER))?;
+        let (footer_written, relationship_spool) = self.finish_hyperlinks()?;
+        if !footer_written {
+            let footer = self.active.as_mut().and_then(|sheet| sheet.footer.take());
+            self.write_active(footer.as_deref().unwrap_or(FOOTER))?;
+        }
         let active = self
             .active
             .take()
@@ -310,6 +327,7 @@ impl WorkbookWriter {
             file,
             visibility: active.visibility,
             relationships: active.relationships,
+            relationship_spool,
         });
         Ok(())
     }

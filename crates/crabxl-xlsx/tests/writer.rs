@@ -279,6 +279,166 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
 }
 
 #[test]
+fn streamed_hyperlinks_interleave_under_metadata_budget_and_clean_all_spools() {
+    use crabxl_core::Hyperlink;
+    let directory = tempfile::tempdir().unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        max_metadata_bytes: 128 * 1024,
+        max_cell_bytes: 64,
+        max_row_bytes: 8192,
+        buffer_bytes: 4096,
+        ..options(&directory)
+    })
+    .unwrap();
+    let first = writer.start_interleaved_sheet("First").unwrap();
+    let second = writer.start_interleaved_sheet("Second").unwrap();
+    writer.activate_sheet(first).unwrap();
+    let bad = row(0, vec![CellValue::text("x".repeat(65))]);
+    let point = CellAddress::new(0, 0).unwrap();
+    let before = writer.temporary_bytes();
+    assert!(
+        writer
+            .write_row_with_hyperlinks(
+                &bad,
+                &[(point, Hyperlink::external("https://example.org/"))]
+            )
+            .is_err()
+    );
+    assert_eq!(writer.stats().rows, 0);
+    assert_eq!(writer.temporary_bytes(), before);
+    assert_eq!(files(&directory), 2);
+    for index in 0..1000 {
+        writer.activate_sheet(first).unwrap();
+        let value = row(
+            index,
+            vec![CellValue::text("value"), CellValue::text("local")],
+        );
+        writer
+            .write_row_with_hyperlinks(
+                &value,
+                &[
+                    (
+                        CellAddress::new(index, 0).unwrap(),
+                        Hyperlink::external(format!("https://example.org/{index}?x=1&y=2#part")),
+                    ),
+                    (
+                        CellAddress::new(index, 1).unwrap(),
+                        Hyperlink {
+                            location: Some("First!A1".into()),
+                            ..Default::default()
+                        },
+                    ),
+                ],
+            )
+            .unwrap();
+        writer.activate_sheet(second).unwrap();
+        let value = row(index, vec![CellValue::Integer(i64::from(index))]);
+        writer
+            .write_row_with_hyperlinks(
+                &value,
+                &[(
+                    CellAddress::new(index, 0).unwrap(),
+                    Hyperlink::external(format!("../file-{index}.xlsx#A1")),
+                )],
+            )
+            .unwrap();
+    }
+    assert_eq!(files(&directory), 6);
+    // Closing out of creation order must not swap relationship part identities.
+    writer.close_interleaved_sheet(second).unwrap();
+    let peak = writer.stats().peak_temp_bytes;
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    assert!(peak > 128 * 1024);
+    assert_eq!(files(&directory), 0);
+    let mut reader = WorkbookReader::new(output).unwrap();
+    let first = reader.hyperlinks("First").unwrap();
+    assert_eq!(first.len(), 2000);
+    assert_eq!(
+        first.get(point).unwrap().relationship_id.as_deref(),
+        Some("rId1")
+    );
+    assert_eq!(
+        first
+            .get(CellAddress::new(999, 0).unwrap())
+            .unwrap()
+            .target
+            .as_deref(),
+        Some("https://example.org/999?x=1&y=2#part")
+    );
+    assert_eq!(
+        first
+            .get(CellAddress::new(999, 1).unwrap())
+            .unwrap()
+            .location
+            .as_deref(),
+        Some("First!A1")
+    );
+    let second = reader.hyperlinks("Second").unwrap();
+    assert_eq!(second.len(), 1000);
+    assert_eq!(
+        second
+            .get(CellAddress::new(999, 0).unwrap())
+            .unwrap()
+            .target
+            .as_deref(),
+        Some("../file-999.xlsx#A1")
+    );
+
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        max_temp_bytes: 4096,
+        max_sheet_bytes: 4096,
+        max_row_bytes: 16384,
+        ..options(&directory)
+    })
+    .unwrap();
+    writer.start_sheet("Limited").unwrap();
+    let before = writer.temporary_bytes();
+    let value = row(0, vec![CellValue::text("kept")]);
+    assert_eq!(
+        writer
+            .write_row_with_hyperlinks(&value, &[(point, Hyperlink::external("x".repeat(4096)))])
+            .unwrap_err()
+            .kind(),
+        ErrorKind::LimitExceeded
+    );
+    assert_eq!(writer.stats().rows, 0);
+    assert_eq!(writer.temporary_bytes(), before);
+    assert_eq!(files(&directory), 1);
+    writer
+        .write_row_with_hyperlinks(
+            &value,
+            &[(
+                point,
+                Hyperlink {
+                    location: Some("Limited!A1".into()),
+                    ..Default::default()
+                },
+            )],
+        )
+        .unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    assert_eq!(files(&directory), 0);
+    let mut archive = zip::ZipArchive::new(output).unwrap();
+    assert!(
+        archive
+            .by_name("xl/worksheets/_rels/sheet1.xml.rels")
+            .is_err()
+    );
+    let mut writer = WorkbookWriter::new(options(&directory)).unwrap();
+    writer.start_sheet("Abort").unwrap();
+    writer
+        .write_row_with_hyperlinks(
+            &value,
+            &[(point, Hyperlink::external("https://example.org/"))],
+        )
+        .unwrap();
+    assert_eq!(files(&directory), 3);
+    writer.abort().unwrap();
+    writer.abort().unwrap();
+    assert_eq!(files(&directory), 0);
+}
+
+#[test]
 fn scalar_round_trip_sparse_rows_empty_sheet_and_epoch() {
     let directory = tempfile::tempdir().unwrap();
     let mut writer = WorkbookWriter::new(WriteOptions {
@@ -553,7 +713,13 @@ fn finish_io_failure_cleans_spools_and_preserves_borrowed_sink() {
         let mut writer = WorkbookWriter::new(options(&directory)).unwrap();
         writer.start_sheet("First").unwrap();
         writer
-            .write_row(&row(0, vec![CellValue::text("value")]))
+            .write_row_with_hyperlinks(
+                &row(0, vec![CellValue::text("value")]),
+                &[(
+                    CellAddress::new(0, 0).unwrap(),
+                    crabxl_core::Hyperlink::external("https://example.org/"),
+                )],
+            )
             .unwrap();
         writer.start_sheet("Second").unwrap();
         let mut sink = FailingSink {
@@ -574,6 +740,15 @@ fn abort_attempts_remaining_cleanup_after_one_unlink_failure() {
     let directory = tempfile::tempdir().unwrap();
     let mut writer = WorkbookWriter::new(options(&directory)).unwrap();
     writer.start_sheet("First").unwrap();
+    writer
+        .write_row_with_hyperlinks(
+            &row(0, vec![CellValue::text("value")]),
+            &[(
+                CellAddress::new(0, 0).unwrap(),
+                crabxl_core::Hyperlink::external("https://example.org/"),
+            )],
+        )
+        .unwrap();
     writer.start_sheet("Second").unwrap();
     let obstructed = std::fs::read_dir(directory.path())
         .unwrap()

@@ -3,6 +3,7 @@
 // Copyright 2022-2026 John McNamara. Source provenance: third_party/ports.json.
 
 mod finish;
+mod hyperlinks;
 mod interleaved;
 mod merged_rows;
 mod rows;
@@ -142,6 +143,7 @@ struct StoredSheet {
     file: NamedTempFile,
     visibility: crabxl_core::SheetVisibility,
     relationships: Option<Vec<u8>>,
+    relationship_spool: Option<NamedTempFile>,
 }
 struct ActiveSheet {
     id: usize,
@@ -152,6 +154,7 @@ struct ActiveSheet {
     footer: Option<Vec<u8>>,
     visibility: crabxl_core::SheetVisibility,
     relationships: Option<Vec<u8>>,
+    link_spool: Option<hyperlinks::LinkSpool>,
     dimensions: crabxl_core::SheetDimensions,
     header_prefix_bytes: u64,
     columns_written: bool,
@@ -175,6 +178,9 @@ pub struct WorkbookWriter {
     next_sheet: usize,
     row_buffer: RowBuffer,
     temporary_bytes: u64,
+    pending_link_bytes: u64,
+    pending_link_sheet_bytes: u64,
+    pending_link_metadata_bytes: usize,
     stats: WriteStats,
     aborted: bool,
     poisoned: bool,
@@ -327,6 +333,9 @@ impl WorkbookWriter {
             next_sheet: 0,
             row_buffer,
             temporary_bytes: 0,
+            pending_link_bytes: 0,
+            pending_link_sheet_bytes: 0,
+            pending_link_metadata_bytes: 0,
             stats: WriteStats::default(),
             aborted: false,
             poisoned: false,

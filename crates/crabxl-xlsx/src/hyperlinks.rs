@@ -77,34 +77,66 @@ pub(crate) fn write_links_with_ids<'a>(
     write_attribute(output, "xmlns:r", OFFICE_REL_URI)?;
     output.write_all(b">")?;
     for (index, (address, link)) in links.iter().enumerate() {
-        output.write_all(b"<hyperlink")?;
-        if let Some(reference) = &link.reference {
-            write_attribute(output, "ref", reference)?;
-        } else {
-            write_attribute(output, "ref", &address.to_string())?;
-        }
-        for (name, value) in [
-            ("location", &link.location),
-            ("display", &link.display),
-            ("tooltip", &link.tooltip),
-        ] {
-            if let Some(value) = value {
-                write_attribute(output, name, value)?;
-            }
-        }
-        if link.target.is_some() {
-            let id = identity(index).ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Missing encoded hyperlink identity",
-                )
-            })?;
-            write_attribute(output, "r:id", &id)?;
-        }
-        output.write_all(b"/>")?;
+        let id = link.target.as_ref().and_then(|_| identity(index));
+        write_link(output, address, link, id.as_deref())?;
     }
     output.write_all(b"</hyperlinks>")
 }
+pub(crate) fn write_link(
+    output: &mut impl Write,
+    address: crabxl_core::CellAddress,
+    link: &crabxl_core::Hyperlink,
+    identity: Option<&str>,
+) -> io::Result<()> {
+    output.write_all(b"<hyperlink")?;
+    if let Some(reference) = &link.reference {
+        write_attribute(output, "ref", reference)?;
+    } else {
+        write_attribute(output, "ref", &address.to_string())?;
+    }
+    for (name, value) in [
+        ("location", &link.location),
+        ("display", &link.display),
+        ("tooltip", &link.tooltip),
+    ] {
+        if let Some(value) = value {
+            write_attribute(output, name, value)?;
+        }
+    }
+    if link.target.is_some() {
+        let identity = identity.ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Missing encoded hyperlink identity",
+            )
+        })?;
+        write_attribute(output, "r:id", identity)?;
+    }
+    output.write_all(b"/>")
+}
+
+pub(crate) const RELATIONSHIPS_HEADER: &[u8] = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">";
+
+pub(crate) fn write_relationship(
+    output: &mut impl Write,
+    identity: &str,
+    target: &str,
+    explicit_namespace: bool,
+) -> io::Result<()> {
+    output.write_all(b"<Relationship")?;
+    if explicit_namespace {
+        write_attribute(
+            output,
+            "xmlns",
+            "http://schemas.openxmlformats.org/package/2006/relationships",
+        )?;
+    }
+    write_attribute(output, "Id", identity)?;
+    write_attribute(output, "Type", &format!("{OFFICE_REL_URI}/hyperlink"))?;
+    write_attribute(output, "Target", target)?;
+    output.write_all(b" TargetMode=\"External\"/>")
+}
+
 pub(crate) fn relationships(links: &Hyperlinks, maximum: usize) -> Result<Option<Vec<u8>>> {
     validate(links)?;
     if !links.iter().any(|(_, link)| link.target.is_some()) {
@@ -115,20 +147,24 @@ pub(crate) fn relationships(links: &Hyperlinks, maximum: usize) -> Result<Option
         maximum,
     };
     (|| -> io::Result<()> {
-        output.write_all(b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">")?;
+        output.write_all(RELATIONSHIPS_HEADER)?;
         for (index, (_, link)) in links.iter().enumerate() {
             if let Some(target) = &link.target {
-                output.write_all(b"<Relationship")?;
-                write_attribute(&mut output, "Id", &format!("rId{}", index + 1))?;
-                write_attribute(&mut output, "Type", &format!("{OFFICE_REL_URI}/hyperlink"))?;
-                write_attribute(&mut output, "Target", target)?;
-                write_attribute(&mut output, "TargetMode", "External")?;
-                output.write_all(b"/>")?;
+                write_relationship(&mut output, &format!("rId{}", index + 1), target, false)?;
             }
         }
         output.write_all(b"</Relationships>")
-    })().map_err(|cause| Error::caused_by(
-        if cause.kind() == io::ErrorKind::FileTooLarge { ErrorKind::MemoryBudgetExceeded } else { ErrorKind::Io },
-        "Cannot encode bounded hyperlink relationships", cause))?;
+    })()
+    .map_err(|cause| {
+        Error::caused_by(
+            if cause.kind() == io::ErrorKind::FileTooLarge {
+                ErrorKind::MemoryBudgetExceeded
+            } else {
+                ErrorKind::Io
+            },
+            "Cannot encode bounded hyperlink relationships",
+            cause,
+        )
+    })?;
     Ok(Some(output.data))
 }
