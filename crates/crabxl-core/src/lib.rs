@@ -35,6 +35,9 @@ pub use row::{
 pub use scalar::{CellError, CellText, ExactInteger, StyleInteger};
 pub use style::{CellStyle, Font, StyleComponent, StyleId};
 
+mod dimensions;
+pub use dimensions::{ColumnDimension, RowDimension, SheetDimensions};
+
 mod worksheet;
 pub use worksheet::{CellRange, EditLimits, SheetVisibility, Worksheet};
 mod range;
@@ -67,7 +70,9 @@ pub use style_components::{
 };
 
 mod style_catalog;
-pub use style_catalog::{CellFormat, NamedStyle, NumberFormat, StyleCatalog, StyleView};
+pub use style_catalog::{
+    CellFormat, NamedStyle, NamedStyleOptions, NumberFormat, StyleCatalog, StyleView,
+};
 
 mod number_formats;
 pub use number_formats::{
@@ -81,6 +86,7 @@ mod style_registry;
 pub use style_registry::{StyleLimits, StyleRegistry, TemporalStyleIds};
 
 mod theme;
+mod theme_resolution;
 pub use theme::{
     Theme, ThemeCatalog, ThemeColor, ThemeFontCollection, ThemeScriptFont, ThemeTypeface,
 };

@@ -78,7 +78,7 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     shared_strings: Option<SharedStrings>,
     shared_string_options: SharedStringOptions,
     pub(crate) style_part: Option<String>,
-    theme_part: Option<String>,
+    pub(crate) theme_part: Option<String>,
     theme: Option<crabxl_core::Theme>,
     imported_styles: Option<crate::style_reader::ImportedStyles>,
     styles_transferred: bool,
@@ -191,6 +191,53 @@ impl<R: Read + Seek> WorkbookReader<R> {
             self.limits,
         );
         crate::worksheet_view::read_header(&mut xml, maximum)
+    }
+    /// Read sparse column declarations from the worksheet header without cells.
+    /// Stops at sheetData; unread payload and ZIP CRC are not validated.
+    pub fn column_dimensions(&mut self, name: &str) -> Result<crabxl_core::SheetDimensions> {
+        self.column_dimensions_with_allowance(name, usize::MAX)
+    }
+    pub(crate) fn column_dimensions_with_allowance(
+        &mut self,
+        name: &str,
+        allowance: usize,
+    ) -> Result<crabxl_core::SheetDimensions> {
+        let info = self
+            .sheets
+            .iter()
+            .find(|sheet| sheet.name() == name)
+            .ok_or_else(|| {
+                Error::new(ErrorKind::SheetNotFound, "Worksheet view source not found")
+            })?;
+        if info.kind() != SheetKind::Worksheet {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Worksheet views require a cell worksheet",
+            ));
+        }
+        let part = info.part().to_owned();
+        let file = self.archive.by_name(&part).map_err(|error| {
+            Error::caused_by(
+                ErrorKind::Archive,
+                "Cannot open worksheet view source",
+                error,
+            )
+            .with_part(part.clone())
+        })?;
+        let maximum = usize::try_from(self.limits.max_metadata_bytes)
+            .unwrap_or(usize::MAX)
+            .min(allowance);
+        let bytes = file
+            .size()
+            .min(self.limits.max_metadata_bytes)
+            .min(self.limits.max_part_bytes);
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(self.limits.input_buffer_bytes, file),
+            part,
+            bytes,
+            self.limits,
+        );
+        crate::dimension_codec::read_columns(&mut xml, maximum)
     }
     /// Read printing metadata through worksheet EOF/CRC without materializing cells.
     /// Full decompression is necessary because printing elements follow sheetData.

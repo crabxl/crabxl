@@ -77,7 +77,9 @@ pub use crabxl_core::{
     Protection,
 };
 
-pub use crabxl_core::{CellFormat, NamedStyle, NumberFormat, StyleCatalog, StyleView};
+pub use crabxl_core::{
+    CellFormat, NamedStyle, NamedStyleOptions, NumberFormat, StyleCatalog, StyleView,
+};
 
 pub use crabxl_core::DateReadPolicy;
 
@@ -113,3 +115,6 @@ pub use crabxl_core::{
     PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup, PaperDimension, PrintOptions,
     PrintSettings, PrintSettingsChange, PrintedComments, PrintedErrors,
 };
+
+/// Sparse worksheet dimension metadata and shared appearance identities.
+pub use crabxl_core::{ColumnDimension, RowDimension, SheetDimensions};

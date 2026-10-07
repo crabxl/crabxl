@@ -99,6 +99,18 @@ pub struct NamedStyle {
     /// Optional outline level.
     pub outline_level: Option<u32>,
 }
+/// Optional metadata for a newly registered named appearance.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NamedStyleOptions {
+    /// Built-in identity, if applicable.
+    pub builtin_id: Option<u32>,
+    /// Explicit custom-built-in indicator.
+    pub custom_builtin: Option<bool>,
+    /// Hide the name in spreadsheet application galleries.
+    pub hidden: Option<bool>,
+    /// Optional outline level retained independently of application defaults.
+    pub outline_level: Option<u32>,
+}
 /// Borrowed appearance components for an existing cell-format identity.
 /// Source application/base-style flags remain accessible through format.
 /// This view installs no inferred defaults or locale-specific format codes.

@@ -1,6 +1,6 @@
 //! Checked source guards and borrowed row serialization for canonical model edits.
 //! This coordinator is original CrabXL code, not an imported workbook engine.
-use crate::encode::{RowBuffer, StyleContext, ValueEncoding, encode_cells};
+use crate::encode::{RowBuffer, StyleContext, ValueEncoding, encode_cells_with_dimension};
 use crate::xml::{Scope, XmlStream};
 use crabxl_core::{
     DateEpoch, Error, ErrorKind, ResourceLimits, Result, StyleCatalog, StyleId, TemporalStyleIds,
@@ -22,6 +22,7 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
     let mut shared_strings = false;
     let mut data = false;
     let mut seen_data = false;
+    let mut columns = false;
     loop {
         let frame = xml.next()?;
         match &frame.event {
@@ -46,6 +47,7 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
                                 | b"dimension"
                                 | b"sheetViews"
                                 | b"sheetFormatPr"
+                                | b"cols"
                                 | b"sheetData"
                                 | b"printOptions"
                                 | b"pageMargins"
@@ -66,6 +68,47 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
                         data = true;
                     }
                 }
+                if columns
+                    && !(frame.depth == 3 && frame.scope == Scope::Spreadsheet && name == b"col")
+                {
+                    return Err(unsupported());
+                }
+                if frame.depth == 2 && name == b"cols" {
+                    for attr in e.attributes() {
+                        let attr = attr.map_err(|_| unsupported())?;
+                        let key = attr.key.as_ref().as_bytes();
+                        if key != b"xmlns" && !key.starts_with(b"xmlns:") {
+                            return Err(unsupported());
+                        }
+                    }
+                    columns = true;
+                }
+                if frame.depth == 3 && name == b"col" {
+                    if frame.scope != Scope::Spreadsheet {
+                        return Err(unsupported());
+                    }
+                    for attr in e.attributes() {
+                        let attr = attr.map_err(|_| unsupported())?;
+                        let key = attr.key.as_ref().as_bytes();
+                        if !matches!(
+                            key,
+                            b"min"
+                                | b"max"
+                                | b"width"
+                                | b"style"
+                                | b"hidden"
+                                | b"bestFit"
+                                | b"outlineLevel"
+                                | b"collapsed"
+                                | b"customWidth"
+                                | b"phonetic"
+                                | b"xmlns"
+                        ) && !key.starts_with(b"xmlns:")
+                        {
+                            return Err(unsupported());
+                        }
+                    }
+                }
                 if data {
                     if name == b"c" && crate::xml::attribute(e, b"t")?.as_deref() == Some("s") {
                         shared_strings = true;
@@ -75,7 +118,19 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
                     }
                     let allowed: &[&[u8]] = match (frame.depth, name) {
                         (2, b"sheetData") => &[],
-                        (3, b"row") => &[b"r", b"spans"],
+                        (3, b"row") => &[
+                            b"r",
+                            b"spans",
+                            b"ht",
+                            b"s",
+                            b"hidden",
+                            b"outlineLevel",
+                            b"collapsed",
+                            b"customHeight",
+                            b"customFormat",
+                            b"thickTop",
+                            b"thickBot",
+                        ],
                         (4, b"c") => &[b"r", b"s", b"t"],
                         (5, b"f") => &[],
                         (5, b"v" | b"is") | (6, b"t") => &[],
@@ -99,6 +154,19 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
                         }
                     }
                 }
+            }
+            Event::End(e) if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"cols" => {
+                columns = false;
+            }
+            Event::Text(text)
+                if columns && !text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) =>
+            {
+                return Err(unsupported());
+            }
+            Event::CData(_) | Event::GeneralRef(_) | Event::Comment(_) | Event::PI(_)
+                if columns =>
+            {
+                return Err(unsupported());
             }
             Event::End(e)
                 if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"sheetData" =>
@@ -177,6 +245,40 @@ pub(crate) fn guard_strings<B: BufRead>(xml: &mut XmlStream<B>) -> Result<()> {
     }
 }
 pub(crate) fn validate_model(sheet: &Worksheet, catalog: Option<&StyleCatalog>) -> Result<()> {
+    sheet.dimensions().validate()?;
+    for style in sheet
+        .dimensions()
+        .rows()
+        .iter()
+        .filter_map(|row| row.style)
+        .chain(
+            sheet
+                .dimensions()
+                .columns()
+                .iter()
+                .filter_map(|column| column.style),
+        )
+    {
+        if catalog.map_or(style.get() != 0, |catalog| {
+            catalog.cell_format(style).is_none()
+        }) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Unknown dimension style identity",
+            ));
+        }
+    }
+    if sheet
+        .dimensions()
+        .rows()
+        .iter()
+        .any(|row| row.descent.is_some())
+    {
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            "Extended row descent serialization is not implemented",
+        ));
+    }
     let mut styles = StyleContext::Catalog(catalog);
     for cell in sheet.cells() {
         if matches!(&cell.value, crabxl_core::CellValue::Formula(formula)
@@ -231,15 +333,32 @@ pub(crate) fn write_data<W: Write>(
         data: Vec::new(),
         maximum: limits.max_row_bytes,
     };
-    let mut cells = sheet.cells().peekable();
+    let mut cells = sheet.row_indices().peekable();
+    let mut dimensions = sheet
+        .dimensions()
+        .rows()
+        .iter()
+        .map(|row| row.index)
+        .peekable();
     let mut last = None;
     write!(output, "<sheetData xmlns=\"{uri}\">")
         .map_err(|cause| crate::writer::io_error("Cannot start model sheetData", cause))?;
-    while let Some(cell) = cells.peek() {
-        let row = cell.address.row;
-        encode_cells(
+    while cells.peek().is_some() || dimensions.peek().is_some() {
+        let row = match (cells.peek(), dimensions.peek()) {
+            (Some(cell), Some(dimension)) => (*cell).min(*dimension),
+            (Some(cell), None) => *cell,
+            (None, Some(dimension)) => *dimension,
+            (None, None) => break,
+        };
+        if cells.peek() == Some(&row) {
+            cells.next();
+        }
+        if dimensions.peek() == Some(&row) {
+            dimensions.next();
+        }
+        encode_cells_with_dimension(
             &mut buffer,
-            row,
+            (row, sheet.dimensions().row(row)),
             sheet.row_cells(row),
             limits.max_cell_bytes,
             limits.max_row_cells,
@@ -262,9 +381,6 @@ pub(crate) fn write_data<W: Write>(
             .write_all(&buffer.data)
             .map_err(|cause| crate::writer::io_error("Cannot write model row", cause))?;
         last = Some(row.get());
-        while cells.peek().is_some_and(|cell| cell.address.row == row) {
-            cells.next();
-        }
     }
     if sheet.row_extent() > 0 && last.is_none_or(|row| row + 1 < sheet.row_extent()) {
         write!(output, "<row r=\"{}\"/>", sheet.row_extent())
@@ -286,6 +402,8 @@ pub(crate) fn write_new<W: Write>(
 ) -> Result<()> {
     write!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"{uri}\"><dimension ref=\"{}\"/><sheetFormatPr defaultRowHeight=\"15\"/>", dimension(sheet))
         .map_err(|cause| crate::writer::io_error("Cannot start new model worksheet", cause))?;
+    crate::dimension_codec::write_columns(output, sheet.dimensions().columns())
+        .map_err(|cause| crate::writer::io_error("Cannot write model columns", cause))?;
     write_data(output, sheet, catalog, limits, encoding, uri)?;
     output
         .write_all(b"</worksheet>")

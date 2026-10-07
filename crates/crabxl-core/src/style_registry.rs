@@ -264,6 +264,7 @@ enum IndexKind {
     Border,
     Number,
     Format,
+    Named,
 }
 /// Canonical workbook-local temporal presets. IDs are resolved from each
 /// source catalog rather than assuming that imported records occupy 1..=4.
@@ -359,6 +360,7 @@ pub struct StyleRegistry {
     borders: Index,
     numbers: Index,
     formats: Index,
+    names: Index,
     limits: StyleLimits,
     payload_bytes: usize,
     reserved_number_ids: Vec<u32>,
@@ -378,6 +380,7 @@ impl StyleRegistry {
             borders: Index::default(),
             numbers: Index::default(),
             formats: Index::default(),
+            names: Index::default(),
             limits,
             payload_bytes: 0,
             reserved_number_ids: Vec::new(),
@@ -428,7 +431,25 @@ impl StyleRegistry {
             outline_level: None,
         });
         registry.payload_bytes = "Normal".len();
-        registry.register(CellStyle::default())?;
+        registry.index_imported(IndexKind::Named, fingerprint(&"Normal"), 0)?;
+        let normal = registry.register_with_limit(
+            CellStyle::default(),
+            limits
+                .max_bytes
+                .saturating_sub(size_of::<crate::Alignment>()),
+        )?;
+        let source = registry
+            .catalog
+            .cell_format(normal)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing normal format"))?;
+        let heap = source.heap_bytes();
+        if registry.memory_bytes().saturating_add(heap) > limits.max_bytes {
+            return Err(limit());
+        }
+        let mut base = source.clone();
+        base.base_format_id = None;
+        registry.catalog.base_formats[0] = base;
+        registry.payload_bytes = registry.payload_bytes.saturating_add(heap);
         Ok(registry)
     }
     /// Adopt existing tables without remapping component, format or source IDs.
@@ -493,6 +514,7 @@ impl StyleRegistry {
             borders: Index::default(),
             numbers: Index::default(),
             formats: Index::default(),
+            names: Index::default(),
             limits,
             payload_bytes,
             reserved_number_ids: Vec::new(),
@@ -581,6 +603,13 @@ impl StyleRegistry {
             let hash = fingerprint(&format_key(format, format.alignment.as_deref()));
             value.index_imported(IndexKind::Format, hash, i as u32)?;
         }
+        for i in 0..value.catalog.named_styles.len() {
+            value.index_imported(
+                IndexKind::Named,
+                fingerprint(&value.catalog.named_styles[i].name.as_ref()),
+                i as u32,
+            )?;
+        }
         Ok(value)
     }
     fn index_imported(&mut self, kind: IndexKind, hash: u64, id: u32) -> Result<()> {
@@ -590,6 +619,7 @@ impl StyleRegistry {
             IndexKind::Border => &self.borders,
             IndexKind::Number => &self.numbers,
             IndexKind::Format => &self.formats,
+            IndexKind::Named => &self.names,
         };
         if self.memory_bytes().saturating_add(index.growth(hash)) > self.limits.max_bytes {
             return Err(limit());
@@ -600,6 +630,7 @@ impl StyleRegistry {
             IndexKind::Border => &mut self.borders,
             IndexKind::Number => &mut self.numbers,
             IndexKind::Format => &mut self.formats,
+            IndexKind::Named => &mut self.names,
         };
         let prepared = index.reserve(hash)?;
         index.insert(hash, id, prepared);
@@ -661,6 +692,123 @@ impl StyleRegistry {
             .saturating_add(self.borders.heap_bytes())
             .saturating_add(self.numbers.heap_bytes())
             .saturating_add(self.formats.heap_bytes())
+            .saturating_add(self.names.heap_bytes())
+    }
+    /// Resolve a named-style declaration without copying its name or components.
+    pub fn named_style(&self, name: &str) -> Option<&NamedStyle> {
+        let id = self.names.find_by(fingerprint(&name), |id| {
+            self.catalog.named_styles[id as usize].name.as_ref() == name
+        })?;
+        self.catalog.named_styles.get(id as usize)
+    }
+    /// Resolve a name into a shared cell format, retaining the original base identity.
+    pub fn named_style_format_with_limit(&mut self, name: &str, maximum: usize) -> Result<StyleId> {
+        let named = self
+            .named_style(name)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown named style"))?;
+        let base = named.base_format_id;
+        let mut format = self
+            .catalog
+            .base_formats
+            .get(base as usize)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Missing named base format"))?
+            .clone();
+        format.base_format_id = Some(base);
+        self.register_format_with_limit(format, maximum)
+    }
+    /// Register a unique name and base-format link without duplicating appearance tables.
+    /// Allocation failures retain charged capacities but roll back logical named records.
+    pub fn register_named_style_with_limit(
+        &mut self,
+        name: Box<str>,
+        style: StyleId,
+        options: crate::NamedStyleOptions,
+        maximum: usize,
+    ) -> Result<StyleId> {
+        if self.named_style(&name).is_some() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Named style already exists",
+            ));
+        }
+        let maximum = maximum.min(self.limits.max_bytes);
+        let source = self
+            .catalog
+            .cell_format(style)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown named appearance format"))?;
+        if source.unmodeled_extensions {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Unmodeled named style extensions require source preservation",
+            ));
+        }
+        let mut base = source.clone();
+        base.base_format_id = None;
+        let base_id = self.catalog.base_formats.len() as u32;
+        let named_id = self.catalog.named_styles.len() as u32;
+        let mut format = source.clone();
+        format.base_format_id = Some(base_id);
+        let hash = fingerprint(&name.as_ref());
+        let payload = name.len().saturating_add(base.heap_bytes());
+        let growth = vector_growth(&self.catalog.base_formats, self.limits.max_records, false)
+            .saturating_add(vector_growth(
+                &self.catalog.named_styles,
+                self.limits.max_records,
+                false,
+            ))
+            .saturating_add(self.names.growth(hash));
+        if self
+            .memory_bytes()
+            .saturating_add(payload)
+            .saturating_add(growth)
+            > maximum
+        {
+            return Err(limit());
+        }
+        reserve(
+            &mut self.catalog.base_formats,
+            self.limits.max_records,
+            false,
+        )?;
+        reserve(
+            &mut self.catalog.named_styles,
+            self.limits.max_records,
+            false,
+        )?;
+        let prepared = self.names.reserve(hash)?;
+        let pending = prepared
+            .as_ref()
+            .map_or(0, |ids| ids.capacity() * size_of::<u32>());
+        if self
+            .memory_bytes()
+            .saturating_add(payload)
+            .saturating_add(pending)
+            > maximum
+        {
+            return Err(limit());
+        }
+        self.catalog.base_formats.push(base);
+        self.catalog.named_styles.push(NamedStyle {
+            name,
+            base_format_id: base_id,
+            builtin_id: options.builtin_id,
+            custom_builtin: options.custom_builtin,
+            hidden: options.hidden,
+            outline_level: options.outline_level,
+        });
+        self.payload_bytes = self.payload_bytes.saturating_add(payload);
+        match self.register_format_with_limit(format, maximum.saturating_sub(pending)) {
+            Ok(id) => {
+                self.names.insert(hash, named_id, prepared);
+                Ok(id)
+            }
+            Err(error) => {
+                self.catalog.base_formats.pop();
+                self.catalog.named_styles.pop();
+                self.payload_bytes = self.payload_bytes.saturating_sub(payload);
+                Err(error)
+            }
+        }
     }
     /// Intern a literal number-format code, respecting source built-in overrides.
     /// Returns a stable source/custom ID without dense allocation or component copies.
@@ -1331,6 +1479,7 @@ mod accounting_tests {
                 &registry.borders,
                 &registry.numbers,
                 &registry.formats,
+                &registry.names,
             ];
             for value in indices {
                 assert_eq!(

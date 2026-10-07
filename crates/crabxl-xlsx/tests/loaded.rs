@@ -134,6 +134,79 @@ fn source(count: u32, sst: bool) -> Vec<u8> {
 
 #[test]
 fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
+    // Sparse dimension records and named styles survive owned and preserving saves.
+    {
+        let mut workbook = crabxl_core::Workbook::new(Default::default()).unwrap();
+        let style = workbook
+            .register_style(CellStyle {
+                number_format: "0.000".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        let named = workbook
+            .register_named_style("Measurement".into(), style, Default::default())
+            .unwrap();
+        let id = workbook.create_sheet("Dimensions").unwrap();
+        let mut row = crabxl_core::RowDimension::new(RowIndex::new(8).unwrap());
+        row.height = Some(27.5);
+        row.hidden = Some(true);
+        row.style = Some(named);
+        row.custom_format = Some(true);
+        let mut column = crabxl_core::ColumnDimension::new(
+            crabxl_core::ColumnIndex::new(1).unwrap(),
+            crabxl_core::ColumnIndex::new(3).unwrap(),
+        )
+        .unwrap();
+        column.width = Some(19.25);
+        column.style = Some(named);
+        column.custom_width = Some(true);
+        workbook
+            .sheet_mut(id)
+            .unwrap()
+            .set_row_dimension(row.clone())
+            .unwrap();
+        workbook
+            .sheet_mut(id)
+            .unwrap()
+            .set_column_dimension(column.clone())
+            .unwrap();
+        let writer = WorkbookWriter::from_workbook(Default::default(), workbook).unwrap();
+        let bytes = writer.finish(Cursor::new(Vec::new())).unwrap().into_inner();
+        let mut loaded =
+            LoadedWorkbook::with_options(Cursor::new(bytes), LoadOptions::default()).unwrap();
+        let id = loaded.sheet_id("Dimensions").unwrap();
+        assert_eq!(
+            loaded.sheet(id).unwrap().dimensions().rows(),
+            &[row.clone()]
+        );
+        assert_eq!(
+            loaded.sheet(id).unwrap().dimensions().columns(),
+            &[column.clone()]
+        );
+        assert_eq!(loaded.named_style_format("Measurement").unwrap(), named);
+        row.height = Some(33.0);
+        column.width = Some(24.0);
+        loaded.set_row_dimension(id, row.clone()).unwrap();
+        loaded.set_column_dimension(id, column.clone()).unwrap();
+        for _ in 0..2 {
+            let output = loaded
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap()
+                .0;
+            let mut reopened =
+                LoadedWorkbook::with_options(output, LoadOptions::default()).unwrap();
+            let id = reopened.sheet_id("Dimensions").unwrap();
+            assert_eq!(
+                reopened.sheet(id).unwrap().dimensions().rows(),
+                &[row.clone()]
+            );
+            assert_eq!(
+                reopened.sheet(id).unwrap().dimensions().columns(),
+                &[column.clone()]
+            );
+            assert_eq!(reopened.named_style_format("Measurement").unwrap(), named);
+        }
+    }
     let bytes = source(3, false);
     let mut workbook =
         LoadedWorkbook::with_options(Cursor::new(bytes.clone()), LoadOptions::default()).unwrap();
@@ -2064,7 +2137,7 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
             "</sheetData>",
             "</sheetData><mergeCells><mergeCell ref=\"A1:B1\"/></mergeCells>",
         ),
-        ("<row r=\"1\">", "<row r=\"1\" ht=\"30\">"),
+        ("<row r=\"1\">", "<row r=\"1\" unsupportedRowFlag=\"30\">"),
         ("<c r=\"A1\"", "<c r=\"A1\" cm=\"1\""),
         (
             "</sheetData>",

@@ -296,6 +296,35 @@ fn borrowed_style_views_share_components_and_do_not_install_inheritance() {
     catalog.cell_formats[0].font_id = 100;
     assert!(catalog.cell_style(StyleId::new(0)).is_err());
     assert!(catalog.cell_style(StyleId::new(99)).is_err());
+    use crabxl_core::{ArgbLiteral, Color, ColorKind, ThemeCatalog, ThemeColor};
+    let mut theme = ThemeCatalog::default();
+    theme.colors[4] = Some(ThemeColor::Rgb(ArgbLiteral::parse("4F81BD").unwrap()));
+    let mut color = Color {
+        kind: ColorKind::Theme(4.into()),
+        tint: Some(0.0),
+    };
+    assert_eq!(theme.resolve_color(&color, &[]).unwrap(), Some(0xFF4F81BD));
+    color.tint = Some(0.8);
+    assert_eq!(theme.resolve_color(&color, &[]).unwrap(), Some(0xFFDCE6F2));
+    color.tint = Some(1.0);
+    assert_eq!(theme.resolve_color(&color, &[]).unwrap(), Some(0xFFFFFFFF));
+    color.tint = Some(-1.0);
+    assert_eq!(theme.resolve_color(&color, &[]).unwrap(), Some(0xFF000000));
+    color.kind = ColorKind::Argb(0x7F12ABFE);
+    color.tint = Some(0.0);
+    assert_eq!(theme.resolve_color(&color, &[]).unwrap(), Some(0x7F12ABFE));
+    color.kind = ColorKind::Indexed(2.into());
+    assert_eq!(theme.resolve_color(&color, &[]).unwrap(), Some(0xFFFF0000));
+    let palette = [ArgbLiteral::from_channels(0x12345678)];
+    color.kind = ColorKind::Indexed(0.into());
+    assert_eq!(
+        theme.resolve_color(&color, &palette).unwrap(),
+        Some(0x12345678)
+    );
+    color.kind = ColorKind::Auto(true);
+    assert_eq!(theme.resolve_color(&color, &[]).unwrap(), None);
+    color.tint = Some(f64::NAN);
+    assert!(theme.resolve_color(&color, &[]).is_err());
 }
 
 #[test]

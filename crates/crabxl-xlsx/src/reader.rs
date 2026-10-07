@@ -24,6 +24,8 @@ pub struct Rows<'a, R: Read + Seek> {
     limits: ResourceLimits,
     options: ReadOptions,
     next_row_index: u32,
+    capture_dimensions: bool,
+    row_dimension: Option<crabxl_core::RowDimension>,
     last_row: Option<RowIndex>,
     exhausted: bool,
     pending: Option<Row>,
@@ -94,6 +96,8 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             limits,
             options,
             next_row_index: 0,
+            capture_dimensions: false,
+            row_dimension: None,
             last_row: None,
             exhausted: false,
             pending: None,
@@ -348,6 +352,16 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         Ok((!batch.rows.is_empty()).then_some(batch))
     }
 
+    /// Retain the explicit metadata of the most recently decoded row.
+    /// Disabled by default so scalar streaming avoids dimension parsing.
+    pub fn capture_dimensions(&mut self) {
+        self.capture_dimensions = true;
+    }
+    /// Borrow metadata for the most recently decoded row, when capture is enabled.
+    pub fn row_dimension(&self) -> Option<&crabxl_core::RowDimension> {
+        self.row_dimension.as_ref()
+    }
+
     fn read_row_impl(&mut self, row: &mut Row) -> Result<bool> {
         loop {
             let frame = self.xml.next()?;
@@ -377,7 +391,10 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                                 })?;
                         }
                     }
-                    let index = RowIndex::new(index).map_err(|e| e.with_part(self.xml.part()))?;
+                    let index = RowIndex::new(index)?;
+                    if self.capture_dimensions {
+                        self.row_dimension = crate::dimension_codec::read_row(&e, index)?;
+                    }
                     if self.last_row.is_some_and(|last| index <= last) {
                         return Err(self.invalid("Rows must be in strictly increasing order"));
                     }
