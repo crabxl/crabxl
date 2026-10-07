@@ -359,6 +359,37 @@
         "model.styles.row-column"
       ],
       "status": "ported; A11 integration verification pending"
+    },
+    {
+      "project": "umya-spreadsheet",
+      "repository": "https://github.com/MathNya/umya-spreadsheet",
+      "commit": "aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b",
+      "license": "MIT",
+      "notice": "Copyright (c) 2020 MathNya",
+      "license_file": "third_party/licenses/umya-spreadsheet-MIT.txt",
+      "source_symbols": [
+        "src/structs/merge_cells.rs: MergeCells range collection layout"
+      ],
+      "destinations": [
+        "crates/crabxl-core/src/merged_cells.rs"
+      ],
+      "changes": [
+        "Retain compact range declarations using shared validated CellRange geometry, without upstream string coordinates or XML I/O",
+        "Use sixteen workbook-local appearance IDs per rectangle instead of covered-cell materialization",
+        "Bound actual retained vector capacity and use checked fallible reservations; no unchecked XML attributes or EOF panics",
+        "Integrate anchor/border/protection normalization, optional streamed capture, canonical source rewriting and borrowed sparse output; preserve source style identities",
+        "Add an independently implemented augmented AVL index with charged capacities and allocation-free row traversals; compare effective protection defaults"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/workbook.rs",
+        "crates/crabxl-xlsx/tests/writer.rs",
+        "crates/crabxl-xlsx/tests/loaded.rs",
+        "https://github.com/crabxl/crabxl-python/blob/main/tests/test_merges.py"
+      ],
+      "inventory_items": [
+        "model.merged-cells"
+      ],
+      "status": "integrated native/Python checkpoint verified; full structural dependency acceptance remains pending"
     }
   ]
 }

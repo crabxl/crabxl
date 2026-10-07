@@ -1,6 +1,7 @@
 //! Lazy materialization into the canonical owned bank, with joint source accounting.
 mod catalog;
 mod dimensions;
+mod merges;
 mod structure;
 mod styles;
 mod values;
@@ -39,6 +40,7 @@ struct SourceSheet {
     loaded: bool,
     kind: crate::SheetKind,
     original: Option<usize>,
+    normalized_styles: bool,
 }
 /// Owns a seekable original package and the canonical workbook bank. Source
 /// styles transfer into the bank without cloning; only date classifications stay
@@ -55,6 +57,7 @@ pub struct LoadedWorkbook<R: Read + Seek = File> {
     sheets: Vec<SourceSheet>,
     options: LoadOptions,
     allowance: MemoryAllowance,
+    source_style_count: usize,
 }
 impl LoadedWorkbook<File> {
     /// Open a path with default joint model/source allowances.
@@ -142,6 +145,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 loaded: false,
                 kind: sheet.kind(),
                 original: Some(index),
+                normalized_styles: false,
             });
         }
         bank.set_active_view_index(reader.active_view_index());
@@ -150,12 +154,16 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         for (source, info) in sheets.iter().zip(reader.sheets()) {
             bank.set_sheet_visibility(source.id, info.visibility())?;
         }
+        let source_style_count = bank
+            .style_catalog()
+            .map_or(1, |catalog| catalog.cell_formats.len().max(1));
         let mut value = Self {
             editor,
             bank,
             sheets,
             options,
             allowance,
+            source_style_count,
         };
         value.rebalance()?;
         Ok(value)
@@ -355,6 +363,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                     true,
                 )?;
                 rows.capture_dimensions();
+                rows.capture_merges();
                 let mut row = Row::new(RowIndex::new(0)?);
                 rows.set_aggregate_retained(retained.saturating_add(incoming.charged_bytes()))?;
                 while rows.read_row_into(&mut row)? {
@@ -376,17 +385,83 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                             .saturating_add(row.memory_bytes()),
                     )?;
                 }
+                Ok(rows.take_merge_ranges())
+            })();
+            let merges = match decode {
+                Ok(merges) => merges,
+                Err(error) => {
+                    drop(incoming);
+                    self.rebalance()?;
+                    return Err(error);
+                }
+            };
+            let mut normalized_styles = false;
+            let normalized = (|| {
+                let geometry_bytes = merges
+                    .capacity()
+                    .saturating_mul(size_of::<crabxl_core::CellRange>());
+                for range in &merges {
+                    self.editor.book.rebalance_strings_for_retained(
+                        self.bank
+                            .charged_bytes()
+                            .saturating_add(self.mapping_bytes())
+                            .saturating_add(self.package_extra_bytes())
+                            .saturating_add(incoming.charged_bytes())
+                            .saturating_add(geometry_bytes),
+                        maximum,
+                    )?;
+                    self.bank.set_memory_allowance(
+                        maximum
+                            .checked_sub(
+                                self.source_bytes()
+                                    .saturating_add(incoming.charged_bytes())
+                                    .saturating_add(geometry_bytes),
+                            )
+                            .ok_or_else(budget)?,
+                    )?;
+                    let anchor = incoming.style_at(range.start);
+                    let corner = (incoming.get(range.end).is_some()
+                        || incoming.merged_ranges().virtual_style(range.end).is_some())
+                    .then(|| incoming.style_at(range.end));
+                    let (prepared, anchor) = self.bank.prepare_merge(*range, anchor, corner)?;
+                    normalized_styles |= prepared
+                        .appearances()
+                        .iter()
+                        .chain(std::iter::once(&anchor))
+                        .any(|style| style.get() as usize >= self.source_style_count);
+                    let available = maximum
+                        .checked_sub(
+                            self.source_bytes()
+                                .saturating_add(self.bank.charged_bytes())
+                                .saturating_add(geometry_bytes),
+                        )
+                        .ok_or_else(budget)?;
+                    incoming.set_memory_allowance(
+                        available
+                            .min(self.options.workbook.sheet.max_bytes)
+                            .min(self.options.resources.max_materialized_bytes),
+                    )?;
+                    incoming.edit().merge_prepared(prepared, anchor)?;
+                }
                 Ok(())
             })();
-            if let Err(error) = decode {
+            drop(merges);
+            if let Err(error) = normalized {
                 drop(incoming);
                 self.rebalance()?;
                 return Err(error);
             }
-            if let Err(error) =
-                self.editor
-                    .apply_pending_model(name, &mut incoming, retained, maximum)
-            {
+            let retained = self
+                .bank
+                .charged_bytes()
+                .saturating_add(self.mapping_bytes())
+                .saturating_add(self.package_extra_bytes());
+            if let Err(error) = self.editor.apply_pending_model(
+                self.sheets[index].name.as_ref(),
+                &mut incoming,
+                retained,
+                maximum,
+            ) {
                 drop(incoming);
                 self.rebalance()?;
                 return Err(error);
@@ -396,6 +471,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             self.rebalance()?;
             self.bank.replace_sheet(id, incoming)?;
             self.sheets[index].loaded = true;
+            self.sheets[index].normalized_styles = normalized_styles;
             self.rebalance()?;
         }
         self.bank.sheet(id)

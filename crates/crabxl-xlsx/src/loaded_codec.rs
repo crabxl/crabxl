@@ -1,6 +1,8 @@
 //! Checked source guards and borrowed row serialization for canonical model edits.
 //! This coordinator is original CrabXL code, not an imported workbook engine.
-use crate::encode::{RowBuffer, StyleContext, ValueEncoding, encode_cells_with_dimension};
+use crate::encode::{
+    CellView, RowBuffer, StyleContext, ValueEncoding, encode_cell_views_with_dimension,
+};
 use crate::xml::{Scope, XmlStream};
 use crabxl_core::{
     DateEpoch, Error, ErrorKind, ResourceLimits, Result, StyleCatalog, StyleId, TemporalStyleIds,
@@ -23,6 +25,7 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
     let mut data = false;
     let mut seen_data = false;
     let mut columns = false;
+    let mut merges = false;
     loop {
         let frame = xml.next()?;
         match &frame.event {
@@ -49,6 +52,7 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
                                 | b"sheetFormatPr"
                                 | b"cols"
                                 | b"sheetData"
+                                | b"mergeCells"
                                 | b"printOptions"
                                 | b"pageMargins"
                                 | b"pageSetup"
@@ -109,6 +113,34 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
                         }
                     }
                 }
+                if frame.depth == 2 && name == b"mergeCells" {
+                    merges = true;
+                }
+                if merges {
+                    if frame.scope != Scope::Spreadsheet {
+                        return Err(unsupported());
+                    }
+                    let allowed: &[&[u8]] = match (frame.depth, name) {
+                        (2, b"mergeCells") => &[b"count"],
+                        (3, b"mergeCell") => &[b"ref"],
+                        _ => return Err(unsupported()),
+                    };
+                    for attr in e.attributes() {
+                        let attr = attr.map_err(|_| unsupported())?;
+                        let key = attr.key.as_ref().as_bytes();
+                        if key != b"xmlns" && !key.starts_with(b"xmlns:") && !allowed.contains(&key)
+                        {
+                            return Err(unsupported());
+                        }
+                    }
+                    if name == b"mergeCell" {
+                        crate::xml::attribute(e, b"ref")?
+                            .ok_or_else(|| {
+                                Error::new(ErrorKind::InvalidData, "Merged range has no reference")
+                            })?
+                            .parse::<crabxl_core::CellRange>()?;
+                    }
+                }
                 if data {
                     if name == b"c" && crate::xml::attribute(e, b"t")?.as_deref() == Some("s") {
                         shared_strings = true;
@@ -157,6 +189,19 @@ pub(crate) fn guard<B: BufRead>(xml: &mut XmlStream<B>) -> Result<bool> {
             }
             Event::End(e) if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"cols" => {
                 columns = false;
+            }
+            Event::End(e)
+                if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"mergeCells" =>
+            {
+                merges = false;
+            }
+            Event::Text(text)
+                if merges && !text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) =>
+            {
+                return Err(unsupported());
+            }
+            Event::CData(_) | Event::GeneralRef(_) | Event::Comment(_) | Event::PI(_) if merges => {
+                return Err(unsupported());
             }
             Event::Text(text)
                 if columns && !text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) =>
@@ -245,6 +290,7 @@ pub(crate) fn guard_strings<B: BufRead>(xml: &mut XmlStream<B>) -> Result<()> {
     }
 }
 pub(crate) fn validate_model(sheet: &Worksheet, catalog: Option<&StyleCatalog>) -> Result<()> {
+    sheet.validate_style_links(catalog)?;
     sheet.dimensions().validate()?;
     for style in sheet
         .dimensions()
@@ -299,21 +345,35 @@ pub(crate) fn validate_model(sheet: &Worksheet, catalog: Option<&StyleCatalog>) 
     Ok(())
 }
 pub(crate) fn dimension(sheet: &Worksheet) -> String {
-    let mut cells = sheet.cells();
-    let Some(cell) = cells.next() else {
-        return "A1:A1".into();
-    };
-    let mut first = cell.address;
-    let mut last = cell.address;
-    for cell in cells {
-        first.row = first.row.min(cell.address.row);
-        first.column = first.column.min(cell.address.column);
-        last.row = last.row.max(cell.address.row);
-        last.column = last.column.max(cell.address.column);
+    let bounds = sheet
+        .cells()
+        .map(|cell| (cell.address, cell.address))
+        .chain(
+            sheet
+                .merged_ranges()
+                .ranges()
+                .iter()
+                .map(|range| (range.range().start, range.range().end)),
+        );
+    let mut first: Option<crabxl_core::CellAddress> = None;
+    let mut last: Option<crabxl_core::CellAddress> = None;
+    for (start, end) in bounds {
+        first = Some(first.map_or(start, |first| crabxl_core::CellAddress {
+            row: first.row.min(start.row),
+            column: first.column.min(start.column),
+        }));
+        last = Some(last.map_or(end, |last| crabxl_core::CellAddress {
+            row: last.row.max(end.row),
+            column: last.column.max(end.column),
+        }));
     }
-    format!("{first}:{last}")
+    match (first, last) {
+        (Some(first), Some(last)) => format!("{first}:{last}"),
+        _ => "A1:A1".into(),
+    }
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct Encoding {
     pub(crate) epoch: DateEpoch,
     pub(crate) non_finite: crate::NonFiniteWritePolicy,
@@ -341,14 +401,19 @@ pub(crate) fn write_data<W: Write>(
         .map(|row| row.index)
         .peekable();
     let mut last = None;
+    let mut merged = crate::writer::next_merged_row(sheet, 0);
     write!(output, "<sheetData xmlns=\"{uri}\">")
         .map_err(|cause| crate::writer::io_error("Cannot start model sheetData", cause))?;
-    while cells.peek().is_some() || dimensions.peek().is_some() {
-        let row = match (cells.peek(), dimensions.peek()) {
-            (Some(cell), Some(dimension)) => (*cell).min(*dimension),
-            (Some(cell), None) => *cell,
-            (None, Some(dimension)) => *dimension,
-            (None, None) => break,
+    while cells.peek().is_some() || dimensions.peek().is_some() || merged.is_some() {
+        let Some(row) = cells
+            .peek()
+            .copied()
+            .into_iter()
+            .chain(dimensions.peek().copied())
+            .chain(merged)
+            .min()
+        else {
+            break;
         };
         if cells.peek() == Some(&row) {
             cells.next();
@@ -356,31 +421,32 @@ pub(crate) fn write_data<W: Write>(
         if dimensions.peek() == Some(&row) {
             dimensions.next();
         }
-        encode_cells_with_dimension(
-            &mut buffer,
-            (row, sheet.dimensions().row(row)),
-            sheet.row_cells(row),
-            limits.max_cell_bytes,
-            limits.max_row_cells,
-            StyleContext::Catalog(catalog),
-            ValueEncoding {
-                epoch: encoding.epoch,
-                iso_dates: false,
-                non_finite: encoding.non_finite,
-                formula_attributes: encoding.formula_attributes,
-                date_styles: TemporalStyleIds {
-                    datetime: StyleId::new(0),
-                    time: StyleId::new(0),
-                    duration: StyleId::new(0),
-                    date: StyleId::new(0),
-                },
-                invalidate_caches: true,
-            },
-        )?;
+        if !sheet.merged_ranges().has_virtual_styles() {
+            encode_model_row(
+                &mut buffer,
+                sheet,
+                row,
+                sheet.row_cells(row).map(CellView::from),
+                catalog,
+                limits,
+                encoding,
+            )?;
+        } else {
+            encode_model_row(
+                &mut buffer,
+                sheet,
+                row,
+                crate::writer::MergedRowCells::new(sheet, row),
+                catalog,
+                limits,
+                encoding,
+            )?;
+        }
         output
             .write_all(&buffer.data)
             .map_err(|cause| crate::writer::io_error("Cannot write model row", cause))?;
         last = Some(row.get());
+        merged = crate::writer::next_merged_row(sheet, row.get() + 1);
     }
     if sheet.row_extent() > 0 && last.is_none_or(|row| row + 1 < sheet.row_extent()) {
         write!(output, "<row r=\"{}\"/>", sheet.row_extent())
@@ -405,7 +471,63 @@ pub(crate) fn write_new<W: Write>(
     crate::dimension_codec::write_columns(output, sheet.dimensions().columns(), None)
         .map_err(|cause| crate::writer::io_error("Cannot write model columns", cause))?;
     write_data(output, sheet, catalog, limits, encoding, uri)?;
+    write_merges(output, sheet, Some(uri))?;
     output
         .write_all(b"</worksheet>")
         .map_err(|cause| crate::writer::io_error("Cannot finish new model worksheet", cause))
+}
+
+fn encode_model_row<'a>(
+    buffer: &mut RowBuffer,
+    sheet: &Worksheet,
+    row: crabxl_core::RowIndex,
+    cells: impl Iterator<Item = CellView<'a>> + Clone,
+    catalog: Option<&StyleCatalog>,
+    limits: ResourceLimits,
+    encoding: Encoding,
+) -> Result<()> {
+    encode_cell_views_with_dimension(
+        buffer,
+        (row, sheet.dimensions().row(row)),
+        cells,
+        limits.max_cell_bytes,
+        limits.max_row_cells,
+        StyleContext::Catalog(catalog),
+        ValueEncoding {
+            epoch: encoding.epoch,
+            iso_dates: false,
+            non_finite: encoding.non_finite,
+            formula_attributes: encoding.formula_attributes,
+            date_styles: TemporalStyleIds {
+                datetime: StyleId::new(0),
+                time: StyleId::new(0),
+                duration: StyleId::new(0),
+                date: StyleId::new(0),
+            },
+            invalidate_caches: true,
+        },
+    )
+}
+
+pub(crate) fn write_merges<W: Write>(
+    output: &mut W,
+    sheet: &Worksheet,
+    uri: Option<&str>,
+) -> Result<()> {
+    let ranges = sheet.merged_ranges().ranges();
+    if ranges.is_empty() {
+        return Ok(());
+    }
+    (|| -> std::io::Result<()> {
+        write!(output, "<mergeCells count=\"{}\"", ranges.len())?;
+        if let Some(uri) = uri {
+            write!(output, " xmlns=\"{uri}\"")?;
+        }
+        output.write_all(b">")?;
+        for range in ranges {
+            write!(output, "<mergeCell ref=\"{}\"/>", range.range())?;
+        }
+        output.write_all(b"</mergeCells>")
+    })()
+    .map_err(|cause| crate::writer::io_error("Cannot write merged geometry", cause))
 }

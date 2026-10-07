@@ -658,6 +658,53 @@ fn materialized_sparse_model_exports_with_structural_edits_and_empty_extent() {
     assert!(rows[1].cells.is_empty());
     assert_eq!(sheet.len(), 2);
     assert_eq!(sheet.row_extent(), 3);
+    let mut merged = crabxl_core::Workbook::new(Default::default()).unwrap();
+    let id = merged.create_sheet("Sparse merge").unwrap();
+    merged
+        .merge_cells(id, "A1:XFD1048576".parse().unwrap())
+        .unwrap();
+    for _ in 0..2 {
+        let mut writer = WorkbookWriter::from_canonical_style_catalog(
+            WriteOptions::default(),
+            merged.style_catalog().cloned().unwrap(),
+        )
+        .unwrap();
+        writer.write_workbook(&merged).unwrap();
+        assert_eq!(writer.stats().cells, 1);
+        assert!(writer.stats().peak_temp_bytes < 1024);
+        let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+        let mut reader = WorkbookReader::new(output).unwrap();
+        let mut rows = reader.rows("Sparse merge").unwrap();
+        rows.capture_merges();
+        while rows.next_row().unwrap().is_some() {}
+        assert_eq!(rows.merge_ranges(), &["A1:XFD1048576".parse().unwrap()]);
+        assert_eq!(rows.take_merge_ranges().len(), 1);
+        assert!(rows.merge_ranges().is_empty());
+        drop(rows);
+        let mut source =
+            crabxl_xlsx::LoadedWorkbook::with_options(reader.into_inner(), Default::default())
+                .unwrap();
+        let id = source.sheet_id("Sparse merge").unwrap();
+        source
+            .upsert_value(id, "B2".parse().unwrap(), CellValue::Integer(42))
+            .unwrap();
+        assert_eq!(
+            source
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap_err()
+                .kind(),
+            crabxl_core::ErrorKind::Unsupported
+        );
+        source
+            .upsert_value(id, "B2".parse().unwrap(), CellValue::Empty)
+            .unwrap();
+        source
+            .unmerge_cells(id, "A1:XFD1048576".parse().unwrap())
+            .unwrap();
+        source
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap();
+    }
 }
 
 #[test]

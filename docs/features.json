@@ -18051,6 +18051,36 @@
         "crates/crabxl-xlsx/tests/loaded.rs::lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable"
       ],
       "limitations": "A10 component checkpoint only. Named styles/themes/row-column styles remain A11; advanced graph mutations remain their owning M5/M6 releases. Missing source stylesheets, signed/data-only packages and unknown/affected unmodeled graphs retain explicit guards. Caller-owned Python appearance snapshots are separate from workbook-managed allowances."
+    },
+    {
+      "id": "model.merged-cells",
+      "description": "Compact finite merged geometry, anchor/edge/protection normalization, read-only covered values, owned/loaded merge and exact unmerge operations; affected structural moves remain staged",
+      "status": "verified",
+      "milestone": "M5",
+      "capabilities": {
+        "read": "verified",
+        "create": "verified",
+        "edit": "verified",
+        "preserve": "verified"
+      },
+      "modes": [
+        "owned-model",
+        "source-backed-model",
+        "opt-in-metadata-streaming"
+      ],
+      "reference": "https://openpyxl.readthedocs.io/en/3.1/api/openpyxl.worksheet.merge.html",
+      "modules": [
+        "crates/crabxl-core/src/merged_cells.rs",
+        "crates/crabxl-core/src/worksheet/merges.rs",
+        "crates/crabxl-xlsx/src/loaded/merges.rs",
+        "crates/crabxl-xlsx/src/writer/merged_rows.rs"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/workbook.rs",
+        "crates/crabxl-xlsx/tests/writer.rs",
+        "crates/crabxl-xlsx/tests/loaded.rs"
+      ],
+      "notes": "Narrow high-level merge/unmerge checkpoint; raw live metadata mutation, affected row/column/range structural integration and missing source style graph creation remain explicitly unsupported. Full baseline and consolidated A11/A15 acceptance are not claimed."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

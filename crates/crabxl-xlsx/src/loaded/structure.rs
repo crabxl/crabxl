@@ -95,6 +95,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         let plan = self.editor.prepare_model(&self.sheets[index].name)?;
         self.sheet(id)?;
         crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
+        self.validate_normalized_styles(id)?;
         self.reserve_workbook_patch(plan.bytes.max(self.editor.patch_bytes()))?;
         let result = edit(&mut self.bank.sheet_mut(id)?);
         let value = match result {
@@ -105,7 +106,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             }
         };
         if changed(&value) {
-            self.editor.commit_model(plan, id);
+            self.commit_normalized_model(plan, id);
         }
         self.rebalance()?;
         Ok(value)

@@ -58,7 +58,7 @@ impl WorkbookWriter {
         views: Option<&crabxl_core::SheetViews>,
         printing: Option<&crabxl_core::PrintSettings>,
     ) -> Result<()> {
-        self.start_sheet_with_dimensions(name, views, printing, &[])
+        self.start_sheet_with_dimensions(name, views, printing, &[], &[])
     }
     pub(super) fn start_sheet_with_dimensions(
         &mut self,
@@ -66,9 +66,10 @@ impl WorkbookWriter {
         views: Option<&crabxl_core::SheetViews>,
         printing: Option<&crabxl_core::PrintSettings>,
         columns: &[crabxl_core::ColumnDimension],
+        merges: &[crabxl_core::MergedCellRange],
     ) -> Result<()> {
         self.ensure_open()?;
-        if views.is_none() && printing.is_none() && columns.is_empty() {
+        if views.is_none() && printing.is_none() && columns.is_empty() && merges.is_empty() {
             return self.start_sheet(name);
         }
         if let Some(views) = views {
@@ -96,6 +97,18 @@ impl WorkbookWriter {
                 ));
             }
         }
+        for range in merges {
+            for style in range.appearances() {
+                if self.styles.as_ref().map_or(style.get() != 0, |styles| {
+                    styles.catalog().cell_format(*style).is_none()
+                }) {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Unknown merged appearance identity",
+                    ));
+                }
+            }
+        }
         let maximum = self
             .options
             .max_metadata_bytes
@@ -119,22 +132,31 @@ impl WorkbookWriter {
             }
             crate::dimension_codec::write_columns(&mut header, columns, None)?;
             header.write_all(b"<sheetData>")?;
-            if let Some(printing) = printing {
+            if printing.is_some() || !merges.is_empty() {
                 footer.maximum = maximum.saturating_sub(header.data.capacity());
                 footer.write_all(b"</sheetData>")?;
-                crate::printing::write_page(&mut footer, printing, None)?;
-                crate::printing::write_breaks(
-                    &mut footer,
-                    "rowBreaks",
-                    &printing.row_breaks,
-                    None,
-                )?;
-                crate::printing::write_breaks(
-                    &mut footer,
-                    "colBreaks",
-                    &printing.column_breaks,
-                    None,
-                )?;
+                if !merges.is_empty() {
+                    write!(footer, "<mergeCells count=\"{}\">", merges.len())?;
+                    for range in merges {
+                        write!(footer, "<mergeCell ref=\"{}\"/>", range.range())?;
+                    }
+                    footer.write_all(b"</mergeCells>")?;
+                }
+                if let Some(printing) = printing {
+                    crate::printing::write_page(&mut footer, printing, None)?;
+                    crate::printing::write_breaks(
+                        &mut footer,
+                        "rowBreaks",
+                        &printing.row_breaks,
+                        None,
+                    )?;
+                    crate::printing::write_breaks(
+                        &mut footer,
+                        "colBreaks",
+                        &printing.column_breaks,
+                        None,
+                    )?;
+                }
                 footer.write_all(b"</worksheet>")?;
             }
             Ok(())
@@ -157,7 +179,7 @@ impl WorkbookWriter {
         self.start_sheet_with_header(
             name.into(),
             &header.data,
-            printing.map(|_| footer.data),
+            (printing.is_some() || !merges.is_empty()).then_some(footer.data),
             scratch_bytes,
         )
     }

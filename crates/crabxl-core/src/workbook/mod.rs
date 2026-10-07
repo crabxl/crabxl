@@ -192,11 +192,7 @@ impl Workbook {
             return Err(budget());
         }
         if let Some(styles) = &self.styles {
-            for row in sheet.row_indices() {
-                for cell in sheet.row_cells(row) {
-                    styles.catalog().cell_style(cell.style)?;
-                }
-            }
+            sheet.validate_style_links(Some(styles.catalog()))?;
         }
         Ok(())
     }
@@ -507,6 +503,31 @@ impl WorksheetEditor<'_> {
         }
         self.sheet.set_column_dimension(dimension)
     }
+    /// Adopt prepared merge geometry after validating workbook-local appearances.
+    pub fn set_merged_ranges(&mut self, merges: crate::MergedRanges) -> Result<()> {
+        for range in merges.ranges() {
+            for style in range.appearances() {
+                self.validate_style_id(*style, range.range().start)?;
+            }
+        }
+        self.sheet.set_merged_ranges(merges)
+    }
+    /// Remove a merge declaration under the same canonical sheet ownership.
+    pub fn unmerge_cells(&mut self, range: crate::CellRange) -> Result<()> {
+        self.sheet.unmerge_cells(range)
+    }
+    /// Apply a prepared merge after validating every local appearance reference.
+    pub fn merge_prepared(
+        &mut self,
+        range: crate::MergedCellRange,
+        anchor: crate::StyleId,
+    ) -> Result<()> {
+        self.validate_style_id(anchor, range.range().start)?;
+        for style in range.appearances() {
+            self.validate_style_id(*style, range.range().start)?;
+        }
+        self.sheet.apply_merge(range, anchor)
+    }
     /// Replace dimension metadata only after validating every shared style link.
     pub fn set_dimensions(&mut self, dimensions: crate::SheetDimensions) -> Result<()> {
         for row in dimensions.rows() {
@@ -711,3 +732,20 @@ impl Iterator for OwnedWorksheets {
 }
 impl ExactSizeIterator for OwnedWorksheets {}
 impl std::iter::FusedIterator for OwnedWorksheets {}
+
+fn merge_border_side(target: &mut Option<crate::BorderSide>, incoming: &Option<crate::BorderSide>) {
+    let Some(incoming) = incoming else { return };
+    if let Some(target) = target {
+        if target
+            .line
+            .is_none_or(|line| line == crate::BorderLine::None)
+        {
+            target.line = incoming.line;
+        }
+        if target.color.is_none() {
+            target.color = incoming.color.clone();
+        }
+    } else {
+        *target = Some(incoming.clone());
+    }
+}

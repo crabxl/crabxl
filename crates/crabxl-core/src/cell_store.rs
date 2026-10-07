@@ -281,6 +281,28 @@ impl CellStore {
         }
         *self = retained;
     }
+    /// Filter without moving coordinates or allocating new blocks. Tree keys
+    /// remain lower bounds after removal, so checked cell searches still select
+    /// the same ordered block. Later insertions/removals can tighten those bounds.
+    pub(crate) fn retain_stationary(&mut self, mut predicate: impl FnMut(&Cell) -> bool) {
+        self.blocks.retain(|_, block| {
+            block.retain(&mut predicate);
+            !block.is_empty()
+        });
+        self.len = self.blocks.values().map(Vec::len).sum();
+        self.slots = self.blocks.values().map(Vec::capacity).sum();
+        if let Some((first, block)) = self.blocks.last_key_value() {
+            self.last = block.last().map(key);
+            self.tail_first = Some(*first);
+            self.tail_len = block.len();
+            self.tail_capacity = block.capacity();
+        } else {
+            self.last = None;
+            self.tail_first = None;
+            self.tail_len = 0;
+            self.tail_capacity = 0;
+        }
+    }
 }
 fn next_capacity(capacity: usize) -> usize {
     capacity.saturating_mul(2).clamp(4, BLOCK_CELLS)

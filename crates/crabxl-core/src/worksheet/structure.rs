@@ -29,6 +29,7 @@ impl Worksheet {
             offset(range.start, rows, columns)?,
             offset(range.end, rows, columns)?,
         )?;
+        self.guard_merged_structure(range, destination)?;
         self.work_allowance(0)?;
         let original = std::mem::take(&mut self.cells);
         let mut moved = BTreeMap::new();
@@ -62,6 +63,13 @@ impl Worksheet {
         if rows == 0 && columns == 0 {
             return Ok(());
         }
+        self.guard_merged_structure(
+            range,
+            CellRange::new(
+                offset(range.start, rows, columns)?,
+                offset(range.end, rows, columns)?,
+            )?,
+        )?;
         let formulas = self
             .cells
             .values()
@@ -151,6 +159,7 @@ impl Worksheet {
             offset(range.start, rows, columns)?,
             offset(range.end, rows, columns)?,
         )?;
+        self.guard_merged_structure(range, destination)?;
         let selected = self
             .cells
             .values()
@@ -207,6 +216,18 @@ impl Worksheet {
         let maximum = if rows { MAX_ROWS } else { MAX_COLUMNS };
         if count == 0 || at.checked_add(count).is_none_or(|end| end > maximum) {
             return Err(invalid("Invalid structural edit count"));
+        }
+        if self.merges.ranges().iter().any(|merge| {
+            if rows {
+                merge.range().end.row.get() >= at
+            } else {
+                merge.range().end.column.get() >= at
+            }
+        }) {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Affected merged geometry structural edits are not implemented",
+            ));
         }
         if insert {
             for cell in self.cells.values() {

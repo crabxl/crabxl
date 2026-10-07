@@ -37,6 +37,8 @@ pub use style::{CellStyle, Font, StyleComponent, StyleId};
 
 mod dimensions;
 pub use dimensions::{ColumnDimension, RowDimension, SheetDimensions};
+mod merged_cells;
+pub use merged_cells::{MergedCellRange, MergedRangeIter, MergedRanges};
 
 mod worksheet;
 pub use worksheet::{CellRange, EditLimits, SheetVisibility, Worksheet};

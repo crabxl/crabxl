@@ -283,6 +283,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
+
         if matches!(&frame.event,Event::Start(e) if e.local_name().as_ref().as_bytes()==b"AlternateContent")
         {
             return Err(Error::new(
@@ -382,7 +383,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                     emit(&mut writer, Event::Start(start))?;
                     continue;
                 }
-                b"cols" => {
+                b"cols" | b"mergeCells" => {
                     let depth = frame.depth;
                     crate::style_codec::skip(&mut xml, depth)?;
                     continue;
@@ -411,6 +412,11 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         frame
                             .spreadsheet_uri
                             .ok_or_else(|| invalid("Missing worksheet namespace"))?,
+                    )?;
+                    crate::loaded_codec::write_merges(
+                        writer.get_mut(),
+                        model,
+                        frame.spreadsheet_uri,
                     )?;
                     let depth = frame.depth;
                     crate::style_codec::skip(&mut xml, depth)?;

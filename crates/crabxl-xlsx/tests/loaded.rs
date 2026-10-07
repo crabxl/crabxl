@@ -2135,7 +2135,7 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
     for (from, to) in [
         (
             "</sheetData>",
-            "</sheetData><mergeCells><mergeCell ref=\"A1:B1\"/></mergeCells>",
+            "</sheetData><mergeCells><mergeCell ref=\"A1:B1\" unsupportedMergeFlag=\"1\"/></mergeCells>",
         ),
         ("<row r=\"1\">", "<row r=\"1\" unsupportedRowFlag=\"30\">"),
         ("<c r=\"A1\"", "<c r=\"A1\" cm=\"1\""),

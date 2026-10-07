@@ -55,6 +55,7 @@ impl WorkbookWriter {
             sheet.sheet_views(),
             sheet.print_settings(),
             sheet.dimensions().columns(),
+            sheet.merged_ranges().ranges(),
         )?;
         let id = self
             .active
@@ -70,12 +71,17 @@ impl WorkbookWriter {
             .iter()
             .map(|row| row.index)
             .peekable();
-        while cells.peek().is_some() || dimensions.peek().is_some() {
-            let index = match (cells.peek(), dimensions.peek()) {
-                (Some(cell), Some(dimension)) => (*cell).min(*dimension),
-                (Some(cell), None) => *cell,
-                (None, Some(dimension)) => *dimension,
-                (None, None) => break,
+        let mut merged = next_merged_row(sheet, 0);
+        while cells.peek().is_some() || dimensions.peek().is_some() || merged.is_some() {
+            let Some(index) = cells
+                .peek()
+                .copied()
+                .into_iter()
+                .chain(dimensions.peek().copied())
+                .chain(merged)
+                .min()
+            else {
+                break;
             };
             if cells.peek() == Some(&index) {
                 cells.next();
@@ -83,15 +89,26 @@ impl WorkbookWriter {
             if dimensions.peek() == Some(&index) {
                 dimensions.next();
             }
-            self.write_cells_with_dimension(
-                index,
-                sheet.row_cells(index),
-                sheet.dimensions().row(index),
-            )?;
+            if !sheet.merged_ranges().has_virtual_styles() {
+                self.write_cells_with_dimension(
+                    index,
+                    sheet.row_cells(index),
+                    sheet.dimensions().row(index),
+                )?;
+            } else {
+                self.write_cell_views_with_dimension(
+                    index,
+                    MergedRowCells::new(sheet, index),
+                    sheet.dimensions().row(index),
+                )?;
+            }
+            merged = next_merged_row(sheet, index.get() + 1);
             last = Some(index.get());
         }
-        if sheet.row_extent() > 0 && last.is_none_or(|last| last + 1 < sheet.row_extent()) {
-            self.write_row(&Row::new(RowIndex::new(sheet.row_extent() - 1)?))?;
+        if sheet.display_row_extent() > 0
+            && last.is_none_or(|last| last + 1 < sheet.display_row_extent())
+        {
+            self.write_row(&Row::new(RowIndex::new(sheet.display_row_extent() - 1)?))?;
         }
         self.close_sheet()
     }
@@ -165,6 +182,14 @@ impl WorkbookWriter {
         cells: impl Iterator<Item = &'a crabxl_core::Cell> + Clone,
         dimension: Option<&crabxl_core::RowDimension>,
     ) -> Result<()> {
+        self.write_cell_views_with_dimension(index, cells.map(CellView::from), dimension)
+    }
+    pub(super) fn write_cell_views_with_dimension<'a>(
+        &mut self,
+        index: RowIndex,
+        cells: impl Iterator<Item = CellView<'a>> + Clone,
+        dimension: Option<&crabxl_core::RowDimension>,
+    ) -> Result<()> {
         self.ensure_open()?;
         let active = self
             .active
@@ -190,7 +215,7 @@ impl WorkbookWriter {
                 maximum: style_allowance,
             }
         };
-        crate::encode::encode_cells_with_dimension(
+        crate::encode::encode_cell_views_with_dimension(
             &mut self.row_buffer,
             (index, dimension),
             cells.clone(),

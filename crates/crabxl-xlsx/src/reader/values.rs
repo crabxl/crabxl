@@ -210,6 +210,8 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         }
     }
     pub(super) fn finish_xml(&mut self) -> Result<()> {
+        let mut in_merges = false;
+        let mut seen_merges = false;
         loop {
             let frame = self.xml.next()?;
             match frame.event {
@@ -219,6 +221,71 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         && e.local_name().as_ref().as_bytes() == b"sheetData" =>
                 {
                     return Err(self.invalid("Duplicate sheetData element"));
+                }
+                Event::Start(e)
+                    if self.capture_merges
+                        && frame.scope == Scope::Spreadsheet
+                        && frame.depth == 2
+                        && e.local_name().as_ref().as_bytes() == b"mergeCells" =>
+                {
+                    if seen_merges {
+                        return Err(self.invalid("Duplicate mergeCells element"));
+                    }
+                    seen_merges = true;
+                    in_merges = true;
+                }
+                Event::Empty(e)
+                    if self.capture_merges
+                        && frame.scope == Scope::Spreadsheet
+                        && frame.depth == 2
+                        && e.local_name().as_ref().as_bytes() == b"mergeCells" =>
+                {
+                    if seen_merges {
+                        return Err(self.invalid("Duplicate mergeCells element"));
+                    }
+                    seen_merges = true;
+                }
+                Event::End(e)
+                    if in_merges
+                        && frame.depth == 1
+                        && e.local_name().as_ref().as_bytes() == b"mergeCells" =>
+                {
+                    in_merges = false;
+                }
+                Event::Start(e) | Event::Empty(e)
+                    if in_merges
+                        && frame.scope == Scope::Spreadsheet
+                        && frame.depth == 3
+                        && e.local_name().as_ref().as_bytes() == b"mergeCell" =>
+                {
+                    let mut range = None;
+                    for attribute in e.attributes() {
+                        let attribute = attribute.map_err(|cause| {
+                            Error::caused_by(
+                                ErrorKind::Xml,
+                                "Invalid merged range attribute",
+                                cause,
+                            )
+                        })?;
+                        if attribute.key.as_ref().as_bytes() == b"ref" {
+                            range = Some(
+                                attribute
+                                    .normalized_value(quick_xml::XmlVersion::Implicit1_0)
+                                    .map_err(|cause| {
+                                        Error::caused_by(
+                                            ErrorKind::Xml,
+                                            "Invalid merged range reference",
+                                            cause,
+                                        )
+                                    })?
+                                    .parse::<crabxl_core::CellRange>()?,
+                            );
+                        }
+                    }
+                    let range = range.ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidData, "Merged range has no reference")
+                    })?;
+                    self.retain_merge(range)?;
                 }
                 Event::Eof => return Ok(()),
                 _ => {}

@@ -20,11 +20,7 @@ impl Workbook {
             ));
         }
         for (_, sheet) in self.sheets() {
-            for row in sheet.row_indices() {
-                for cell in sheet.row_cells(row) {
-                    catalog.cell_style(cell.style)?;
-                }
-            }
+            sheet.validate_style_links(Some(&catalog))?;
         }
         let requested = limits;
         limits.max_bytes = limits
@@ -137,6 +133,102 @@ impl Workbook {
             .as_mut()
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown named style"))?
             .update_named_style_with_limit(name, style, maximum)
+    }
+    /// Merge a finite rectangle using shared virtual border/protection styles.
+    pub fn merge_cells(&mut self, id: SheetId, range: crate::CellRange) -> Result<()> {
+        crate::CellRange::new(range.start, range.end)?;
+        let sheet = self.sheet(id)?;
+        if sheet.merged_ranges().contains(range) {
+            return Ok(());
+        }
+        let anchor = sheet.style_at(range.start);
+        let corner = (sheet.get(range.end).is_some()
+            || sheet.merged_ranges().virtual_style(range.end).is_some())
+        .then(|| sheet.style_at(range.end));
+        let (prepared, anchor_style) = self.prepare_merge(range, anchor, corner)?;
+        self.sheet_mut(id)?.merge_prepared(prepared, anchor_style)
+    }
+    /// Resolve shared appearances without mutating a caller's materialized sheet.
+    /// Coordinators must reserve that sheet's bytes in the workbook allowance
+    /// before preparing styles, then apply the result under its own sheet limit.
+    pub fn prepare_merge(
+        &mut self,
+        range: crate::CellRange,
+        anchor: crate::StyleId,
+        corner: Option<crate::StyleId>,
+    ) -> Result<(crate::MergedCellRange, crate::StyleId)> {
+        crate::CellRange::new(range.start, range.end)?;
+        if self.styles.is_none() {
+            self.register_style(crate::CellStyle::default())?;
+        }
+        let catalog = self
+            .style_catalog()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing merge style owner"))?;
+        let appearance = catalog.cell_style(anchor)?;
+        let original = appearance.border.clone();
+        let mut border = original.clone();
+        let protection = appearance.protection.copied();
+        let default = catalog.cell_style(crate::StyleId::new(0))?;
+        let default_border = default.border.clone();
+        let default_protection = default.protection.copied();
+        if let Some(corner) = corner {
+            let corner = catalog.cell_style(corner)?;
+            for side in [1, 3] {
+                merge_border_side(&mut border.sides[side], &corner.border.sides[side]);
+            }
+        }
+        let anchor_style = if border == original {
+            anchor
+        } else {
+            self.derive_style_component(
+                anchor,
+                crate::StyleComponent::Border(Box::new(border.clone())),
+            )?
+        };
+        let mut appearances = [crate::StyleId::new(0); 16];
+        for (mask, style) in appearances.iter_mut().enumerate() {
+            let available = |bits, size| match size {
+                1 => bits == 3,
+                2 => bits == 1 || bits == 2,
+                _ => bits != 3,
+            };
+            if !available(
+                mask & 3,
+                range.end.column.get() - range.start.column.get() + 1,
+            ) || !available(mask >> 2, range.end.row.get() - range.start.row.get() + 1)
+            {
+                continue;
+            }
+            let mut edge = default_border.clone();
+            for side in 0..4 {
+                if mask & (1 << side) != 0
+                    && border.sides[side].as_ref().is_some_and(|side| {
+                        side.line
+                            .is_some_and(|line| line != crate::BorderLine::None)
+                    })
+                {
+                    merge_border_side(&mut edge.sides[side], &border.sides[side]);
+                }
+            }
+            if edge != default_border {
+                *style = self.derive_style_component(
+                    *style,
+                    crate::StyleComponent::Border(Box::new(edge)),
+                )?;
+            }
+            let effective_protection = |value: Option<crate::Protection>| {
+                let value = value.unwrap_or_default();
+                (value.locked.unwrap_or(true), value.hidden.unwrap_or(false))
+            };
+            if effective_protection(protection) != effective_protection(default_protection) {
+                *style = self.derive_style_component(
+                    *style,
+                    crate::StyleComponent::Protection(protection),
+                )?;
+            }
+        }
+        let prepared = crate::MergedCellRange::new(range, appearances)?;
+        Ok((prepared, anchor_style))
     }
     /// Derive a format by replacing one appearance component under the bank cap.
     /// All other component identities, base links and flags remain unchanged.
