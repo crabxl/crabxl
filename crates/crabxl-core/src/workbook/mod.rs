@@ -524,6 +524,10 @@ impl WorksheetEditor<'_> {
     pub fn set_hyperlinks(&mut self, links: crate::Hyperlinks) -> Result<()> {
         self.sheet.set_hyperlinks(links)
     }
+    /// Adopt decoded metadata without declaring a user edit.
+    pub fn adopt_hyperlinks(&mut self, links: crate::Hyperlinks) -> Result<()> {
+        self.sheet.adopt_hyperlinks(links)
+    }
     /// Change a link and its optional empty-cell display value atomically.
     pub fn set_hyperlink(
         &mut self,

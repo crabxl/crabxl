@@ -390,6 +390,13 @@ fn read_relationships<R: Read + Seek>(
                 {
                     return Err(invalid("Invalid relationship TargetMode").with_part(part));
                 }
+                let charge = 256_u64
+                    .saturating_add(id.capacity() as u64)
+                    .saturating_add(kind.capacity() as u64)
+                    .saturating_add(target.capacity() as u64);
+                *remaining = remaining.checked_sub(charge).ok_or_else(|| {
+                    limit("Decoded relationship metadata exceeds allowance").with_part(part)
+                })?;
                 if id.is_empty()
                     || relationships
                         .insert(

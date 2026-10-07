@@ -410,7 +410,8 @@
         "Keep a canonical sparse point collection with optional target/location/display/tooltip and source relationship identity; no upstream object wrapper",
         "Independently implement cached node/payload charges and atomic worksheet/aggregate-bank replacement",
         "Bound relationship encoding and streamed typed reads; validate namespace-resolved relationship identities",
-        "Reject affected structural edits and internal/range graphs explicitly pending full A11 integration"
+        "Reject affected structural edits and internal/range graphs explicitly pending full A11 integration",
+        "CrabXL shared declaration capture supports opt-in row streams and lazy canonical source reads; aggregate metadata/SST/formula and decoded relationship reservations retain clean getter state"
       ],
       "tests": [
         "crates/crabxl-xlsx/tests/writer.rs: canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically"
@@ -419,7 +420,7 @@
         "model.hyperlinks.points",
         "baseline.openpyxl.worksheet.hyperlink"
       ],
-      "status": "owned native create and explicit read checkpoint; preserving edits, Python and full A11 acceptance pending"
+      "status": "owned native create, explicit/row-stream capture and canonical loaded read checkpoint; preserving mutation, Python and full A11 acceptance pending"
     }
   ]
 }

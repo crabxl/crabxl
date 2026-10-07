@@ -217,7 +217,40 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         let mut in_merges = false;
         let mut seen_merges = false;
         loop {
+            let (merges, formulas, maximum) = if self.hyperlinks.is_some() {
+                let merges = self.merge_bytes();
+                let formulas = self.shared_formulas.stats().accounted_bytes;
+                let maximum = (self.limits.max_metadata_bytes.min(usize::MAX as u64) as usize)
+                    .min(
+                        self.aggregate
+                            .as_ref()
+                            .map_or(Ok(usize::MAX), |pool| pool.available(formulas))?,
+                    )
+                    .saturating_sub(merges);
+                (merges, formulas, maximum)
+            } else {
+                (0, 0, 0)
+            };
             let frame = self.xml.next()?;
+            if let Some(capture) = &mut self.hyperlinks {
+                let result = capture.observe(&frame, maximum, |bytes| {
+                    if let Some(pool) = &self.aggregate {
+                        let available =
+                            pool.available(formulas.saturating_add(merges).saturating_add(bytes))?;
+                        if let Some(strings) = &mut self.shared_strings {
+                            if let Some(policy) = self.shared_string_policy {
+                                strings.limit_or_spill(policy, available)?;
+                            } else {
+                                strings.limit_managed_bytes(available)?;
+                            }
+                        }
+                    }
+                    Ok(())
+                });
+                if let Err(error) = result {
+                    return Err(error.with_part(self.xml.part()));
+                }
+            }
             match frame.event {
                 Event::Start(e)
                     if frame.scope == Scope::Spreadsheet

@@ -87,6 +87,8 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             kind: crate::SheetKind::Worksheet,
             original: None,
             normalized_styles: false,
+            hyperlinks_requested: true,
+            hyperlinks_loaded: true,
         });
         self.editor.commit_create(plan, id);
         if let Some(source) = source {

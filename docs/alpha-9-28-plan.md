@@ -93,3 +93,7 @@ location/display/tooltip, shared budget rollback and physical removal are covere
 Affected structural edits reject before mutation. Loaded preserving relationship
 patches, Python live APIs, range declarations and full public-surface acceptance
 remain pending; A11 is not released by this checkpoint.
+
+Typed loaded point reads now share opt-in row capture and post-stream relationship
+resolution, with clean metadata adoption and shared merge/link/formula/SST budgets
+(ADR 0090). Preserving hyperlink mutation and full W13/A11 acceptance remain open.

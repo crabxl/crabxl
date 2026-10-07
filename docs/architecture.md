@@ -342,3 +342,8 @@ Canonical point hyperlinks live in the core worksheet owner and share the bank
 allowance. Explicit XLSX metadata scans and owned relationship encoding remain in
 the format layer; normal scalar streams stay lazy. Preserving source edits and
 full range/Python integration remain A11 gates; see [ADR 0089](decisions/0089-canonical-point-hyperlinks.md).
+
+Opt-in hyperlink capture shares one declaration decoder between explicit scans
+and row streams. Loaded typed access keeps policy flags on the source mapping
+and one collection in the canonical bank; normal scalar access remains lazy.
+See [ADR 0090](decisions/0090-streamed-hyperlink-capture.md).

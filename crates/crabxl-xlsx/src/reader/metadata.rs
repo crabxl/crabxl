@@ -28,6 +28,24 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
     pub fn take_merge_ranges(&mut self) -> Vec<crabxl_core::CellRange> {
         std::mem::take(&mut self.merge_ranges)
     }
+    /// Opt into compact hyperlink declarations without resolving source targets.
+    /// Complete capture requires consumption through EOF, not a prefix preview.
+    pub fn capture_hyperlinks(&mut self) {
+        self.hyperlinks.get_or_insert_with(Default::default);
+    }
+    /// Move captured declarations after consuming the worksheet tail.
+    pub fn take_hyperlinks(&mut self) -> crabxl_core::Hyperlinks {
+        self.hyperlinks
+            .take()
+            .map_or_else(Default::default, |capture| capture.links)
+    }
+    pub(super) fn captured_metadata_bytes(&self) -> usize {
+        self.merge_bytes().saturating_add(
+            self.hyperlinks
+                .as_ref()
+                .map_or(0, |capture| capture.links.heap_bytes()),
+        )
+    }
     pub(super) fn merge_bytes(&self) -> usize {
         self.merge_ranges
             .capacity()
@@ -40,7 +58,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     pool.available(self.shared_formulas.stats().accounted_bytes)
                 })?,
             );
-            let available = maximum.saturating_sub(self.merge_bytes());
+            let available = maximum.saturating_sub(self.captured_metadata_bytes());
             let growth = self.merge_ranges.capacity().max(4);
             let additional =
                 if growth.saturating_mul(size_of::<crabxl_core::CellRange>()) <= available {
@@ -63,7 +81,12 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     self.shared_formulas
                         .stats()
                         .accounted_bytes
-                        .saturating_add(prospective),
+                        .saturating_add(prospective)
+                        .saturating_add(
+                            self.hyperlinks
+                                .as_ref()
+                                .map_or(0, |capture| capture.links.heap_bytes()),
+                        ),
                 )?;
                 if let Some(strings) = &mut self.shared_strings {
                     if let Some(policy) = self.shared_string_policy {
@@ -84,7 +107,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     .with_part(self.xml.part())
                 })?;
             self.limit_string_cache()?;
-            if self.merge_bytes() > maximum {
+            if self.captured_metadata_bytes() > maximum {
                 return Err(Error::new(
                     ErrorKind::MemoryBudgetExceeded,
                     "Captured merge capacity exceeds retained allowance",
