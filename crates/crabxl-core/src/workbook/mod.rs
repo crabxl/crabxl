@@ -688,6 +688,13 @@ impl WorksheetEditor<'_> {
     pub fn remove(&mut self, address: CellAddress) -> Result<Option<Cell>> {
         self.sheet.remove(address)
     }
+    /// Transfer removed point metadata without retaining a second cell model.
+    pub fn remove_with_hyperlink(
+        &mut self,
+        address: CellAddress,
+    ) -> Result<(Option<Cell>, Option<crate::Hyperlink>)> {
+        self.sheet.remove_with_hyperlink(address)
+    }
     /// Insert rows under the combined work allowance.
     pub fn insert_rows(&mut self, index: RowIndex, count: u32) -> Result<()> {
         self.sheet.insert_rows(index, count)

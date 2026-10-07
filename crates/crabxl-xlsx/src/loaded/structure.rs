@@ -6,13 +6,21 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// transfer its owned value/style to the caller. Logical append extent stays.
     /// Affected unmodeled graphs reject before any cell or package mutation.
     pub fn remove_cell(&mut self, id: SheetId, address: CellAddress) -> Result<Option<Cell>> {
+        self.remove_cell_with_hyperlink(id, address)
+            .map(|(cell, _)| cell)
+    }
+    /// Remove a point and transfer its metadata after the original graph preflight.
+    pub fn remove_cell_with_hyperlink(
+        &mut self,
+        id: SheetId,
+        address: CellAddress,
+    ) -> Result<(Option<Cell>, Option<crabxl_core::Hyperlink>)> {
         self.edit_structure_when(
             id,
             |sheet| {
-                let linked = sheet.hyperlinks().get(address).is_some();
-                let cell = sheet.remove(address)?;
-                let changed = linked || cell.is_some();
-                Ok((cell, changed))
+                let removed = sheet.remove_with_hyperlink(address)?;
+                let changed = removed.0.is_some() || removed.1.is_some();
+                Ok((removed, changed))
             },
             |(_, changed)| *changed,
         )

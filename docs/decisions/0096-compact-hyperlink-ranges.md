@@ -29,3 +29,8 @@ this implementation checkpoint.
 Imported empty-cell display initialization, write-only live metadata, public
 post-save identities, broader feature-aware shifts and consolidated Python/A11
 acceptance remain open dependencies.
+
+`remove_with_hyperlink` and `remove_cell_with_hyperlink` transfer a removed point's
+owned value and hyperlink after the normal graph preflight. This supports detached
+binding views without rescanning a source or retaining a parallel metadata table.
+Removing a range-covered point projects the transferred declaration to that point.
