@@ -109,3 +109,8 @@ W13/A11 acceptance remain open; the six-release scope is unchanged.
 Native point declarations now support independent serialized references and
 bounded last-declaration capture (ADR 0092). Python shared-object integration and
 compact finite ranges remain W13 gates; scope and release numbering are unchanged.
+
+Native sequential hyperlink snapshots now use bounded disk-backed metadata
+(ADR 0093), including interleaved sheets and cleanup/rollback checks. Python
+write-only live/reused-object behavior still requires a native mutable metadata
+coordinator; snapshot support alone does not close that W13 gate.

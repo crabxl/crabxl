@@ -96,30 +96,32 @@ impl WorkbookWriter {
                 remaining.push(path);
             }
         }
-        for active in self.active.take().into_iter().chain(self.paused.drain(..)) {
-            let (file, _) = active.output.into_parts();
+        let mut cleanup = |file: NamedTempFile| {
             let path = file.path().to_owned();
             if let Err(error) = file.close()
                 && error.kind() != io::ErrorKind::NotFound
             {
                 if first_error.is_none() {
-                    first_error = Some(io_error(
-                        "Cannot remove active worksheet temporary file",
-                        error,
-                    ));
+                    first_error = Some(io_error("Cannot remove writer temporary file", error));
                 }
                 remaining.push(path);
             }
+        };
+        for active in self.active.take().into_iter().chain(self.paused.drain(..)) {
+            let (file, _) = active.output.into_parts();
+            cleanup(file);
+            for file in active
+                .link_spool
+                .into_iter()
+                .flat_map(hyperlinks::LinkSpool::into_files)
+            {
+                cleanup(file);
+            }
         }
         for sheet in self.sheets.drain(..) {
-            let path = sheet.file.path().to_owned();
-            if let Err(error) = sheet.file.close()
-                && error.kind() != io::ErrorKind::NotFound
-            {
-                if first_error.is_none() {
-                    first_error = Some(io_error("Cannot remove worksheet temporary file", error));
-                }
-                remaining.push(path);
+            cleanup(sheet.file);
+            if let Some(file) = sheet.relationship_spool {
+                cleanup(file);
             }
         }
         self.cleanup_paths = remaining;
@@ -195,6 +197,24 @@ impl WorkbookWriter {
             .map_err(|error| {
                 io_error("Cannot package worksheet temporary file", error).with_part(part)
             })?;
+            if let Some(file) = &mut sheet.relationship_spool {
+                let part = format!("xl/worksheets/_rels/sheet{}.xml.rels", index + 1);
+                let size = file
+                    .as_file()
+                    .metadata()
+                    .map_err(|cause| io_error("Cannot inspect hyperlink spool", cause))?
+                    .len();
+                start_part(
+                    &mut zip,
+                    &part,
+                    options.large_file(size >= u64::from(u32::MAX)),
+                )?;
+                file.rewind()
+                    .map_err(|cause| io_error("Cannot rewind hyperlink relationships", cause))?;
+                io::copy(file.as_file_mut(), &mut zip).map_err(|cause| {
+                    io_error("Cannot package hyperlink relationships", cause).with_part(&part)
+                })?;
+            }
             if let Some(relationships) = &sheet.relationships {
                 let relationship_part = format!("xl/worksheets/_rels/sheet{}.xml.rels", index + 1);
                 start_part(&mut zip, &relationship_part, options)?;

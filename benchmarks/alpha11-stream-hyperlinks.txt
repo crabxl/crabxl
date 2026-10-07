@@ -1,0 +1,6 @@
+rows=8000 append=0.009855 close=0.000241 finish=0.012395 checksum=334890 peak_temp_bytes=2887549 retained_temp_before_packaging=2577763 peak_rss_kib=2140
+rows=8000 append=0.009592 close=0.000173 finish=0.013402 checksum=334890 peak_temp_bytes=2887549 retained_temp_before_packaging=2577763 peak_rss_kib=2148
+rows=8000 append=0.008508 close=0.000164 finish=0.011667 checksum=334890 peak_temp_bytes=2887549 retained_temp_before_packaging=2577763 peak_rss_kib=2088
+rows=64000 append=0.083906 close=0.001338 finish=0.090163 checksum=2740890 peak_temp_bytes=23591556 retained_temp_before_packaging=20989768 peak_rss_kib=2200
+rows=64000 append=0.069961 close=0.002071 finish=0.085354 checksum=2740890 peak_temp_bytes=23591556 retained_temp_before_packaging=20989768 peak_rss_kib=2196
+rows=64000 append=0.068050 close=0.001336 finish=0.082925 checksum=2740890 peak_temp_bytes=23591556 retained_temp_before_packaging=20989768 peak_rss_kib=2156

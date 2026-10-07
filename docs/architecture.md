@@ -356,3 +356,8 @@ are created in the same save transaction. See [ADR 0091](decisions/0091-preservi
 Independent hyperlink declaration references retain canonical owner coordinates
 and byte accounting. Captured duplicate points use last-declaration semantics;
 affected structural guards inspect both coordinates. See [ADR 0092](decisions/0092-independent-hyperlink-references.md).
+
+Sequential point hyperlink metadata uses two bounded disk-backed per-sheet spools
+in the existing writer owner, with shared codecs and explicit future-footer
+reservations. [ADR 0093](decisions/0093-disk-backed-streamed-hyperlinks.md) records
+active/paused accounting, copy peaks and remaining mutable binding integration.

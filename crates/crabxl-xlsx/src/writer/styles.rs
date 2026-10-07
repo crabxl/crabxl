@@ -196,6 +196,10 @@ impl WorkbookWriter {
                     sheet.name.capacity()
                         + sheet.file.path().as_os_str().len()
                         + sheet.relationships.as_ref().map_or(0, Vec::capacity)
+                        + sheet
+                            .relationship_spool
+                            .as_ref()
+                            .map_or(0, |file| file.path().as_os_str().len())
                 })
                 .sum::<usize>()
             + self.active.as_ref().map_or(0, |sheet| {
@@ -204,6 +208,10 @@ impl WorkbookWriter {
                     + sheet.footer.as_ref().map_or(0, Vec::capacity)
                     + sheet.relationships.as_ref().map_or(0, Vec::capacity)
                     + sheet.dimensions.heap_bytes()
+                    + sheet
+                        .link_spool
+                        .as_ref()
+                        .map_or(0, hyperlinks::LinkSpool::heap_bytes)
             })
     }
     pub(super) fn style_bytes(&self) -> usize {
@@ -222,13 +230,23 @@ impl WorkbookWriter {
                         + sheet.dimensions.heap_bytes()
                         + sheet.footer.as_ref().map_or(0, Vec::capacity)
                         + sheet.relationships.as_ref().map_or(0, Vec::capacity)
+                        + sheet
+                            .link_spool
+                            .as_ref()
+                            .map_or(0, hyperlinks::LinkSpool::heap_bytes)
                 })
                 .sum::<usize>()
     }
     pub(super) fn paused_footers(&self) -> u64 {
         self.paused
             .iter()
-            .map(|sheet| sheet.footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64)
+            .map(|sheet| {
+                sheet.footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64
+                    + sheet
+                        .link_spool
+                        .as_ref()
+                        .map_or(0, hyperlinks::LinkSpool::pending_bytes)
+            })
             .sum()
     }
 }

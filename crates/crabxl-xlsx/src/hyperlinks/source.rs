@@ -181,10 +181,11 @@ pub(crate) fn prepare<R: Read + Seek>(
         }
     } else {
         (|| -> io::Result<()> {
-            output.write_all(b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">")?;
+            output.write_all(RELATIONSHIPS_HEADER)?;
             write_added(&mut output, links, &plan)?;
             output.write_all(b"</Relationships>")
-        })().map_err(|cause| output_error("Cannot create hyperlink relationships", cause))?;
+        })()
+        .map_err(|cause| output_error("Cannot create hyperlink relationships", cause))?;
     }
     plan.relationships = Some(output.data);
     if plan.heap_bytes() > limit {
@@ -195,26 +196,19 @@ pub(crate) fn prepare<R: Read + Seek>(
 fn write_added(output: &mut impl Write, links: &Hyperlinks, plan: &Plan) -> io::Result<()> {
     for ((_, link), id) in links.iter().zip(&plan.ids) {
         if id.added {
-            output.write_all(b"<Relationship xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"")?;
-            write_attribute(
+            write_relationship(
                 output,
-                "Id",
                 id.value.as_deref().ok_or_else(|| {
                     io::Error::new(
                         io::ErrorKind::InvalidData,
                         "Missing added hyperlink identity",
                     )
                 })?,
-            )?;
-            write_attribute(output, "Type", &format!("{OFFICE_REL_URI}/hyperlink"))?;
-            write_attribute(
-                output,
-                "Target",
                 link.target.as_deref().ok_or_else(|| {
                     io::Error::new(io::ErrorKind::InvalidData, "Missing added hyperlink target")
                 })?,
+                true,
             )?;
-            output.write_all(b" TargetMode=\"External\"/>")?;
         }
     }
     Ok(())
