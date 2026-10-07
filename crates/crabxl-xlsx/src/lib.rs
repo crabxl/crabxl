@@ -29,6 +29,7 @@ mod strings;
 pub use strings::{SharedStringOptions, SharedStringStats, SharedStringStorage};
 
 mod hyperlinks;
+pub use hyperlinks::output::{HyperlinkOutput, visit_owned_hyperlink_ids};
 mod rich_text;
 mod rich_text_xml;
 pub use rich_text_xml::{read_rich_text, write_rich_text};

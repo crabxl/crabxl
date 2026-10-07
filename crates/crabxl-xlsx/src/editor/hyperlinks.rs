@@ -42,7 +42,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.hyperlink_patches.insert(index, id);
         self.patch_bytes = bytes;
     }
-    pub(super) fn prepare_hyperlink_save(
+    pub(crate) fn prepare_hyperlink_save(
         &mut self,
         bank: Option<&crabxl_core::Workbook>,
         extra_retained: usize,

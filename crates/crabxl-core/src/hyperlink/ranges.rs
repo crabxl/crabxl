@@ -259,6 +259,13 @@ impl Hyperlinks {
     }
     /// Actual decoded range coverage, separate from independently mutable refs.
     pub fn covering_range(&self, address: CellAddress) -> Option<CellRange> {
+        let owner = (address.row, address.column);
+        if let Some(range) = self.ranges.get(&owner) {
+            return Some(*range);
+        }
+        if self.points.contains_key(&owner) {
+            return None;
+        }
         self.ranges
             .values()
             .copied()

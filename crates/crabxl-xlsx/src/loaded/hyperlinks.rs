@@ -2,6 +2,61 @@
 use super::*;
 
 impl<R: Read + Seek> LoadedWorkbook<R> {
+    /// Visit output identities for already adopted canonical declarations.
+    /// Source rewrites use the same bounded relationship planner as saving.
+    /// This does not load untouched worksheets or change source identity hints.
+    pub fn visit_hyperlink_output_ids(
+        &mut self,
+        workspace_bytes: usize,
+        mut visit: impl FnMut(crate::HyperlinkOutput<'_>) -> Result<()>,
+    ) -> Result<()> {
+        self.rebalance()?;
+        if workspace_bytes
+            > self
+                .allowance
+                .retained_data_bytes
+                .saturating_sub(self.managed_retained_bytes())
+        {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Hyperlink identity workspace exceeds shared allowance",
+            ));
+        }
+        let extra = self.mapping_bytes().saturating_add(workspace_bytes);
+        let plans = self
+            .editor
+            .prepare_hyperlink_save(Some(&self.bank), extra)?;
+        for (sheet, model) in self.bank.sheets() {
+            let links = model.hyperlinks();
+            let plan = plans
+                .values()
+                .find(|(id, _)| *id == sheet)
+                .map(|(_, plan)| plan);
+            if plan.is_some_and(|plan| plan.ids.len() != links.len()) {
+                return Err(Error::new(
+                    ErrorKind::InvalidState,
+                    "Hyperlink identity plan differs from canonical declarations",
+                ));
+            }
+            for (index, (owner, link)) in links.iter().enumerate() {
+                let identity = if let Some(plan) = plan {
+                    plan.ids[index].value.as_deref()
+                } else if link.target.is_some() {
+                    link.relationship_id.as_deref()
+                } else {
+                    None
+                };
+                visit(crate::HyperlinkOutput {
+                    sheet,
+                    owner,
+                    coverage: links.covering_range(owner),
+                    link,
+                    identity,
+                })?;
+            }
+        }
+        Ok(())
+    }
     /// Borrow canonical hyperlink declarations, resolving source targets once.
     /// A first typed request before materialization captures declarations during
     /// that cell stream. Ordinary scalar access keeps feature capture disabled.
