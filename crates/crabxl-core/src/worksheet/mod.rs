@@ -1,5 +1,6 @@
 //! Sparse, runtime-independent worksheet editing with explicit allocation allowances.
 mod dimensions;
+mod hyperlinks;
 mod merges;
 mod metadata;
 mod structure;
@@ -115,6 +116,7 @@ pub struct Worksheet {
     printing: Option<Box<crate::PrintSettings>>,
     dimensions: crate::SheetDimensions,
     merges: crate::MergedRanges,
+    hyperlinks: crate::Hyperlinks,
     visibility: SheetVisibility,
 }
 impl Worksheet {
@@ -138,6 +140,7 @@ impl Worksheet {
             printing: None,
             dimensions: Default::default(),
             merges: Default::default(),
+            hyperlinks: Default::default(),
             visibility: SheetVisibility::Visible,
         })
     }
@@ -206,6 +209,7 @@ impl Worksheet {
         copy.set_print_settings(self.printing.as_deref().cloned())?;
         copy.set_dimensions(self.dimensions.clone())?;
         copy.set_merged_ranges(self.merges.clone())?;
+        copy.set_hyperlinks(self.hyperlinks.clone())?;
         copy.append_cursor = self.append_cursor;
         copy.dirty = true;
         Ok(copy)
@@ -358,6 +362,14 @@ impl Worksheet {
     }
     /// Remove a physical cell; existing append position is retained.
     pub fn remove(&mut self, address: CellAddress) -> Option<Cell> {
+        let old_links = self.hyperlinks.heap_bytes();
+        if self.hyperlinks.remove(address).is_some() {
+            self.charged = self
+                .charged
+                .saturating_sub(old_links)
+                .saturating_add(self.hyperlinks.heap_bytes());
+            self.dirty = true;
+        }
         let storage = self.cells.storage_bytes();
         let cell = self.cells.remove(
             &key(address),
@@ -443,6 +455,7 @@ impl Worksheet {
             + self.print_bytes()
             + self.dimensions.heap_bytes()
             + self.merges.heap_bytes()
+            + self.hyperlinks.heap_bytes()
             + self.cells.storage_bytes()
             + self.cells.values().map(charge).sum::<usize>();
     }
@@ -451,6 +464,12 @@ impl Worksheet {
         source: CellRange,
         destination: CellRange,
     ) -> Result<()> {
+        if self.hyperlinks.intersects(source) || self.hyperlinks.intersects(destination) {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Structural editing of affected hyperlinks remains unimplemented",
+            ));
+        }
         if self
             .merges
             .ranges()

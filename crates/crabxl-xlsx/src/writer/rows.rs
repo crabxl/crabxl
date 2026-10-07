@@ -56,6 +56,7 @@ impl WorkbookWriter {
             sheet.print_settings(),
             sheet.dimensions().columns(),
             sheet.merged_ranges().ranges(),
+            sheet.hyperlinks(),
         )?;
         let id = self
             .active
@@ -308,6 +309,7 @@ impl WorkbookWriter {
             name: active.name,
             file,
             visibility: active.visibility,
+            relationships: active.relationships,
         });
         Ok(())
     }

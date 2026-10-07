@@ -25,6 +25,7 @@ impl Worksheet {
         range: crate::MergedCellRange,
         anchor_style: StyleId,
     ) -> Result<()> {
+        self.guard_merge_hyperlinks(range.range())?;
         let other = self.charged.saturating_sub(self.merges.heap_bytes());
         let reserved = self
             .merges

@@ -28,6 +28,7 @@ pub use adaptive::memory_allowance;
 mod strings;
 pub use strings::{SharedStringOptions, SharedStringStats, SharedStringStorage};
 
+mod hyperlinks;
 mod rich_text;
 
 mod formatting;

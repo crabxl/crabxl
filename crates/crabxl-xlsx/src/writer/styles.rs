@@ -192,12 +192,17 @@ impl WorkbookWriter {
             + self
                 .sheets
                 .iter()
-                .map(|sheet| sheet.name.capacity() + sheet.file.path().as_os_str().len())
+                .map(|sheet| {
+                    sheet.name.capacity()
+                        + sheet.file.path().as_os_str().len()
+                        + sheet.relationships.as_ref().map_or(0, Vec::capacity)
+                })
                 .sum::<usize>()
             + self.active.as_ref().map_or(0, |sheet| {
                 sheet.name.capacity()
                     + sheet.output.get_ref().path().as_os_str().len()
                     + sheet.footer.as_ref().map_or(0, Vec::capacity)
+                    + sheet.relationships.as_ref().map_or(0, Vec::capacity)
                     + sheet.dimensions.heap_bytes()
             })
     }
@@ -216,6 +221,7 @@ impl WorkbookWriter {
                         + sheet.output.get_ref().path().as_os_str().len()
                         + sheet.dimensions.heap_bytes()
                         + sheet.footer.as_ref().map_or(0, Vec::capacity)
+                        + sheet.relationships.as_ref().map_or(0, Vec::capacity)
                 })
                 .sum::<usize>()
     }

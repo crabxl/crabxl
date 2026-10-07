@@ -12,7 +12,11 @@ use std::{
 };
 
 static NEXT_OWNER: AtomicU64 = AtomicU64::new(1);
-const SLOT_BYTES: usize = 256;
+const SLOT_BYTES: usize = if size_of::<Entry>() > 256 {
+    size_of::<Entry>()
+} else {
+    256
+};
 
 /// Opaque runtime sheet identity. It survives reorder/rename and cannot alias
 /// removed sheets or sheets in another workbook. It is not a persisted OOXML ID.
@@ -515,6 +519,18 @@ impl WorksheetEditor<'_> {
     /// Remove a merge declaration under the same canonical sheet ownership.
     pub fn unmerge_cells(&mut self, range: crate::CellRange) -> Result<()> {
         self.sheet.unmerge_cells(range)
+    }
+    /// Adopt sparse hyperlink metadata under the current joint allowance.
+    pub fn set_hyperlinks(&mut self, links: crate::Hyperlinks) -> Result<()> {
+        self.sheet.set_hyperlinks(links)
+    }
+    /// Change a link and its optional empty-cell display value atomically.
+    pub fn set_hyperlink(
+        &mut self,
+        address: CellAddress,
+        link: Option<crate::Hyperlink>,
+    ) -> Result<()> {
+        self.sheet.set_hyperlink(address, link)
     }
     /// Apply a prepared merge after validating every local appearance reference.
     pub fn merge_prepared(

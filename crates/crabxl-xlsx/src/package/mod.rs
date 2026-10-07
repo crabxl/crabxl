@@ -3,6 +3,7 @@
 // Source provenance and changes: third_party/ports.json.
 
 mod catalogs;
+mod hyperlinks;
 mod streams;
 mod worksheet_metadata;
 

@@ -39,6 +39,7 @@ pub(crate) struct Frame<'a> {
     pub spreadsheet_uri: Option<&'static str>,
     pub event: Event<'a>,
     pub office_relationship: Option<String>,
+    pub office_relationship_attribute: Option<usize>,
     pub depth: usize,
 }
 
@@ -423,11 +424,15 @@ impl<B: BufRead> XmlStream<B> {
             _ => {}
         }
         let mut office_relationship = None;
+        let mut office_relationship_attribute = None;
         if scope == Scope::Spreadsheet
             && let Event::Start(e) = &event
-            && matches!(e.local_name().as_ref().as_bytes(), b"sheet" | b"pageSetup")
+            && matches!(
+                e.local_name().as_ref().as_bytes(),
+                b"sheet" | b"pageSetup" | b"hyperlink"
+            )
         {
-            for attribute in e.attributes() {
+            for (index, attribute) in e.attributes().enumerate() {
                 let attribute = attribute.map_err(|e| {
                     Error::caused_by(ErrorKind::Xml, "Invalid XML attribute", e)
                         .with_part(self.part.clone())
@@ -436,6 +441,14 @@ impl<B: BufRead> XmlStream<B> {
                 if name.as_ref() == "id"
                     && matches!(namespace, ResolveResult::Bound(ns) if ns.as_ref().as_bytes() == OFFICE_REL || ns.as_ref().as_bytes() == STRICT_OFFICE_REL)
                 {
+                    if office_relationship.is_some() {
+                        return Err(Error::new(
+                            ErrorKind::InvalidData,
+                            "Duplicate expanded relationship identity",
+                        )
+                        .with_part(self.part.clone()));
+                    }
+                    office_relationship_attribute = Some(index);
                     office_relationship = Some(
                         attribute
                             .normalized_value(quick_xml::XmlVersion::Implicit1_0)
@@ -453,6 +466,7 @@ impl<B: BufRead> XmlStream<B> {
             spreadsheet_uri,
             event,
             office_relationship,
+            office_relationship_attribute,
             depth: self.depth,
         })
     }
