@@ -671,7 +671,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .iter()
             .position(|sheet| sheet.id == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
-        if self.sheets[index].original.is_some() {
+        if self.sheets[index].original.is_some()
+            && !self.editor.model_is_dirty(&self.sheets[index].name)
+        {
             self.editor.prepare_model(&self.sheets[index].name)?;
         }
         let style = self
@@ -708,6 +710,26 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 Error::new(ErrorKind::InvalidData, "Unknown workbook style identity")
                     .with_cell(address),
             );
+        }
+        if self.options.read.data_only {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Data-only style editing remains unimplemented",
+            ));
+        }
+        let source = self
+            .sheets
+            .iter()
+            .find(|sheet| sheet.id == id)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
+        if source.original.is_none() || self.editor.model_is_dirty(&source.name) {
+            let created = source.original.is_none();
+            let result = self.bank.sheet_mut(id)?.set_style(address, style);
+            if result.is_ok() && created {
+                self.editor.created_values_dirty(id);
+            }
+            self.rebalance()?;
+            return result;
         }
         self.edit_structure_when(
             id,

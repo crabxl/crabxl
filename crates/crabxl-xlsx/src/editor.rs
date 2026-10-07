@@ -1272,7 +1272,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 "Adding a missing source stylesheet remains unimplemented",
             ));
         }
-        crate::styles::validate_catalog(catalog)
+        if self.styles_dirty {
+            Ok(())
+        } else {
+            crate::styles::validate_catalog(catalog)
+        }
     }
     pub(crate) fn styles_changed(&mut self) {
         self.styles_dirty = true;
