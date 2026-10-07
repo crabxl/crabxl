@@ -30,6 +30,8 @@ pub use strings::{SharedStringOptions, SharedStringStats, SharedStringStorage};
 
 mod hyperlinks;
 mod rich_text;
+mod rich_text_xml;
+pub use rich_text_xml::{read_rich_text, write_rich_text};
 
 mod formatting;
 
