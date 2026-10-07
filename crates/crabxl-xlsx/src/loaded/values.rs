@@ -8,6 +8,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// allowances before committing either representation. Date and unresolved
     /// phonetic-font assignments retain their explicit unsupported errors.
     pub fn append(&mut self, id: SheetId, values: Vec<CellValue>) -> Result<RowIndex> {
+        self.editor.model_font_count = self.bank.style_catalog().map(|catalog| catalog.fonts.len());
         self.sheet(id)?;
         let source = self
             .sheets
@@ -108,6 +109,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         value: CellValue,
         insert_missing: bool,
     ) -> Result<()> {
+        self.editor.model_font_count = self.bank.style_catalog().map(|catalog| catalog.fonts.len());
         let source = self
             .sheets
             .iter()

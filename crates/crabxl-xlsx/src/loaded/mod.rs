@@ -89,6 +89,11 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         edit_options.resources = options.resources;
         edit_options.memory_policy = options.memory_policy;
         let mut editor = WorkbookEditor::with_options(source, edit_options)?;
+        editor.structural_rich_text = options.read.rich_text;
+        editor.structural_inline_rich_text = options
+            .read
+            .inline_rich_text
+            .unwrap_or(options.read.rich_text);
         let original_package_bytes = editor.retained_package_bytes();
         let reader = &mut editor.book;
         reader.set_shared_string_options(options.shared_strings.clone());

@@ -4,7 +4,7 @@
 
 This is the active plan for the complete feature scope originally assigned to Alpha 9–28. Alpha 6–10 are published history, including verified public Rust and Python Alpha 9/10 artifacts. On 2026-10-07 the user approved consolidating the remaining work into approximately six releases to reduce repeated packaging and publication overhead. No feature scope is removed.
 
-A11–A16 below are the current release numbers. W11–W28 are stable work-package identifiers corresponding to the former alpha targets; they are no longer individual releases. W11 implementation is underway; incomplete work is not published as a completed feature.
+A11–A16 below are the current release numbers. W11–W28 are stable work-package identifiers corresponding to the former alpha targets; they are no longer individual releases. W11/W12 have usable checkpoints; W13 rich-value integration is described in [ADR 0088](decisions/0088-canonical-rich-model-edits.md). Hyperlinks and consolidated A11 acceptance remain open; incomplete work is not published as a completed feature.
 
 Rust and Python must expose each release's applicable usable functionality. Plan-only changes, refactors and disconnected ports do not advance alpha numbers. Numbers are manually selected; urgent usable fixes may insert a release and shift subsequent targets. No release dates or effort percentages are implied.
 

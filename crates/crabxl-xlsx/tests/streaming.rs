@@ -1083,6 +1083,29 @@ fn inline_plain_projection_and_malformed_structure() {
             .value,
         CellValue::text(" rich &tail")
     );
+    for (preserve, inline) in [(true, None), (true, Some(false)), (false, Some(true))] {
+        let cell = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    rich_text: preserve,
+                    inline_rich_text: inline,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap()
+            .cells
+            .remove(0);
+        if inline.unwrap_or(preserve) {
+            assert!(matches!(cell.value, CellValue::RichText(value)
+                if value.runs.len() == 2 && value.phonetic_runs.len() == 1));
+        } else {
+            assert_eq!(cell.value, CellValue::text(" rich &tail"));
+        }
+    }
     for content in [
         "<is><t>a</t><t>b</t></is>",
         "<is/><is/>",

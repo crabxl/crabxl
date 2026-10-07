@@ -150,8 +150,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 limits.max_part_bytes,
                 limits,
             );
-            let shared_strings =
-                crate::loaded_codec::guard(&mut xml).map_err(|error| error.with_part(&part))?;
+            let shared_strings = crate::loaded_codec::guard(
+                &mut xml,
+                self.structural_inline_rich_text,
+                limits.max_cell_bytes,
+            )
+            .map_err(|error| error.with_part(&part))?;
             drop(xml);
             if shared_strings && !self.structural_plain_strings {
                 if let Some(part) = self.book.source_strings_part().map(str::to_owned) {
@@ -164,8 +168,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         limits.max_part_bytes,
                         limits,
                     );
-                    crate::loaded_codec::guard_strings(&mut xml)
-                        .map_err(|error| error.with_part(&part))?;
+                    crate::loaded_codec::guard_strings(
+                        &mut xml,
+                        self.structural_rich_text,
+                        limits.max_cell_bytes,
+                    )
+                    .map_err(|error| error.with_part(&part))?;
                 }
                 self.structural_plain_strings = true;
             }
@@ -195,12 +203,22 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             )
             .with_cell(address));
         }
-        if matches!(value, CellValue::RichText(v) if v.phonetic_properties.is_some()) {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing phonetic font references requires the imported font catalog",
-            )
-            .with_cell(address));
+        if let CellValue::RichText(value) = value
+            && let Some(properties) = &value.phonetic_properties
+        {
+            let fonts = self.model_font_count.ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Unsupported,
+                    "Editing phonetic font references requires the imported font catalog",
+                )
+                .with_cell(address)
+            })?;
+            if properties.font_id as usize >= fonts {
+                return Err(
+                    Error::new(ErrorKind::InvalidData, "Unknown phonetic font identity")
+                        .with_cell(address),
+                );
+            }
         }
         let epoch = if self.book.date_1904() {
             DateEpoch::Mac1904
