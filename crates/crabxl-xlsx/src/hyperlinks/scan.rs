@@ -20,7 +20,19 @@ impl Capture {
         &mut self,
         frame: &Frame<'_>,
         maximum: usize,
+        reserve: impl FnMut(usize) -> Result<()>,
+    ) -> Result<()> {
+        self.observe_with(frame, maximum, reserve, |_, link| Ok(Some(link)))
+    }
+
+    /// Visit validated declarations before coverage normalization. Returning None
+    /// avoids retaining a second metadata collection during ordered value binding.
+    pub(crate) fn observe_with(
+        &mut self,
+        frame: &Frame<'_>,
+        maximum: usize,
         mut reserve: impl FnMut(usize) -> Result<()>,
+        mut visit: impl FnMut(CellRange, Hyperlink) -> Result<Option<Hyperlink>>,
     ) -> Result<()> {
         match &frame.event {
             Event::Start(e)
@@ -67,8 +79,16 @@ impl Capture {
                     relationship_id: frame.office_relationship.as_deref().map(Into::into),
                     ..Default::default()
                 };
-                reserve(self.links.declaration_peak_bytes(range.start, &link)?)?;
-                self.links.set_declaration(range.start, link, maximum)?;
+                if link.heap_bytes().saturating_add(size_of::<Hyperlink>()) > maximum {
+                    return Err(Error::new(
+                        ErrorKind::MemoryBudgetExceeded,
+                        "Hyperlink declaration exceeds allowance",
+                    ));
+                }
+                if let Some(link) = visit(range, link)? {
+                    reserve(self.links.declaration_peak_bytes(range.start, &link)?)?;
+                    self.links.set_declaration(range.start, link, maximum)?;
+                }
             }
             Event::End(e)
                 if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"hyperlinks" =>

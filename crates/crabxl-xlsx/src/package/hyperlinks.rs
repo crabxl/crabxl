@@ -48,6 +48,103 @@ impl<R: Read + Seek> WorkbookReader<R> {
         drop(xml);
         self.resolve_hyperlinks(name, capture.links, maximum)
     }
+    /// Replay declarations only when normalized coverage cannot recover original
+    /// first-fill value order. Ordinary non-overlapping loads keep one cell pass.
+    pub(crate) fn visit_hyperlinks_in_source_order(
+        &mut self,
+        name: &str,
+        maximum: usize,
+        mut visit: impl FnMut(crabxl_core::CellRange, &crabxl_core::Hyperlink, usize) -> Result<()>,
+    ) -> Result<()> {
+        let part = self.hyperlink_sheet_part(name)?;
+        let relation_part = relationship_part(&part);
+        let limits = self.limits;
+        let working = limits
+            .input_buffer_bytes
+            .saturating_add(limits.max_xml_event_bytes.saturating_mul(2));
+        let available = maximum.checked_sub(working).ok_or_else(|| {
+            Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Ordered hyperlink scan exceeds allowance",
+            )
+        })?;
+        let mut remaining =
+            available.min(limits.max_metadata_bytes.min(usize::MAX as u64) as usize) as u64;
+        let initial = remaining;
+        let relationships = if self.archive.file_names().any(|name| name == relation_part) {
+            read_relationships(&mut self.archive, &relation_part, limits, &mut remaining)?
+        } else {
+            HashMap::new()
+        };
+        let workspace = working.saturating_add((initial - remaining) as usize);
+        let file = self.archive.by_name(&part).map_err(|cause| {
+            Error::caused_by(
+                ErrorKind::Archive,
+                "Cannot open ordered hyperlink worksheet",
+                cause,
+            )
+            .with_part(&part)
+        })?;
+        let mut xml = XmlStream::new(
+            BufReader::with_capacity(limits.input_buffer_bytes, file),
+            part.clone(),
+            limits.max_part_bytes,
+            limits,
+        );
+        let mut capture = crate::hyperlinks::Capture::default();
+        loop {
+            let frame = xml.next()?;
+            if let Event::Start(e) = &frame.event
+                && frame.depth == 1
+                && (frame.scope != Scope::Spreadsheet
+                    || e.local_name().as_ref().as_bytes() != b"worksheet")
+            {
+                return Err(invalid("Invalid hyperlink worksheet root").with_part(&part));
+            }
+            capture
+                .observe_with(
+                    &frame,
+                    remaining as usize,
+                    |_| Ok(()),
+                    |range, mut link| {
+                        let target = if let Some(id) = link.relationship_id.as_deref() {
+                            let relation = relationships.get(id).ok_or_else(|| {
+                                invalid("Unknown hyperlink relationship").with_cell(range.start)
+                            })?;
+                            if !relationship_is(&relation.kind, "hyperlink") {
+                                return Err(invalid("Hyperlink relationship has a different type")
+                                    .with_cell(range.start));
+                            }
+                            Some(relation)
+                        } else {
+                            None
+                        };
+                        let charge = link
+                            .heap_bytes()
+                            .saturating_add(size_of::<crabxl_core::Hyperlink>())
+                            .saturating_add(target.map_or(0, |relation| relation.target.len()));
+                        if charge > remaining as usize {
+                            return Err(Error::new(
+                                ErrorKind::MemoryBudgetExceeded,
+                                "Ordered hyperlink declaration exceeds allowance",
+                            )
+                            .with_cell(range.start));
+                        }
+                        if let Some(relation) = target {
+                            link.target = Some(relation.target.clone().into_boxed_str());
+                            link.external = relation.external;
+                        }
+                        visit(range, &link, workspace.saturating_add(charge))?;
+                        Ok(None)
+                    },
+                )
+                .map_err(|error| error.with_part(&part))?;
+            if matches!(frame.event, Event::Eof) {
+                return Ok(());
+            }
+        }
+    }
+
     fn hyperlink_sheet_part(&self, name: &str) -> Result<String> {
         let sheet = self
             .sheets

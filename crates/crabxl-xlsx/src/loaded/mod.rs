@@ -493,17 +493,36 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                     if self.options.bind_hyperlink_values {
                         let value_maximum = model_maximum.saturating_sub(links.heap_bytes());
                         incoming.set_memory_allowance(value_maximum)?;
-                        hyperlink_values_dirty = hyperlink_values::bind(
-                            &mut incoming,
-                            &links,
-                            self.options.resources,
-                            value_maximum,
-                            |address| {
-                                self.editor
-                                    .pending_value(self.sheets[index].name.as_ref(), address)
-                                    .is_some()
-                            },
-                        )?;
+                        let name = self.sheets[index].name.as_ref();
+                        if links.has_source_overlaps() {
+                            let scan_allowance =
+                                value_maximum.saturating_sub(incoming.charged_bytes());
+                            self.editor.visit_hyperlink_values_in_source_order(
+                                name,
+                                scan_allowance,
+                                |area, link, workspace, overridden| {
+                                    let maximum = value_maximum.saturating_sub(workspace);
+                                    incoming.set_memory_allowance(maximum)?;
+                                    hyperlink_values_dirty |= hyperlink_values::bind_declaration(
+                                        &mut incoming,
+                                        area,
+                                        link,
+                                        self.options.resources,
+                                        maximum,
+                                        |address| overridden(address),
+                                    )?;
+                                    Ok(())
+                                },
+                            )?;
+                        } else {
+                            hyperlink_values_dirty = hyperlink_values::bind(
+                                &mut incoming,
+                                &links,
+                                self.options.resources,
+                                value_maximum,
+                                |address| self.editor.pending_value(name, address).is_some(),
+                            )?;
+                        }
                     }
                     incoming.set_memory_allowance(model_maximum)?;
                     incoming.set_hyperlinks(links)
