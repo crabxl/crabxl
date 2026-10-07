@@ -34,8 +34,10 @@ shared large unrelated payloads, immutable proxies and nested cache updates.
 Full compatibility cases remain 547. The complete public benchmark adds all
 five components to the existing owned/load-edit-save/write-only workload and
 checks every saved value and appearance after measurement. Initial dictionary
-conversion measurements failed the openpyxl speed gate; publication requires a
-verified faster candidate, retained raw results and final pinned revisions.
+conversion measurements failed the openpyxl speed gate. Reusable native snapshots
+and removing repeated per-assignment Python imports/type-table construction
+passed the complete three-mode candidate gate; the final pinned release evidence
+is recorded in the A10 acceptance document before publication.
 
 The existing typed component layouts retain their recorded umya provenance.
 This registry integration and Python conversion are original project code;
