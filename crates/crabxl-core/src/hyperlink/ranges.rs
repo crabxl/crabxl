@@ -137,11 +137,25 @@ impl Hyperlinks {
         maximum: usize,
     ) -> Result<()> {
         let area = Self::edit_area(address, Some(&link), true)?;
-        if area.start == area.end {
+        let overlapping = if area.start == area.end {
+            self.get(address).is_some()
+        } else {
+            self.points.keys().any(|owner| self.overlaps(*owner, area))
+        };
+        let result = if area.start == area.end {
             self.set(address, Some(link), maximum)
         } else {
             self.replace_coverage(address, Some(link), true, maximum)
+        };
+        if result.is_ok() {
+            self.source_overlaps |= overlapping;
         }
+        result
+    }
+    /// Whether declaration adoption replaced previously covered coordinates.
+    /// Consumers binding source values need original declaration-order semantics.
+    pub fn has_source_overlaps(&self) -> bool {
+        self.source_overlaps
     }
     /// Managed peak for adopting a decoded range declaration.
     pub fn declaration_peak_bytes(&self, address: CellAddress, link: &Hyperlink) -> Result<usize> {

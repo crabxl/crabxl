@@ -89,6 +89,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             normalized_styles: false,
             hyperlinks_requested: true,
             hyperlinks_loaded: true,
+            hyperlink_values_dirty: false,
         });
         self.editor.commit_create(plan, id);
         if let Some(source) = source {
