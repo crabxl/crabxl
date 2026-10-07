@@ -231,9 +231,49 @@ pub(crate) fn encode_cells<'a>(
     cells: impl Iterator<Item = &'a crabxl_core::Cell> + Clone,
     maximum_cell: usize,
     maximum_cells: usize,
+    styles: StyleContext<'_>,
+    date_encoding: ValueEncoding,
+) -> Result<()> {
+    encode_cells_with_dimension(
+        buffer,
+        (index, None),
+        cells,
+        maximum_cell,
+        maximum_cells,
+        styles,
+        date_encoding,
+    )
+}
+
+pub(crate) fn encode_cells_with_dimension<'a>(
+    buffer: &mut RowBuffer,
+    row: (crabxl_core::RowIndex, Option<&crabxl_core::RowDimension>),
+    cells: impl Iterator<Item = &'a crabxl_core::Cell> + Clone,
+    maximum_cell: usize,
+    maximum_cells: usize,
     mut styles: StyleContext<'_>,
     date_encoding: ValueEncoding,
 ) -> Result<()> {
+    let (index, dimension) = row;
+    if let Some(dimension) = dimension {
+        dimension.validate()?;
+        if dimension.descent.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Extended row descent serialization is not implemented",
+            ));
+        }
+        if dimension.index != index
+            || dimension
+                .style
+                .is_some_and(|id| id.get() as usize >= styles.len())
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Invalid row dimension style or identity",
+            ));
+        }
+    }
     let ValueEncoding {
         epoch,
         iso_dates,
@@ -307,7 +347,11 @@ pub(crate) fn encode_cells<'a>(
         }
     }
     let result = (|| -> io::Result<()> {
-        write!(buffer, "<row r=\"{}\">", index.get() + 1)?;
+        write!(buffer, "<row r=\"{}\"", index.get() + 1)?;
+        if let Some(dimension) = dimension {
+            crate::dimension_codec::write_row_attributes(buffer, dimension)?;
+        }
+        buffer.write_all(b">")?;
         for cell in cells {
             let iso_dates = styles.iso_dates_for(cell, iso_dates);
             let style = styles

@@ -189,6 +189,7 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     model_patches: BTreeMap<usize, crabxl_core::SheetId>,
     structural_plain_strings: bool,
     styles_dirty: bool,
+    theme_dirty: bool,
     membership: Option<Box<catalog::Membership>>,
     options: EditorOptions,
     patch_bytes: usize,
@@ -339,6 +340,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             catalog_order: None,
             model_patches: BTreeMap::new(),
             styles_dirty: false,
+            theme_dirty: false,
             structural_plain_strings: false,
             membership: None,
             options,
@@ -364,6 +366,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// Whether pending overlays are present. Saving does not discard overlays.
     pub fn is_dirty(&self) -> bool {
         self.styles_dirty
+            || self.theme_dirty
             || self.patch_cells != 0
             || self.membership.is_some()
             || !self.model_patches.is_empty()
@@ -1278,6 +1281,24 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             crate::styles::validate_catalog(catalog)
         }
     }
+    pub(crate) fn validate_theme_edit(&self) -> Result<()> {
+        if self.signed {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Signed theme editing remains unimplemented",
+            ));
+        }
+        if self.book.theme_part.is_none() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source theme relationship remains unimplemented",
+            ));
+        }
+        Ok(())
+    }
+    pub(crate) fn theme_changed(&mut self) {
+        self.theme_dirty = true;
+    }
     pub(crate) fn styles_changed(&mut self) {
         self.styles_dirty = true;
     }
@@ -1619,6 +1640,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 .ok_or_else(|| invalid("Style rewrite requires its canonical catalog"))?;
             self.validate_style_edit(catalog)?;
         }
+        if self.theme_dirty {
+            self.validate_theme_edit()?;
+            if bank.and_then(crabxl_core::Workbook::theme).is_none() {
+                return Err(invalid("Theme rewrite requires its canonical theme owner"));
+            }
+        }
         let membership = self.membership.as_deref().zip(bank);
         let active = if let Some((_, bank)) = membership {
             Some(crabxl_core::normalize_active_view(
@@ -1699,7 +1726,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
             let styles =
                 self.styles_dirty && self.book.style_part.as_deref() == Some(part.name.as_ref());
-            if styles || worksheet || workbook || shared_strings || chain_metadata {
+            let theme =
+                self.theme_dirty && self.book.theme_part.as_deref() == Some(part.name.as_ref());
+            if styles || theme || worksheet || workbook || shared_strings || chain_metadata {
                 let file = self.book.archive.by_index(index).map_err(|error| {
                     zip_error("Cannot read affected XML part", error).with_part(part.name.as_ref())
                 })?;
@@ -1733,6 +1762,20 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         .inner
                         .flush()
                         .map_err(|cause| io_error("Cannot flush source stylesheet", cause))?;
+                    Ok(budget.bytes)
+                } else if theme {
+                    drop(file);
+                    let mut budget = budget;
+                    let theme = bank
+                        .and_then(crabxl_core::Workbook::theme)
+                        .ok_or_else(|| invalid("Missing canonical theme"))?;
+                    budget
+                        .write_all(theme.bytes())
+                        .map_err(|cause| io_error("Cannot rewrite source theme", cause))?;
+                    budget
+                        .inner
+                        .flush()
+                        .map_err(|cause| io_error("Cannot flush source theme", cause))?;
                     Ok(budget.bytes)
                 } else if worksheet {
                     patch_worksheet(
@@ -2373,11 +2416,21 @@ fn patch_worksheet<R: Read + Seek, W: Write>(
                     emit(&mut writer, Event::Start(start))?;
                     continue;
                 }
+                b"cols" => {
+                    let depth = frame.depth;
+                    crate::style_codec::skip(&mut xml, depth)?;
+                    continue;
+                }
                 b"sheetData" => {
                     if seen_data {
                         return Err(invalid("Duplicate sheetData in affected worksheet"));
                     }
                     seen_data = true;
+                    crate::dimension_codec::write_columns(
+                        writer.get_mut(),
+                        model.dimensions().columns(),
+                    )
+                    .map_err(|error| io_error("Cannot write model columns", error))?;
                     super::loaded_codec::write_data(
                         writer.get_mut(),
                         model,

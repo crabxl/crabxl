@@ -688,6 +688,126 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.rebalance()?;
         self.set_style(id, address, result?)
     }
+    /// Borrowed-byte theme access returns shared ownership, not a payload copy.
+    pub fn theme(&mut self) -> Result<Option<crabxl_core::Theme>> {
+        if let Some(theme) = self.bank.theme() {
+            return Ok(Some(theme.clone()));
+        }
+        self.rebalance()?;
+        let theme = self.editor.book.theme()?.cloned();
+        self.rebalance()?;
+        Ok(theme)
+    }
+    /// Replace exact theme bytes at the existing relationship target.
+    /// Unknown DrawingML sections remain intact; missing graph creation is explicit.
+    pub fn set_theme(&mut self, theme: crabxl_core::Theme) -> Result<()> {
+        self.editor.validate_theme_edit()?;
+        if theme.bytes().len() > self.options.resources.max_theme_bytes
+            || theme.bytes().len() as u64 > self.options.resources.max_part_bytes
+        {
+            return Err(Error::new(
+                ErrorKind::LimitExceeded,
+                "Theme payload exceeds configured limit",
+            ));
+        }
+        // Validate the original entry's CRC before committing its replacement.
+        self.editor.book.theme()?;
+        self.rebalance()?;
+        let result = self.bank.set_theme(Some(theme));
+        if result.is_ok() {
+            self.editor.theme_changed();
+        }
+        self.rebalance()?;
+        result
+    }
+    /// Derive one source appearance component without assigning any cell.
+    pub fn derive_style_component(
+        &mut self,
+        style: crabxl_core::StyleId,
+        component: crabxl_core::StyleComponent,
+    ) -> Result<crabxl_core::StyleId> {
+        if let crabxl_core::StyleComponent::Font(font) = &component
+            && let Some(name) = &font.name
+        {
+            crate::encode::validate_xml_text(name)?;
+        }
+        let catalog = self.bank.style_catalog().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source stylesheet remains unimplemented",
+            )
+        })?;
+        self.editor.validate_style_edit(catalog)?;
+        self.rebalance()?;
+        let result = self.bank.derive_style_component(style, component);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        result
+    }
+    /// Derive a literal number format without assigning a source cell.
+    pub fn derive_number_format(
+        &mut self,
+        style: crabxl_core::StyleId,
+        code: Box<str>,
+    ) -> Result<crabxl_core::StyleId> {
+        crate::encode::validate_xml_text(&code)?;
+        let catalog = self.bank.style_catalog().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source stylesheet remains unimplemented",
+            )
+        })?;
+        self.editor.validate_style_edit(catalog)?;
+        self.rebalance()?;
+        let result = self.bank.derive_number_format(style, code);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        result
+    }
+    /// Register a named style without changing source cells or component identities.
+    pub fn register_named_style(
+        &mut self,
+        name: Box<str>,
+        style: crabxl_core::StyleId,
+        options: crabxl_core::NamedStyleOptions,
+    ) -> Result<crabxl_core::StyleId> {
+        crate::encode::validate_xml_text(&name)?;
+        let catalog = self.bank.style_catalog().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source stylesheet remains unimplemented",
+            )
+        })?;
+        self.editor.validate_style_edit(catalog)?;
+        self.rebalance()?;
+        let result = self.bank.register_named_style(name, style, options);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        result
+    }
+    /// Resolve a named source style into a workbook-local cell format.
+    pub fn named_style_format(&mut self, name: &str) -> Result<crabxl_core::StyleId> {
+        let catalog = self.bank.style_catalog().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Unsupported,
+                "Adding a missing source stylesheet remains unimplemented",
+            )
+        })?;
+        self.editor.validate_style_edit(catalog)?;
+        self.rebalance()?;
+        let result = self.bank.named_style_format(name);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        result
+    }
     /// Replace one source style component while retaining unrelated fields.
     /// Source graph and signature guards run before registration.
     pub fn set_style_component(
@@ -800,6 +920,46 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 let changed = sheet.get(address).is_none_or(|cell| cell.style != style || (explicit_temporal && matches!(&cell.value, CellValue::DateTime(date) if !date.requires_serial_encoding())));
                 if explicit_temporal {sheet.set_style(address,style)?;} else {sheet.set_appearance_style(address,style)?;}
                 Ok(changed)
+            },
+            |changed| *changed,
+        )?;
+        Ok(())
+    }
+    /// Update canonical row metadata after validating the affected source graph.
+    pub fn set_row_dimension(
+        &mut self,
+        id: SheetId,
+        dimension: crabxl_core::RowDimension,
+    ) -> Result<()> {
+        dimension.validate()?;
+        if dimension.descent.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Extended row descent serialization is not implemented",
+            ));
+        }
+        self.edit_structure_when(
+            id,
+            |sheet| {
+                sheet.set_row_dimension(dimension)?;
+                Ok(true)
+            },
+            |changed| *changed,
+        )?;
+        Ok(())
+    }
+    /// Update canonical column metadata after validating the affected source graph.
+    pub fn set_column_dimension(
+        &mut self,
+        id: SheetId,
+        dimension: crabxl_core::ColumnDimension,
+    ) -> Result<()> {
+        dimension.validate()?;
+        self.edit_structure_when(
+            id,
+            |sheet| {
+                sheet.set_column_dimension(dimension)?;
+                Ok(true)
             },
             |changed| *changed,
         )?;
@@ -1178,6 +1338,10 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                     ),
                 },
             )?;
+            incoming.set_dimensions(self.editor.book.column_dimensions_with_allowance(
+                name,
+                temporary_limit.saturating_sub(incoming.charged_bytes()),
+            )?)?;
             let retained = self
                 .bank
                 .charged_bytes()
@@ -1192,9 +1356,13 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                     retained.saturating_add(incoming.charged_bytes()),
                     true,
                 )?;
+                rows.capture_dimensions();
                 let mut row = Row::new(RowIndex::new(0)?);
                 rows.set_aggregate_retained(retained.saturating_add(incoming.charged_bytes()))?;
                 while rows.read_row_into(&mut row)? {
+                    if let Some(dimension) = rows.row_dimension() {
+                        incoming.set_row_dimension(dimension.clone())?;
+                    }
                     incoming.extend_row_extent(row.index.get() + 1)?;
                     rows.set_aggregate_retained(
                         retained

@@ -24,6 +24,47 @@ fn values(sheet: &Worksheet) -> Vec<(String, Value)> {
 }
 #[test]
 fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
+    // Metadata capacities are charged independently of cells and replacement is bounded.
+    {
+        let mut metadata = Worksheet::new("Metadata", EditLimits::default()).unwrap();
+        let before = metadata.charged_bytes();
+        let mut row = crabxl_core::RowDimension::new(RowIndex::new(999_999).unwrap());
+        row.height = Some(25.0);
+        metadata.set_row_dimension(row.clone()).unwrap();
+        let retained = metadata.charged_bytes();
+        assert_eq!(retained - before, metadata.dimensions().heap_bytes());
+        assert!(metadata.is_empty());
+        for _ in 0..1000 {
+            metadata.set_row_dimension(row.clone()).unwrap();
+        }
+        assert_eq!(metadata.charged_bytes(), retained);
+        metadata.mark_clean();
+        row.height = Some(f64::NAN);
+        assert_eq!(
+            metadata.set_row_dimension(row).unwrap_err().kind(),
+            ErrorKind::InvalidData
+        );
+        assert!(!metadata.is_dirty());
+        assert_eq!(metadata.dimensions().rows()[0].height, Some(25.0));
+        let mut bounded = Worksheet::new(
+            "Bounded",
+            EditLimits {
+                max_bytes: before,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let bounded_before = bounded.charged_bytes();
+        assert_eq!(
+            bounded
+                .set_row_dimension(crabxl_core::RowDimension::new(RowIndex::new(0).unwrap()))
+                .unwrap_err()
+                .kind(),
+            ErrorKind::MemoryBudgetExceeded
+        );
+        assert!(bounded.dimensions().rows().is_empty());
+        assert_eq!(bounded.charged_bytes(), bounded_before);
+    }
     let mut sheet = Worksheet::new("Sheet", EditLimits::default()).unwrap();
     assert!(!sheet.is_dirty());
     assert!(sheet.is_empty());

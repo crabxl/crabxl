@@ -100,6 +100,7 @@ pub struct Worksheet {
     dirty: bool,
     views: Option<Box<crate::SheetViews>>,
     printing: Option<Box<crate::PrintSettings>>,
+    dimensions: crate::SheetDimensions,
     visibility: SheetVisibility,
 }
 impl Worksheet {
@@ -121,6 +122,7 @@ impl Worksheet {
             dirty: false,
             views: None,
             printing: None,
+            dimensions: Default::default(),
             visibility: SheetVisibility::Visible,
         })
     }
@@ -179,6 +181,7 @@ impl Worksheet {
         }
         copy.set_sheet_views(self.views.as_deref().cloned())?;
         copy.set_print_settings(self.printing.as_deref().cloned())?;
+        copy.set_dimensions(self.dimensions.clone())?;
         copy.append_cursor = self.append_cursor;
         copy.dirty = true;
         Ok(copy)
@@ -248,6 +251,47 @@ impl Worksheet {
         self.printing
             .as_ref()
             .map_or(0, |settings| settings.memory_bytes())
+    }
+    /// Borrow sparse dimension metadata without expanding cells.
+    pub fn dimensions(&self) -> &crate::SheetDimensions {
+        &self.dimensions
+    }
+    /// Replace all dimension declarations within the retained-data allowance.
+    pub fn set_dimensions(&mut self, dimensions: crate::SheetDimensions) -> Result<()> {
+        dimensions.validate()?;
+        let charged = self
+            .charged
+            .saturating_sub(self.dimensions.heap_bytes())
+            .saturating_add(dimensions.heap_bytes());
+        self.check(charged, self.len())?;
+        self.dimensions = dimensions;
+        self.charged = charged;
+        self.dirty = true;
+        Ok(())
+    }
+    /// Update one row without copying unrelated dimension vectors or cells.
+    pub fn set_row_dimension(&mut self, row: crate::RowDimension) -> Result<()> {
+        let other = self.charged.saturating_sub(self.dimensions.heap_bytes());
+        let result = self
+            .dimensions
+            .set_row(row, self.limits.max_bytes.saturating_sub(other));
+        self.charged = other.saturating_add(self.dimensions.heap_bytes());
+        if result.is_ok() {
+            self.dirty = true;
+        }
+        result
+    }
+    /// Update one column interval under the same aggregate retained allowance.
+    pub fn set_column_dimension(&mut self, column: crate::ColumnDimension) -> Result<()> {
+        let other = self.charged.saturating_sub(self.dimensions.heap_bytes());
+        let result = self
+            .dimensions
+            .set_column(column, self.limits.max_bytes.saturating_sub(other));
+        self.charged = other.saturating_add(self.dimensions.heap_bytes());
+        if result.is_ok() {
+            self.dirty = true;
+        }
+        result
     }
     /// Number of physically present cells, including explicit Empty values.
     pub fn len(&self) -> usize {
@@ -706,6 +750,7 @@ impl Worksheet {
         self.charged = self.name.len()
             + self.view_bytes()
             + self.print_bytes()
+            + self.dimensions.heap_bytes()
             + self.cells.storage_bytes()
             + self.cells.values().map(charge).sum::<usize>();
     }

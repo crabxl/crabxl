@@ -459,6 +459,39 @@ impl Workbook {
             })?
             .register_number_format_with_limit(code, maximum)
     }
+    /// Register a unique named appearance under the joint workbook allowance.
+    pub fn register_named_style(
+        &mut self,
+        name: Box<str>,
+        style: crate::StyleId,
+        options: crate::NamedStyleOptions,
+    ) -> Result<crate::StyleId> {
+        if self.styles.is_none() {
+            if style.get() != 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Unknown named appearance identity",
+                ));
+            }
+            self.register_style(crate::CellStyle::default())?;
+        }
+        let maximum = self.style_allowance();
+        self.styles
+            .as_mut()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing canonical styles"))?
+            .register_named_style_with_limit(name, style, options, maximum)
+    }
+    /// Resolve a named appearance into a workbook-local cell format.
+    pub fn named_style_format(&mut self, name: &str) -> Result<crate::StyleId> {
+        if self.styles.is_none() {
+            self.register_style(crate::CellStyle::default())?;
+        }
+        let maximum = self.style_allowance();
+        self.styles
+            .as_mut()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing canonical styles"))?
+            .named_style_format_with_limit(name, maximum)
+    }
     /// Derive a format by replacing one appearance component under the bank cap.
     /// All other component identities, base links and flags remain unchanged.
     pub fn derive_style_component(
@@ -714,18 +747,7 @@ impl WorksheetEditor<'_> {
     /// Owned-bank identities are validated before any cell mutation; standalone
     /// sheets retain the caller-managed catalog contract of raw cell insertion.
     pub fn set_style(&mut self, address: crate::CellAddress, style: crate::StyleId) -> Result<()> {
-        if let Some(styles) = self.styles.as_deref() {
-            let valid = styles.as_ref().map_or(style.get() == 0, |registry| {
-                registry.catalog().cell_format(style).is_some()
-            });
-            if !valid {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Unknown workbook cell style identity",
-                )
-                .with_cell(address));
-            }
-        }
+        self.validate_style_id(style, address)?;
         self.sheet.set_style(address, style)
     }
     /// Assign derived appearance without overriding automatic temporal encoding.
@@ -734,6 +756,10 @@ impl WorksheetEditor<'_> {
         address: crate::CellAddress,
         style: crate::StyleId,
     ) -> Result<()> {
+        self.validate_style_id(style, address)?;
+        self.sheet.set_appearance_style(address, style)
+    }
+    fn validate_style_id(&self, style: crate::StyleId, address: crate::CellAddress) -> Result<()> {
         if let Some(styles) = self.styles.as_deref() {
             let valid = styles.as_ref().map_or(style.get() == 0, |registry| {
                 registry.catalog().cell_format(style).is_some()
@@ -746,8 +772,37 @@ impl WorksheetEditor<'_> {
                 .with_cell(address));
             }
         }
-        self.sheet.set_appearance_style(address, style)
+        Ok(())
     }
+    /// Set sparse row metadata after validating workbook-local style identity.
+    pub fn set_row_dimension(&mut self, dimension: crate::RowDimension) -> Result<()> {
+        if let Some(style) = dimension.style {
+            self.validate_style_id(style, crate::CellAddress::new(dimension.index.get(), 0)?)?;
+        }
+        self.sheet.set_row_dimension(dimension)
+    }
+    /// Set sparse column metadata after validating workbook-local style identity.
+    pub fn set_column_dimension(&mut self, dimension: crate::ColumnDimension) -> Result<()> {
+        if let Some(style) = dimension.style {
+            self.validate_style_id(style, crate::CellAddress::new(0, dimension.start.get())?)?;
+        }
+        self.sheet.set_column_dimension(dimension)
+    }
+    /// Replace dimension metadata only after validating every shared style link.
+    pub fn set_dimensions(&mut self, dimensions: crate::SheetDimensions) -> Result<()> {
+        for row in dimensions.rows() {
+            if let Some(style) = row.style {
+                self.validate_style_id(style, crate::CellAddress::new(row.index.get(), 0)?)?;
+            }
+        }
+        for column in dimensions.columns() {
+            if let Some(style) = column.style {
+                self.validate_style_id(style, crate::CellAddress::new(0, column.start.get())?)?;
+            }
+        }
+        self.sheet.set_dimensions(dimensions)
+    }
+
     /// Replace canonical printing metadata under aggregate/per-sheet limits.
     pub fn set_print_settings(&mut self, settings: Option<crate::PrintSettings>) -> Result<()> {
         self.sheet.set_print_settings(settings)

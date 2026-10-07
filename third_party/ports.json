@@ -285,6 +285,64 @@
       "inventory_items": [
         "formula.tokenizer.native"
       ]
+    },
+    {
+      "project": "umya-spreadsheet",
+      "repository": "https://github.com/MathNya/umya-spreadsheet",
+      "commit": "aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b",
+      "license": "MIT",
+      "notice": "Copyright (c) 2020 MathNya",
+      "license_file": "third_party/licenses/umya-spreadsheet-MIT.txt",
+      "source_symbols": [
+        "src/helper/color.rs: calc_tint, convert_rgb_to_hls, convert_rgb_to_ms_hls, calculate_final_lum_value, convert_ms_hls_to_rgb, set_color",
+        "src/structs/color.rs: INDEX_TO_COLOR"
+      ],
+      "destinations": [
+        "crates/crabxl-core/src/theme_resolution.rs"
+      ],
+      "changes": [
+        "Operate on validated numeric ARGB channels without string slicing, panics, format strings or num_traits casts",
+        "Retain 255-step source HLS rounding; tint zero returns exact source channels instead of round-trip quantization; broad Excel-rendering equivalence is not claimed",
+        "Keep theme/indexed identities in canonical Color and resolve on explicit request; system colors require portable last-known fallback",
+        "Replace the palette PHF dependency with a fixed checked 64-entry array; automatic/unknown slots remain unresolved",
+        "Retain explicit ARGB/custom palette alpha and expose typed theme resolution without mutating source serialization"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/values.rs"
+      ],
+      "inventory_items": [
+        "model.styles.component-mutation"
+      ],
+      "status": "ported; A11 resolution verification pending"
+    },
+    {
+      "project": "umya-spreadsheet",
+      "repository": "https://github.com/MathNya/umya-spreadsheet",
+      "commit": "aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b",
+      "license": "MIT",
+      "notice": "Copyright (c) 2020 MathNya",
+      "license_file": "third_party/licenses/umya-spreadsheet-MIT.txt",
+      "source_symbols": [
+        "src/structs/row.rs: Row row_num/height/custom_height/hidden/descent/thick_bot/style layout",
+        "src/structs/column.rs: Column col_num/width/hidden/best_fit/style layout"
+      ],
+      "destinations": [
+        "crates/crabxl-core/src/dimensions.rs"
+      ],
+      "changes": [
+        "Use shared workbook-local StyleId rather than boxed per-dimension styles",
+        "Retain absence and explicit OOXML flags without installing upstream width defaults",
+        "Store bounded sorted sparse vectors and account actual retained capacities; replacement does not clone unrelated cells or metadata",
+        "CrabXL original XLSX codecs integrate header columns and opt-in row metadata without changing the scalar streaming default"
+      ],
+      "tests": [
+        "crates/crabxl-core/tests/worksheet.rs",
+        "crates/crabxl-xlsx/tests/loaded.rs"
+      ],
+      "inventory_items": [
+        "model.styles.row-column"
+      ],
+      "status": "ported; A11 integration verification pending"
     }
   ]
 }

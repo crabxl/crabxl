@@ -2,9 +2,7 @@
 // Sequential spooling, scalar XML layouts and packaging adapted from rust_xlsxwriter,
 // Copyright 2022-2026 John McNamara. Source provenance: third_party/ports.json.
 
-use crate::encode::{
-    DateStyleIds, RowBuffer, StyleContext, ValueEncoding, encode_cells, validate_xml_text,
-};
+use crate::encode::{DateStyleIds, RowBuffer, StyleContext, ValueEncoding, validate_xml_text};
 use crabxl_core::{
     CellStyle, DateEpoch, Error, ErrorKind, MAX_COLUMNS, Result, Row, RowIndex, StyleCatalog,
     StyleId, StyleLimits, StyleRegistry,
@@ -318,6 +316,38 @@ impl WorkbookWriter {
             .register_with_limit(style, allowance)
             .map_err(writer_style_error)
     }
+    /// Register a workbook-local named style with shared component identities.
+    pub fn register_named_style(
+        &mut self,
+        name: Box<str>,
+        style: StyleId,
+        options: crabxl_core::NamedStyleOptions,
+    ) -> Result<StyleId> {
+        self.ensure_open()?;
+        validate_xml_text(&name)?;
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes());
+        self.styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?
+            .register_named_style_with_limit(name, style, options, allowance)
+            .map_err(writer_style_error)
+    }
+    /// Resolve and deduplicate a registered named style's cell format.
+    pub fn named_style_format(&mut self, name: &str) -> Result<StyleId> {
+        self.ensure_open()?;
+        let allowance = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.catalog_bytes());
+        self.styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?
+            .named_style_format_with_limit(name, allowance)
+            .map_err(writer_style_error)
+    }
     /// Replace one component of a workbook-local format without copying its peers.
     pub fn derive_style_component(
         &mut self,
@@ -585,8 +615,17 @@ impl WorkbookWriter {
         views: Option<&crabxl_core::SheetViews>,
         printing: Option<&crabxl_core::PrintSettings>,
     ) -> Result<()> {
+        self.start_sheet_with_dimensions(name, views, printing, &[])
+    }
+    fn start_sheet_with_dimensions(
+        &mut self,
+        name: impl Into<String>,
+        views: Option<&crabxl_core::SheetViews>,
+        printing: Option<&crabxl_core::PrintSettings>,
+        columns: &[crabxl_core::ColumnDimension],
+    ) -> Result<()> {
         self.ensure_open()?;
-        if views.is_none() && printing.is_none() {
+        if views.is_none() && printing.is_none() && columns.is_empty() {
             return self.start_sheet(name);
         }
         if let Some(views) = views {
@@ -598,6 +637,19 @@ impl WorkbookWriter {
                 return Err(Error::new(
                     ErrorKind::Unsupported,
                     "New printer relationships require a package feature graph",
+                ));
+            }
+        }
+        for column in columns {
+            column.validate()?;
+            if column.style.is_some_and(|id| {
+                self.styles.as_ref().map_or(id.get() != 0, |styles| {
+                    styles.catalog().cell_format(id).is_none()
+                })
+            }) {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Unknown column dimension style",
                 ));
             }
         }
@@ -622,6 +674,7 @@ impl WorkbookWriter {
             if let Some(views) = views {
                 crate::worksheet_view::write_views(&mut header, views, None)?;
             }
+            crate::dimension_codec::write_columns(&mut header, columns)?;
             header.write_all(b"<sheetData>")?;
             if let Some(printing) = printing {
                 footer.maximum = maximum.saturating_sub(header.data.capacity());
@@ -772,13 +825,30 @@ impl WorkbookWriter {
     /// Write a complete sparse row. Validate/encode before spooling so invalid
     /// rows and budget failures do not partly commit worksheet content.
     pub fn write_row(&mut self, row: &Row) -> Result<()> {
-        self.write_cells(row.index, row.cells.iter())
+        self.write_cells_with_dimension(row.index, row.cells.iter(), None)
     }
     /// Write an explicitly materialized sparse sheet without cloning cell payloads.
     /// Style IDs must refer to this writer's registered formats. This creates a
     /// new sheet; it does not preserve parts of a loaded source package.
     pub fn write_worksheet(&mut self, sheet: &crabxl_core::Worksheet) -> Result<()> {
-        self.start_sheet_with_settings(sheet.name(), sheet.sheet_views(), sheet.print_settings())?;
+        sheet.dimensions().validate()?;
+        if sheet
+            .dimensions()
+            .rows()
+            .iter()
+            .any(|row| row.descent.is_some())
+        {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Extended row descent serialization is not implemented",
+            ));
+        }
+        self.start_sheet_with_dimensions(
+            sheet.name(),
+            sheet.sheet_views(),
+            sheet.print_settings(),
+            sheet.dimensions().columns(),
+        )?;
         let id = self
             .active
             .as_ref()
@@ -786,8 +856,31 @@ impl WorkbookWriter {
             .id;
         self.set_sheet_visibility(id, sheet.visibility())?;
         let mut last = None;
-        for index in sheet.row_indices() {
-            self.write_cells(index, sheet.row_cells(index))?;
+        let mut cells = sheet.row_indices().peekable();
+        let mut dimensions = sheet
+            .dimensions()
+            .rows()
+            .iter()
+            .map(|row| row.index)
+            .peekable();
+        while cells.peek().is_some() || dimensions.peek().is_some() {
+            let index = match (cells.peek(), dimensions.peek()) {
+                (Some(cell), Some(dimension)) => (*cell).min(*dimension),
+                (Some(cell), None) => *cell,
+                (None, Some(dimension)) => *dimension,
+                (None, None) => break,
+            };
+            if cells.peek() == Some(&index) {
+                cells.next();
+            }
+            if dimensions.peek() == Some(&index) {
+                dimensions.next();
+            }
+            self.write_cells_with_dimension(
+                index,
+                sheet.row_cells(index),
+                sheet.dimensions().row(index),
+            )?;
             last = Some(index.get());
         }
         if sheet.row_extent() > 0 && last.is_none_or(|last| last + 1 < sheet.row_extent()) {
@@ -859,10 +952,11 @@ impl WorkbookWriter {
         self.canonical_styles = original;
         result
     }
-    fn write_cells<'a>(
+    fn write_cells_with_dimension<'a>(
         &mut self,
         index: RowIndex,
         cells: impl Iterator<Item = &'a crabxl_core::Cell> + Clone,
+        dimension: Option<&crabxl_core::RowDimension>,
     ) -> Result<()> {
         self.ensure_open()?;
         let active = self
@@ -889,9 +983,9 @@ impl WorkbookWriter {
                 maximum: style_allowance,
             }
         };
-        encode_cells(
+        crate::encode::encode_cells_with_dimension(
             &mut self.row_buffer,
-            index,
+            (index, dimension),
             cells.clone(),
             self.options.max_cell_bytes,
             self.options.max_row_cells,

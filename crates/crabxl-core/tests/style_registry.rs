@@ -36,6 +36,82 @@ fn independent_styles_share_components_and_exact_builtin_codes() {
     let second = registry.catalog().cell_style(percent).unwrap();
     assert!(std::ptr::eq(first.font, second.font));
     assert_eq!(first.number_format, Some("0.000"));
+    assert_eq!(
+        registry
+            .named_style_format_with_limit("Normal", usize::MAX)
+            .unwrap()
+            .get(),
+        0
+    );
+    let named = registry
+        .register_named_style_with_limit(
+            "Percent named".into(),
+            percent,
+            crabxl_core::NamedStyleOptions {
+                hidden: Some(true),
+                ..Default::default()
+            },
+            usize::MAX,
+        )
+        .unwrap();
+    let metadata = registry.named_style("Percent named").unwrap();
+    assert_eq!(metadata.hidden, Some(true));
+    assert_eq!(
+        registry
+            .catalog()
+            .cell_format(named)
+            .unwrap()
+            .base_format_id,
+        Some(metadata.base_format_id)
+    );
+    assert_eq!(
+        registry.catalog().cell_style(named).unwrap().number_format,
+        Some("0%")
+    );
+    let bytes = registry.memory_bytes();
+    for _ in 0..1000 {
+        assert_eq!(
+            registry
+                .named_style_format_with_limit("Percent named", bytes)
+                .unwrap(),
+            named
+        );
+    }
+    assert_eq!(registry.memory_bytes(), bytes);
+    let names = registry.catalog().named_styles.len();
+    let bases = registry.catalog().base_formats.len();
+    assert!(
+        registry
+            .register_named_style_with_limit(
+                "Percent named".into(),
+                percent,
+                Default::default(),
+                usize::MAX
+            )
+            .is_err()
+    );
+    assert!(
+        registry
+            .register_named_style_with_limit(
+                "Insufficient".into(),
+                percent,
+                Default::default(),
+                bytes
+            )
+            .is_err()
+    );
+    assert_eq!(registry.catalog().named_styles.len(), names);
+    assert_eq!(registry.catalog().base_formats.len(), bases);
+    assert!(registry.named_style("Insufficient").is_none());
+    let reopened =
+        StyleRegistry::from_catalog(registry.catalog().clone(), StyleLimits::default()).unwrap();
+    assert_eq!(
+        reopened
+            .named_style("Percent named")
+            .unwrap()
+            .base_format_id,
+        1
+    );
 }
 #[test]
 fn signed_zero_hashes_follow_numeric_equality_and_optional_identity() {
