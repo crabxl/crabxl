@@ -47,15 +47,18 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
             }),
         )
         .unwrap();
-    let value_before_shift = sheet.get(a1).unwrap().clone();
+    let mut moved = Worksheet::new("Shift", EditLimits::default()).unwrap();
+    moved.set_hyperlink(a1, Some(external.clone())).unwrap();
+    moved
+        .insert_columns(crabxl_core::ColumnIndex::new(0).unwrap(), 1)
+        .unwrap();
+    let b1 = "B1".parse().unwrap();
+    assert!(moved.hyperlinks().get(a1).is_none());
     assert_eq!(
-        sheet
-            .insert_columns(crabxl_core::ColumnIndex::new(0).unwrap(), 1)
-            .unwrap_err()
-            .kind(),
-        ErrorKind::Unsupported
+        moved.hyperlinks().get(b1).unwrap().reference.as_deref(),
+        Some("A1")
     );
-    assert_eq!(sheet.get(a1), Some(&value_before_shift));
+    assert_eq!(moved.get(b1).unwrap().value, sheet.get(a1).unwrap().value);
     let charged = sheet.charged_bytes();
     sheet.set_memory_allowance(charged).unwrap();
     let mut too_large = external.clone();
@@ -224,7 +227,7 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
     sheet
         .set_memory_allowance(EditLimits::default().max_bytes)
         .unwrap();
-    sheet.remove(b2);
+    sheet.remove(b2).unwrap();
     sheet
         .set_hyperlink(
             b2,
@@ -236,7 +239,7 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
         )
         .unwrap();
     assert_eq!(sheet.get(b2).unwrap().value, CellValue::text("Links!A1"));
-    sheet.remove(b2);
+    sheet.remove(b2).unwrap();
     assert!(sheet.hyperlinks().is_empty());
     assert!(sheet.charged_bytes() < charged);
     // The declaration reference is independent of the retained owner coordinate.
@@ -247,24 +250,21 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
     last.reference = Some("B2".into());
     sheet.set_hyperlink(b2, Some(last)).unwrap();
     let before = sheet.get(a1).unwrap().clone();
-    let invalid_ref = Hyperlink {
-        reference: Some("A1:C3".into()),
-        ..Default::default()
-    };
-    assert_eq!(
-        sheet
-            .set_hyperlink(a1, Some(invalid_ref))
-            .unwrap_err()
-            .kind(),
-        ErrorKind::Unsupported
-    );
+    let mut range_link = Hyperlink::external("https://first.example/");
+    range_link.reference = Some("A1:C3".into());
+    sheet.set_hyperlink(a1, Some(range_link.clone())).unwrap();
     assert_eq!(sheet.get(a1), Some(&before));
+    range_link.reference = Some("B2".into());
+    sheet.update_hyperlink(a1, Some(range_link)).unwrap();
+    sheet.insert_rows(RowIndex::new(1).unwrap(), 1).unwrap();
     assert_eq!(
         sheet
-            .insert_rows(RowIndex::new(1).unwrap(), 1)
-            .unwrap_err()
-            .kind(),
-        ErrorKind::Unsupported
+            .hyperlinks()
+            .get("B3".parse().unwrap())
+            .unwrap()
+            .reference
+            .as_deref(),
+        Some("B2")
     );
     let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
     writer.write_worksheet(&sheet).unwrap();

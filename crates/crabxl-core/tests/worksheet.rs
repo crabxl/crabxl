@@ -136,9 +136,9 @@ fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
     assert!(sheet.charged_bytes() < bytes);
     sheet.mark_clean();
     assert!(!sheet.is_dirty());
-    assert!(sheet.remove(address(999, 99)).is_none());
+    assert!(sheet.remove(address(999, 99)).unwrap().is_none());
     assert!(!sheet.is_dirty());
-    assert!(sheet.remove(address(1, 1)).is_some());
+    assert!(sheet.remove(address(1, 1)).unwrap().is_some());
     assert!(sheet.is_dirty());
     assert_eq!(sheet.append(vec![Value::Boolean(false)]).unwrap().get(), 2);
 
@@ -196,6 +196,7 @@ fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
         assert_eq!(
             sheet
                 .remove(address(coordinate.0, coordinate.1))
+                .unwrap()
                 .unwrap()
                 .value,
             Value::Integer(value)

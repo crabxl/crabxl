@@ -17,7 +17,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .iter()
             .position(|source| source.id == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
-        let plan = if self.sheets[source].original.is_some() {
+        let mut plan = if self.sheets[source].original.is_some() {
             Some(self.editor.prepare_model(&self.sheets[source].name)?)
         } else {
             None
@@ -27,6 +27,17 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         if sheet.merged_ranges().contains(range) {
             return Ok(());
         }
+        let hyperlink_patch = if !sheet.hyperlinks().is_empty() {
+            if let (Some(original), Some(plan)) = (self.sheets[source].original, plan.as_mut()) {
+                let bytes = self.editor.prepare_hyperlink_patch(original, plan.bytes)?;
+                plan.bytes = bytes;
+                Some((original, bytes))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
         self.prepare_style_edit()?;
         if let Some(plan) = &plan {
@@ -40,6 +51,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 self.editor.created_values_dirty(id);
             }
             self.editor.styles_changed();
+            if let Some((original, bytes)) = hyperlink_patch {
+                self.editor.commit_hyperlink_patch(original, id, bytes);
+            }
         }
         self.rebalance()?;
         result
@@ -51,10 +65,22 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     }
 
     /// Add serialization-only merge metadata through the preserving coordinator.
+    pub fn replace_merge_declarations(&mut self, id: SheetId, ranges: &[CellRange]) -> Result<()> {
+        self.edit_structure(id, |sheet| sheet.replace_merge_declarations(ranges))
+    }
+    /// Add serialization-only merge metadata through the preserving coordinator.
     pub fn add_merge_declaration(&mut self, id: SheetId, range: CellRange) -> Result<bool> {
         self.edit_structure_when(
             id,
             |sheet| sheet.add_merge_declaration(range),
+            |changed| *changed,
+        )
+    }
+    /// Add raw set membership without suppressing contained declarations.
+    pub fn add_exact_merge_declaration(&mut self, id: SheetId, range: CellRange) -> Result<bool> {
+        self.edit_structure_when(
+            id,
+            |sheet| sheet.add_exact_merge_declaration(range),
             |changed| *changed,
         )
     }

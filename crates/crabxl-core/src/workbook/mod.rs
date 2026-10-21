@@ -524,6 +524,14 @@ impl WorksheetEditor<'_> {
     pub fn add_merge_declaration(&mut self, range: crate::CellRange) -> Result<bool> {
         self.sheet.add_merge_declaration(range)
     }
+    /// Add raw set membership, including a distinct contained declaration.
+    pub fn add_exact_merge_declaration(&mut self, range: crate::CellRange) -> Result<bool> {
+        self.sheet.add_exact_merge_declaration(range)
+    }
+    /// Replace raw merge membership atomically, preserving realized cells.
+    pub fn replace_merge_declarations(&mut self, ranges: &[crate::CellRange]) -> Result<()> {
+        self.sheet.replace_merge_declarations(ranges)
+    }
     /// Remove a raw declaration while retaining previously realized virtual cells.
     pub fn remove_merge_declaration(&mut self, range: crate::CellRange) -> Result<bool> {
         self.sheet.remove_merge_declaration(range)

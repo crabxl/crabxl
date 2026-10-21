@@ -14,6 +14,7 @@ pub struct MergedCellRange {
     range: CellRange,
     appearances: [StyleId; 16],
     virtual_range: Option<CellRange>,
+    virtual_anchor: Option<CellAddress>,
     identity: u64,
 }
 
@@ -22,6 +23,7 @@ impl PartialEq for MergedCellRange {
         self.range == other.range
             && self.appearances == other.appearances
             && self.virtual_range == other.virtual_range
+            && self.virtual_anchor == other.virtual_anchor
     }
 }
 impl Eq for MergedCellRange {}
@@ -35,6 +37,7 @@ impl MergedCellRange {
             range,
             appearances,
             virtual_range: Some(range),
+            virtual_anchor: Some(range.start),
             identity: 0,
         })
     }
@@ -60,7 +63,7 @@ impl MergedCellRange {
     /// Resolve a covered non-anchor coordinate without materializing it.
     pub fn virtual_style(&self, address: CellAddress) -> Option<StyleId> {
         let original = self.virtual_range?;
-        if address == original.start || !self.range.contains(address) {
+        if Some(address) == self.virtual_anchor || !self.range.contains(address) {
             return None;
         }
         let mask = usize::from(address.column == original.start.column)
@@ -113,6 +116,10 @@ impl MergedRanges {
         if self.contains(range) {
             return Ok(false);
         }
+        self.reserve_entry(maximum)?;
+        Ok(true)
+    }
+    pub(super) fn reserve_entry(&mut self, maximum: usize) -> Result<()> {
         if self.ranges.len() >= u32::MAX as usize || self.next_identity == u64::MAX {
             return Err(budget());
         }
@@ -172,7 +179,7 @@ impl MergedRanges {
         if self.heap_bytes() > maximum {
             return Err(budget());
         }
-        Ok(true)
+        Ok(())
     }
     pub(crate) fn insert_reserved(&mut self, mut range: MergedCellRange) {
         range.identity = self.next_identity;
