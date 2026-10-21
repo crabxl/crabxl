@@ -25,11 +25,16 @@ impl Worksheet {
         range: crate::MergedCellRange,
         anchor_style: StyleId,
     ) -> Result<()> {
-        self.guard_merge_hyperlinks(range.range())?;
+        let links = self.links_after_merge(range.range())?;
+        let staged = links.as_ref().map_or(0, crate::Hyperlinks::heap_bytes);
         let other = self.charged.saturating_sub(self.merges.heap_bytes());
-        let reserved = self
-            .merges
-            .reserve_range(range.range(), self.limits.max_bytes.saturating_sub(other));
+        let reserved = self.merges.reserve_range(
+            range.range(),
+            self.limits
+                .max_bytes
+                .saturating_sub(other)
+                .saturating_sub(staged),
+        );
         self.charged = other.saturating_add(self.merges.heap_bytes());
         if !reserved? {
             return Ok(());
@@ -38,11 +43,22 @@ impl Worksheet {
         if let Some(anchor) = self.cells.get_mut(&key(geometry.start)) {
             anchor.style = anchor_style;
         } else {
-            self.set(Cell {
+            let maximum = self.limits.max_bytes;
+            self.limits.max_bytes = maximum.saturating_sub(staged);
+            let result = self.set(Cell {
                 address: geometry.start,
                 value: CellValue::Empty,
                 style: anchor_style,
-            })?;
+            });
+            self.limits.max_bytes = maximum;
+            result?;
+        }
+        if let Some(links) = links {
+            self.charged = self
+                .charged
+                .saturating_sub(self.hyperlinks.heap_bytes())
+                .saturating_add(links.heap_bytes());
+            self.hyperlinks = links;
         }
         self.merges.insert_reserved(range);
         self.remove_merge_interior(geometry);
@@ -60,16 +76,33 @@ impl Worksheet {
         {
             return Err(invalid("Cell range is not merged"));
         }
+        let links = self.links_after_merge(range)?;
+        let staged = links.as_ref().map_or(0, crate::Hyperlinks::heap_bytes);
         let other = self.charged.saturating_sub(self.merges.heap_bytes());
-        let result = self
-            .merges
-            .clear_virtual(range, self.limits.max_bytes.saturating_sub(other));
+        let result = self.merges.clear_virtual(
+            range,
+            self.limits
+                .max_bytes
+                .saturating_sub(other)
+                .saturating_sub(staged),
+        );
         self.charged = other.saturating_add(self.merges.heap_bytes());
         result?;
+        if let Some(links) = links {
+            self.charged = self
+                .charged
+                .saturating_sub(self.hyperlinks.heap_bytes())
+                .saturating_add(links.heap_bytes());
+            self.hyperlinks = links;
+        }
         self.merges.remove(range);
         self.remove_merge_interior(range);
         self.dirty = true;
         Ok(())
+    }
+    /// Add raw serialization metadata, retaining physical and virtual cells.
+    pub fn add_exact_merge_declaration(&mut self, range: CellRange) -> Result<bool> {
+        self.edit_merge_metadata(|merges, maximum| merges.add_exact_declaration(range, maximum))
     }
     /// Add raw serialization metadata, retaining physical and virtual cells.
     pub fn add_merge_declaration(&mut self, range: CellRange) -> Result<bool> {
@@ -78,6 +111,10 @@ impl Worksheet {
     /// Remove raw metadata without unmerging previously realized cells.
     pub fn remove_merge_declaration(&mut self, range: CellRange) -> Result<bool> {
         self.edit_merge_metadata(|merges, maximum| merges.remove_declaration(range, maximum))
+    }
+    /// Change a stable declaration's coordinates without relocating existing cells.
+    pub fn replace_merge_declarations(&mut self, ranges: &[CellRange]) -> Result<()> {
+        self.edit_merge_metadata(|merges, maximum| merges.replace_declarations(ranges, maximum))
     }
     /// Change a stable declaration's coordinates without relocating existing cells.
     pub fn replace_merge_declaration(&mut self, identity: u64, range: CellRange) -> Result<()> {

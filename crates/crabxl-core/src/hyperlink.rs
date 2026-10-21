@@ -6,6 +6,7 @@
 use crate::{CellAddress, ColumnIndex, Error, ErrorKind, Result, RowIndex};
 use std::collections::BTreeMap;
 mod ranges;
+mod structure;
 
 const POINT_BYTES: usize = 256;
 
@@ -133,6 +134,12 @@ impl Hyperlinks {
             .iter()
             .map(|(&(row, column), value)| (CellAddress { row, column }, value))
     }
+    pub(crate) fn owns_intersection(&self, area: crate::CellRange) -> bool {
+        self.points
+            .range((area.start.row, ColumnIndex::FIRST)..=(area.end.row, ColumnIndex::LAST))
+            .any(|(&(row, column), _)| area.contains(CellAddress { row, column }))
+            || self.ranges.values().any(|range| range.intersects(area))
+    }
     /// Resolve one retained relationship target without cloning unrelated fields.
     /// A failed budget check leaves this declaration unchanged.
     pub fn set_relationship_target(
@@ -225,40 +232,5 @@ impl Hyperlinks {
         }
         self.bytes = bytes;
         Ok(())
-    }
-    fn reference_intersects(&self, range: crate::CellRange, non_anchor: bool) -> bool {
-        if self.references == 0 {
-            return false;
-        }
-        self.points.values().any(|link| {
-            link.reference.as_deref().is_some_and(|reference| {
-                reference
-                    .parse::<crate::CellRange>()
-                    .map_or(true, |declared| {
-                        range.intersects(declared)
-                            && (!non_anchor
-                                || declared.start != range.start
-                                || declared.end != range.start)
-                    })
-            })
-        })
-    }
-    pub(crate) fn non_anchor_intersects(&self, range: crate::CellRange) -> bool {
-        use std::ops::Bound::{Excluded, Included};
-        self.reference_intersects(range, true)
-            || self
-                .points
-                .range((
-                    Excluded((range.start.row, range.start.column)),
-                    Included((range.end.row, range.end.column)),
-                ))
-                .any(|(&(row, column), _)| range.contains(CellAddress { row, column }))
-    }
-    pub(crate) fn intersects(&self, range: crate::CellRange) -> bool {
-        self.reference_intersects(range, false)
-            || self
-                .points
-                .range((range.start.row, range.start.column)..=(range.end.row, range.end.column))
-                .any(|(&(row, column), _)| range.contains(CellAddress { row, column }))
     }
 }

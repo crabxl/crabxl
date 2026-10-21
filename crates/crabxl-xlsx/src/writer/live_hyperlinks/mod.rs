@@ -5,6 +5,49 @@ mod store;
 pub(super) use store::{Events, Store};
 
 impl WorkbookWriter {
+    /// Visit current output identities for an explicitly closed worksheet.
+    /// Adapters can freeze that sheet's groups by ending their live bindings.
+    /// Only one bounded payload is decoded; caller scratch shares metadata limits.
+    pub fn visit_closed_sheet_hyperlink_ids(
+        &mut self,
+        id: usize,
+        workspace: usize,
+        identity: impl FnMut(u64, Option<&str>) -> Result<()>,
+    ) -> Result<()> {
+        self.ensure_open()?;
+        let maximum = self
+            .options
+            .max_metadata_bytes
+            .checked_sub(
+                self.catalog_bytes()
+                    .saturating_add(self.style_memory_bytes())
+                    .saturating_add(workspace),
+            )
+            .ok_or_else(|| {
+                limit("Closed hyperlink identity workspace exceeds metadata allowance")
+            })?;
+        let sheet = self
+            .sheets
+            .iter_mut()
+            .find(|sheet| sheet.id == id)
+            .ok_or_else(|| state("Unknown closed worksheet identity"))?;
+        if let Some(events) = &mut sheet.live_events {
+            let store = self
+                .live_links
+                .as_mut()
+                .ok_or_else(|| state("Missing live hyperlink store"))?;
+            write_events(
+                &mut io::sink(),
+                events,
+                store,
+                maximum,
+                false,
+                u64::MAX,
+                identity,
+            )?;
+        }
+        Ok(())
+    }
     /// Register a mutable writer-local hyperlink identity. Its payload is stored
     /// on disk, independently of the number of rows referring to the identity.
     pub fn register_hyperlink_group(&mut self, link: &Hyperlink) -> Result<u64> {
