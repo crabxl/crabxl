@@ -21,6 +21,15 @@ impl Worksheet {
     /// Move present cells by signed offsets; overlapping destinations are
     /// overwritten after all source cells are removed. Formulas stay verbatim.
     pub fn move_range(&mut self, range: CellRange, rows: i32, columns: i32) -> Result<()> {
+        self.move_range_with_work(range, rows, columns, 0)
+    }
+    fn move_range_with_work(
+        &mut self,
+        range: CellRange,
+        rows: i32,
+        columns: i32,
+        scratch: usize,
+    ) -> Result<()> {
         self.validate_range(range, rows, columns)?;
         if rows == 0 && columns == 0 {
             return Ok(());
@@ -29,8 +38,8 @@ impl Worksheet {
             offset(range.start, rows, columns)?,
             offset(range.end, rows, columns)?,
         )?;
-        self.guard_merged_structure(range, destination)?;
-        self.work_allowance(0)?;
+        self.work_allowance(scratch)?;
+        self.move_virtual_cells(range, destination, rows, columns, false, scratch)?;
         let original = std::mem::take(&mut self.cells);
         let mut moved = BTreeMap::new();
         for (_, mut cell) in original {
@@ -63,13 +72,6 @@ impl Worksheet {
         if rows == 0 && columns == 0 {
             return Ok(());
         }
-        self.guard_merged_structure(
-            range,
-            CellRange::new(
-                offset(range.start, rows, columns)?,
-                offset(range.end, rows, columns)?,
-            )?,
-        )?;
         let formulas = self
             .cells
             .values()
@@ -137,7 +139,12 @@ impl Worksheet {
                 translated.push((offset(cell.address, rows, columns)?, Box::new(value)));
             }
         }
-        self.move_range(range, rows, columns)?;
+        let scratch = staged.saturating_add(
+            translated
+                .capacity()
+                .saturating_mul(size_of::<(CellAddress, Box<crate::Formula>)>()),
+        );
+        self.move_range_with_work(range, rows, columns, scratch)?;
         // Each staged address belongs to a physical source cell already moved
         // by the validated operation; no further input/limit checks are needed.
         for (address, formula) in translated {
@@ -159,7 +166,6 @@ impl Worksheet {
             offset(range.start, rows, columns)?,
             offset(range.end, rows, columns)?,
         )?;
-        self.guard_merged_structure(range, destination)?;
         let selected = self
             .cells
             .values()
@@ -196,6 +202,7 @@ impl Worksheet {
             cell.address = offset(cell.address, rows, columns)?;
             copies.push(cell);
         }
+        self.move_virtual_cells(range, destination, rows, columns, true, extra)?;
         self.cells
             .retain(|_, cell| !destination.contains(cell.address));
         for cell in copies {
@@ -216,46 +223,6 @@ impl Worksheet {
         let maximum = if rows { MAX_ROWS } else { MAX_COLUMNS };
         if count == 0 || at.checked_add(count).is_none_or(|end| end > maximum) {
             return Err(invalid("Invalid structural edit count"));
-        }
-        if self.hyperlinks.iter().any(|(address, link)| {
-            let declared_affected = link.reference.as_deref().is_some_and(|reference| {
-                reference.parse::<CellRange>().map_or(true, |range| {
-                    if rows {
-                        range.end.row.get() >= at
-                    } else {
-                        range.end.column.get() >= at
-                    }
-                })
-            });
-            declared_affected
-                || if rows {
-                    address.row.get() >= at
-                } else {
-                    address.column.get() >= at
-                }
-        }) {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Affected hyperlink structural edits remain unimplemented",
-            ));
-        }
-        if self
-            .merges
-            .ranges()
-            .iter()
-            .chain(self.merges.virtual_ranges())
-            .any(|merge| {
-                if rows {
-                    merge.range().end.row.get() >= at
-                } else {
-                    merge.range().end.column.get() >= at
-                }
-            })
-        {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Affected merged geometry structural edits are not implemented",
-            ));
         }
         if insert {
             for cell in self.cells.values() {
@@ -283,6 +250,7 @@ impl Worksheet {
             }
         }
         self.work_allowance(0)?;
+        self.shift_virtual_cells(at, count, rows, insert)?;
         for (_, mut cell) in std::mem::take(&mut self.cells) {
             let value = if rows {
                 cell.address.row.get()

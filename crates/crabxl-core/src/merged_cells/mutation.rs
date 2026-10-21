@@ -2,6 +2,204 @@
 use super::*;
 
 impl MergedRanges {
+    /// Transform realized sparse cells independently of serialized declarations.
+    /// The planner returns bounded rectangle pieces and their translations.
+    pub(crate) fn transform_virtual(
+        &mut self,
+        plan: impl Fn(CellRange) -> [Option<(CellRange, i64, i64)>; 17],
+        maximum: usize,
+    ) -> Result<()> {
+        let count = self.virtual_ranges().try_fold(0usize, |total, entry| {
+            let count = plan(entry.range).into_iter().flatten().count();
+            total.checked_add(count).ok_or_else(budget)
+        })?;
+        let bytes = count
+            .checked_mul(size_of::<MergedCellRange>())
+            .ok_or_else(budget)?;
+        if self.heap_bytes().saturating_add(bytes) > maximum {
+            return Err(budget());
+        }
+        let mut prepared = Vec::new();
+        prepared.try_reserve_exact(count).map_err(|_| budget())?;
+        if self.heap_bytes().saturating_add(
+            prepared
+                .capacity()
+                .saturating_mul(size_of::<MergedCellRange>()),
+        ) > maximum
+        {
+            return Err(budget());
+        }
+        for entry in self.virtual_ranges() {
+            let original = entry.virtual_range.ok_or_else(budget)?;
+            for (piece, rows, columns) in plan(entry.range).into_iter().flatten() {
+                let range = piece.adjusted(columns, rows, columns, rows)?;
+                let mut appearances = [StyleId::new(0); 16];
+                let edges = usize::from(piece.start.column == original.start.column)
+                    | (usize::from(piece.end.column == original.end.column) << 1)
+                    | (usize::from(piece.start.row == original.start.row) << 2)
+                    | (usize::from(piece.end.row == original.end.row) << 3);
+                for (mask, style) in appearances.iter_mut().enumerate() {
+                    *style = entry.appearances[mask & edges];
+                }
+                let virtual_anchor = entry
+                    .virtual_anchor
+                    .filter(|anchor| piece.contains(*anchor))
+                    .map(|anchor| {
+                        CellRange {
+                            start: anchor,
+                            end: anchor,
+                        }
+                        .adjusted(columns, rows, columns, rows)
+                        .map(|range| range.start)
+                    })
+                    .transpose()?;
+                prepared.push(MergedCellRange {
+                    range,
+                    appearances,
+                    virtual_range: Some(range),
+                    virtual_anchor,
+                    identity: entry.identity,
+                });
+            }
+        }
+        for entry in &mut self.ranges {
+            entry.virtual_range = None;
+            entry.virtual_anchor = None;
+        }
+        self.detached = prepared;
+        self.rebuild();
+        Ok(())
+    }
+
+    /// Atomically replace raw membership, retaining realized appearances and
+    /// identities of unchanged declarations. Preparation is byte-budgeted
+    /// together with the current collection; covered cells are never expanded.
+    pub fn replace_declarations(&mut self, ranges: &[CellRange], maximum: usize) -> Result<()> {
+        for range in ranges {
+            CellRange::new(range.start, range.end)?;
+        }
+        let key = |range: CellRange| {
+            (
+                range.start.row,
+                range.start.column,
+                range.end.row,
+                range.end.column,
+            )
+        };
+        let scratch = ranges
+            .len()
+            .saturating_mul(size_of::<CellRange>())
+            .saturating_add(self.ranges.len().saturating_mul(size_of::<usize>()));
+        if self.heap_bytes().saturating_add(scratch) > maximum {
+            return Err(budget());
+        }
+        let mut incoming = Vec::new();
+        incoming
+            .try_reserve_exact(ranges.len())
+            .map_err(|_| budget())?;
+        incoming.extend_from_slice(ranges);
+        incoming.sort_unstable_by_key(|range| key(*range));
+        incoming.dedup();
+        let mut existing = Vec::new();
+        existing
+            .try_reserve_exact(self.ranges.len())
+            .map_err(|_| budget())?;
+        existing.extend(0..self.ranges.len());
+        existing.sort_unstable_by_key(|index| key(self.ranges[*index].range));
+        let scratch = incoming
+            .capacity()
+            .saturating_mul(size_of::<CellRange>())
+            .saturating_add(existing.capacity().saturating_mul(size_of::<usize>()));
+        let retained = |range: CellRange| {
+            incoming
+                .binary_search_by_key(&key(range), |entry| key(*entry))
+                .is_ok()
+        };
+        let removed = self
+            .ranges
+            .iter()
+            .filter(|entry| entry.virtual_range.is_some() && !retained(entry.range))
+            .count();
+        let detached = self
+            .detached
+            .len()
+            .checked_add(removed)
+            .ok_or_else(budget)?;
+        let bytes = incoming
+            .len()
+            .checked_mul(size_of::<MergedCellRange>() + size_of::<Node>())
+            .and_then(|bytes| {
+                detached
+                    .checked_mul(size_of::<MergedCellRange>())
+                    .and_then(|extra| bytes.checked_add(extra))
+            })
+            .ok_or_else(budget)?;
+        if self
+            .heap_bytes()
+            .saturating_add(scratch)
+            .saturating_add(bytes)
+            > maximum
+        {
+            return Err(budget());
+        }
+        let mut prepared = Self {
+            next_identity: self.next_identity,
+            ..Self::default()
+        };
+        prepared
+            .ranges
+            .try_reserve_exact(incoming.len())
+            .map_err(|_| budget())?;
+        prepared
+            .nodes
+            .try_reserve_exact(incoming.len())
+            .map_err(|_| budget())?;
+        prepared
+            .detached
+            .try_reserve_exact(detached)
+            .map_err(|_| budget())?;
+        if self
+            .heap_bytes()
+            .saturating_add(scratch)
+            .saturating_add(prepared.heap_bytes())
+            > maximum
+        {
+            return Err(budget());
+        }
+        prepared.detached.extend(self.detached.iter().cloned());
+        prepared.detached.extend(
+            self.ranges
+                .iter()
+                .filter(|entry| entry.virtual_range.is_some() && !retained(entry.range))
+                .cloned(),
+        );
+        for range in &incoming {
+            let entry = if let Ok(index) =
+                existing.binary_search_by_key(&key(*range), |index| key(self.ranges[*index].range))
+            {
+                self.ranges[existing[index]].clone()
+            } else {
+                let identity = prepared.next_identity;
+                prepared.next_identity = identity.checked_add(1).ok_or_else(budget)?;
+                MergedCellRange {
+                    range: *range,
+                    appearances: [StyleId::new(0); 16],
+                    virtual_range: None,
+                    virtual_anchor: None,
+                    identity,
+                }
+            };
+            if prepared.ranges.len() >= u32::MAX as usize {
+                return Err(budget());
+            }
+            prepared.ranges.push(entry);
+        }
+        prepared.ranges.sort_unstable_by_key(|entry| entry.identity);
+        prepared.rebuild();
+        *self = prepared;
+        Ok(())
+    }
+
     /// Whether raw metadata edits retained independent appearance patterns.
     pub fn has_detached_appearances(&self) -> bool {
         !self.detached.is_empty()
@@ -19,7 +217,10 @@ impl MergedRanges {
     }
     /// Borrow a live declaration by stable identity, without coordinate lookups.
     pub fn declaration(&self, identity: u64) -> Option<&MergedCellRange> {
-        self.ranges.iter().find(|range| range.identity == identity)
+        self.ranges
+            .binary_search_by_key(&identity, |entry| entry.identity)
+            .ok()
+            .map(|index| &self.ranges[index])
     }
     /// Visible cached geometry is independent of mutable serialized declarations.
     pub fn virtual_ranges(&self) -> impl Iterator<Item = &MergedCellRange> {
@@ -27,6 +228,22 @@ impl MergedRanges {
             .iter()
             .filter(|range| range.virtual_range.is_some())
             .chain(self.detached.iter())
+    }
+    /// Add serialization-only metadata without creating covered virtual cells.
+    pub fn add_exact_declaration(&mut self, range: CellRange, maximum: usize) -> Result<bool> {
+        CellRange::new(range.start, range.end)?;
+        if self.contains(range) && self.ranges.iter().any(|entry| entry.range == range) {
+            return Ok(false);
+        }
+        self.reserve_entry(maximum)?;
+        self.insert_reserved(MergedCellRange {
+            range,
+            appearances: [StyleId::new(0); 16],
+            virtual_range: None,
+            virtual_anchor: None,
+            identity: 0,
+        });
+        Ok(true)
     }
     /// Add serialization-only metadata without creating covered virtual cells.
     pub fn add_declaration(&mut self, range: CellRange, maximum: usize) -> Result<bool> {
@@ -38,6 +255,7 @@ impl MergedRanges {
             range,
             appearances: [StyleId::new(0); 16],
             virtual_range: None,
+            virtual_anchor: None,
             identity: 0,
         });
         Ok(true)

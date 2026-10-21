@@ -509,7 +509,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                                         link,
                                         self.options.resources,
                                         maximum,
-                                        |address| overridden(address),
+                                        overridden,
                                     )?;
                                     Ok(())
                                 },

@@ -1,6 +1,7 @@
 //! Sparse, runtime-independent worksheet editing with explicit allocation allowances.
 mod dimensions;
 mod hyperlinks;
+mod merged_structure;
 mod merges;
 mod metadata;
 mod structure;
@@ -470,31 +471,6 @@ impl Worksheet {
             + self.hyperlinks.heap_bytes()
             + self.cells.storage_bytes()
             + self.cells.values().map(charge).sum::<usize>();
-    }
-    pub(super) fn guard_merged_structure(
-        &self,
-        source: CellRange,
-        destination: CellRange,
-    ) -> Result<()> {
-        if self.hyperlinks.intersects(source) || self.hyperlinks.intersects(destination) {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Structural editing of affected hyperlinks remains unimplemented",
-            ));
-        }
-        if self
-            .merges
-            .ranges()
-            .iter()
-            .chain(self.merges.virtual_ranges())
-            .any(|merge| source.intersects(merge.range()) || destination.intersects(merge.range()))
-        {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Affected merged geometry structural edits are not implemented",
-            ));
-        }
-        Ok(())
     }
     pub(super) fn work_allowance(&self, extra: usize) -> Result<()> {
         self.check(
