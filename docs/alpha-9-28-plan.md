@@ -52,6 +52,13 @@ tests or benchmarks were added or run during these implementation checkpoints.
 Resume with the unfinished A11 feature integration, then perform the single
 consolidated pre-release acceptance stage before publishing.
 
+Development resumed at the user's request on 2026-10-21. Live raw merged sets,
+stable coordinate identities, bulk replacement, sparse realized-cell structural
+edits and hyperlink owner/relationship coordination are integrated in ADR 0102
+and adapter ADR 0042. Consolidated acceptance also corrected rich-copy bindings,
+dimension index imports and explicit write-only close boundaries. Release
+acceptance and public artifact verification remain required before A11 is closed.
+
 ## Work-package matrix
 
 | Work package | Usable scope | umya candidate sources | Integration and acceptance focus |

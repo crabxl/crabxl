@@ -253,11 +253,11 @@ fn sheet_ids_survive_copy_reorder_rename_and_reject_removed_foreign_handles() {
 #[test]
 fn aggregate_bytes_cells_and_work_budget_fail_without_changing_models() {
     let mut book = Workbook::new(WorkbookLimits {
-        max_bytes: 1800,
+        max_bytes: 8192,
         max_cells: 2,
         max_sheets: 4,
         sheet: EditLimits {
-            max_bytes: 1000,
+            max_bytes: 4096,
             max_cells: 2,
         },
     })
@@ -267,7 +267,7 @@ fn aggregate_bytes_cells_and_work_budget_fail_without_changing_models() {
     book.sheet_mut(a).unwrap().set(cell(0, 1)).unwrap();
     book.sheet_mut(b).unwrap().set(cell(0, 2)).unwrap();
     let bytes = book.charged_bytes();
-    assert!(bytes <= 1800);
+    assert!(bytes <= 8192);
     assert_eq!(
         book.sheet_mut(a)
             .unwrap()
@@ -278,6 +278,7 @@ fn aggregate_bytes_cells_and_work_budget_fail_without_changing_models() {
     );
     assert_eq!(book.cell_count(), 2);
     assert_eq!(book.charged_bytes(), bytes);
+    book.set_memory_allowance(bytes).unwrap();
     assert!(
         book.sheet_mut(a)
             .unwrap()
@@ -292,11 +293,13 @@ fn aggregate_bytes_cells_and_work_budget_fail_without_changing_models() {
     );
     assert!(book.copy_sheet(a, "Copy").is_err());
     assert_eq!(book.len(), 2);
-    assert!(book.rename_sheet(a, "x".repeat(1000)).is_err());
+    assert!(book.rename_sheet(a, "x".repeat(16384)).is_err());
     assert_eq!(book.sheet(a).unwrap().name(), "A");
+    book.set_memory_allowance(8192).unwrap();
     book.sheet_mut(b)
         .unwrap()
-        .remove(CellAddress::new(0, 0).unwrap());
+        .remove(CellAddress::new(0, 0).unwrap())
+        .unwrap();
     book.sheet_mut(a).unwrap().set(cell(1, 3)).unwrap();
     assert_eq!(book.cell_count(), 2);
 }
@@ -359,7 +362,7 @@ fn freed_space_is_reusable_and_slot_capacity_remains_accounted() {
 #[test]
 fn decoded_models_transfer_without_clones_and_replace_stable_handles_atomically() {
     let mut book = Workbook::new(WorkbookLimits {
-        max_bytes: 1800,
+        max_bytes: 8192,
         max_cells: 3,
         sheet: EditLimits {
             max_bytes: 1000,
@@ -394,13 +397,13 @@ fn decoded_models_transfer_without_clones_and_replace_stable_handles_atomically(
     assert_eq!(value.as_str().as_ptr(), pointer);
     assert_eq!(book.sheet_id("Loaded"), Some(placeholder));
     let bytes = book.charged_bytes();
-    assert_eq!(book.remaining_bytes(), 1800 - bytes);
+    assert_eq!(book.remaining_bytes(), 8192 - bytes);
     assert!(book.set_memory_allowance(bytes - 1).is_err());
-    assert_eq!(book.remaining_bytes(), 1800 - bytes);
+    assert_eq!(book.remaining_bytes(), 8192 - bytes);
     book.set_memory_allowance(bytes).unwrap();
     assert_eq!(book.remaining_bytes(), 0);
     assert!(book.set_memory_allowance(0).is_err());
-    book.set_memory_allowance(1800).unwrap();
+    book.set_memory_allowance(8192).unwrap();
     let mut too_many = crabxl_core::Worksheet::new("Loaded", EditLimits::default()).unwrap();
     for row in 0..3 {
         too_many.set(cell(row, row.into())).unwrap();

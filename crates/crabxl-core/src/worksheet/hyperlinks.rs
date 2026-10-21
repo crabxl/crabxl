@@ -2,15 +2,26 @@
 use super::*;
 
 impl Worksheet {
-    pub(crate) fn guard_merge_hyperlinks(&self, range: CellRange) -> Result<()> {
-        if self.hyperlinks.non_anchor_intersects(range) {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Merging hyperlink-bearing non-anchor cells remains unimplemented",
-            )
-            .with_cell(range.start));
+    pub(crate) fn links_after_merge(&self, range: CellRange) -> Result<Option<crate::Hyperlinks>> {
+        if !self.hyperlinks.owns_intersection(range) {
+            return Ok(None);
         }
-        Ok(())
+        let anchor = CellRange {
+            start: range.start,
+            end: range.start,
+        };
+        let plan = |area: CellRange| {
+            let mut pieces = [None; 17];
+            for (index, piece) in area.difference(range).into_iter().flatten().enumerate() {
+                pieces[index] = Some((piece, 0, 0));
+            }
+            pieces[16] = area.intersection(anchor).map(|piece| (piece, 0, 0));
+            pieces
+        };
+        let other = self.charged.saturating_sub(self.hyperlinks.heap_bytes());
+        self.hyperlinks
+            .transformed(&plan, self.limits.max_bytes.saturating_sub(other))
+            .map(Some)
     }
     /// Borrow sparse links without copying targets or expanding coordinates.
     pub fn hyperlinks(&self) -> &crate::Hyperlinks {
