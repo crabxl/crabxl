@@ -69,7 +69,7 @@ feature-graph transformations remain open.
 
 ### Stage boundary and deferred dependencies
 
-The user explicitly selected staged M4 acceptance. A7 completes loaded ownership,
+M4 acceptance is staged. A7 completes loaded ownership,
 package/sheet mutations, and structural operations for implemented content. An
 operation affecting an unimplemented M5/M6 graph must return an explicit
 unsupported error before mutation or target replacement. Unaffected opaque parts
@@ -101,7 +101,7 @@ verify typed reading, creation, or editing.
 
 ## Current source and performance priority
 
-The user selected umya-spreadsheet as the primary port source for remaining
+umya-spreadsheet is the selected primary port source for remaining
 editable/package and M5/M6 work. Use its existing feature implementations before
 reimplementing them, with pinned provenance, shared core identities and verified
 read/create/edit/preserve semantics. Calamine and rust_xlsxwriter remain secondary

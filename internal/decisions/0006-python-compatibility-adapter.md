@@ -1,6 +1,6 @@
 # ADR 0006: Optional openpyxl-compatible Python adapter
 
-Status: accepted at the user's request during M4. This changes the earlier binding deferral, not the independent Rust architecture or full baseline scope.
+Status: accepted during M4. This changes the earlier binding deferral, not the independent Rust architecture or full baseline scope.
 
 Use a separate optional the [standalone Python repository](https://github.com/crabxl/crabxl-python) Cargo workspace, PyO3 and Maturin. The facade/core/XLSX crates have no foreign-runtime dependencies. Python names and objects match openpyxl: Workbook, load_workbook, Worksheet/Cell access, one-based coordinates, append, iterators, editing and save. Extra diagnostics/resource controls may extend this API. Partial delivery must never require a different naming scheme or claim full compatibility.
 

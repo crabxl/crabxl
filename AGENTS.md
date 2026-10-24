@@ -1,68 +1,137 @@
-# AI agent instructions
+# Instructions for AI agents
 
-These instructions govern AI work on this repository. They are not a contributor guide. Do not create CONTRIBUTING.md or a separate contributor-rule document unless the user requests one.
+These rules apply to AI agents that work on this repository. Human contributors
+use [CONTRIBUTING.md](CONTRIBUTING.md). The rules in CONTRIBUTING.md also apply
+to agents.
+
+Read [internal/STATUS.md](internal/STATUS.md) before you start. It tells you
+the current state and the next tasks.
+
+## Repository map
+
+| Path | Use |
+|---|---|
+| `crates/crabxl` | Public facade crate. |
+| `crates/crabxl-core` | Format-independent models. |
+| `crates/crabxl-xlsx` | XLSX reader, writer, editor and loaded workbook. |
+| `crates/crabxl-bench` | Benchmark drivers and fixture generators. Not published. |
+| `docs/` | Public user documentation. The documentation site publishes this folder. |
+| `internal/` | Records for maintainers and agents. Not published. |
+| `benchmarks/` | Benchmark scripts. Reports are in `reports/`, raw data is in `results/`. |
+| `third_party/` | Provenance and licenses of ported code. |
+
+The Python binding is in [crabxl-python](https://github.com/crabxl/crabxl-python).
+The documentation site is in [crabxl-docs](https://github.com/crabxl/crabxl-docs).
 
 ## Language and identity
 
-- All project content must be English: source, comments, documentation, examples, configuration text, and commit messages. Do not introduce Chinese into files or published commit history.
-- Use repository-local Git identity for both author and committer: `cmostw <300344883+cmostw@users.noreply.github.com>`, unless the user specifies another identity.
-- Do not inherit the environment's unrelated global Git identity. Verify author and committer before publishing commits.
-- The initial published history consists of two coherent commits: the development plan and AI project rules. Do not retain the superseded setup/cleanup history.
+- Write all repository content in English.
+- Use this Git identity for author and committer, unless the user gives another
+  identity: `cmostw <300344883+cmostw@users.noreply.github.com>`. Set it in the
+  repository configuration. Do not use the global identity of the environment.
 
-## Product contract and architecture
+## Writing rules
 
-- Read internal/architecture.md, internal/roadmap.md, and internal/openpyxl-mr-review.md before implementing affected features. Update plans when architecture changes.
-- Internals may be deeply idiomatic Rust: ownership, borrowing, enums, traits, iterators, builders, typed IDs, and Result are encouraged.
-- The external Rust API must support the capabilities and observable behavior expected from the pinned openpyxl public-feature baseline. Names and syntax may differ; this must not remove functionality or silently change value, formula, date, editing, or preservation semantics.
-- Track read, create, edit, and preserve capabilities separately. Preservation alone is not readable/editable support. Staged delivery keeps all baseline features in the roadmap; do not narrow scope to upstream Rust capabilities.
-- Python binding work is now authorized in the standalone crabxl-python repository for shared compatibility tests and migration. Its public interface must match openpyxl call names, object access and supported observable behavior; additional capabilities may be extensions. Do not require users to learn a different Python API. Keep core Rust APIs idiomatic and runtime-independent with explicit ownership, typed errors and safe owned handles. Other bindings follow the ordered tiers in internal/binding-contract.md; they are planned, not implemented.
-- Python adapter implementation/tests belong to https://github.com/crabxl/crabxl-python. Keep core changes independent of Python and verify cross-repository changes against a pinned core revision.
-- Reuse selected pinned openpyxl tests with license/provenance and unchanged assertions. Track unresolved expected failures explicitly; do not count them as passing or claim the full suite runs. Do not silently fall back to openpyxl or accept unsupported properties that are lost on save.
-- Use openpyxl docs, directory/module names, public behavior, and interoperability fixtures for architecture. Do not broadly read its implementation. The user separately authorized important pending MR diffs and necessary surrounding code for defect review; keep this exception scoped. Rust upstream implementation may be inspected for porting.
+These rules apply to all text: documentation, internal records, comments, error
+messages and commit messages. They follow the principles of ASD-STE100
+(Simplified Technical English). The STE dictionary is not used. Use the project
+glossary in crabxl-docs instead.
 
-- Follow [the binding and performance contract](internal/binding-contract.md): Rust core is canonical; match each dominant reference public API/mental model; keep compatibility and idiomatic extensions clearly separate and independently evolvable. Never constrain core capabilities to a reference package or force Rust API shape onto a binding.
+- Write short sentences. Use a maximum of 20 words in an instruction and 25
+  words in a description.
+- Give one instruction in each sentence.
+- Use the active voice and the imperative for instructions.
+- Use one word for one meaning. Use the glossary term. Do not use synonyms.
+- Do not put more than three nouns in a sequence.
+- Write for a reader who does not know the history of the project. Do not use
+  milestone or release codes (for example "M4" or "A11") without a definition.
+- Do not record conversations. Do not write "the user approved" or "the user
+  asked". Record the decision and its reason.
+
+## Where to write records
+
+- `docs/` is public. Put only user documentation there. Follow the content
+  specification in crabxl-docs.
+- `internal/STATUS.md` is the single current status. Replace its content when
+  the status changes. Do not append a history log.
+- `internal/roadmap.md` is the long-term plan. Edit it in place. Remove items
+  that are done or no longer planned.
+- `internal/decisions/` contains Architecture Decision Records (ADRs). Write an
+  ADR only for a decision that changes a public contract, a resource strategy
+  or a file-format policy. Do not write an ADR for each feature.
+- `internal/validation/` contains release acceptance evidence.
+- `internal/archive/` contains plans that are complete or replaced. Do not edit
+  archived files.
+- `benchmarks/reports/` contains benchmark reports. `benchmarks/results/`
+  contains raw data.
+
+## Product rules
+
+- Target the public capabilities and observable behavior of openpyxl 3.1.5.
+  Rust names and syntax can be different. Do not remove a capability or change
+  value, formula, date, editing or preservation semantics.
+- Track read, create, edit and preserve support separately. Preservation alone
+  is not read or edit support.
+- Keep all baseline features in the roadmap. Do not reduce the scope to the
+  capabilities of upstream Rust libraries.
+- The Rust core is the canonical implementation. Keep it independent of
+  Python and other runtimes.
+- Follow the [binding contract](internal/binding-contract.md) for binding
+  priorities and API principles.
+- Read [internal/architecture.md](internal/architecture.md) before you change an
+  affected area. Update it when the architecture changes.
+- Use openpyxl documentation, public behavior and fixtures as references. Do
+  not read the openpyxl implementation broadly. Reading the diff of a pending
+  openpyxl merge request is permitted to review a known defect.
 
 ## Memory and performance
 
-- Performance acceptance targets: faster than openpyxl is required; faster than calamine and rust_xlsxwriter is desired for overlapping capabilities only. Lower peak RSS than all three is desired. Record unmet targets and compare equivalent behavior/modes using the benchmark contract.
-- Correctness, memory management, and performance are joint requirements. Do not claim optimization without measurement.
-- Streaming readers must not materialize an entire worksheet, decoded cell range, or worksheet XML. Full-model loading is an explicit separate mode.
-- Bound buffers and batches by bytes as well as row/cell count. Account for metadata, strings, styles, caches, and unusually large values; document limits and disk-backed large-string strategies.
-- Avoid redundant allocations, full-file clones, repeated per-cell metadata, and unbounded caches. Use shared typed IDs and useful borrowing while retaining safe owned paths.
-- Measure temporary-file space, I/O, cleanup, and failure behavior. Moving RAM to disk is a tradeoff, not automatically an improvement.
-- For parser/writer, allocation, and streaming changes, run relevant correctness checks and representative release benchmarks. Record time, peak RSS, temporary storage when applicable, and checksums/feature assertions across relevant sizes and workloads.
-- Separate runtime baseline, streaming/editable costs, and future binding conversion. Do not sacrifice correctness or required features for benchmark results.
-- Keep deterministic correctness tests separate from timing benchmarks; avoid fixed timing thresholds in ordinary tests.
+- CrabXL must be faster than openpyxl. Being faster than calamine and
+  rust_xlsxwriter, and using less peak memory than all three, is a goal.
+- Correctness, memory and performance are joint requirements. Do not claim an
+  improvement without a measurement.
+- A streaming reader must not load a full worksheet, decoded range or worksheet
+  XML. Full loading is a separate, explicit mode.
+- Limit buffers and batches by bytes and by row or cell count.
+- Do not add unbounded caches, full-file copies or repeated per-cell metadata.
+- Moving data from memory to disk is a tradeoff. Measure temporary disk use, I/O
+  and cleanup.
+- For parser, writer, allocation and streaming changes, run release benchmarks.
+  Record time, peak memory, temporary storage and checksums.
+- Keep timing measurements out of ordinary tests.
 
-## Porting and shared models
+## Porting code
 
-- Clone and pin upstream sources before porting; record repository, commit, original files/symbols, destination, license, notices, behavior changes, tests, and inventory entries.
-- Port selected coherent modules into the architecture. Do not wrap or re-export calamine/rust_xlsxwriter wholesale as the core.
-- Foundational ZIP/XML/date/tempfile crates may be normal dependencies.
-- Core owns the common value, style, formula, address, error, and feature models; XLSX owns format codecs and I/O. Do not expose upstream project types through the public facade.
-- Preserve mature algorithms where useful, while separating model, validation, codecs, and I/O. Remove duplicate helpers, validators, coordinate logic, style tables, and error schemes.
-- Use zero-based internal coordinates with explicit A1 conversions. Use Rust naming, Result, iterators, and builders; do not mimic dynamic Python arguments internally.
-- Return typed errors with part/cell/source context for fallible input and I/O. Do not panic or unwrap on user input.
-- Retain required upstream copyright/license notices. Record provenance for code, tests, and adapted documentation; source URLs alone are insufficient.
-- For each port: identify dependencies/defects, retain focused behavioral tests, integrate shared models, refactor I/O/streaming, verify correctness/memory/performance, and update progress.
-- Deliver compilable reviewable checkpoints, not an entire imported project left with indefinite integration debt.
+- Pin the upstream commit before you port code. Record the repository, commit,
+  source files, destination, license and behavior changes in
+  `third_party/ports.json`.
+- Port selected modules into the existing architecture. Do not wrap or
+  re-export calamine or rust_xlsxwriter as the core.
+- Keep upstream types out of the public API.
+- Keep the required copyright notices.
 
-## Style and verification
+## Code rules
 
-- Share workspace edition, MSRV, dependency versions, and lint policy. Use rustfmt and Clippy consistently.
-- Public Rust documentation, examples, error messages, and fixtures use consistent English.
-- Use module tests plus integration/interoperability/round-trip tests as appropriate. Fixtures need provenance or generation instructions; avoid importing huge upstream data collections.
-- Unsafe requires documented invariants and relevant verification. Do not add unsafe or C ABI solely for hypothetical future adapters.
-- Evaluate upstream updates by diffing pinned revisions and selectively porting validated changes, rather than blindly merging an entire upstream project.
+- `crabxl-core` owns the shared models. `crabxl-xlsx` owns format codecs and
+  I/O.
+- Use zero-based coordinates internally. Convert A1 references explicitly.
+- Return typed errors with part, cell or source context. Do not panic on user
+  input.
+- Do not use `unsafe`. Do not add a C ABI for a possible future binding.
+- Give each fixture a source or a generation instruction.
+- Deliver changes that compile and can be reviewed. Do not leave imported code
+  without integration.
 
-## Mandatory commit skill and push workflow
+## Commits
 
-- Before preparing, splitting, or creating commits, read and follow [Coherent Commits](.agents/skills/commit/SKILL.md), installed from cmostw/coherent-commits.
-- Every commit MUST use `<type>(<scope>): <description>` Conventional Commits and describe the resulting change rather than the work process.
-- Group by coherent development intent. Related implementation, tests, refactoring, configuration, and docs may stay together; unrelated intents MUST be separate.
-- Commit at meaningful checkpoints. Prompt boundaries, time, file count, and diff size are not commit boundaries.
-- Review staged changes, verify identity/language, run appropriate checks, and exclude generated artifacts and unrelated changes.
-- After every commit, immediately push to the configured remote branch before creating the next commit. Verify the published HEAD.
-- Use ordinary non-force updates by default. Force-push only with explicit user authorization, such as the authorized initial two-commit history rewrite; prefer an expected-HEAD safeguard where transport supports it.
-- If normal Git transport is unavailable but authenticated GitHub Git Data APIs work, publishing exact local Git objects and updating the ref is an acceptable transport fallback. Preserve local commit SHAs and enforce non-force updates unless separately authorized.
-- If publishing fails, report the blocker, retain the local commit, and retry before creating another commit.
+- Read and follow [Coherent Commits](.agents/skills/commit/SKILL.md) before you
+  make a commit.
+- Use Conventional Commits: `<type>(<scope>): <description>`. Describe the
+  result, not the work process.
+- Put one coherent intent in each commit.
+- Before you commit, review the staged changes, check the identity and run the
+  applicable checks.
+- Push each commit immediately after you make it. Make sure that the remote
+  has the commit before you make the next commit.
+- Do not force-push unless the user authorizes it.
+- If a push fails, keep the local commit, report the problem and try again.

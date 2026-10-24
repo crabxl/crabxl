@@ -1,6 +1,6 @@
 # Pending openpyxl merge requests: fixes and porting risks
 
-Reviewed on 2026-10-04. The Heptapod API listed **20 open MRs**. All titles/descriptions were reviewed; 15 received selected diff/test/context review, while five were triaged from descriptions only. This was the user's explicit exception to the initial documentation-only architecture review, not a broad implementation audit.
+Reviewed on 2026-10-04. The Heptapod API listed **20 open MRs**. All titles/descriptions were reviewed; 15 received selected diff/test/context review, while five were triaged from descriptions only. This was a limited exception to the initial documentation-only architecture review, not a broad implementation audit.
 
 Titles, descriptions, branch names, HEADs, and reviewed diff refs are preserved in the [API snapshot](research/openpyxl-open-mrs-2026-10-04.json). Recheck status and pin source revisions before using a fix.
 

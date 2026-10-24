@@ -3,7 +3,7 @@
 Status: implemented for the staged supported subset; removal is added in ADR 0075.
 
 A requested copy uses `Workbook::copy_sheet` to duplicate the canonical cells
-under aggregate/per-sheet allowances. This is the user's requested result, not a
+under aggregate/per-sheet allowances. This is the intended result, not a
 rollback clone or a second engine. Its new source-backed identity uses the live
 catalog transaction introduced in ADR 0073. Current overlays/model edits are
 included; later edits to the copy do not change its source.

@@ -1,7 +1,7 @@
 # Native four-engine numeric baseline before parser optimization
 
-The user selected umya-spreadsheet as the primary remaining feature-port source
-and requested immediate speed/RAM optimization. This comparison establishes
+umya-spreadsheet is the primary remaining feature-port source, and speed and
+memory optimization had priority. This comparison establishes
 specific costs rather than treating feature breadth as performance evidence.
 See [source assessment](../../internal/research/umya-editable-core-assessment.md).
 
@@ -12,7 +12,7 @@ rust_xlsxwriter 0.99.1 run in one native release executable on Linux/Rust 1.99.
 This deliberately unifies compatible ZIP/flate2 dependency features, including
 the zlib-rs backend; it is not a comparison of four independent default builds.
 Inspect the committed independent Cargo lockfile for transitive versions.
-Neither Python conversion nor the user's NYC 1M-by-41 workbook is measured.
+Neither Python conversion nor the NYC 1M-by-41 workbook is measured.
 
 One warmup and three rotating serial samples per mode/scale. Kernel wait4 wall,
 CPU and RSS include startup, operation and destruction. Builds, generation,
