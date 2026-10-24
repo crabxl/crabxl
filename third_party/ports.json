@@ -224,7 +224,7 @@
       ],
       "tests": [
         "benchmarks/verify_themes.py",
-        "docs/research/default-theme-public.json"
+        "internal/research/default-theme-public.json"
       ],
       "inventory_items": [
         "themes.opaque-default-parts"

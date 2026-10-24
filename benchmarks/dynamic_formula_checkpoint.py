@@ -55,7 +55,7 @@ def main():
     if args.runs < 1 or any(not 0 < size <= 1048576 for size in args.rows):
         parser.error("Require positive samples and physical worksheet row bounds")
     run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", HERE / "measure.c", "-o", HERE / "measure"])
-    run(["cargo", "build", "--release", "--locked", "-p", "crabxl", "--example", "dynamic_formula_read"])
+    run(["cargo", "build", "--release", "--locked", "-p", "crabxl-bench", "--example", "dynamic_formula_read"])
     target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
     report = {"reference": openpyxl.__version__, "platform": platform.platform(), "measurement": f"One warmup and {args.runs} rotating serial wall/CPU/RSS samples including process baseline", "semantics": "Both readers stream and verify every ArrayFormula expression/range and scalar. Native also checks every array cache in the same pass; public cache validation is a separate untimed data_only pass. Opaque cm/vm graph references are projected like the public baseline, not interpreted. No temporary storage or worksheet materialization. Prior native revision rejects these inputs; no prior dynamic-input timing is possible. calamine formula/cache-only overlap needs separate verification and is not claimed here.", "cases": []}
     (HERE / "data").mkdir(exist_ok=True)

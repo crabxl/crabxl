@@ -38,7 +38,7 @@ def main():
                            for key in ("seconds", "cpu_seconds", "peak_rss_kib")}
                     for size, values in samples.items()},
     }
-    (HERE / "buffer-results.json").write_text(json.dumps(result, indent=2) + "\n")
+    (HERE / "results" / "buffer-results.json").write_text(json.dumps(result, indent=2) + "\n")
 
 
 if __name__ == "__main__":

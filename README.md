@@ -28,8 +28,8 @@ openpyxl while keeping the Rust API idiomatic.
 
 **Currently alpha.** Full editing and openpyxl feature coverage are still in
 progress. Unsupported operations return explicit errors. Formula calculation is
-not provided. See the [capability inventory](docs/features.json) and
-[roadmap](docs/roadmap.md) for current scope.
+not provided. See the [capability inventory](internal/features.json) and
+[roadmap](internal/roadmap.md) for current scope.
 
 ## Installation
 
@@ -95,10 +95,10 @@ parts.
 ## Documentation
 
 - [API reference](https://docs.rs/crabxl)
-- [Roadmap](docs/roadmap.md) and [capability inventory](docs/features.json)
-- [Architecture](docs/architecture.md)
+- [Roadmap](internal/roadmap.md) and [capability inventory](internal/features.json)
+- [Architecture](internal/architecture.md)
 - [Benchmarks](benchmarks/README.md)
-- [Releases](docs/releases.md)
+- [Releases](internal/releases.md)
 
 ## License
 

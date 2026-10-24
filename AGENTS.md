@@ -11,16 +11,16 @@ These instructions govern AI work on this repository. They are not a contributor
 
 ## Product contract and architecture
 
-- Read docs/architecture.md, docs/roadmap.md, and docs/openpyxl-mr-review.md before implementing affected features. Update plans when architecture changes.
+- Read internal/architecture.md, internal/roadmap.md, and internal/openpyxl-mr-review.md before implementing affected features. Update plans when architecture changes.
 - Internals may be deeply idiomatic Rust: ownership, borrowing, enums, traits, iterators, builders, typed IDs, and Result are encouraged.
 - The external Rust API must support the capabilities and observable behavior expected from the pinned openpyxl public-feature baseline. Names and syntax may differ; this must not remove functionality or silently change value, formula, date, editing, or preservation semantics.
 - Track read, create, edit, and preserve capabilities separately. Preservation alone is not readable/editable support. Staged delivery keeps all baseline features in the roadmap; do not narrow scope to upstream Rust capabilities.
-- Python binding work is now authorized in the standalone crabxl-python repository for shared compatibility tests and migration. Its public interface must match openpyxl call names, object access and supported observable behavior; additional capabilities may be extensions. Do not require users to learn a different Python API. Keep core Rust APIs idiomatic and runtime-independent with explicit ownership, typed errors and safe owned handles. Other bindings follow the ordered tiers in docs/binding-contract.md; they are planned, not implemented.
+- Python binding work is now authorized in the standalone crabxl-python repository for shared compatibility tests and migration. Its public interface must match openpyxl call names, object access and supported observable behavior; additional capabilities may be extensions. Do not require users to learn a different Python API. Keep core Rust APIs idiomatic and runtime-independent with explicit ownership, typed errors and safe owned handles. Other bindings follow the ordered tiers in internal/binding-contract.md; they are planned, not implemented.
 - Python adapter implementation/tests belong to https://github.com/crabxl/crabxl-python. Keep core changes independent of Python and verify cross-repository changes against a pinned core revision.
 - Reuse selected pinned openpyxl tests with license/provenance and unchanged assertions. Track unresolved expected failures explicitly; do not count them as passing or claim the full suite runs. Do not silently fall back to openpyxl or accept unsupported properties that are lost on save.
 - Use openpyxl docs, directory/module names, public behavior, and interoperability fixtures for architecture. Do not broadly read its implementation. The user separately authorized important pending MR diffs and necessary surrounding code for defect review; keep this exception scoped. Rust upstream implementation may be inspected for porting.
 
-- Follow [the binding and performance contract](docs/binding-contract.md): Rust core is canonical; match each dominant reference public API/mental model; keep compatibility and idiomatic extensions clearly separate and independently evolvable. Never constrain core capabilities to a reference package or force Rust API shape onto a binding.
+- Follow [the binding and performance contract](internal/binding-contract.md): Rust core is canonical; match each dominant reference public API/mental model; keep compatibility and idiomatic extensions clearly separate and independently evolvable. Never constrain core capabilities to a reference package or force Rust API shape onto a binding.
 
 ## Memory and performance
 

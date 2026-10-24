@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CATALOG = ROOT / 'docs/research/openpyxl-3.1.5-public-surface.json'
-INVENTORY = ROOT / 'docs/features.json'
+CATALOG = ROOT / 'internal/research/openpyxl-3.1.5-public-surface.json'
+INVENTORY = ROOT / 'internal/features.json'
 
 def stage(name):
     if any(part in name for part in ['chart', 'drawing', 'pivot', 'external', '.ole']):
@@ -30,7 +30,7 @@ def main():
             'status': 'planned', 'milestone': stage(module),
             'capabilities': dict.fromkeys(['read', 'create', 'edit', 'preserve'], 'planned'),
             'modes': ['mode-specific support to verify'],
-            'reference': 'docs/research/openpyxl-3.1.5-public-surface.json',
+            'reference': 'internal/research/openpyxl-3.1.5-public-surface.json',
             'reference_module': module,
             'public_classes': surface['classes'],
             'public_functions': sorted(surface['functions']),

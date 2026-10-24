@@ -29,7 +29,7 @@ def main():
                            for key in ("seconds", "cpu_seconds", "peak_rss_kib")}
                     for mode, values in samples.items()},
     }
-    (HERE / "mode-results.json").write_text(json.dumps(result, indent=2) + "\n")
+    (HERE / "results" / "mode-results.json").write_text(json.dumps(result, indent=2) + "\n")
 
 
 if __name__ == "__main__":

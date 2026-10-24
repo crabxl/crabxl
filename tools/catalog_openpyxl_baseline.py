@@ -5,7 +5,7 @@ assert openpyxl.__version__=='3.1.5'
 import argparse
 parser=argparse.ArgumentParser(description='Catalog public runtime metadata and pinned release documentation without reading implementation source')
 parser.add_argument('--reference-checkout',default='/workspace/openpyxl')
-parser.add_argument('--output',default='docs/research/openpyxl-3.1.5-public-surface.json')
+parser.add_argument('--output',default='internal/research/openpyxl-3.1.5-public-surface.json')
 args=parser.parse_args()
 rev='13627b03ca25a1a98becf40e533b955615b13429'
 modules={}

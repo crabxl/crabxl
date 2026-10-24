@@ -44,7 +44,7 @@ def main():
     assert openpyxl.__version__ == "3.1.5"
     if args.runs < 1 or any(not 0 < size <= 1048576 for size in args.rows):
         parser.error("Require positive samples and physical row bounds")
-    run(["cargo", "build", "--release", "--locked", "-p", "crabxl", "--example", "nonfinite_write"])
+    run(["cargo", "build", "--release", "--locked", "-p", "crabxl-bench", "--example", "nonfinite_write"])
     target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
     report = {"reference": openpyxl.__version__, "platform": platform.platform(), "measurement": f"One warmup plus {args.runs} rotating serial wall/CPU/RSS samples; public normal/cache-only readback excluded from timing", "semantics": "Both sequential writers emit five columns: finite float, positive/negative infinity, NaN, formula with blank cache. Native receives an infinity formula cache while the public reference receives no cache; both serialize a blank value and reopen as None. Every reopened cell is checked in both modes. Native exact logical spool bytes include closed worksheet footer; 25ms temp sampling is a lower bound excluding final ZIP; no residual owned files. No calamine read or rust_xlsxwriter comparison is claimed for this compatibility checkpoint.", "cases": []}
     (HERE / "data").mkdir(exist_ok=True)

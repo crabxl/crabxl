@@ -46,5 +46,5 @@ with tempfile.TemporaryDirectory() as directory:
         checked.append({"source_metadata": token, "array_expression": formula.text, "array_range": formula.ref, "cached_values": [1, 1], "native_read": "checked", "native_target_replacement": "checked", "unaffected_metadata_part": "preserved"})
 root = Path(__file__).resolve().parents[1]
 report = {"reference": openpyxl.__version__, "inspection": "Public APIs and generated OOXML only; opaque indices are not interpreted", "checked": checked}
-(root / "docs/research/dynamic-formulas-public.json").write_text(json.dumps(report, indent=2) + "\n")
+(root / "internal/research/dynamic-formulas-public.json").write_text(json.dumps(report, indent=2) + "\n")
 (root / "benchmarks/results/m2-dynamic-formulas-interop.json").write_text(json.dumps(report, indent=2) + "\n")

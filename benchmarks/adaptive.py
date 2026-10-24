@@ -31,7 +31,7 @@ def main():
               "medians": {case: {key: statistics.median(sample[key] for sample in values)
                                  for key in ("seconds", "cpu_seconds", "peak_rss_kib")}
                           for case, values in samples.items()}}
-    (HERE / "adaptive-results.json").write_text(json.dumps(report, indent=2) + "\n")
+    (HERE / "results" / "adaptive-results.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
 if __name__ == "__main__":

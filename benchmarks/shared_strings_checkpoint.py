@@ -54,7 +54,7 @@ def main():
     if openpyxl.__version__!="3.1.5" or args.runs<1 or any(not 0<r<=1048576 for r in args.rows):
         parser.error("Require pinned openpyxl, positive runs and Excel row bounds")
     run(["cc","-O2","-Wall","-Wextra","-Werror",HERE/"measure.c","-o",HERE/"measure"])
-    run(["cargo","build","--release","--locked","-p","crabxl","--example","shared_text"])
+    run(["cargo","build","--release","--locked","-p", "crabxl-bench", "--example","shared_text"])
     run(["cargo","build","--release","--locked","--manifest-path",HERE/"calamine/Cargo.toml","--bin","shared_text"])
     target=Path(os.environ.get("CARGO_TARGET_DIR",ROOT/"target"))
     report={"workload":"10 columns of 110-byte ASCII strings; every value verified in order","measurement":"Linux fork/exec/wait4; one warmup; five rotating serial runs; generation/build excluded; runtime baseline included","versions":{"openpyxl":openpyxl.__version__,"calamine":"0.36.1","rust":run(["rustc","--version"]).stdout.strip()},"platform":platform.platform(),"semantics":"crabxl streams rows after SST preparation; openpyxl read-only eagerly reads SST; calamine materializes public Range; equivalent text verification, different retention modes","cases":[]}

@@ -52,7 +52,7 @@ def main():
     if openpyxl.__version__ != "3.1.5" or args.runs < 1 or any(not 0 < n <= 1048576 for n in args.rows):
         parser.error("Require pinned reference, positive sample count and valid rows")
     run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", HERE / "measure.c", "-o", HERE / "measure"])
-    run(["cargo", "build", "--release", "--locked", "-p", "crabxl", "--example", "iso_fixture", "--example", "iso_read"])
+    run(["cargo", "build", "--release", "--locked", "-p", "crabxl-bench", "--example", "iso_fixture", "--example", "iso_read"])
     target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
     data = HERE / "data"
     data.mkdir(exist_ok=True)
