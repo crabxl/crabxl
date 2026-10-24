@@ -2,7 +2,7 @@
 
 ## Decision and scope
 
-The user selected umya-spreadsheet as the primary source for remaining editable
+umya-spreadsheet is the selected primary source for remaining editable
 workbook/package and M5/M6 ports. Existing calamine and rust_xlsxwriter work stays
 useful for overlapping read/write algorithms and performance comparisons.
 Retain one canonical CrabXL model and codec layer. Source priority does not mean
@@ -100,7 +100,7 @@ initialization-only lazy routes, full-model edit/save and creation are distinct
 workloads. Every output numeric coordinate/value is verified outside timing;
 time, kernel RSS, output size and working-file sampling are reported separately.
 Generated numeric inputs do not represent high-cardinality SST, styled/formula
-models or the user's unavailable NYC 1M-by-41 file.
+models or the unavailable NYC 1M-by-41 file.
 
 Independent 500 Hz gperftools sampling of the initial two-million-cell stream
 recorded 321 samples: the XML stream event route was present in roughly 77% of

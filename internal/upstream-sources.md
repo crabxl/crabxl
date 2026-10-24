@@ -25,7 +25,7 @@ For each port record project URL, commit, source file/symbols, destination modul
 
 ## Current primary source and additional candidates
 
-- umya-spreadsheet is the user-selected primary source for remaining editable,
+- umya-spreadsheet is the selected primary source for remaining editable,
   package and M5/M6 ports. Existing rich/style ports retain their original
   `1bcf4d0` provenance. New source assessment pins stable 3.1.0 tag commit
   `aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b`; benchmarks use exact crates.io
@@ -35,4 +35,4 @@ For each port record project URL, commit, source file/symbols, destination modul
   Rich metadata uses shared core models, bounded parsing and disk placement;
   importing its complete engine is not implied by the source priority.
 - zip, quick-xml, date utilities, tempfile: normal foundational dependency candidates.
-- openpyxl: feature and interoperability reference, with architecture based on docs/module names. Important pending MR diffs were reviewed within the user's limited exception; see [review](openpyxl-mr-review.md) and pinned snapshots.
+- openpyxl: feature and interoperability reference, with architecture based on docs/module names. Important pending MR diffs were reviewed under a limited exception; see [review](openpyxl-mr-review.md) and pinned snapshots.

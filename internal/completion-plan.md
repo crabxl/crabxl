@@ -20,7 +20,7 @@ A8 addressed the measured performance backlog and is published. The
 M6/deferred M4 across A20–A26, and performance/M7 across A27–A28. These future
 stages remain open; implementation has resumed at A9.
 
-The user selected staged M4 acceptance: reject operations affecting unimplemented
+M4 acceptance is staged: reject operations affecting unimplemented
 M5/M6 graphs atomically, preserve unrelated opaque content, and retain the missing
 interaction cases until the owning feature family is implemented. A7 may report
 its M4 stage accepted; full M4 acceptance remains open until those dependencies

@@ -2,8 +2,8 @@
 
 ## Context
 
-The user requires streaming and nonstreaming loading to target calamine speed,
-and requires attempts to reduce nonstreaming cost below calamine. Dataframe
+Streaming and nonstreaming loading target calamine speed. The project
+requires attempts to reduce nonstreaming cost below calamine. Dataframe
 adoption also needs efficient native/binding conversion. The earlier reference
 Range benchmark released each sheet separately, while CrabXL retained all
 editable sheets; add an explicitly all-sheet-retained reference mode.

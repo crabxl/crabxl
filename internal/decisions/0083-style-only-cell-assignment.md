@@ -1,6 +1,6 @@
 # Native style-only assignment checkpoint
 
-Status: implemented in the native model; unreleased. Work paused at the user's request after this checkpoint. M5 and Alpha 9 remain incomplete.
+Status: implemented in the native model; unreleased. Work paused after this checkpoint. M5 and Alpha 9 remain incomplete.
 
 ## Behavior
 

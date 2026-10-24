@@ -55,7 +55,7 @@ Extra upstream features may be retained as extensions but do not replace baselin
 ## M0: Sources, inventory, and shared design
 
 1. Pin upstream clones and license information. Fix the openpyxl release baseline and finish the detailed public-feature inventory.
-2. Inspect Rust source, APIs, and tests. Use openpyxl documentation and public behavior for architecture; narrowly review important MR diffs only within the user's exception.
+2. Inspect Rust source, APIs, and tests. Use openpyxl documentation and public behavior for architecture; narrowly review important MR diffs only under the limited exception.
 3. Use umya-spreadsheet as the primary source for editable/package and M5/M6
    feature ports. Check actual behavior, licensing and memory ownership before
    selecting coherent modules. Keep calamine and rust_xlsxwriter as secondary
@@ -159,7 +159,7 @@ Use source tests to preserve behavior, integrate common models, decouple I/O, re
 
 ## Parallel Python compatibility acceptance
 
-The user moved a thin optional Python adapter ahead of milestone completion to share tests and ease migration. Workbook/Worksheet/Cell calls must match openpyxl; Rust internals and public Rust naming remain independent. Selectively reuse pinned upstream tests with exact assertions/provenance, then expand the tested surface along M4-M7. Unsupported behavior stays explicit and planned, including complete styles/rich text, full formula tokenization and loaded feature-graph editing. This does not complete M4-M7 or the whole Python compatibility suite.
+A thin optional Python adapter was moved ahead of milestone completion to share tests and ease migration. Workbook/Worksheet/Cell calls must match openpyxl; Rust internals and public Rust naming remain independent. Selectively reuse pinned upstream tests with exact assertions/provenance, then expand the tested surface along M4-M7. Unsupported behavior stays explicit and planned, including complete styles/rich text, full formula tokenization and loaded feature-graph editing. This does not complete M4-M7 or the whole Python compatibility suite.
 
 M5 translation checkpoint: the bounded shared A1 scanner and atomic translated sparse moves are implemented and exposed through compatible Python Translator/move_range calls. All 46 selected original worksheet/translator methods pass. Full tokenizer/formula metadata and other M5 feature families remain required; Deferred M4 feature-graph interactions remain staged.
 

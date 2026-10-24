@@ -21,6 +21,6 @@ replacement remain unfinished A11 work. The adapter still pins the earlier live-
 hyperlink checkpoint; it does not expose these new mutation methods yet.
 
 Rust 1.88 library compilation and formatting are the only checks at this stage.
-No additional tests, performance claims or A11 acceptance are implied. The user
-requested development to stop at this checkpoint; consolidated release acceptance
+No additional tests, performance claims or A11 acceptance are implied. Development
+stopped at this checkpoint; consolidated release acceptance
 and remaining feature work are intentionally deferred.

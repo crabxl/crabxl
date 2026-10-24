@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This is the active plan for the complete feature scope originally assigned to Alpha 9–28. Alpha 6–10 are published history, including verified public Rust and Python Alpha 9/10 artifacts. On 2026-10-07 the user approved consolidating the remaining work into approximately six releases to reduce repeated packaging and publication overhead. No feature scope is removed.
+This is the active plan for the complete feature scope originally assigned to Alpha 9–28. Alpha 6–10 are published history, including verified public Rust and Python Alpha 9/10 artifacts. On 2026-10-07 the remaining work was consolidated into approximately six releases to reduce repeated packaging and publication overhead. No feature scope is removed.
 
 A11–A16 below are the current release numbers. W11–W28 are stable work-package identifiers corresponding to the former alpha targets; they are no longer individual releases. W11/W12 have usable checkpoints; W13 rich-value integration is described in [ADR 0088](decisions/0088-canonical-rich-model-edits.md). Hyperlinks and consolidated A11 acceptance remain open; incomplete work is not published as a completed feature.
 
@@ -46,13 +46,8 @@ sets/live coordinate views and bulk replacement remain unfinished. Rich utility
 and alias edge cases, applicable structural interactions and consolidated release
 acceptance still prevent an A11 release.
 
-On 2026-10-07 the user requested stopping development after committing and pushing
-the current progress. A11 remains unpublished; A12–A16 have not started. No new
-tests or benchmarks were added or run during these implementation checkpoints.
-Resume with the unfinished A11 feature integration, then perform the single
-consolidated pre-release acceptance stage before publishing.
-
-Development resumed at the user's request on 2026-10-21. Live raw merged sets,
+Development paused on 2026-10-07 and resumed on 2026-10-21. A11 is now
+published; A12–A16 have not started. Live raw merged sets,
 stable coordinate identities, bulk replacement, sparse realized-cell structural
 edits and hyperlink owner/relationship coordination are integrated in ADR 0102
 and adapter ADR 0042. Consolidated acceptance also corrected rich-copy bindings,

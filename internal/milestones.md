@@ -73,7 +73,7 @@ The next M4 checkpoint adds explicit `upsert_value`, with ordered sparse inserti
 
 ## Optional Python adapter checkpoint (parallel to M4-M7)
 
-The user authorized an early Python binding for shared tests and easy migration. The separate Maturin/PyO3 package exposes openpyxl-compatible call names and live Cell views over the independent Rust model/editor. Core remains Python-independent. Native long operations release the GIL; budgets default to Rust Auto with explicit operation caps. All 81 Rust tests pass, and the selected Python suite has 55 passing cases with one strict expected failure for M5 formula translation. This is partial adapter coverage, not completed M4-M7 or the full openpyxl suite. Provenance verifies 37 original release test bodies. [Direct same-call API benchmarks](../benchmarks/reports/python-adapter.md) include interpreter/conversion costs and temp storage.
+An early Python binding was authorized for shared tests and easy migration. The separate Maturin/PyO3 package exposes openpyxl-compatible call names and live Cell views over the independent Rust model/editor. Core remains Python-independent. Native long operations release the GIL; budgets default to Rust Auto with explicit operation caps. All 81 Rust tests pass, and the selected Python suite has 55 passing cases with one strict expected failure for M5 formula translation. This is partial adapter coverage, not completed M4-M7 or the full openpyxl suite. Provenance verifies 37 original release test bodies. [Direct same-call API benchmarks](../benchmarks/reports/python-adapter.md) include interpreter/conversion costs and temp storage.
 
 ## M5: In progress, A1 translation checkpoint
 
