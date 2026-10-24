@@ -6,6 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "A Rust spreadsheet library with bounded streaming XLSX reads"
+readme = "../../README.md"
+keywords = ["xlsx", "excel", "spreadsheet", "openpyxl"]
+categories = ["parser-implementations", "encoding"]
 
 [features]
 default = ["deflate-zlib-rs"]
