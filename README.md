@@ -102,13 +102,10 @@ parts.
 - [Project status](internal/STATUS.md)
 - [Changelog](CHANGELOG.md)
 
-A user guide is in progress in [docs](docs).
-
 ## Contributing
 
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before you
-open a pull request. Report security problems as described in
-[SECURITY.md](SECURITY.md).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before you open a pull request. Report
+security problems as described in [SECURITY.md](SECURITY.md).
 
 ## License
 

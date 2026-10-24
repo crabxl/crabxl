@@ -1,27 +1,43 @@
 ---
 title: CrabXL for Rust
-description: Read, write and edit XLSX files in Rust.
+description: Install the crabxl crate and read a worksheet.
 ---
-
-CrabXL reads, writes and edits XLSX files. It streams rows with bounded memory,
-creates workbooks sequentially and edits existing files. Parts of a file that
-you do not change are kept without change.
-
-CrabXL is alpha software. Unsupported operations return an `Unsupported`
-error. CrabXL does not calculate formulas.
 
 ## Install
 
-Add CrabXL to `Cargo.toml`. CrabXL requires Rust 1.88 or later.
+Add the crate to `Cargo.toml`. The minimum Rust version is 1.88.
 
 ```toml
 [dependencies]
 crabxl = "0.1.0-alpha.11"
 ```
 
-## Next steps
+## Read rows
 
-- Run the [quickstart example](https://github.com/crabxl/crabxl/blob/main/crates/crabxl/examples/quickstart.rs).
-- Read the [API reference](https://docs.rs/crabxl).
+```rust
+use crabxl::WorkbookReader;
 
-More pages are in preparation.
+fn main() -> crabxl::Result<()> {
+    let mut workbook = WorkbookReader::open("input.xlsx")?;
+    let mut rows = workbook.rows("Sheet1")?;
+    while let Some(row) = rows.next_row()? {
+        for cell in row.cells {
+            println!("{}: {:?}", cell.address, cell.value);
+        }
+    }
+    Ok(())
+}
+```
+
+`rows` returns only the cells that are in the file. Row and column indexes start
+at zero.
+
+The [quickstart example](https://github.com/crabxl/crabxl/blob/main/crates/crabxl/examples/quickstart.rs)
+also creates and edits a workbook. The [API reference](https://docs.rs/crabxl)
+lists all types.
+
+## Limits
+
+- An unsupported operation returns an error of kind `ErrorKind::Unsupported`.
+- CrabXL does not calculate formulas. A formula cell contains the formula and
+  the cached result from the file.

@@ -1,11 +1,5 @@
 # Contributing to CrabXL
 
-Thank you for your help. This guide tells you how the repository is organized,
-how to build and test it, and what a pull request must include.
-
-CrabXL is alpha software. A bug report with a small file that shows the problem
-is as valuable as code.
-
 ## Ways to contribute
 
 - **Report a bug.** Use the [issue forms](https://github.com/crabxl/crabxl/issues/new/choose).

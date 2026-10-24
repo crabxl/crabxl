@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-CrabXL is alpha software. Only the latest release receives security fixes.
+Only the latest release receives security fixes.
 
 ## Report a vulnerability
 
