@@ -37,6 +37,9 @@ messages and commit messages. They follow the principles of ASD-STE100
 (Simplified Technical English). The STE dictionary is not used. Use the project
 glossary in crabxl-docs instead.
 
+- Write only information that the reader uses. Each sentence must give a fact,
+  an instruction or a limit. Do not write slogans, praise, thanks or text about
+  the text. Do not repeat a statement on the same page.
 - Write short sentences. Use a maximum of 20 words in an instruction and 25
   words in a description.
 - Give one instruction in each sentence.
