@@ -23,7 +23,7 @@ for name, construct, values in [
         except ValueError as error:
             observations.append({"field": name, "input": value, "accepted": False, "error": str(error)})
 root = Path(__file__).resolve().parents[1]
-(root / "docs/research/style-domains-public.json").write_text(json.dumps({"reference": openpyxl.__version__, "observations": observations}, indent=2) + "\n")
+(root / "internal/research/style-domains-public.json").write_text(json.dumps({"reference": openpyxl.__version__, "observations": observations}, indent=2) + "\n")
 book = openpyxl.load_workbook(args.native)
 checked = []
 for row, (charset, kind, value) in enumerate([(-1, "theme", -1), (256, "indexed", -1), (4096, "rgb", "aaBbCcDd"), (0, "rgb", "00aAbBcC")], 1):

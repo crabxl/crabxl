@@ -42,7 +42,7 @@ def main():
     if openpyxl.__version__ != "3.1.5" or args.runs < 1 or any(not 0 < r <= 1048576 for r in args.rows):
         parser.error("Require pinned openpyxl, positive runs and valid row bounds")
     run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", HERE / "measure.c", "-o", HERE / "measure"])
-    run(["cargo", "build", "--release", "--locked", "-p", "crabxl", "--example", "shared_text", "--example", "rich_text"])
+    run(["cargo", "build", "--release", "--locked", "-p", "crabxl-bench", "--example", "shared_text", "--example", "rich_text"])
     run(["cargo", "build", "--release", "--locked", "--manifest-path", HERE / "calamine/Cargo.toml", "--bin", "shared_text"])
     target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
     report = {"workload": "Two formatted runs per shared value: 14-byte prefix and 96-byte suffix; verify all displayed text and specified font/color overrides", "measurement": f"Linux fork/exec/wait4; one warmup and {args.runs} rotating serial runs; build/generation excluded", "versions": {"openpyxl": openpyxl.__version__, "calamine": "0.36.1", "rust": run(["rustc", "--version"]).stdout.strip()}, "platform": platform.platform(), "semantics": "Typed rich and flattened projections are separate comparison groups. Calamine only competes on plain text. Native rows stream; openpyxl read-only eagerly retains SST; calamine materializes Range. Memory=512MiB; Disk/Auto=16MiB component budget, cache=1MiB. No global RSS cap.", "cases": []}

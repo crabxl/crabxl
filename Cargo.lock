@@ -48,6 +48,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "crabxl-bench"
+version = "0.1.0-alpha.11"
+dependencies = [
+ "crabxl",
+]
+
+[[package]]
 name = "crabxl-core"
 version = "0.1.0-alpha.11"
 dependencies = [

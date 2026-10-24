@@ -62,7 +62,7 @@ def main():
     if args.runs < 1 or any(not 0 < size <= 1048576 for size in args.rows):
         parser.error("Require positive samples and physical worksheet row bounds")
     run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", HERE / "measure.c", "-o", HERE / "measure"])
-    run(["cargo", "build", "--release", "--locked", "-p", "crabxl", "--example", "shared_formula_read"])
+    run(["cargo", "build", "--release", "--locked", "-p", "crabxl-bench", "--example", "shared_formula_read"])
     target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
     report = {"reference": openpyxl.__version__, "platform": platform.platform(), "measurement": f"One warmup and {args.runs} rotating serial wall/CPU/RSS samples including process baseline", "semantics": "Both readers stream and verify every expanded formula. Native also verifies every cached integer in the same pass; public openpyxl cache verification uses a separate untimed data_only pass. Shared template accounting is a conservative managed-storage estimate, not exact RSS. No temporary storage is used for this read workload. calamine comparison is deferred until equivalent streaming formula/cache APIs are validated.", "cases": []}
     report["shared_index"] = shared_index

@@ -38,7 +38,7 @@ def main():
     if openpyxl.__version__ != "3.1.5" or args.runs < 1 or any(not 0 < n <= 1048576 for n in args.rows):
         parser.error("Require pinned reference and positive sample/row counts")
     run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", HERE / "measure.c", "-o", HERE / "measure"])
-    run(["cargo", "build", "--locked", "--release", "-p", "crabxl", "--example", "styled_read"])
+    run(["cargo", "build", "--locked", "--release", "-p", "crabxl-bench", "--example", "styled_read"])
     run(["cargo", "build", "--locked", "--release", "--manifest-path", HERE / "calamine/Cargo.toml", "--bin", "styled_read"])
     target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
     report = {"workload": "Ten columns: general floats, dates, clock, elapsed duration, styled bool, inline string, error, date formula cache and exact integer; all values checked", "measurement": f"One warmup; {args.runs} rotating serial samples; build/generation excluded; process baseline included", "versions": {"openpyxl": openpyxl.__version__, "calamine": "0.36.1", "rust": run(["rustc", "--version"]).stdout.strip()}, "platform": platform.platform(), "semantics": "Native rows stream with a lazily loaded shared catalog; openpyxl read-only streaming. No shared-string table or temporary files. This is numeric date/cache overlap, not full style API parity. Calamine materializes a Range and retains date/clock serial wrappers; equivalent values/components checked, not identical public types.", "cases": []}

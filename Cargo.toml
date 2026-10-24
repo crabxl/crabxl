@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/crabxl", "crates/crabxl-core", "crates/crabxl-xlsx"]
+members = ["crates/crabxl", "crates/crabxl-bench", "crates/crabxl-core", "crates/crabxl-xlsx"]
 resolver = "2"
 
 [workspace.package]

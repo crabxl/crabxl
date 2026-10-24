@@ -1,0 +1,20 @@
+[package]
+name = "crabxl-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Benchmark drivers and fixture generators for CrabXL. Not published."
+publish = false
+
+[features]
+default = ["deflate-zlib-rs"]
+deflate-zlib-rs = ["crabxl/deflate-zlib-rs"]
+deflate-zlib = ["crabxl/deflate-zlib"]
+
+[dependencies]
+crabxl = { path = "../crabxl", default-features = false }
+
+[lints]
+workspace = true
