@@ -1,0 +1,43 @@
+name: Bug report
+description: CrabXL gives an incorrect result, an error or a crash.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: CrabXL version
+      placeholder: 0.1.0-alpha.11
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What did CrabXL do? Include the full error message.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What did you expect? If Excel or openpyxl gives a different result, tell us.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Give the smallest code that shows the problem.
+      render: rust
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: Input file
+      description: Attach the smallest .xlsx file that shows the problem. Remove confidential data first.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Rust 1.99, Linux x86_64

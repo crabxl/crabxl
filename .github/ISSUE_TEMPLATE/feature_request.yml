@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest a new capability or an API improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Need
+      description: What do you want to do? Why can you not do it now?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How could the API look? Give example code if possible.

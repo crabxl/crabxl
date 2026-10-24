@@ -28,8 +28,7 @@ openpyxl while keeping the Rust API idiomatic.
 
 **Currently alpha.** Full editing and openpyxl feature coverage are still in
 progress. Unsupported operations return explicit errors. Formula calculation is
-not provided. See the [capability inventory](internal/features.json) and
-[roadmap](internal/roadmap.md) for current scope.
+not provided. See [project status](internal/STATUS.md) for the current scope.
 
 ## Installation
 
@@ -37,7 +36,7 @@ Requires **Rust 1.88 or newer**.
 
 ```toml
 [dependencies]
-crabxl = "0.1.0-alpha.10"
+crabxl = "0.1.0-alpha.11"
 ```
 
 ## Usage
@@ -76,8 +75,13 @@ fn main() -> crabxl::Result<()> {
 }
 ```
 
-Use `WorkbookWriter` for sequential creation. Runnable examples are available in
-[crates/crabxl/examples](crates/crabxl/examples).
+Use `WorkbookWriter` for sequential creation and `LoadedWorkbook` for structural
+edits such as appending rows or copying sheets. The
+[quickstart example](crates/crabxl/examples/quickstart.rs) shows all four APIs:
+
+```sh
+cargo run -p crabxl --example quickstart
+```
 
 ## Resource and compression options
 
@@ -95,10 +99,16 @@ parts.
 ## Documentation
 
 - [API reference](https://docs.rs/crabxl)
-- [Roadmap](internal/roadmap.md) and [capability inventory](internal/features.json)
-- [Architecture](internal/architecture.md)
-- [Benchmarks](benchmarks/README.md)
-- [Releases](internal/releases.md)
+- [Project status](internal/STATUS.md)
+- [Changelog](CHANGELOG.md)
+
+A user guide is in progress in [docs](docs).
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before you
+open a pull request. Report security problems as described in
+[SECURITY.md](SECURITY.md).
 
 ## License
 

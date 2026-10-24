@@ -1,0 +1,23 @@
+name: Difference from openpyxl
+description: A feature or behavior of openpyxl 3.1.5 is missing or different in CrabXL.
+labels: [compatibility]
+body:
+  - type: textarea
+    id: feature
+    attributes:
+      label: openpyxl feature
+      description: Give the openpyxl call or behavior. Include a link to the openpyxl documentation if possible.
+    validations:
+      required: true
+  - type: textarea
+    id: difference
+    attributes:
+      label: CrabXL behavior
+      description: What does CrabXL do? For example, it returns an Unsupported error or a different value.
+    validations:
+      required: true
+  - type: textarea
+    id: use
+    attributes:
+      label: Use case
+      description: Why do you need this feature?
