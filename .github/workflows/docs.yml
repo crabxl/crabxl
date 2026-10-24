@@ -19,14 +19,12 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Ask crabxl-docs to rebuild the site
+      - name: Start a rebuild of the documentation site
         env:
-          GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+          HOOK: ${{ secrets.DOCS_DEPLOY_HOOK }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::notice::DOCS_DISPATCH_TOKEN is not set. The daily build includes this change."
+          if [ -z "$HOOK" ]; then
+            echo "::notice::DOCS_DEPLOY_HOOK is not set. The daily rebuild includes this change."
             exit 0
           fi
-          gh api repos/crabxl/crabxl-docs/dispatches -f event_type=docs-updated \
-            -f "client_payload[repository]=${{ github.repository }}" \
-            -f "client_payload[sha]=${{ github.sha }}"
+          curl -fsS -X POST "$HOOK"
