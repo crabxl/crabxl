@@ -27,6 +27,11 @@ Replace this file when the status changes. Do not append a history log.
   and insert or delete rows and columns.
 - Memory limits, shared-string storage in memory or on disk, and ZIP
   compression levels 0–9.
+- Tables, auto filters and sort state, conditional formatting, data
+  validation, comments, sheet and workbook protection, header/footer, defined
+  names (print areas and titles) and document properties. Read, create and
+  edit in every mode except streaming write of hyperlinks combined with
+  features. Features load without cell materialization.
 
 Unsupported operations return an `Unsupported` error. They do not drop data.
 
@@ -59,17 +64,17 @@ crabxl-docs.
 6. Mark the status lines in `internal/validation/` as historical. Some lines
    say "not a published release" for releases that are now published.
 
-### Features (next release)
+### Features (next stage)
 
-These feature groups are planned for the next release. The full scope and
-order are in [alpha-9-28-plan.md](alpha-9-28-plan.md).
+Stage 1 is complete on branch `stage1` (not released). Next stage: images and
+charts. Open items from stage 1:
 
-- Tables, auto filters and sorting.
-- Data validation and conditional formatting.
-- Comments.
-- Print areas, print titles, headers and footers, and sheet and workbook
-  protection.
-- Defined names, document properties and complete formula metadata.
+- `copy_worksheet` drops tables, rules, validation and comments (openpyxl
+  drops most of them too).
+- Structural edits (insert/delete rows and columns) keep feature ranges
+  unchanged, as openpyxl does.
+- A rule-level `extLst` (Excel 2010 data bar link) is kept as raw XML. Other
+  `extLst` elements inside feature elements return `Unsupported` on read.
 
 ### Features (later releases)
 

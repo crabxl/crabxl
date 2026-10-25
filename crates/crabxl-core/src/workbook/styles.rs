@@ -68,6 +68,22 @@ impl Workbook {
         self.styles = Some(styles);
         Ok(id)
     }
+    /// Add a differential style for conditional formats and tables; returns
+    /// its `dxfId`. Equal styles share one index.
+    pub fn register_differential_style(&mut self, style: crate::DifferentialStyle) -> Result<u32> {
+        if self.styles.is_none() {
+            self.initialize_style_catalog(crate::StyleLimits {
+                max_bytes: self.limits.max_bytes,
+                ..Default::default()
+            })?;
+        }
+        self.styles
+            .as_mut()
+            .ok_or_else(|| {
+                crate::Error::new(crate::ErrorKind::InvalidData, "Missing style registry")
+            })?
+            .register_differential(style)
+    }
     /// Register a raw format referencing this bank's imported/shared components.
     pub fn register_format(&mut self, format: crate::CellFormat) -> Result<crate::StyleId> {
         let maximum = self.style_allowance();

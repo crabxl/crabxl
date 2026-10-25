@@ -63,6 +63,41 @@ impl Worksheet {
         self.dirty = true;
         Ok(())
     }
+    /// Tables, filters, rules, comments, protection and header/footer.
+    pub fn features(&self) -> Option<&crate::SheetFeatures> {
+        self.features.as_deref()
+    }
+    /// Replace all worksheet features within the retained-data allowance.
+    /// An empty value is stored as absent.
+    pub fn set_features(&mut self, features: Option<crate::SheetFeatures>) -> Result<()> {
+        let features = features.filter(|features| !features.is_empty());
+        let charged = self
+            .charged
+            .saturating_sub(self.feature_bytes())
+            .saturating_add(features.as_ref().map_or(0, |features| {
+                size_of::<crate::SheetFeatures>() + features.heap_bytes()
+            }));
+        self.check(charged, self.len())?;
+        self.features = features.map(Box::new);
+        self.charged = charged;
+        self.dirty = true;
+        Ok(())
+    }
+    /// Remove and return the worksheet features.
+    pub fn take_features(&mut self) -> Option<crate::SheetFeatures> {
+        let bytes = self.feature_bytes();
+        let features = self.features.take().map(|features| *features);
+        if features.is_some() {
+            self.charged = self.charged.saturating_sub(bytes);
+            self.dirty = true;
+        }
+        features
+    }
+    pub(super) fn feature_bytes(&self) -> usize {
+        self.features.as_ref().map_or(0, |features| {
+            size_of::<crate::SheetFeatures>() + features.heap_bytes()
+        })
+    }
     pub(super) fn print_bytes(&self) -> usize {
         self.printing
             .as_ref()

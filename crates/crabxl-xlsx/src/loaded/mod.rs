@@ -1,6 +1,7 @@
 //! Lazy materialization into the canonical owned bank, with joint source accounting.
 mod catalog;
 mod dimensions;
+mod features;
 mod hyperlink_values;
 mod hyperlinks;
 mod merges;
@@ -49,6 +50,12 @@ struct SourceSheet {
     hyperlinks_requested: bool,
     hyperlinks_loaded: bool,
     hyperlink_values_dirty: bool,
+    features: Option<Box<FeatureState<crabxl_core::SheetFeatures>>>,
+}
+/// Source and current features; save writes `current` when it differs.
+struct FeatureState<T> {
+    source: T,
+    current: T,
 }
 /// Owns a seekable original package and the canonical workbook bank. Source
 /// styles transfer into the bank without cloning; only date classifications stay
@@ -66,6 +73,7 @@ pub struct LoadedWorkbook<R: Read + Seek = File> {
     options: LoadOptions,
     allowance: MemoryAllowance,
     source_style_count: usize,
+    workbook_features: Option<Box<FeatureState<crabxl_core::WorkbookFeatures>>>,
 }
 impl LoadedWorkbook<File> {
     /// Open a path with default joint model/source allowances.
@@ -97,6 +105,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         edit_options.resources = options.resources;
         edit_options.memory_policy = options.memory_policy;
         let mut editor = WorkbookEditor::with_options(source, edit_options)?;
+        editor.local_names_remapped = true;
         editor.structural_rich_text = options.read.rich_text;
         editor.structural_inline_rich_text = options
             .read
@@ -162,6 +171,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 hyperlinks_requested: false,
                 hyperlinks_loaded: false,
                 hyperlink_values_dirty: false,
+                features: None,
             });
         }
         bank.set_active_view_index(reader.active_view_index());
@@ -180,6 +190,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             options,
             allowance,
             source_style_count,
+            workbook_features: None,
         };
         value.rebalance()?;
         Ok(value)
@@ -570,6 +581,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         options: SaveOptions,
     ) -> Result<(W, SaveStats)> {
         self.prepare_hyperlink_values_for_save()?;
+        self.prepare_features_for_save()?;
         if self.options.read.data_only && self.editor.is_dirty() {
             return Err(Error::new(
                 ErrorKind::Unsupported,

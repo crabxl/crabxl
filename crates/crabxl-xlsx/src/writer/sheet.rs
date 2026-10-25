@@ -58,8 +58,32 @@ impl WorkbookWriter {
         views: Option<&crabxl_core::SheetViews>,
         printing: Option<&crabxl_core::PrintSettings>,
     ) -> Result<()> {
-        self.start_sheet_with_dimensions(name, views, printing, &[], &[], &Default::default())
+        self.start_sheet_with_dimensions(name, views, printing, &[], &[], &Default::default(), None)
     }
+    /// Start a sheet with tables, filters, rules, comments, protection and
+    /// header/footer. Feature parts are packaged when the writer finishes.
+    pub fn start_sheet_with_features(
+        &mut self,
+        name: impl Into<String>,
+        features: &crabxl_core::SheetFeatures,
+    ) -> Result<()> {
+        self.start_sheet_with_dimensions(
+            name,
+            None,
+            None,
+            &[],
+            &[],
+            &Default::default(),
+            Some(features),
+        )
+    }
+    /// Set defined names, workbook protection and document properties.
+    pub fn set_workbook_features(&mut self, features: Option<crabxl_core::WorkbookFeatures>) {
+        self.workbook_features = features
+            .filter(|features| !features.is_empty())
+            .map(Box::new);
+    }
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn start_sheet_with_dimensions(
         &mut self,
         name: impl Into<String>,
@@ -68,13 +92,16 @@ impl WorkbookWriter {
         columns: &[crabxl_core::ColumnDimension],
         merges: &[crabxl_core::MergedCellRange],
         hyperlinks: &crabxl_core::Hyperlinks,
+        features: Option<&crabxl_core::SheetFeatures>,
     ) -> Result<()> {
         self.ensure_open()?;
+        let features = features.filter(|features| !features.is_empty());
         if views.is_none()
             && printing.is_none()
             && columns.is_empty()
             && merges.is_empty()
             && hyperlinks.is_empty()
+            && features.is_none()
         {
             return self.start_sheet(name);
         }
@@ -120,8 +147,59 @@ impl WorkbookWriter {
             .max_metadata_bytes
             .saturating_sub(self.style_memory_bytes())
             .saturating_sub(self.catalog_bytes());
-        let relationships = crate::hyperlinks::relationships(hyperlinks, maximum)?;
-        let maximum = maximum.saturating_sub(relationships.as_ref().map_or(0, Vec::capacity));
+        let mut relationships = crate::hyperlinks::relationships(hyperlinks, maximum)?;
+        let feature_output = match features {
+            Some(features) => {
+                let mut next = 0u32;
+                let output = crate::features::package::build_sheet_output(
+                    features,
+                    self.next_sheet,
+                    "xl/worksheets/sheet.xml",
+                    &mut self.feature_numbers,
+                    |_| {
+                        next += 1;
+                        format!("rIdF{next}")
+                    },
+                )
+                .map_err(|error| io_error("Cannot encode worksheet feature parts", error))?;
+                if output.heap_bytes() > maximum {
+                    return Err(limit("Worksheet feature parts exceed metadata allowance"));
+                }
+                if !output.relationships.is_empty() {
+                    let mut bytes = relationships.take().unwrap_or_else(|| {
+                        b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"></Relationships>".to_vec()
+                    });
+                    let end = b"</Relationships>";
+                    let at = bytes
+                        .windows(end.len())
+                        .rposition(|window| window == end)
+                        .ok_or_else(|| state("Invalid worksheet relationships"))?;
+                    let mut tail = Vec::new();
+                    for relationship in &output.relationships {
+                        relationship
+                            .write(&mut tail)
+                            .map_err(|error| io_error("Cannot encode relationships", error))?;
+                    }
+                    bytes.splice(at..at, tail);
+                    relationships = Some(bytes);
+                }
+                Some(Box::new(output))
+            }
+            None => None,
+        };
+        let maximum = maximum
+            .saturating_sub(relationships.as_ref().map_or(0, Vec::capacity))
+            .saturating_sub(
+                feature_output
+                    .as_ref()
+                    .map_or(0, |output| output.heap_bytes()),
+            );
+        let empty_features = crabxl_core::SheetFeatures::default();
+        let empty_refs = crate::features::sheet::PartRefs::default();
+        let (sheet_features, refs) = match (features, &feature_output) {
+            (Some(features), Some(output)) => (features, &output.refs),
+            _ => (&empty_features, &empty_refs),
+        };
         let mut header = RowBuffer {
             data: Vec::new(),
             maximum,
@@ -140,9 +218,16 @@ impl WorkbookWriter {
             }
             crate::dimension_codec::write_columns(&mut header, columns, None)?;
             header.write_all(b"<sheetData>")?;
-            if printing.is_some() || !merges.is_empty() || !hyperlinks.is_empty() {
+            if printing.is_some()
+                || !merges.is_empty()
+                || !hyperlinks.is_empty()
+                || features.is_some()
+            {
+                use crate::features::sheet::{after_printing_rank, rank, write_ranks};
                 footer.maximum = maximum.saturating_sub(header.data.capacity());
                 footer.write_all(b"</sheetData>")?;
+                let merge_rank = rank(b"mergeCells");
+                write_ranks(&mut footer, sheet_features, refs, 0, merge_rank, None)?;
                 if !merges.is_empty() {
                     write!(footer, "<mergeCells count=\"{}\">", merges.len())?;
                     for range in merges {
@@ -150,9 +235,27 @@ impl WorkbookWriter {
                     }
                     footer.write_all(b"</mergeCells>")?;
                 }
+                write_ranks(
+                    &mut footer,
+                    sheet_features,
+                    refs,
+                    merge_rank + 1,
+                    rank(b"hyperlinks"),
+                    None,
+                )?;
                 crate::hyperlinks::write_links(&mut footer, hyperlinks, None)?;
                 if let Some(printing) = printing {
                     crate::printing::write_page(&mut footer, printing, None)?;
+                }
+                write_ranks(
+                    &mut footer,
+                    sheet_features,
+                    refs,
+                    rank(b"headerFooter"),
+                    rank(b"headerFooter") + 1,
+                    None,
+                )?;
+                if let Some(printing) = printing {
                     crate::printing::write_breaks(
                         &mut footer,
                         "rowBreaks",
@@ -166,6 +269,14 @@ impl WorkbookWriter {
                         None,
                     )?;
                 }
+                write_ranks(
+                    &mut footer,
+                    sheet_features,
+                    refs,
+                    after_printing_rank(),
+                    usize::MAX,
+                    None,
+                )?;
                 footer.write_all(b"</worksheet>")?;
             }
             Ok(())
@@ -189,12 +300,16 @@ impl WorkbookWriter {
         self.start_sheet_with_header(
             name.into(),
             &header.data,
-            (printing.is_some() || !merges.is_empty() || !hyperlinks.is_empty())
-                .then_some(footer.data),
+            (printing.is_some()
+                || !merges.is_empty()
+                || !hyperlinks.is_empty()
+                || features.is_some())
+            .then_some(footer.data),
             scratch_bytes,
         )?;
         if let Some(active) = &mut self.active {
             active.relationships = relationships;
+            active.features = feature_output;
         }
         Ok(())
     }
@@ -303,6 +418,7 @@ impl WorkbookWriter {
             relationships: None,
             link_spool: None,
             live_events: None,
+            features: None,
             visibility: crabxl_core::SheetVisibility::Visible,
         });
         self.write_active(header)?;

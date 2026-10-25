@@ -1405,21 +1405,21 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         let mut book =
             LoadedWorkbook::with_options(Cursor::new(package(input)), LoadOptions::default())
                 .unwrap();
-        let first = book.sheet_id("First").unwrap();
+        assert!(book.sheet_id("First").is_some());
         let second = book.sheet_id("Second").unwrap();
         let before = book.managed_retained_bytes();
+        let _ = before;
         if local {
-            assert_eq!(
-                book.move_sheet(second, 0).unwrap_err().kind(),
-                ErrorKind::Unsupported
-            );
-            assert!(book.create_sheet("Added").is_err());
-            assert!(book.copy_sheet(second, "Copied").is_err());
-            assert!(book.remove_sheet(second).is_err());
-            assert!(!book.is_materialized(second));
-            assert_eq!(book.model().sheets().next().unwrap().0, first);
-            assert_eq!(book.patch_bytes(), 0);
-            assert_eq!(book.managed_retained_bytes(), before);
+            // Sheet-local names follow their sheet when sheets move.
+            book.move_sheet(second, 0).unwrap();
+            assert_eq!(book.model().sheets().next().unwrap().0, second);
+            let (output, _) = book
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap();
+            let saved =
+                String::from_utf8(parts(output.into_inner())["xl/workbook.xml"].clone()).unwrap();
+            assert!(saved.contains("localSheetId=\"1\""));
+            assert!(saved.contains("First!$A$1"));
         } else {
             book.move_sheet(second, 0).unwrap();
             assert_eq!(book.model().cell_count(), 0);

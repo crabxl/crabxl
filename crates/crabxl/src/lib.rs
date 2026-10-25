@@ -122,3 +122,10 @@ pub use crabxl_core::{
 
 /// Sparse worksheet dimension metadata and shared appearance identities.
 pub use crabxl_core::{ColumnDimension, RowDimension, SheetDimensions};
+
+/// Tables, filters, conditional formats, validation, comments, protection,
+/// header/footer, defined names and document properties.
+pub use crabxl_core::features;
+pub use crabxl_core::{SheetFeatures, WorkbookFeatures};
+/// Convert features from and to SpreadsheetML XML, for language bindings.
+pub use crabxl_xlsx::feature_xml;

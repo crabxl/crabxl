@@ -1169,3 +1169,14 @@ fn printing_component_updates_share_aggregate_budget_and_preserve_unrelated_vect
             .is_empty()
     );
 }
+
+#[test]
+fn cell_ranges_parse_whole_rows_and_columns() {
+    let range: crabxl_core::CellRange = "A:B".parse().unwrap();
+    assert_eq!(range.to_string(), "A1:B1048576");
+    let range: crabxl_core::CellRange = "$2:$3".parse().unwrap();
+    assert_eq!(range.to_string(), "A2:XFD3");
+    let range: crabxl_core::CellRange = "$B$2:$C$4".parse().unwrap();
+    assert_eq!(range.to_string(), "B2:C4");
+    assert!("A1:".parse::<crabxl_core::CellRange>().is_err());
+}

@@ -205,6 +205,10 @@ pub(super) struct WorksheetRewrite<'a> {
     pub(super) formula_attributes: crate::FormulaWritePolicy,
     pub(super) views: Option<&'a crabxl_core::SheetViews>,
     pub(super) printing: Option<&'a crabxl_core::PrintSettings>,
+    pub(super) features: Option<(
+        &'a crabxl_core::SheetFeatures,
+        &'a crate::features::sheet::PartRefs,
+    )>,
     pub(super) hyperlinks: Option<(
         &'a crabxl_core::Hyperlinks,
         &'a crate::hyperlinks::source::Plan,
@@ -228,6 +232,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         formula_attributes,
         views,
         printing,
+        features,
         hyperlinks,
         invalidate_caches,
         model,
@@ -243,7 +248,30 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         limits,
     );
     let mut writer = Writer::new(output);
-    let mut print_rewrite = printing.map(crate::printing::Rewrite::new);
+    let mut print_rewrite = match (printing, features) {
+        (printing, Some((features, _))) => Some(crate::printing::Rewrite::with_header_footer(
+            printing,
+            Some(features.header_footer.as_ref()),
+        )),
+        (Some(printing), None) => Some(crate::printing::Rewrite::new(printing)),
+        (None, None) => None,
+    };
+    let mut early_features = features.map(|(features, refs)| {
+        crate::features::sheet::Rewrite::new(
+            features,
+            refs,
+            0,
+            crate::features::sheet::hyperlinks_rank(),
+        )
+    });
+    let mut late_features = features.map(|(features, refs)| {
+        crate::features::sheet::Rewrite::new(
+            features,
+            refs,
+            crate::features::sheet::after_printing_rank(),
+            usize::MAX,
+        )
+    });
     let mut row = 0u32;
     let mut next_row = 0u32;
     let mut next_column = 0u32;
@@ -274,6 +302,29 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
+        if let Some(rewrite) = &mut early_features
+            && frame.scope == Scope::Spreadsheet
+        {
+            match &frame.event {
+                Event::Start(e) if frame.depth == 2 => {
+                    let skip = rewrite
+                        .before_start(
+                            writer.get_mut(),
+                            e.local_name().as_ref().as_bytes(),
+                            frame.spreadsheet_uri,
+                        )
+                        .map_err(|cause| io_error("Cannot replace worksheet features", cause))?;
+                    if skip {
+                        crate::style_codec::skip(&mut xml, 2)?;
+                        continue;
+                    }
+                }
+                Event::End(_) if frame.depth == 0 => rewrite
+                    .finish(writer.get_mut(), frame.spreadsheet_uri)
+                    .map_err(|cause| io_error("Cannot finish worksheet features", cause))?,
+                _ => {}
+            }
+        }
         if let Some(rewrite) = &mut hyperlink_rewrite
             && frame.scope == Scope::Spreadsheet
         {
@@ -345,6 +396,29 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         frame.spreadsheet_uri,
                     )
                     .map_err(|error| io_error("Cannot finish printing metadata", error))?,
+                _ => {}
+            }
+        }
+        if let Some(rewrite) = &mut late_features
+            && frame.scope == Scope::Spreadsheet
+        {
+            match &frame.event {
+                Event::Start(e) if frame.depth == 2 => {
+                    let skip = rewrite
+                        .before_start(
+                            writer.get_mut(),
+                            e.local_name().as_ref().as_bytes(),
+                            frame.spreadsheet_uri,
+                        )
+                        .map_err(|cause| io_error("Cannot replace worksheet features", cause))?;
+                    if skip {
+                        crate::style_codec::skip(&mut xml, 2)?;
+                        continue;
+                    }
+                }
+                Event::End(_) if frame.depth == 0 => rewrite
+                    .finish(writer.get_mut(), frame.spreadsheet_uri)
+                    .map_err(|cause| io_error("Cannot finish worksheet features", cause))?,
                 _ => {}
             }
         }

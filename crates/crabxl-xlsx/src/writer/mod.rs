@@ -146,6 +146,7 @@ struct StoredSheet {
     relationships: Option<Vec<u8>>,
     relationship_spool: Option<NamedTempFile>,
     live_events: Option<live_hyperlinks::Events>,
+    features: Option<Box<crate::features::package::SheetOutput>>,
 }
 struct ActiveSheet {
     id: usize,
@@ -161,6 +162,7 @@ struct ActiveSheet {
     dimensions: crabxl_core::SheetDimensions,
     header_prefix_bytes: u64,
     columns_written: bool,
+    features: Option<Box<crate::features::package::SheetOutput>>,
 }
 
 /// One-shot XLSX writer using bounded rows and owned temporary worksheets.
@@ -189,6 +191,8 @@ pub struct WorkbookWriter {
     aborted: bool,
     poisoned: bool,
     cleanup_paths: Vec<PathBuf>,
+    feature_numbers: crate::features::package::PartNumbers,
+    workbook_features: Option<Box<crabxl_core::WorkbookFeatures>>,
 }
 // Constructor-only ownership transfer: keep this bounded stack value unboxed
 // rather than adding a heap allocation that is immediately moved into the writer.
@@ -345,6 +349,8 @@ impl WorkbookWriter {
             aborted: false,
             poisoned: false,
             cleanup_paths: Vec::new(),
+            feature_numbers: Default::default(),
+            workbook_features: None,
             view_index: None,
         };
         if writer.style_bytes() > writer.options.max_metadata_bytes {
@@ -477,7 +483,13 @@ fn package_metadata<W: Write + Seek>(
     configuration: &WriteOptions,
     options: SimpleFileOptions,
     active_view: Option<crabxl_core::ActiveViewSelection>,
+    features: Option<&crabxl_core::WorkbookFeatures>,
 ) -> Result<()> {
+    use crate::features::package as fp;
+    let properties = features
+        .map(|features| &features.properties)
+        .filter(|properties| **properties != crabxl_core::features::DocumentProperties::default());
+    let custom = properties.is_some_and(crate::features::properties::has_custom);
     let date_1904 = configuration.date_1904;
     let active_sheet = configuration.active_sheet;
     let style_attributes = configuration.style_attributes;
@@ -493,14 +505,82 @@ fn package_metadata<W: Write + Seek>(
                 "<Override PartName=\"/xl/worksheets/sheet{index}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
             )?;
         }
+        let mut vml = false;
+        for part in sheets
+            .iter()
+            .filter_map(|sheet| sheet.features.as_deref())
+            .flat_map(|output| output.parts.iter())
+        {
+            if part.content_type == crate::features::CT_VML {
+                vml = true;
+                continue;
+            }
+            write!(
+                zip,
+                "<Override PartName=\"/{}\" ContentType=\"{}\"/>",
+                part.name, part.content_type
+            )?;
+        }
+        if vml {
+            write!(
+                zip,
+                "<Default Extension=\"vml\" ContentType=\"{}\"/>",
+                crate::features::CT_VML
+            )?;
+        }
+        if properties.is_some() {
+            write!(
+                zip,
+                "<Override PartName=\"/docProps/core.xml\" ContentType=\"{}\"/><Override PartName=\"/docProps/app.xml\" ContentType=\"{}\"/>",
+                fp::CT_CORE,
+                fp::CT_APP
+            )?;
+        }
+        if custom {
+            write!(
+                zip,
+                "<Override PartName=\"/docProps/custom.xml\" ContentType=\"{}\"/>",
+                fp::CT_CUSTOM
+            )?;
+        }
         zip.write_all(b"</Types>")
     })?;
     write_part(zip, "_rels/.rels", options, |zip| {
         write!(
             zip,
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"{REL}/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>"
-        )
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"{REL}/officeDocument\" Target=\"xl/workbook.xml\"/>"
+        )?;
+        if properties.is_some() {
+            write!(
+                zip,
+                "<Relationship Id=\"rId2\" Type=\"{}\" Target=\"docProps/core.xml\"/><Relationship Id=\"rId3\" Type=\"{}\" Target=\"docProps/app.xml\"/>",
+                fp::REL_CORE,
+                fp::REL_APP
+            )?;
+        }
+        if custom {
+            write!(
+                zip,
+                "<Relationship Id=\"rId4\" Type=\"{}\" Target=\"docProps/custom.xml\"/>",
+                fp::REL_CUSTOM
+            )?;
+        }
+        zip.write_all(b"</Relationships>")
     })?;
+    if let Some(properties) = properties {
+        write_part(zip, "docProps/core.xml", options, |zip| {
+            crate::features::properties::write_core(zip, properties)
+        })?;
+        let names: Vec<&str> = sheets.iter().map(|sheet| sheet.name.as_str()).collect();
+        write_part(zip, "docProps/app.xml", options, |zip| {
+            crate::features::properties::write_app(zip, properties, &names)
+        })?;
+        if custom {
+            write_part(zip, "docProps/custom.xml", options, |zip| {
+                crate::features::properties::write_custom(zip, properties)
+            })?;
+        }
+    }
     write_part(zip, "xl/_rels/workbook.xml.rels", options, |zip| {
         zip.write_all(b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">")?;
         for index in 1..=sheets.len() {
@@ -529,6 +609,9 @@ fn package_metadata<W: Write + Seek>(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?><workbook xmlns=\"{MAIN}\" xmlns:r=\"{REL}\"><workbookPr date1904=\"{}\"/>",
             u8::from(date_1904)
         )?;
+        if let Some(protection) = features.and_then(|features| features.protection.as_ref()) {
+            crate::features::protection::write_workbook(zip, protection, None)?;
+        }
         if let Some(view) = active_view {
             zip.write_all(b"<bookViews><workbookView")?;
             if let Some(index) = view.serialized_index {
@@ -555,7 +638,11 @@ fn package_metadata<W: Write + Seek>(
             }
             zip.write_all(b"/>")?;
         }
-        zip.write_all(b"</sheets></workbook>")
+        zip.write_all(b"</sheets>")?;
+        if let Some(features) = features {
+            crate::features::defined_name::write(zip, &features.defined_names, None)?;
+        }
+        zip.write_all(b"</workbook>")
     })?;
     if let Some(bytes) = theme {
         write_part(zip, "xl/theme/theme1.xml", options, |zip| {
