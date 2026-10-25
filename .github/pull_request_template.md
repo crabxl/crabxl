@@ -12,4 +12,4 @@ Closes #
 - [ ] Public items have rustdoc comments.
 - [ ] User documentation in `docs/` is updated, if behavior changed.
 - [ ] Performance claims include measurements.
-- [ ] Ported code is recorded in `third_party/ports.json`.
+- [ ] Copied code keeps its copyright notice, and its project is listed in `third_party/`.
