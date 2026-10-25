@@ -97,25 +97,22 @@ cargo +1.88.0 test -p crabxl -p crabxl-xlsx --no-default-features --features def
 
 ### Performance changes
 
-If you claim a speed or memory improvement, include the measurements. Give the
-time, peak memory and temporary disk use of a release build, and the commands
-that you used. [benchmarks/README.md](benchmarks/README.md) describes the
-method.
+Speed and low memory are the main goals of CrabXL. If you claim a speed or
+memory improvement, include the time and peak memory of a release build and
+the commands that you used. [benchmarks/README.md](benchmarks/README.md)
+describes the method.
 
 ### Code from other projects
 
-Code that you adapt from another project must have a license that is
-compatible with MIT. Record it in [third_party/ports.json](third_party/ports.json):
-the repository, the pinned commit, the source files and the license. Keep the
-original copyright notices.
+You can copy code from another project if its license is compatible with MIT
+(for example MIT, Apache-2.0 or BSD). Keep the original copyright notice in the
+copied file. Add the project to [third_party/](third_party): the repository,
+the commit and the license.
 
 ### Design decisions
 
-Record a significant design decision as an Architecture Decision Record (ADR)
-in [internal/decisions](internal/decisions). Write an ADR when you change a
-public contract, a memory strategy or a file-format policy. When a change adds
-or completes a capability, update
-[internal/features.json](internal/features.json).
+Explain large design changes in the pull request. If the architecture changes,
+update [internal/architecture.md](internal/architecture.md).
 
 ## Documentation style
 
