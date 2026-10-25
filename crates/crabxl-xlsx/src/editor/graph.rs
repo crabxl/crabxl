@@ -156,6 +156,7 @@ pub(super) struct PackageGraphRewrite<'a> {
     pub(super) membership: Option<(&'a catalog::Membership, &'a crabxl_core::Workbook)>,
     pub(super) relationships_added: bool,
     pub(super) additions: &'a [catalog_parts::CatalogPart],
+    pub(super) features: Option<&'a features::FeatureSave>,
 }
 pub(super) fn patch_package_graph<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
@@ -169,7 +170,9 @@ pub(super) fn patch_package_graph<R: Read + Seek, W: Write>(
         membership,
         relationships_added,
         additions,
+        features,
     } = rewrite;
+    let mut seen_vml_default = false;
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
         part.into(),
@@ -212,8 +215,10 @@ pub(super) fn patch_package_graph<R: Read + Seek, W: Write>(
                     && frame.scope == Scope::ContentTypes
                     && e.local_name().as_ref().as_bytes() == b"Default" =>
             {
-                if attribute(&e, b"Extension")?.as_deref() == Some("rels") {
-                    seen_relationship_default = true;
+                match attribute(&e, b"Extension")?.as_deref() {
+                    Some("rels") => seen_relationship_default = true,
+                    Some("vml") => seen_vml_default = true,
+                    _ => {}
                 }
                 emit(&mut writer, Event::Start(e))?;
             }
@@ -228,6 +233,10 @@ pub(super) fn patch_package_graph<R: Read + Seek, W: Write>(
                 let name = crate::package::resolve_part("", &name)?;
                 if chains.contains(&name)
                     || membership.is_some_and(|(member, _)| member.removes_part(&name))
+                    || features.is_some_and(|features| {
+                        features.remove.contains(&name)
+                            || features.overrides.iter().any(|(part, _)| *part == name)
+                    })
                 {
                     skip = Some(frame.depth);
                 } else {
@@ -276,6 +285,25 @@ pub(super) fn patch_package_graph<R: Read + Seek, W: Write>(
                 }
                 for addition in additions {
                     addition.write_graph(&mut writer, types)?;
+                }
+                if types && let Some(features) = features {
+                    const TYPES: &str =
+                        "http://schemas.openxmlformats.org/package/2006/content-types";
+                    if features.vml_default && !seen_vml_default {
+                        let mut default = BytesStart::new("Default");
+                        default.push_attribute(("xmlns", TYPES));
+                        default.push_attribute(("Extension", "vml"));
+                        default.push_attribute(("ContentType", crate::features::CT_VML));
+                        emit(&mut writer, Event::Empty(default))?;
+                    }
+                    for (part, content_type) in &features.overrides {
+                        let mut element = BytesStart::new("Override");
+                        element.push_attribute(("xmlns", TYPES));
+                        let name = format!("/{part}");
+                        element.push_attribute(("PartName", name.as_str()));
+                        element.push_attribute(("ContentType", *content_type));
+                        emit(&mut writer, Event::Empty(element))?;
+                    }
                 }
                 emit(&mut writer, Event::End(e))?;
             }

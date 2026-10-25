@@ -499,6 +499,27 @@ impl StyleRegistry {
             .saturating_add(self.formats.heap_bytes())
             .saturating_add(self.names.heap_bytes())
     }
+    /// Add a differential style (conditional formats, tables) and return its
+    /// index. An equal existing style is reused.
+    pub fn register_differential(&mut self, style: crate::DifferentialStyle) -> Result<u32> {
+        style.validate()?;
+        if let Some(index) = self
+            .catalog
+            .differential_styles
+            .iter()
+            .position(|existing| *existing == style)
+        {
+            return u32::try_from(index).map_err(|_| limit());
+        }
+        let bytes = size_of::<crate::DifferentialStyle>() + style.heap_bytes();
+        if self.memory_bytes().saturating_add(bytes) > self.limits.max_bytes {
+            return Err(limit());
+        }
+        let index = u32::try_from(self.catalog.differential_styles.len()).map_err(|_| limit())?;
+        self.catalog.differential_styles.push(style);
+        self.payload_bytes = self.payload_bytes.saturating_add(bytes);
+        Ok(index)
+    }
     /// Register with the registry's configured retained allowance.
     pub fn register(&mut self, style: CellStyle) -> Result<StyleId> {
         self.register_with_limit(style, self.limits.max_bytes)

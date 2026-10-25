@@ -316,7 +316,17 @@ impl WorkbookWriter {
                         .with_part(relationship_part)
                 })?;
             }
+            if let Some(output) = &sheet.features {
+                for part in &output.parts {
+                    start_part(&mut zip, &part.name, options)?;
+                    zip.write_all(&part.bytes).map_err(|error| {
+                        io_error("Cannot package worksheet feature part", error)
+                            .with_part(&part.name)
+                    })?;
+                }
+            }
         }
+        let workbook_features = self.workbook_features.take();
         package_metadata(
             &mut zip,
             &self.sheets,
@@ -327,6 +337,7 @@ impl WorkbookWriter {
             &self.options,
             options,
             active_view,
+            workbook_features.as_deref(),
         )?;
         let mut output = zip
             .finish()

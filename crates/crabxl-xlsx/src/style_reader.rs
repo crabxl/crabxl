@@ -9,10 +9,10 @@ use crabxl_core::{
 };
 use quick_xml::events::{BytesStart, Event};
 use std::io::BufRead;
-pub(super) struct Budget {
-    pub(super) used: usize,
-    pub(super) maximum: usize,
-    pub(super) records: usize,
+pub(crate) struct Budget {
+    pub(crate) used: usize,
+    pub(crate) maximum: usize,
+    pub(crate) records: usize,
 }
 impl Budget {
     pub(super) fn remaining(&self) -> usize {

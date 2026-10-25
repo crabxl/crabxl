@@ -54,8 +54,19 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .filter(|(_, (_, plan))| plan.relationships.is_some())
             .map(|(part, (id, plan))| (crate::package::relationship_part(part), (*id, plan)))
             .collect();
+        let hyperlink_relationships: BTreeMap<String, &[u8]> = relationship_plans
+            .iter()
+            .filter_map(|(part, (_, plan))| {
+                plan.relationships
+                    .as_deref()
+                    .map(|bytes| (part.clone(), bytes))
+            })
+            .collect();
+        let feature_save = self.prepare_feature_save(&hyperlink_relationships)?;
+        let feature_plans = &feature_save.sheets;
         let relationships_added = relationship_plans
             .keys()
+            .chain(feature_save.replace.keys())
             .any(|part| self.book.archive.index_for_name(part).is_none());
         let membership = self.membership.as_deref().zip(bank);
         let active = if let Some((_, bank)) = membership {
@@ -90,6 +101,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .filter(|part| {
                 dirty && self.chain_removals.contains(part.name.as_ref())
                     || membership.is_some_and(|(member, _)| member.removes_part(&part.name))
+                    || feature_save.remove.contains(part.name.as_ref())
             })
             .count();
         let created = catalog_parts.len()
@@ -97,7 +109,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 .keys()
                 .filter(|part| self.book.archive.index_for_name(part).is_none())
                 .count()
-            + membership.map_or(0, |(member, _)| member.created.len());
+            + membership.map_or(0, |(member, _)| member.created.len())
+            + feature_save.new_parts();
         if self
             .parts
             .len()
@@ -131,10 +144,29 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 stats.removed_parts += 1;
                 continue;
             }
+            if feature_save.remove.contains(part.name.as_ref()) {
+                stats.removed_parts += 1;
+                total -= u128::from(part.uncompressed_bytes);
+                continue;
+            }
+            if let Some(bytes) = feature_save.replace.get(part.name.as_ref()) {
+                zip.start_file(
+                    part.name.as_ref(),
+                    crate::writer::compression_options(options.compression_level),
+                )
+                .map_err(|cause| zip_error("Cannot start rewritten feature part", cause))?;
+                zip.write_all(bytes)
+                    .map_err(|cause| io_error("Cannot write rewritten feature part", cause))?;
+                total = total - u128::from(part.uncompressed_bytes) + bytes.len() as u128;
+                stats.rewritten_parts += 1;
+                stats.rewritten_xml_bytes += bytes.len() as u64;
+                continue;
+            }
             let chain_metadata = (!catalog_parts.is_empty()
                 || membership.is_some()
                 || dirty && !self.calc_chain_parts.is_empty()
-                || relationships_added && part.name.as_ref() == "[Content_Types].xml")
+                || (relationships_added || feature_save.types_changed())
+                    && part.name.as_ref() == "[Content_Types].xml")
                 && (part.name.as_ref() == "[Content_Types].xml"
                     || part.name.as_ref() == self.workbook_relationships);
             let hyperlink = hyperlink_plans
@@ -187,17 +219,21 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         .sheet(*id)
                 })
                 .transpose()?;
-            let worksheet =
-                (dirty || view_patch.is_some() || print_patch.is_some() || hyperlink.is_some())
-                    && self.book.sheets().iter().any(|sheet| {
-                        sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
-                    });
+            let worksheet = (dirty
+                || view_patch.is_some()
+                || print_patch.is_some()
+                || hyperlink.is_some()
+                || feature_plans.contains_key(part.name.as_ref()))
+                && self.book.sheets().iter().any(|sheet| {
+                    sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
+                });
             let workbook = (dirty
                 || active.is_some()
                 || !self.visibility_patches.is_empty()
                 || !self.name_patches.is_empty()
                 || self.catalog_order.is_some()
-                || membership.is_some())
+                || membership.is_some()
+                || feature_save.workbook.is_some())
                 && part.name.as_ref() == self.book.workbook_part;
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
             let styles =
@@ -265,6 +301,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             formula_attributes: self.options.formula_attributes,
                             views: view_patch,
                             printing: print_patch,
+                            features: feature_plans
+                                .get(part.name.as_ref())
+                                .map(|plan| (&*plan.features, &plan.output.refs)),
                             hyperlinks: hyperlink,
                             invalidate_caches: dirty,
                             model,
@@ -287,6 +326,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             names: &self.name_patches,
                             order: self.catalog_order.as_deref(),
                             membership,
+                            features: feature_save.workbook.as_deref(),
                         },
                     )
                 } else if shared_strings {
@@ -306,6 +346,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             membership,
                             relationships_added,
                             additions: &catalog_parts,
+                            features: Some(&feature_save),
                         },
                     )
                 }
@@ -348,8 +389,39 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 stats.copied_parts += 1;
             }
         }
+        for (name, bytes) in feature_save
+            .parts
+            .iter()
+            .map(|part| (part.name.as_str(), &part.bytes))
+            .chain(
+                feature_save
+                    .replace
+                    .iter()
+                    .filter(|(name, _)| self.book.archive.index_for_name(name).is_none())
+                    .map(|(name, bytes)| (name.as_str(), bytes)),
+            )
+        {
+            if bytes.len() as u64 > self.options.resources.max_part_bytes {
+                return Err(limit("New feature part exceeds configured limit").with_part(name));
+            }
+            zip.start_file(
+                name,
+                crate::writer::compression_options(options.compression_level),
+            )
+            .map_err(|cause| zip_error("Cannot start new feature part", cause))?;
+            zip.write_all(bytes)
+                .map_err(|cause| io_error("Cannot write new feature part", cause))?;
+            total += bytes.len() as u128;
+            if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
+                return Err(limit("Created feature package exceeds configured limit"));
+            }
+            stats.created_parts += 1;
+            stats.rewritten_xml_bytes += bytes.len() as u64;
+        }
         for (part, (_, plan)) in &relationship_plans {
-            if self.book.archive.index_for_name(part).is_some() {
+            if self.book.archive.index_for_name(part).is_some()
+                || feature_save.replace.contains_key(part)
+            {
                 continue;
             }
             let bytes = plan
@@ -446,6 +518,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     let input = self.book.archive.by_name(&part).map_err(|cause| {
                         zip_error("Cannot reopen copied worksheet template", cause)
                     })?;
+                    let empty_features = crabxl_core::SheetFeatures::default();
+                    let empty_refs = crate::features::sheet::PartRefs::default();
                     patch_worksheet(
                         input,
                         output,
@@ -456,6 +530,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             formula_attributes: self.options.formula_attributes,
                             views: None,
                             printing: None,
+                            // openpyxl's copy omits tables, rules, validation and comments.
+                            features: Some(
+                                feature_plans
+                                    .get(created.part.as_str())
+                                    .map_or((&empty_features, &empty_refs), |plan| {
+                                        (&*plan.features, &plan.output.refs)
+                                    }),
+                            ),
                             hyperlinks: hyperlink_plans
                                 .get(created.part.as_str())
                                 .map(|(_, plan)| (sheet.hyperlinks(), plan)),
@@ -482,6 +564,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         hyperlink_plans
                             .get(created.part.as_str())
                             .map(|(_, plan)| plan),
+                        feature_plans
+                            .get(created.part.as_str())
+                            .map(|plan| (&*plan.features, &plan.output.refs)),
                     )
                     .map_err(|error| error.with_part(&created.part))?;
                     output

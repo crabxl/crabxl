@@ -8,7 +8,24 @@ The Python package has its own
 
 ## [Unreleased]
 
+### Added
+
+- Worksheet features: tables, auto filters and sort state, conditional
+  formatting, data validation, comments, sheet protection and header/footer.
+  `WorkbookReader::sheet_features`, `Worksheet::set_features`,
+  `WorkbookWriter::start_sheet_with_features`, `WorkbookEditor::set_sheet_features`
+  and `LoadedWorkbook::set_sheet_features` read, create and edit them.
+- Workbook features: defined names (including print areas and print titles),
+  workbook protection and core, extended and custom document properties.
+- `Workbook::register_differential_style` and
+  `LoadedWorkbook::register_differential_style` for conditional-format styles.
+- `feature_xml` converts features from and to SpreadsheetML for bindings.
+- Cell ranges accept whole columns (`A:B`), whole rows (`1:2`) and `$` markers.
+
 ### Changed
+
+- Loaded workbooks can create, move, copy and remove sheets when the workbook
+  has sheet-local defined names. The names stay on their sheets.
 
 - Benchmark drivers moved from `crates/crabxl/examples` to the unpublished
   `crabxl-bench` crate. The new `quickstart` example shows the main APIs.

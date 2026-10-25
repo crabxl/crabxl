@@ -23,6 +23,7 @@ use zip::ZipWriter;
 mod catalog;
 mod catalog_edits;
 mod catalog_parts;
+mod features;
 mod graph;
 mod hyperlinks;
 mod metadata_edits;
@@ -197,6 +198,11 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     patches: BTreeMap<String, Patches>,
     view_patches: BTreeMap<String, Box<crabxl_core::SheetViews>>,
     print_patches: BTreeMap<String, Box<crabxl_core::PrintSettings>>,
+    feature_patches: BTreeMap<String, Box<crabxl_core::SheetFeatures>>,
+    /// The owner rewrites sheet-local defined names after catalog changes.
+    pub(crate) local_names_remapped: bool,
+    created_feature_patches: Vec<(crabxl_core::SheetId, Box<crabxl_core::SheetFeatures>)>,
+    workbook_feature_patch: Option<Box<crabxl_core::WorkbookFeatures>>,
     active_patch: Option<ActivePatch>,
     visibility_patches: BTreeMap<usize, crabxl_core::SheetVisibility>,
     name_patches: BTreeMap<usize, Box<str>>,
@@ -353,6 +359,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             patches: BTreeMap::new(),
             view_patches: BTreeMap::new(),
             print_patches: BTreeMap::new(),
+            feature_patches: BTreeMap::new(),
+            created_feature_patches: Vec::new(),
+            local_names_remapped: false,
+            workbook_feature_patch: None,
             active_patch: None,
             visibility_patches: BTreeMap::new(),
             name_patches: BTreeMap::new(),

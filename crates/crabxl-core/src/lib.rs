@@ -106,6 +106,8 @@ pub use worksheet_view::{
     Pane, PanePosition, PaneState, Selection, SheetView, SheetViews, ViewMode,
 };
 
+pub mod features;
+pub use features::{SheetFeatures, WorkbookFeatures};
 mod printing;
 pub use printing::{
     PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup, PaperDimension, PrintOptions,

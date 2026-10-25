@@ -57,6 +57,7 @@ impl WorkbookWriter {
             sheet.dimensions().columns(),
             sheet.merged_ranges().ranges(),
             sheet.hyperlinks(),
+            sheet.features(),
         )?;
         let id = self
             .active
@@ -166,6 +167,7 @@ impl WorkbookWriter {
         }
         self.options.date_1904 = workbook.epoch() == DateEpoch::Mac1904;
         self.options.active_sheet = workbook.active_index().unwrap_or(0);
+        self.set_workbook_features(workbook.features().cloned());
         let original = self.canonical_styles;
         self.canonical_styles = workbook.style_catalog().is_some();
         let result = (|| {
@@ -329,6 +331,7 @@ impl WorkbookWriter {
             relationships: active.relationships,
             relationship_spool,
             live_events: active.live_events,
+            features: active.features,
         });
         Ok(())
     }

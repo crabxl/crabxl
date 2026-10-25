@@ -277,6 +277,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         && frame.scope == Scope::Spreadsheet
                         && frame.depth == 3
                         && e.local_name().as_ref().as_bytes() == b"definedName"
+                        && !self.local_names_remapped
                         && attribute(e, b"localSheetId")?.is_some() =>
                 {
                     return Err(Error::new(

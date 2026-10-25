@@ -52,6 +52,9 @@ mod style_extras_codec;
 
 mod worksheet_view;
 
+mod features;
+/// Convert features from and to SpreadsheetML XML, for language bindings.
+pub use features::bridge as feature_xml;
 mod metadata;
 mod printing;
 

@@ -9,6 +9,7 @@ pub(super) struct WorkbookRewrite<'a> {
     pub(super) names: &'a BTreeMap<usize, Box<str>>,
     pub(super) order: Option<&'a CatalogOrder>,
     pub(super) membership: Option<(&'a catalog::Membership, &'a crabxl_core::Workbook)>,
+    pub(super) features: Option<&'a crabxl_core::WorkbookFeatures>,
 }
 pub(super) fn rewritten_catalog_entry(
     original: &BytesStart<'_>,
@@ -49,7 +50,9 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
         names,
         order,
         membership,
+        features,
     } = rewrite;
+    let mut feature_rewrite = features.map(features::WorkbookFeatureRewrite::new);
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
         part.into(),
@@ -81,6 +84,29 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
                 }
             }
             continue;
+        }
+        if let Some(rewrite) = &mut feature_rewrite
+            && frame.scope == Scope::Spreadsheet
+        {
+            match &frame.event {
+                Event::Start(e) if frame.depth == 2 => {
+                    let skip = rewrite
+                        .before_start(
+                            writer.get_mut(),
+                            e.local_name().as_ref().as_bytes(),
+                            frame.spreadsheet_uri,
+                        )
+                        .map_err(|cause| io_error("Cannot replace workbook features", cause))?;
+                    if skip {
+                        crate::style_codec::skip(&mut xml, 2)?;
+                        continue;
+                    }
+                }
+                Event::End(_) if frame.depth == 0 => rewrite
+                    .finish(writer.get_mut(), frame.spreadsheet_uri)
+                    .map_err(|cause| io_error("Cannot finish workbook features", cause))?,
+                _ => {}
+            }
         }
         if frame.scope == Scope::Spreadsheet {
             match &frame.event {

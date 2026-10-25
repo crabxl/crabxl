@@ -68,9 +68,33 @@ impl CellRange {
 }
 impl std::str::FromStr for CellRange {
     type Err = Error;
+    /// Accepts `A1`, `A1:B2`, whole columns `A:B` and whole rows `1:2`,
+    /// with optional `$` markers.
     fn from_str(value: &str) -> Result<Self> {
         let (start, end) = value.split_once(':').unwrap_or((value, value));
-        Self::new(start.parse()?, end.parse()?)
+        if let (Ok(start), Ok(end)) = (start.parse(), end.parse()) {
+            return Self::new(start, end);
+        }
+        let strip = |text: &str| text.trim_start_matches('$').to_owned();
+        let (start, end) = (strip(start), strip(end));
+        if !start.is_empty() && start.bytes().all(|byte| byte.is_ascii_alphabetic()) {
+            return Self::new(
+                format!("{start}1").parse()?,
+                format!("{end}{}", crate::MAX_ROWS).parse()?,
+            );
+        }
+        if !start.is_empty() && start.bytes().all(|byte| byte.is_ascii_digit()) {
+            let last = crate::CellAddress::new(0, crate::MAX_COLUMNS - 1)?.to_string();
+            let last_column: String = last.chars().take_while(char::is_ascii_alphabetic).collect();
+            return Self::new(
+                format!("A{start}").parse()?,
+                format!("{last_column}{end}").parse()?,
+            );
+        }
+        Err(Error::new(
+            crate::ErrorKind::InvalidData,
+            "Invalid cell range",
+        ))
     }
 }
 impl std::fmt::Display for CellRange {
@@ -115,6 +139,7 @@ pub struct Worksheet {
     dirty: bool,
     views: Option<Box<crate::SheetViews>>,
     printing: Option<Box<crate::PrintSettings>>,
+    features: Option<Box<crate::SheetFeatures>>,
     dimensions: crate::SheetDimensions,
     merges: crate::MergedRanges,
     hyperlinks: crate::Hyperlinks,
@@ -139,6 +164,7 @@ impl Worksheet {
             dirty: false,
             views: None,
             printing: None,
+            features: None,
             dimensions: Default::default(),
             merges: Default::default(),
             hyperlinks: Default::default(),
@@ -208,6 +234,7 @@ impl Worksheet {
         }
         copy.set_sheet_views(self.views.as_deref().cloned())?;
         copy.set_print_settings(self.printing.as_deref().cloned())?;
+        copy.set_features(self.features.as_deref().cloned())?;
         copy.set_dimensions(self.dimensions.clone())?;
         copy.set_merged_ranges(self.merges.clone())?;
         copy.set_hyperlinks(self.hyperlinks.clone())?;

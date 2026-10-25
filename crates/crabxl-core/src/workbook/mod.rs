@@ -72,6 +72,7 @@ pub struct Workbook {
     epoch: DateEpoch,
     theme: Option<crate::Theme>,
     styles: Option<crate::StyleRegistry>,
+    features: Option<Box<crate::WorkbookFeatures>>,
 }
 impl Workbook {
     /// Create an empty workbook with aggregate and per-sheet allowances.
@@ -103,6 +104,7 @@ impl Workbook {
             epoch: DateEpoch::Windows1900,
             theme: None,
             styles: None,
+            features: None,
         })
     }
     /// Number of sheets in display order.
@@ -123,6 +125,16 @@ impl Workbook {
             .iter()
             .find(|entry| entry.sheet.name() == name)
             .map(|entry| entry.id)
+    }
+    /// Defined names, workbook protection and document properties.
+    pub fn features(&self) -> Option<&crate::WorkbookFeatures> {
+        self.features.as_deref()
+    }
+    /// Replace workbook features. An empty value is stored as absent.
+    pub fn set_features(&mut self, features: Option<crate::WorkbookFeatures>) {
+        self.features = features
+            .filter(|features| !features.is_empty())
+            .map(Box::new);
     }
     /// Borrow an existing sheet by its stable identity.
     pub fn sheet(&self, id: SheetId) -> Result<&Worksheet> {
@@ -625,6 +637,10 @@ impl WorksheetEditor<'_> {
         hidden: bool,
     ) -> Result<()> {
         self.sheet.group_columns(start, end, level, hidden)
+    }
+    /// Replace worksheet features under aggregate/per-sheet limits.
+    pub fn set_features(&mut self, features: Option<crate::SheetFeatures>) -> Result<()> {
+        self.sheet.set_features(features)
     }
     /// Replace canonical printing metadata under aggregate/per-sheet limits.
     pub fn set_print_settings(&mut self, settings: Option<crate::PrintSettings>) -> Result<()> {

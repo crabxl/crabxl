@@ -42,7 +42,7 @@ fn validate_setup(setup: &crabxl_core::PageSetup) -> Result<()> {
     }
     Ok(())
 }
-fn namespace(output: &mut impl Write, uri: Option<&str>) -> io::Result<()> {
+pub(crate) fn namespace(output: &mut impl Write, uri: Option<&str>) -> io::Result<()> {
     if let Some(uri) = uri {
         write_attribute(output, "xmlns", uri)?;
     }
@@ -485,7 +485,10 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
 
 /// Original-package replacement preserves unrelated nodes and schema tail ordering.
 pub(crate) struct Rewrite<'a> {
-    settings: &'a PrintSettings,
+    settings: Option<&'a PrintSettings>,
+    /// `Some` replaces `<headerFooter>`; `Some(None)` removes it.
+    header_footer: Option<Option<&'a crabxl_core::features::HeaderFooter>>,
+    header_footer_written: bool,
     sheet_pr_seen: bool,
     in_sheet_pr: bool,
     properties_written: bool,
@@ -495,8 +498,18 @@ pub(crate) struct Rewrite<'a> {
 }
 impl<'a> Rewrite<'a> {
     pub(crate) fn new(settings: &'a PrintSettings) -> Self {
+        Self::with_header_footer(Some(settings), None)
+    }
+    /// Replace printing settings and/or the header/footer. `None` keeps the
+    /// source elements of that kind.
+    pub(crate) fn with_header_footer(
+        settings: Option<&'a PrintSettings>,
+        header_footer: Option<Option<&'a crabxl_core::features::HeaderFooter>>,
+    ) -> Self {
         Self {
             settings,
+            header_footer,
+            header_footer_written: false,
             sheet_pr_seen: false,
             in_sheet_pr: false,
             properties_written: false,
@@ -507,21 +520,36 @@ impl<'a> Rewrite<'a> {
     }
     fn page(&mut self, output: &mut impl Write, uri: Option<&str>) -> io::Result<()> {
         if !self.page_written {
-            write_page(output, self.settings, uri)?;
+            if let Some(settings) = self.settings {
+                write_page(output, settings, uri)?;
+            }
             self.page_written = true;
+        }
+        Ok(())
+    }
+    fn header_footer(&mut self, output: &mut impl Write, uri: Option<&str>) -> io::Result<()> {
+        if !self.header_footer_written {
+            if let Some(Some(value)) = self.header_footer {
+                crate::features::header_footer::write(output, value, uri)?;
+            }
+            self.header_footer_written = true;
         }
         Ok(())
     }
     fn rows(&mut self, output: &mut impl Write, uri: Option<&str>) -> io::Result<()> {
         if !self.rows_written {
-            write_breaks(output, "rowBreaks", &self.settings.row_breaks, uri)?;
+            if let Some(settings) = self.settings {
+                write_breaks(output, "rowBreaks", &settings.row_breaks, uri)?;
+            }
             self.rows_written = true;
         }
         Ok(())
     }
     fn columns(&mut self, output: &mut impl Write, uri: Option<&str>) -> io::Result<()> {
         if !self.columns_written {
-            write_breaks(output, "colBreaks", &self.settings.column_breaks, uri)?;
+            if let Some(settings) = self.settings {
+                write_breaks(output, "colBreaks", &settings.column_breaks, uri)?;
+            }
             self.columns_written = true;
         }
         Ok(())
@@ -533,17 +561,20 @@ impl<'a> Rewrite<'a> {
         depth: usize,
         uri: Option<&str>,
     ) -> io::Result<bool> {
+        let Some(settings) = self.settings else {
+            return self.header_footer_only(output, name, depth, uri);
+        };
         if depth == 2 && name == b"sheetPr" {
             self.sheet_pr_seen = true;
             self.in_sheet_pr = true;
             return Ok(false);
         }
         if depth == 2 && !self.sheet_pr_seen && !self.properties_written {
-            write_properties(output, self.settings, uri, true)?;
+            write_properties(output, settings, uri, true)?;
             self.properties_written = true;
         }
         if depth == 3 && self.in_sheet_pr && name == b"pageSetUpPr" {
-            write_properties(output, self.settings, uri, false)?;
+            write_properties(output, settings, uri, false)?;
             self.properties_written = true;
             return Ok(true);
         }
@@ -565,6 +596,13 @@ impl<'a> Rewrite<'a> {
         if rank >= 1 {
             self.page(output, uri)?;
         }
+        if rank == 4 && self.header_footer.is_some() {
+            self.header_footer(output, uri)?;
+            return Ok(true);
+        }
+        if rank >= 5 {
+            self.header_footer(output, uri)?;
+        }
         if rank >= 5 {
             self.rows(output, uri)?;
         }
@@ -576,6 +614,28 @@ impl<'a> Rewrite<'a> {
             b"printOptions" | b"pageMargins" | b"pageSetup" | b"rowBreaks" | b"colBreaks"
         ))
     }
+    fn header_footer_only(
+        &mut self,
+        output: &mut impl Write,
+        name: &[u8],
+        depth: usize,
+        uri: Option<&str>,
+    ) -> io::Result<bool> {
+        if depth != 2 || self.header_footer.is_none() {
+            return Ok(false);
+        }
+        if name == b"headerFooter" {
+            self.header_footer(output, uri)?;
+            return Ok(true);
+        }
+        let later = crate::features::worksheet_rank(name).is_some_and(|rank| {
+            rank > crate::features::worksheet_rank(b"headerFooter").unwrap_or(0)
+        });
+        if later {
+            self.header_footer(output, uri)?;
+        }
+        Ok(false)
+    }
     pub(crate) fn before_end(
         &mut self,
         output: &mut impl Write,
@@ -584,14 +644,17 @@ impl<'a> Rewrite<'a> {
         uri: Option<&str>,
     ) -> io::Result<()> {
         if depth == 1 && name == b"sheetPr" {
-            if !self.properties_written {
-                write_properties(output, self.settings, uri, false)?;
+            if !self.properties_written
+                && let Some(settings) = self.settings
+            {
+                write_properties(output, settings, uri, false)?;
                 self.properties_written = true;
             }
             self.in_sheet_pr = false;
         }
         if depth == 0 && name == b"worksheet" {
             self.page(output, uri)?;
+            self.header_footer(output, uri)?;
             self.rows(output, uri)?;
             self.columns(output, uri)?;
         }

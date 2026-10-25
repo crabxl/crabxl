@@ -62,6 +62,13 @@ pub(crate) fn guard<B: BufRead>(
                                 | b"pageMargins"
                                 | b"pageSetup"
                                 | b"headerFooter"
+                                | b"sheetProtection"
+                                | b"autoFilter"
+                                | b"sortState"
+                                | b"conditionalFormatting"
+                                | b"dataValidations"
+                                | b"legacyDrawing"
+                                | b"tableParts"
                         )
                     {
                         return Err(unsupported());
@@ -481,6 +488,7 @@ pub(crate) fn write_data<W: Write>(
 }
 
 /// Minimal new worksheet envelope around the canonical shared row serializer.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn write_new<W: Write>(
     output: &mut W,
     sheet: &Worksheet,
@@ -489,16 +497,47 @@ pub(crate) fn write_new<W: Write>(
     encoding: Encoding,
     uri: &str,
     hyperlinks: Option<&crate::hyperlinks::source::Plan>,
+    features: Option<(
+        &crabxl_core::SheetFeatures,
+        &crate::features::sheet::PartRefs,
+    )>,
 ) -> Result<()> {
+    use crate::features::sheet::{rank, write_ranks};
+    let io = |cause| crate::writer::io_error("Cannot write new-sheet features", cause);
     write!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"{uri}\"><dimension ref=\"{}\"/><sheetFormatPr defaultRowHeight=\"15\"/>", dimension(sheet))
         .map_err(|cause| crate::writer::io_error("Cannot start new model worksheet", cause))?;
     crate::dimension_codec::write_columns(output, sheet.dimensions().columns(), None)
         .map_err(|cause| crate::writer::io_error("Cannot write model columns", cause))?;
     write_data(output, sheet, catalog, limits, encoding, uri)?;
+    if let Some((features, refs)) = features {
+        write_ranks(output, features, refs, 0, rank(b"mergeCells"), None).map_err(io)?;
+    }
     write_merges(output, sheet, Some(uri))?;
+    if let Some((features, refs)) = features {
+        write_ranks(
+            output,
+            features,
+            refs,
+            rank(b"mergeCells") + 1,
+            rank(b"hyperlinks"),
+            None,
+        )
+        .map_err(io)?;
+    }
     if let Some(plan) = hyperlinks {
         plan.write_links(output, sheet.hyperlinks(), Some(uri))
             .map_err(|cause| crate::writer::io_error("Cannot write new-sheet hyperlinks", cause))?;
+    }
+    if let Some((features, refs)) = features {
+        write_ranks(
+            output,
+            features,
+            refs,
+            rank(b"hyperlinks") + 1,
+            usize::MAX,
+            None,
+        )
+        .map_err(io)?;
     }
     output
         .write_all(b"</worksheet>")
