@@ -205,6 +205,12 @@ impl WorkbookWriter {
                 .find(|(_, sheet)| sheet.visibility == crabxl_core::SheetVisibility::Visible)
                 .map_or(first_visible, |(index, _)| index);
         }
+        let counts = self.metadata_counts.unwrap_or((0, 0));
+        if self.annotation_maxima.0 > counts.0 || self.annotation_maxima.1 > counts.1 {
+            return Err(state(
+                "Workbook metadata changed after annotated cells were written",
+            ));
+        }
         let mut zip = ZipWriter::new(output);
         let options = compression_options(self.options.compression_level);
         let live_maximum = self
@@ -213,7 +219,12 @@ impl WorkbookWriter {
             .saturating_sub(self.catalog_bytes())
             .saturating_sub(self.style_memory_bytes());
         for (index, sheet) in self.sheets.iter_mut().enumerate() {
-            let part = format!("xl/worksheets/sheet{}.xml", index + 1);
+            let folder = if sheet.kind == crate::SheetKind::ChartSheet {
+                "chartsheets"
+            } else {
+                "worksheets"
+            };
+            let part = format!("xl/{folder}/sheet{}.xml", index + 1);
             let size = sheet
                 .file
                 .as_file()
@@ -232,13 +243,11 @@ impl WorkbookWriter {
             })?;
             let external = if let Some(events) = &mut sheet.live_events {
                 use std::io::Read;
-                let body = size
-                    .checked_sub(FOOTER.len() as u64)
-                    .ok_or_else(|| state("Invalid deferred hyperlink worksheet footer"))?;
+                let (body, envelope) = sheet
+                    .live_insert
+                    .ok_or_else(|| state("Missing deferred hyperlink insertion position"))?;
                 io::copy(&mut sheet.file.as_file_mut().take(body), &mut zip)
                     .map_err(|cause| io_error("Cannot package live hyperlink worksheet", cause))?;
-                zip.write_all(b"</sheetData>")
-                    .map_err(|cause| io_error("Cannot close worksheet cells", cause))?;
                 let maximum = live_maximum;
                 let store = self
                     .live_links
@@ -249,14 +258,15 @@ impl WorkbookWriter {
                     events,
                     store,
                     maximum,
-                    false,
-                    self.options
-                        .max_sheet_bytes
-                        .saturating_sub(body + FOOTER.len() as u64),
+                    live_hyperlinks::EventOutput::Links {
+                        prefix: &hyperlinks::relationship_prefix(sheet.relationships.as_deref())?,
+                        envelope,
+                    },
+                    self.options.max_sheet_bytes.saturating_sub(size),
                     &mut identity,
                 )?;
-                zip.write_all(b"</worksheet>")
-                    .map_err(|cause| io_error("Cannot close live worksheet", cause))?;
+                io::copy(sheet.file.as_file_mut(), &mut zip)
+                    .map_err(|cause| io_error("Cannot finish live worksheet footer", cause))?;
                 external
             } else {
                 io::copy(
@@ -275,6 +285,10 @@ impl WorkbookWriter {
                 let part = format!("xl/worksheets/_rels/sheet{}.xml.rels", index + 1);
                 start_part(&mut zip, &part, options.large_file(true))?;
                 let maximum = live_maximum;
+                if let Some(base) = &sheet.relationships {
+                    zip.write_all(&base[..base.len() - b"</Relationships>".len()])
+                        .map_err(|cause| io_error("Cannot merge feature relationships", cause))?;
+                }
                 live_hyperlinks::write_events(
                     &mut zip,
                     sheet
@@ -285,10 +299,22 @@ impl WorkbookWriter {
                         .as_mut()
                         .ok_or_else(|| state("Missing live hyperlink store"))?,
                     maximum,
-                    true,
-                    self.options.max_sheet_bytes,
+                    live_hyperlinks::EventOutput::Relationships {
+                        prefix: &hyperlinks::relationship_prefix(sheet.relationships.as_deref())?,
+                        envelope: sheet.relationships.is_none(),
+                    },
+                    self.options.max_sheet_bytes.saturating_sub(
+                        sheet
+                            .relationships
+                            .as_ref()
+                            .map_or(0, |bytes| bytes.len() as u64),
+                    ),
                     |_, _| Ok(()),
                 )?;
+                if sheet.relationships.is_some() {
+                    zip.write_all(b"</Relationships>")
+                        .map_err(|cause| io_error("Cannot close combined relationships", cause))?;
+                }
             }
             if let Some(file) = &mut sheet.relationship_spool {
                 let part = format!("xl/worksheets/_rels/sheet{}.xml.rels", index + 1);
@@ -308,8 +334,10 @@ impl WorkbookWriter {
                     io_error("Cannot package hyperlink relationships", cause).with_part(&part)
                 })?;
             }
-            if let Some(relationships) = &sheet.relationships {
-                let relationship_part = format!("xl/worksheets/_rels/sheet{}.xml.rels", index + 1);
+            if let Some(relationships) = &sheet.relationships
+                && !external
+            {
+                let relationship_part = crate::package::relationship_part(&part);
                 start_part(&mut zip, &relationship_part, options)?;
                 zip.write_all(relationships).map_err(|error| {
                     io_error("Cannot package hyperlink relationships", error)
@@ -319,7 +347,7 @@ impl WorkbookWriter {
             if let Some(output) = &sheet.features {
                 for part in &output.parts {
                     start_part(&mut zip, &part.name, options)?;
-                    zip.write_all(&part.bytes).map_err(|error| {
+                    part.bytes.write_to(&mut zip).map_err(|error| {
                         io_error("Cannot package worksheet feature part", error)
                             .with_part(&part.name)
                     })?;

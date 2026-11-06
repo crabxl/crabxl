@@ -227,6 +227,7 @@ impl WorkbookWriter {
             self.options.max_row_cells,
             context,
             ValueEncoding {
+                metadata_counts: self.metadata_counts,
                 epoch: if self.options.date_1904 {
                     DateEpoch::Mac1904
                 } else {
@@ -284,6 +285,24 @@ impl WorkbookWriter {
         self.temporary_bytes += length;
         self.stats.peak_temp_bytes = self.stats.peak_temp_bytes.max(self.temporary_bytes);
         self.stats.rows += 1;
+        for cell in cells.clone() {
+            if let Some(annotations) = cell.value.annotations() {
+                self.annotation_maxima.0 = self.annotation_maxima.0.max(
+                    annotations
+                        .cell_metadata
+                        .as_deref()
+                        .and_then(|value| value.parse().ok())
+                        .unwrap_or(0),
+                );
+                self.annotation_maxima.1 = self.annotation_maxima.1.max(
+                    annotations
+                        .value_metadata
+                        .as_deref()
+                        .and_then(|value| value.parse().ok())
+                        .unwrap_or(0),
+                );
+            }
+        }
         self.stats.cells += cells.count() as u64;
         Ok(())
     }
@@ -310,6 +329,16 @@ impl WorkbookWriter {
             };
             self.write_cells_with_dimension(dimension.index, std::iter::empty(), Some(&dimension))?;
         }
+        let live_insert = self
+            .active
+            .as_ref()
+            .filter(|sheet| sheet.live_events.is_some())
+            .map(|sheet| {
+                let (at, envelope) =
+                    hyperlinks::footer_split(sheet.footer.as_deref().unwrap_or(FOOTER))?;
+                Ok::<_, Error>((sheet.bytes + at as u64, envelope))
+            })
+            .transpose()?;
         let (footer_written, relationship_spool) = self.finish_hyperlinks()?;
         if !footer_written {
             let footer = self.active.as_mut().and_then(|sheet| sheet.footer.take());
@@ -324,6 +353,7 @@ impl WorkbookWriter {
             io_error("Cannot flush worksheet temporary file", error.into_error())
         })?;
         self.sheets.push(StoredSheet {
+            kind: crate::SheetKind::Worksheet,
             id: active.id,
             name: active.name,
             file,
@@ -331,6 +361,7 @@ impl WorkbookWriter {
             relationships: active.relationships,
             relationship_spool,
             live_events: active.live_events,
+            live_insert,
             features: active.features,
         });
         Ok(())

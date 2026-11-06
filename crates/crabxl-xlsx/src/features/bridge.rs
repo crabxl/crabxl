@@ -50,6 +50,18 @@ pub fn sheet_features_from_xml(worksheet: &[u8], tables: &[&[u8]]) -> Result<She
 
 /// Serialize worksheet features except comments.
 pub fn sheet_features_to_xml(features: &SheetFeatures) -> Result<SheetFeaturesXml> {
+    if features.chartsheet_parts.is_some()
+        || features.chartsheet.is_some()
+        || features.printer_settings.is_some()
+        || features.images.is_some()
+        || features.charts.is_some()
+        || features.shapes.is_some()
+        || features.pivots.is_some()
+    {
+        return Err(super::unsupported(
+            "Package-backed features require the workbook writer",
+        ));
+    }
     let mut worksheet = HEAD.to_vec();
     worksheet.extend_from_slice(format!("<worksheet xmlns=\"{MAIN}\">").as_bytes());
     super::sheet::write_ranks(
@@ -128,6 +140,18 @@ pub fn workbook_features_from_xml(
 
 /// Serialize workbook features.
 pub fn workbook_features_to_xml(features: &WorkbookFeatures) -> Result<WorkbookFeaturesXml> {
+    if features.metadata.is_some()
+        || features.external_links.is_some()
+        || features.format.is_some()
+        || !matches!(
+            features.macros,
+            crabxl_core::features::MacroPolicy::Preserve
+        )
+    {
+        return Err(super::unsupported(
+            "Workbook package graphs require the workbook writer",
+        ));
+    }
     let mut workbook = HEAD.to_vec();
     workbook.extend_from_slice(format!("<workbook xmlns=\"{MAIN}\">").as_bytes());
     if let Some(protection) = &features.protection {

@@ -113,3 +113,13 @@ pub use printing::{
     PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup, PaperDimension, PrintOptions,
     PrintSettings, PrintSettingsChange, PrintedComments, PrintedErrors,
 };
+
+pub mod drawing;
+pub use drawing::{DrawingAnchor, DrawingEditAs, DrawingExtent, DrawingMarker, Image, ImageFormat};
+
+pub use drawing::{Chart, ChartKind, PartGraph, Shape, XmlContent, XmlElement};
+
+mod binary;
+pub use binary::{BinaryPayload, BinaryReader};
+
+pub use row::AnnotatedValue;

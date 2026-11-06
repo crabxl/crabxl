@@ -94,16 +94,11 @@ pub(super) fn catalog_part_removal<R: Read + Seek>(
                 {
                     let kind = attribute(&e, b"Type")?
                         .ok_or_else(|| invalid("Relationship has no type"))?;
-                    if matches!(owner, GraphOwner::Worksheet(_))
-                        && kind
-                            == "http://schemas.microsoft.com/office/2006/relationships/vbaProject"
-                    {
-                        // VBA can name sheets without an OPC edge to their parts.
-                        safe = false;
-                    }
                     let target = attribute(&e, b"Target")?
                         .ok_or_else(|| invalid("Relationship has no target"))?;
-                    if removals.contains(part.name.as_ref()) {
+                    if matches!(owner, GraphOwner::CalculationChain)
+                        && removals.contains(part.name.as_ref())
+                    {
                         // Outgoing internal or external edges belong to a graph
                         // requiring a typed deletion policy.
                         safe = false;
@@ -124,7 +119,9 @@ pub(super) fn catalog_part_removal<R: Read + Seek>(
                     }
                     if targets.contains(&target)
                         && !(part.name.as_ref() == workbook_relationships
-                            && crate::package::relationship_is(&kind, owner.role())
+                            && (crate::package::relationship_is(&kind, owner.role())
+                                || matches!(owner, GraphOwner::Worksheet(_))
+                                    && crate::package::relationship_is(&kind, "chartsheet"))
                             && owner.accepts_id(&e)?)
                     {
                         // Unknown consumers must not be left with dangling refs.
@@ -158,8 +155,8 @@ pub(super) struct PackageGraphRewrite<'a> {
     pub(super) additions: &'a [catalog_parts::CatalogPart],
     pub(super) features: Option<&'a features::FeatureSave>,
 }
-pub(super) fn patch_package_graph<R: Read + Seek, W: Write>(
-    input: zip::read::ZipFile<'_, R>,
+pub(super) fn patch_package_graph<W: Write>(
+    input: impl Read,
     output: PartOutput<W>,
     part: &str,
     rewrite: PackageGraphRewrite<'_>,
@@ -301,7 +298,7 @@ pub(super) fn patch_package_graph<R: Read + Seek, W: Write>(
                         element.push_attribute(("xmlns", TYPES));
                         let name = format!("/{part}");
                         element.push_attribute(("PartName", name.as_str()));
-                        element.push_attribute(("ContentType", *content_type));
+                        element.push_attribute(("ContentType", content_type.as_ref()));
                         emit(&mut writer, Event::Empty(element))?;
                     }
                 }

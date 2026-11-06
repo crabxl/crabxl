@@ -23,12 +23,6 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         address: CellAddress,
         code: Box<str>,
     ) -> Result<()> {
-        if self.options.read.data_only {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Data-only style editing remains unimplemented",
-            ));
-        }
         crate::encode::validate_xml_text(&code)?;
         self.prepare_style_edit()?;
         let index = self
@@ -187,12 +181,6 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         address: CellAddress,
         component: crabxl_core::StyleComponent,
     ) -> Result<()> {
-        if self.options.read.data_only {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Data-only style editing remains unimplemented",
-            ));
-        }
         if let crabxl_core::StyleComponent::Font(font) = &component
             && let Some(name) = &font.name
         {
@@ -250,12 +238,6 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                     .with_cell(address),
             );
         }
-        if self.options.read.data_only {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Data-only style editing remains unimplemented",
-            ));
-        }
         let source = self
             .sheets
             .iter()
@@ -279,7 +261,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.edit_structure_when(
             id,
             |sheet| {
-                let changed = sheet.get(address).is_none_or(|cell| cell.style != style || (explicit_temporal && matches!(&cell.value, CellValue::DateTime(date) if !date.requires_serial_encoding())));
+                let changed = sheet.get(address).is_none_or(|cell| cell.style != style || (explicit_temporal && matches!(cell.value.unannotated(), CellValue::DateTime(date) if !date.requires_serial_encoding())));
                 if explicit_temporal {sheet.set_style(address,style)?;} else {sheet.set_appearance_style(address,style)?;}
                 Ok(changed)
             },

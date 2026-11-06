@@ -36,3 +36,35 @@ For each port record project URL, commit, source file/symbols, destination modul
   importing its complete engine is not implied by the source priority.
 - zip, quick-xml, date utilities, tempfile: normal foundational dependency candidates.
 - openpyxl: feature and interoperability reference, with architecture based on docs/module names. Important pending MR diffs were reviewed under a limited exception; see [review](openpyxl-mr-review.md) and pinned snapshots.
+
+## File-format specification references
+
+These references describe file structures; they are separate from source-code
+ports and do not imply implemented support or completed specification review.
+
+- [ECMA-376: Office Open XML file formats](https://ecma-international.org/publications-and-standards/standards/ecma-376/):
+  use Part 1 for SpreadsheetML and DrawingML, Part 2 for Open Packaging
+  Conventions (parts, relationships and content types), Part 3 for markup
+  compatibility and extensibility, and Part 4 for Transitional migration
+  features. Record Strict and Transitional differences explicitly.
+- ISO/IEC 29500, Parts 1-4: use the applicable published edition and amendments
+  when checking ISO OOXML requirements. Do not assume every ECMA and ISO edition
+  is interchangeable; record the exact part, edition and clause used.
+- [Microsoft Office Open Specifications](https://learn.microsoft.com/en-us/openspecs/office_standards/):
+  consult MS-XLSX, MS-XLSX2 and MS-ODRAWXML as applicable for Excel and drawing
+  extensions beyond the base standard. Add other extension documents when an
+  implemented feature requires them.
+
+Status: reference families identified; exact editions/revisions, local copies
+and feature-specific review are not yet pinned or verified. Before relying on a
+specification for implementation, record its official URL, part/document ID,
+edition or revision date, relevant clauses, review status and local file path.
+Keep downloaded specification files under the workspace-root `reference/`
+directory alongside the reference repositories; do not store them in temporary
+folders or unrelated directories.
+
+Use the specifications to establish file-format requirements and openpyxl 3.1.5
+to establish compatible API and observable behavior. When these differ, record
+the chosen behavior and its interoperability consequences explicitly. Do not
+silently discard unsupported content or claim complete standards conformance
+from a passing openpyxl comparison.

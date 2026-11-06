@@ -10,6 +10,8 @@ pub(super) struct WorkbookRewrite<'a> {
     pub(super) order: Option<&'a CatalogOrder>,
     pub(super) membership: Option<(&'a catalog::Membership, &'a crabxl_core::Workbook)>,
     pub(super) features: Option<&'a crabxl_core::WorkbookFeatures>,
+    pub(super) pivot_caches: &'a [crate::features::package::PivotCacheOutput],
+    pub(super) external_refs: Option<&'a [String]>,
 }
 pub(super) fn rewritten_catalog_entry(
     original: &BytesStart<'_>,
@@ -51,6 +53,8 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
         order,
         membership,
         features,
+        pivot_caches,
+        external_refs,
     } = rewrite;
     let mut feature_rewrite = features.map(features::WorkbookFeatureRewrite::new);
     let mut xml = XmlStream::new(
@@ -68,6 +72,9 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
     let mut sheet_index = 0usize;
     let mut sheets_open = false;
     let mut skipped_sheet = false;
+    let mut pivot_seen = false;
+    let mut pivot_written = false;
+    let mut external_written = false;
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
@@ -84,6 +91,71 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
                 }
             }
             continue;
+        }
+        if let Some(refs) = external_refs
+            && frame.scope == Scope::Spreadsheet
+        {
+            if matches!(&frame.event, Event::Start(e) if frame.depth == 2 && e.local_name().as_ref() == "externalReferences")
+            {
+                crate::complex::write_external_refs(writer.get_mut(), refs, frame.spreadsheet_uri)
+                    .map_err(|cause| io_error("Cannot replace external references", cause))?;
+                external_written = true;
+                crate::style_codec::skip(&mut xml, 2)?;
+                continue;
+            }
+            if !external_written
+                && (matches!(&frame.event, Event::End(_) if frame.depth == 0)
+                    || matches!(&frame.event, Event::Start(e) if frame.depth == 2 && features::workbook_rank(e.local_name().as_ref().as_bytes()) > features::workbook_rank(b"externalReferences")))
+            {
+                crate::complex::write_external_refs(writer.get_mut(), refs, uri)
+                    .map_err(|cause| io_error("Cannot insert external references", cause))?;
+                external_written = true;
+            }
+        }
+        if !pivot_caches.is_empty() && frame.scope == Scope::Spreadsheet {
+            match &frame.event {
+                Event::Start(e) if frame.depth == 2 && e.local_name().as_ref() == "pivotCaches" => {
+                    pivot_seen = true
+                }
+                Event::End(e) if frame.depth == 1 && e.local_name().as_ref() == "pivotCaches" => {
+                    features::write_pivot_cache_refs(
+                        writer.get_mut(),
+                        pivot_caches,
+                        frame.spreadsheet_uri,
+                    )
+                    .map_err(|cause| io_error("Cannot append pivot caches", cause))?;
+                    pivot_written = true;
+                }
+                event
+                    if !pivot_seen
+                        && !pivot_written
+                        && (matches!(event, Event::End(_) if frame.depth == 0)
+                            || matches!(event, Event::Start(e) if frame.depth == 2 && features::workbook_rank(e.local_name().as_ref().as_bytes()) > features::workbook_rank(b"pivotCaches"))) =>
+                {
+                    if invalidate_caches && !seen {
+                        emit_calculation(&mut writer, uri)?;
+                        seen = true;
+                    }
+                    writer
+                        .get_mut()
+                        .write_all(b"<pivotCaches")
+                        .map_err(|cause| io_error("Cannot write pivot caches", cause))?;
+                    crate::printing::namespace(writer.get_mut(), uri)
+                        .map_err(|cause| io_error("Cannot write pivot cache namespace", cause))?;
+                    writer
+                        .get_mut()
+                        .write_all(b">")
+                        .map_err(|cause| io_error("Cannot write pivot caches", cause))?;
+                    features::write_pivot_cache_refs(writer.get_mut(), pivot_caches, uri)
+                        .map_err(|cause| io_error("Cannot write pivot caches", cause))?;
+                    writer
+                        .get_mut()
+                        .write_all(b"</pivotCaches>")
+                        .map_err(|cause| io_error("Cannot close pivot caches", cause))?;
+                    pivot_written = true;
+                }
+                _ => {}
+            }
         }
         if let Some(rewrite) = &mut feature_rewrite
             && frame.scope == Scope::Spreadsheet

@@ -31,12 +31,59 @@ pub enum CellValue {
     DateTime(Box<ExcelDateTime>),
     /// Normal formula with optional typed cached result.
     Formula(Box<Formula>),
+    /// Scalar or formula value with explicit cell/value metadata references.
+    Annotated(Box<AnnotatedValue>),
+}
+
+/// A value and its workbook metadata references, without copying metadata graphs per cell.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AnnotatedValue {
+    /// Underlying scalar or formula.
+    pub value: CellValue,
+    /// References into workbook cell/value metadata tables.
+    pub annotations: crate::FormulaAnnotations,
 }
 
 impl CellValue {
+    /// Borrow the value beneath metadata wrappers.
+    pub fn unannotated(&self) -> &Self {
+        let mut value = self;
+        while let Self::Annotated(annotated) = value {
+            value = &annotated.value;
+        }
+        value
+    }
+    /// Mutably borrow the value beneath metadata wrappers.
+    pub fn unannotated_mut(&mut self) -> &mut Self {
+        let mut value = self;
+        while let Self::Annotated(annotated) = value {
+            value = &mut annotated.value;
+        }
+        value
+    }
+    /// Cell/value metadata references, including references attached to formulas.
+    pub fn annotations(&self) -> Option<&crate::FormulaAnnotations> {
+        match self {
+            Self::Annotated(value) => Some(&value.annotations),
+            Self::Formula(formula) => formula
+                .metadata()
+                .and_then(|metadata| metadata.annotations.as_deref()),
+            _ => None,
+        }
+    }
+    /// Attach metadata references; a second call replaces the existing wrapper's references.
+    pub fn with_annotations(self, annotations: crate::FormulaAnnotations) -> Self {
+        match self {
+            Self::Annotated(mut value) => {
+                value.annotations = annotations;
+                Self::Annotated(value)
+            }
+            value => Self::Annotated(Box::new(AnnotatedValue { value, annotations })),
+        }
+    }
     /// Borrow a temporal literal or a formula's temporal cached result.
     pub fn temporal_value(&self) -> Option<&ExcelDateTime> {
-        match self {
+        match self.unannotated() {
             Self::DateTime(value) => Some(value),
             Self::Formula(value) => value.cached().and_then(Self::temporal_value),
             _ => None,
@@ -45,6 +92,11 @@ impl CellValue {
 
     /// Bytes retained outside the fixed-size cell value, excluding allocator overhead.
     pub fn heap_bytes(&self) -> usize {
+        if let Self::Annotated(value) = self {
+            return size_of::<AnnotatedValue>()
+                + value.annotations.payload_bytes()
+                + value.value.heap_bytes();
+        }
         match self {
             Self::DateTime(_) => size_of::<ExcelDateTime>(),
             Self::Formula(value) => value.memory_bytes(),
@@ -85,7 +137,7 @@ impl Cell {
     /// Returns whether the style or temporal serialization preference changed.
     /// The owner/writer must validate this workbook-local identity.
     pub fn set_style(&mut self, style: StyleId) -> bool {
-        let temporal_changed = match &mut self.value {
+        let temporal_changed = match self.value.unannotated_mut() {
             CellValue::DateTime(date) => date.prefer_serial_encoding(),
             _ => false,
         };
@@ -197,6 +249,8 @@ pub enum CellMetadataReadPolicy {
     /// Retain formula cm/vm references in FormulaMetadata, without interpreting
     /// dependent graphs. Annotated scalar cells and data-only reads are rejected.
     RetainFormulaReferences,
+    /// Retain scalar and formula cm/vm references, including data-only projections.
+    RetainAllReferences,
     /// Reject selected annotated cells instead of projecting their visible value.
     Reject,
 }

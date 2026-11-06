@@ -243,6 +243,22 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                     .as_ref()
                     .map_or(0, |path| path.capacity()),
             )
+            .saturating_add(self.workbook_features.as_ref().map_or(0, |state| {
+                size_of::<FeatureState<crabxl_core::WorkbookFeatures>>()
+                    + state.source.heap_bytes()
+                    + state.current.heap_bytes()
+            }))
+            .saturating_add(
+                self.sheets
+                    .iter()
+                    .filter_map(|sheet| sheet.features.as_ref())
+                    .map(|state| {
+                        size_of::<FeatureState<crabxl_core::SheetFeatures>>()
+                            + state.source.heap_bytes()
+                            + state.current.heap_bytes()
+                    })
+                    .sum::<usize>(),
+            )
             .saturating_add(self.sheets.capacity().saturating_mul(256))
             .saturating_add(
                 self.sheets
@@ -382,9 +398,12 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 .saturating_add(self.mapping_bytes())
                 .saturating_add(self.package_extra_bytes());
             let decode = (|| {
+                let mut read_options = self.options.read.clone();
+                read_options.cell_metadata_policy =
+                    crabxl_core::CellMetadataReadPolicy::RetainAllReferences;
                 let mut rows = self.editor.book.rows_with_catalog_allowance(
                     name,
-                    self.options.read.clone(),
+                    read_options,
                     Some(maximum),
                     self.bank.style_catalog(),
                     retained.saturating_add(incoming.charged_bytes()),
@@ -582,17 +601,12 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     ) -> Result<(W, SaveStats)> {
         self.prepare_hyperlink_values_for_save()?;
         self.prepare_features_for_save()?;
-        if self.options.read.data_only && self.editor.is_dirty() {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Edited data-only model output remains unimplemented",
-            ));
-        }
         let result = self.editor.save_with_models(
             output,
             options,
             Some(&self.bank),
             self.mapping_bytes(),
+            self.options.read.data_only,
         )?;
         self.bank
             .set_active_view_index(self.editor.active_view_index());

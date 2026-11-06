@@ -103,7 +103,10 @@ impl Formula {
                 )
             }))
             || cached.as_ref().is_some_and(|value| {
-                matches!(value, CellValue::Formula(_) | CellValue::RichText(_))
+                matches!(
+                    value,
+                    CellValue::Formula(_) | CellValue::RichText(_) | CellValue::Annotated(_)
+                )
             })
         {
             return Err(Error::new(

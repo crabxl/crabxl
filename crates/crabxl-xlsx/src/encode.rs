@@ -169,6 +169,7 @@ pub(crate) struct ValueEncoding {
     pub(crate) formula_attributes: crate::FormulaWritePolicy,
     pub(crate) date_styles: DateStyleIds,
     pub(crate) invalidate_caches: bool,
+    pub(crate) metadata_counts: Option<(usize, usize)>,
 }
 
 pub(crate) struct RowBuffer {
@@ -221,6 +222,53 @@ pub(crate) fn validate_xml_text(value: &str) -> Result<()> {
             ErrorKind::InvalidData,
             "Text contains a character forbidden by XML 1.0",
         ));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_annotations(
+    value: &CellValue,
+    counts: Option<(usize, usize)>,
+) -> Result<()> {
+    let Some(annotations) = value.annotations() else {
+        return Ok(());
+    };
+    validate_annotation_indices(
+        annotations.cell_metadata.as_deref(),
+        annotations.value_metadata.as_deref(),
+        counts,
+    )
+}
+
+pub(crate) fn validate_annotation_indices(
+    cell: Option<&str>,
+    value: Option<&str>,
+    counts: Option<(usize, usize)>,
+) -> Result<()> {
+    for (value, count) in [
+        (cell, counts.map(|counts| counts.0)),
+        (value, counts.map(|counts| counts.1)),
+    ] {
+        if let Some(value) = value {
+            let index: usize = value
+                .parse()
+                .map_err(|_| Error::new(ErrorKind::InvalidData, "Invalid cell metadata index"))?;
+            if index == 0 {
+                continue;
+            }
+            let count = count.ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Unsupported,
+                    "Cell annotations require a workbook metadata graph",
+                )
+            })?;
+            if index > count {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Cell metadata index is outside its workbook table",
+                ));
+            }
+        }
     }
     Ok(())
 }
@@ -315,6 +363,7 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
         formula_attributes,
         date_styles,
         invalidate_caches,
+        metadata_counts,
     } = date_encoding;
     buffer.data.clear();
     let mut next_column = 0;
@@ -352,13 +401,15 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
         };
         validate_non_finite(cell.value, non_finite)
             .map_err(|error| error.with_cell(cell.address))?;
+        validate_annotations(cell.value, metadata_counts)
+            .map_err(|error| error.with_cell(cell.address))?;
         validate_value(cell.value, maximum_cell, validation_epoch)
             .map_err(|error| error.with_cell(cell.address))?;
         if iso_date && let Some(date) = date_value(cell.value) {
             validate_text(&date.to_iso8601()?, maximum_cell)
                 .map_err(|error| error.with_cell(cell.address))?;
         }
-        if let CellValue::RichText(value) = cell.value
+        if let CellValue::RichText(value) = cell.value.unannotated()
             && value
                 .phonetic_properties
                 .as_ref()
@@ -395,7 +446,17 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
             if style != 0 {
                 write!(buffer, " s=\"{style}\"")?;
             }
-            let (literal, formula) = match cell.value {
+            if let Some(annotations) = cell.value.annotations() {
+                for (name, value) in [
+                    ("cm", &annotations.cell_metadata),
+                    ("vm", &annotations.value_metadata),
+                ] {
+                    if let Some(value) = value {
+                        write_attribute(buffer, name, value)?;
+                    }
+                }
+            }
+            let (literal, formula) = match cell.value.unannotated() {
                 CellValue::Formula(formula) => (
                     formula.cached().filter(|_| !invalidate_caches),
                     Some(formula),
@@ -491,7 +552,7 @@ pub(crate) fn validate_non_finite(
     policy: crate::NonFiniteWritePolicy,
 ) -> Result<()> {
     if policy == crate::NonFiniteWritePolicy::Reject {
-        let literal = match value {
+        let literal = match value.unannotated() {
             CellValue::Formula(formula) => formula.cached(),
             other => Some(other),
         };
@@ -510,6 +571,7 @@ pub(crate) fn validate_value(
     epoch: crabxl_core::DateEpoch,
 ) -> Result<()> {
     match value {
+        CellValue::Annotated(value) => validate_value(&value.value, maximum, epoch),
         CellValue::Text(value) => validate_text(value.as_str(), maximum),
         CellValue::RichText(value) => crate::rich_text::validate(value, maximum),
         CellValue::Error(value) => {
@@ -529,11 +591,13 @@ pub(crate) fn validate_value(
         CellValue::Formula(value) => {
             if let Some(metadata) = value.metadata() {
                 metadata.validate()?;
-                if metadata.annotations.is_some() {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Writing formula annotation metadata graphs is not implemented",
-                    ));
+                if let Some(annotations) = &metadata.annotations {
+                    for value in [&annotations.cell_metadata, &annotations.value_metadata]
+                        .into_iter()
+                        .flatten()
+                    {
+                        validate_xml_text(value)?;
+                    }
                 }
                 if let crabxl_core::FormulaType::Shared { index, .. } = &metadata.kind
                     && let Some(literal) = index.literal()

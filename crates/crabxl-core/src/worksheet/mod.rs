@@ -423,6 +423,20 @@ impl Worksheet {
                 .saturating_add(self.cells.storage_bytes());
             self.dirty = true;
         }
+        let old_features = self.feature_bytes();
+        if let Some(features) = &mut self.features {
+            features
+                .comments
+                .retain(|comment| comment.address != address);
+        }
+        let new_features = self.feature_bytes();
+        if new_features != old_features {
+            self.charged = self
+                .charged
+                .saturating_sub(old_features)
+                .saturating_add(new_features);
+            self.dirty = true;
+        }
         Ok((cell, hyperlink))
     }
     /// Append a row after the logical extent. Empty rows advance the cursor
@@ -493,6 +507,7 @@ impl Worksheet {
         self.charged = self.name.len()
             + self.view_bytes()
             + self.print_bytes()
+            + self.feature_bytes()
             + self.dimensions.heap_bytes()
             + self.merges.heap_bytes()
             + self.hyperlinks.heap_bytes()

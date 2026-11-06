@@ -361,3 +361,14 @@ Sequential point hyperlink metadata uses two bounded disk-backed per-sheet spool
 in the existing writer owner, with shared codecs and explicit future-footer
 reservations. [ADR 0093](decisions/0093-disk-backed-streamed-hyperlinks.md) records
 active/paused accounting, copy peaks and remaining mutable binding integration.
+
+
+Native drawing and complex-feature definitions live in `crabxl-core`. Ordered
+`XmlElement` trees retain editable properties and extension content. `PartGraph`
+keeps relationship ownership separate from those properties. `BinaryPayload`
+shares immutable memory or an owned disk source, with independent reader cursors.
+Images, embedded parts, VBA and pivot records do not require whole-payload copies.
+The XLSX layer resolves graphs, allocates output identities and retains shared
+consumers during removal. Pivot records use a byte-bounded row buffer. Loaded
+feature snapshots participate in the workbook memory allowance. Scalar metadata
+references travel with their cells; metadata replacement checks retained indices.

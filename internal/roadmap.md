@@ -17,9 +17,11 @@ Current delivery follows the [Alpha.6 and later release plan](archive/alpha-6-an
 A6 urgent archive-limit/descriptor fixes (published), A7 staged M4 acceptance,
 A8 performance backlog (published), then the [Alpha 9–28 integration plan](alpha-9-28-plan.md):
 A9/A10 are published and verified. The remaining unchanged feature scope is
-consolidated into six releases: A11 worksheet/style foundations, A12 full M5,
-A13 images/charts, A14 pivots/complex metadata, A15 full M4/M6 acceptance,
-and A16 performance/M7 quality. Former A11–A28 targets are work-package IDs,
+consolidated into A11 worksheet/style foundations (published), A12 all remaining
+M5/M6 features and complete M4/M5/M6 integration and acceptance (W14–W26),
+and A13 performance/M7 quality (W27–W28). Former A12–A15 are combined
+into A12; former A16 becomes A13. Finish all A12 Rust/Python implementation
+before adding or running tests, then test and fix the combined scope. Former A11–A28 targets are work-package IDs,
 not separate publication tasks. These stages remain incomplete. Deferred M4 graph interactions stay tracked through M5/M6; the urgent
 A6 release does not claim staged M4 completion.
 

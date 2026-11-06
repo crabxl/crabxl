@@ -6,12 +6,6 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// Covered values are removed; borders/protection use compact virtual styles.
     pub fn merge_cells(&mut self, id: SheetId, range: CellRange) -> Result<()> {
         CellRange::new(range.start, range.end)?;
-        if self.options.read.data_only {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Data-only merge editing is not implemented",
-            ));
-        }
         let source = self
             .sheets
             .iter()

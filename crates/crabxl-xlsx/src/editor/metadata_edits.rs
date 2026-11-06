@@ -193,12 +193,26 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .retained_data_bytes
             .saturating_sub(bytes.max(self.patch_bytes));
         if let Some(pending) = self.print_patches.get(&part) {
-            check_printer_identity(&pending.setup, &settings.setup)?;
+            check_printer_identity(
+                &pending.setup,
+                &settings.setup,
+                self.feature_patches
+                    .get(&part)
+                    .and_then(|features| features.printer_settings.as_ref())
+                    .map(|settings| settings.relationship.as_ref()),
+            )?;
         } else {
             let original = self
                 .book
                 .print_settings_with_allowance(sheet, source_allowance)?;
-            check_printer_identity(&original.setup, &settings.setup)?;
+            check_printer_identity(
+                &original.setup,
+                &settings.setup,
+                self.feature_patches
+                    .get(&part)
+                    .and_then(|features| features.printer_settings.as_ref())
+                    .map(|settings| settings.relationship.as_ref()),
+            )?;
         }
         self.print_patches.insert(part, Box::new(settings));
         self.patch_bytes = bytes;
@@ -234,7 +248,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         let part = info.part();
         if let Some(settings) = self.print_patches.get_mut(part) {
             if let crabxl_core::PrintSettingsChange::Setup(setup) = &change {
-                check_printer_identity(&settings.setup, setup)?;
+                check_printer_identity(
+                    &settings.setup,
+                    setup,
+                    self.feature_patches
+                        .get(part)
+                        .and_then(|features| features.printer_settings.as_ref())
+                        .map(|settings| settings.relationship.as_ref()),
+                )?;
             }
             let other = self.patch_bytes.saturating_sub(settings.memory_bytes());
             let maximum = self.options.max_patch_bytes.saturating_sub(other);
@@ -254,7 +275,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .min(self.allowance.retained_data_bytes.saturating_sub(other));
         let mut settings = self.book.print_settings_with_allowance(sheet, maximum)?;
         if let crabxl_core::PrintSettingsChange::Setup(setup) = &change {
-            check_printer_identity(&settings.setup, setup)?;
+            check_printer_identity(
+                &settings.setup,
+                setup,
+                self.feature_patches
+                    .get(&part)
+                    .and_then(|features| features.printer_settings.as_ref())
+                    .map(|settings| settings.relationship.as_ref()),
+            )?;
         }
         settings.update(change, maximum)?;
         self.patch_bytes = other.saturating_add(settings.memory_bytes());

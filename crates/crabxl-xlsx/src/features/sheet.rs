@@ -14,12 +14,20 @@ const R_NS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relati
 pub(crate) struct PartRefs {
     /// `<tablePart r:id>` values in source order.
     pub tables: Vec<String>,
+    /// Spreadsheet DrawingML relationship, preserved until explicitly replaced.
+    pub drawing: Option<String>,
+    pub pivots: Vec<String>,
+    pub printer: Option<String>,
     /// `<legacyDrawing r:id>` (comment shapes).
     pub legacy_drawing: Option<String>,
 }
 impl PartRefs {
     pub(crate) fn is_empty(&self) -> bool {
-        self.tables.is_empty() && self.legacy_drawing.is_none()
+        self.tables.is_empty()
+            && self.legacy_drawing.is_none()
+            && self.drawing.is_none()
+            && self.pivots.is_empty()
+            && self.printer.is_none()
     }
 }
 
@@ -33,6 +41,8 @@ pub(crate) fn owns(name: &[u8]) -> bool {
             | b"conditionalFormatting"
             | b"dataValidations"
             | b"headerFooter"
+            | b"pivotTableParts"
+            | b"drawing"
             | b"legacyDrawing"
             | b"tableParts"
     )
@@ -78,20 +88,37 @@ pub(crate) fn read_element<B: BufRead>(
         b"headerFooter" => {
             features.header_footer = Some(header_footer::read(xml, start, depth)?);
         }
+        b"drawing" => {
+            refs.drawing = Some(
+                relationship_id(start)?.ok_or_else(|| invalid("Drawing has no relationship id"))?,
+            );
+            crate::style_codec::skip(xml, depth)?;
+        }
         b"legacyDrawing" => {
             refs.legacy_drawing = relationship_id(start)?;
             crate::style_codec::skip(xml, depth)?;
         }
-        b"tableParts" => loop {
+        b"tableParts" | b"pivotTableParts" => loop {
             let frame = xml.next()?;
             match frame.event {
                 Event::Start(e) if frame.depth == depth + 1 => {
-                    if e.local_name().as_ref().as_bytes() != b"tablePart" {
+                    let pivot = start.local_name().as_ref() == "pivotTableParts";
+                    if e.local_name().as_ref().as_bytes()
+                        != if pivot {
+                            b"pivotTablePart".as_slice()
+                        } else {
+                            b"tablePart".as_slice()
+                        }
+                    {
                         return Err(unsupported("Unknown tableParts child"));
                     }
                     let id = relationship_id(&e)?
                         .ok_or_else(|| invalid("tablePart has no relationship id"))?;
-                    refs.tables.push(id);
+                    if pivot {
+                        refs.pivots.push(id);
+                    } else {
+                        refs.tables.push(id);
+                    }
                 }
                 Event::End(_) if frame.depth + 1 == depth => break,
                 Event::Eof => return Err(invalid("Truncated tableParts")),
@@ -119,6 +146,8 @@ pub(crate) fn read_worksheet<B: BufRead>(
                 if owns(name) {
                     let e = e.into_owned();
                     read_element(xml, &e, 2, &mut features, &mut refs)?;
+                } else if name == b"pageSetup" {
+                    refs.printer = frame.office_relationship.clone();
                 } else if name == b"sheetData" {
                     crate::style_codec::skip(xml, 2)?;
                 }
@@ -175,10 +204,28 @@ pub(crate) fn write_rank(
                 header_footer::write(out, value, uri)?;
             }
         }
+        Some(b"drawing") => {
+            if let Some(id) = &refs.drawing {
+                write_rid_element(out, "drawing", id, uri)?;
+            }
+        }
         Some(b"legacyDrawing") => {
             if let Some(id) = &refs.legacy_drawing {
                 write_rid_element(out, "legacyDrawing", id, uri)?;
             }
+        }
+        Some(b"pivotTableParts") if !refs.pivots.is_empty() => {
+            out.write_all(b"<pivotTableParts")?;
+            crate::printing::namespace(out, uri)?;
+            write!(out, " xmlns:r=\"{R_NS}\" count=\"{}\">", refs.pivots.len())?;
+            for id in &refs.pivots {
+                write!(
+                    out,
+                    "<pivotTablePart r:id=\"{}\"/>",
+                    quick_xml::escape::escape(id)
+                )?;
+            }
+            out.write_all(b"</pivotTableParts>")?;
         }
         Some(b"tableParts") if !refs.tables.is_empty() => {
             out.write_all(b"<tableParts")?;

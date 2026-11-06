@@ -13,13 +13,41 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     pub fn copy_sheet(&mut self, id: SheetId, name: impl Into<Box<str>>) -> Result<SheetId> {
         self.add_sheet(name.into(), Some(id))
     }
+    /// Create a chart-only sheet without materializing worksheet cells.
+    pub fn create_chartsheet(
+        &mut self,
+        name: impl Into<Box<str>>,
+        chart: crabxl_core::drawing::Chart,
+    ) -> Result<SheetId> {
+        chart.anchor.validate()?;
+        self.add_sheet_kind(
+            name.into(),
+            None,
+            crate::SheetKind::ChartSheet,
+            Some(crabxl_core::SheetFeatures {
+                charts: Some(vec![chart]),
+                ..Default::default()
+            }),
+        )
+    }
     pub(super) fn add_sheet(&mut self, name: Box<str>, source: Option<SheetId>) -> Result<SheetId> {
-        if self.options.read.data_only {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Data-only sheet creation remains unimplemented",
-            ));
-        }
+        let kind = source
+            .and_then(|id| {
+                self.sheets
+                    .iter()
+                    .find(|sheet| sheet.id == id)
+                    .map(|sheet| sheet.kind)
+            })
+            .unwrap_or(crate::SheetKind::Worksheet);
+        self.add_sheet_kind(name, source, kind, None)
+    }
+    fn add_sheet_kind(
+        &mut self,
+        name: Box<str>,
+        source: Option<SheetId>,
+        kind: crate::SheetKind,
+        features: Option<crabxl_core::SheetFeatures>,
+    ) -> Result<SheetId> {
         crate::encode::validate_catalog_name(&name)?;
         let template = if let Some(id) = source {
             let maximum = self
@@ -39,11 +67,20 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             if let Some(index) = template {
                 self.editor.prepare_copy_template(index)?;
             }
-            self.hyperlinks(id)?;
-            crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
+            if kind == crate::SheetKind::Worksheet {
+                self.hyperlinks(id)?;
+                crate::loaded_codec::validate_model(
+                    self.bank.sheet(id)?,
+                    self.bank.style_catalog(),
+                )?;
+            }
             template
         } else {
             None
+        };
+        let copied_features = match source {
+            Some(id) => Some(self.copied_features(id)?),
+            None => features,
         };
         let originals = self.original_identities()?;
         let maximum = self
@@ -56,6 +93,11 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         } else {
             self.editor.prepare_create(originals, allowance)?
         };
+        let plan = if kind == crate::SheetKind::ChartSheet {
+            self.editor.chartsheet_plan(plan)
+        } else {
+            plan
+        };
         self.sheets.try_reserve_exact(1).map_err(|cause| {
             Error::caused_by(
                 ErrorKind::MemoryBudgetExceeded,
@@ -63,10 +105,16 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 cause,
             )
         })?;
-        if let Some(source) = source {
+        if let Some(source) = source.filter(|_| kind == crate::SheetKind::Worksheet) {
             self.validate_normalized_styles(source)?;
         }
-        self.reserve_workbook_patch(plan.bytes.saturating_add(plan.scratch_bytes))?;
+        self.reserve_workbook_patch(
+            plan.bytes
+                .saturating_add(plan.scratch_bytes)
+                .saturating_add(copied_features.as_ref().map_or(0, |features| {
+                    size_of::<FeatureState<crabxl_core::SheetFeatures>>() + features.heap_bytes()
+                })),
+        )?;
         let view = self.active_view_index();
         let incoming = if let Some(id) = source {
             self.bank.copy_sheet(id, name)
@@ -84,13 +132,18 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             id,
             name: "".into(),
             loaded: true,
-            kind: crate::SheetKind::Worksheet,
+            kind,
             original: None,
             normalized_styles: false,
             hyperlinks_requested: true,
             hyperlinks_loaded: true,
             hyperlink_values_dirty: false,
-            features: None,
+            features: copied_features.map(|current| {
+                Box::new(FeatureState {
+                    source: crabxl_core::SheetFeatures::default(),
+                    current,
+                })
+            }),
         });
         self.editor.commit_create(plan, id);
         if let Some(source) = source {
@@ -104,12 +157,6 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// Package graph ownership is validated before loading or modifying cells.
     /// Source parts stay available as immutable templates for existing copies.
     pub fn remove_sheet(&mut self, id: SheetId) -> Result<Worksheet> {
-        if self.options.read.data_only {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Data-only sheet removal remains unimplemented",
-            ));
-        }
         let index = self
             .sheets
             .iter()
@@ -128,7 +175,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 maximum.saturating_sub(self.managed_retained_bytes()),
             )?;
         }
-        self.hyperlinks(id)?;
+        if self.sheets[index].kind == crate::SheetKind::Worksheet {
+            self.hyperlinks(id)?;
+        }
         let originals = self.original_identities()?;
         let plan = self.editor.prepare_remove(
             id,

@@ -421,6 +421,75 @@
         "baseline.openpyxl.worksheet.hyperlink"
       ],
       "status": "owned native create, explicit/row-stream capture and canonical loaded read checkpoint; preserving mutation, Python and full A11 acceptance pending"
+    },
+    {
+      "project": "umya-spreadsheet",
+      "repository": "https://github.com/MathNya/umya-spreadsheet",
+      "commit": "aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b",
+      "license": "MIT",
+      "notice": "Copyright (c) 2020 MathNya",
+      "license_file": "third_party/licenses/umya-spreadsheet-MIT.txt",
+      "source_symbols": [
+        "src/structs/drawing/spreadsheet/edit_as_values.rs: EditAsValues (copied and adapted)",
+        "src/structs/drawing/spreadsheet/marker_type.rs: MarkerType layout (copied and adapted)",
+        "src/structs/drawing/spreadsheet/one_cell_anchor.rs: write_to",
+        "src/structs/drawing/spreadsheet/two_cell_anchor.rs: write_to",
+        "src/structs/image.rs: new_image_with_dimensions and picture layout",
+        "src/structs/drawing/charts/bar_chart.rs: write_to ordering",
+        "src/structs/drawing/charts/values.rs: number reference structure"
+      ],
+      "destinations": [
+        "crates/crabxl-core/src/drawing/",
+        "crates/crabxl-xlsx/src/drawing.rs",
+        "crates/crabxl-xlsx/src/drawing_xml.rs"
+      ],
+      "changes": [
+        "Use native compact models and zero-based validated coordinates; return typed errors instead of upstream panics",
+        "Retain DrawingML properties in editable ordered trees instead of discarding unmodeled formatting",
+        "Integrate image/chart parts with the existing worksheet feature output, editor and lazy loaded owner",
+        "Share immutable media payloads across models and output plans; keep cell streaming independent",
+        "Preserve shapes, connectors, grouped objects, picture hyperlinks and chart-frame dependency graphs with relationship and nonvisual-identity remapping",
+        "Integrate chartsheet properties and owned dependencies with creation, copying, editing and source-preserving saves",
+        "Use shared immutable in-memory or disk-backed encoded payloads; stream pivot records through byte-bounded row buffers"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/complex_features.rs",
+        "crates/crabxl-xlsx/tests/loaded.rs"
+      ],
+      "inventory_items": [
+        "baseline.openpyxl.drawing.image",
+        "baseline.openpyxl.chart"
+      ],
+      "status": "Rust integration regression checkpoint passes on Windows; workspace tests, all-target Clippy and formatting pass; six generated workbooks independently checked with openpyxl 3.1.5. Exhaustive parity, Excel desktop/cross-platform and benchmarks remain pending."
+    },
+    {
+      "project": "umya-spreadsheet",
+      "repository": "https://github.com/MathNya/umya-spreadsheet",
+      "commit": "aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b",
+      "license": "MIT",
+      "notice": "Copyright (c) 2020 MathNya",
+      "license_file": "third_party/licenses/umya-spreadsheet-MIT.txt",
+      "source_symbols": [
+        "src/structs/pivot_table.rs: PivotTable definition/cache ownership layout",
+        "src/structs/pivot_cache_definition.rs: PivotCacheDefinition cacheSource/cacheFields/recordCount and encoded-record ownership"
+      ],
+      "destinations": [
+        "crates/crabxl-core/src/features/pivot.rs",
+        "crates/crabxl-xlsx/src/pivot.rs"
+      ],
+      "changes": [
+        "Adapt definition/cache ownership into native editable XML models with shared immutable cache ownership",
+        "Implement original bounded record decoding and disk-backed encoding instead of the upstream full Vec<u8> record buffer",
+        "Resolve workbook cache identities and table-owned dependencies, validate records and clone complete package graphs without pivot calculation"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/complex_features.rs",
+        "crates/crabxl-xlsx/tests/loaded.rs"
+      ],
+      "inventory_items": [
+        "model.pivots.native"
+      ],
+      "status": "Rust integration regression checkpoint passes on Windows; workspace tests, all-target Clippy and formatting pass; six generated workbooks independently checked with openpyxl 3.1.5. Exhaustive parity, Excel desktop/cross-platform and benchmarks remain pending."
     }
   ]
 }

@@ -69,6 +69,8 @@ pub(crate) fn guard<B: BufRead>(
                                 | b"dataValidations"
                                 | b"legacyDrawing"
                                 | b"tableParts"
+                                | b"drawing"
+                                | b"pivotTableParts"
                         )
                     {
                         return Err(unsupported());
@@ -183,8 +185,11 @@ pub(crate) fn guard<B: BufRead>(
                             b"thickTop",
                             b"thickBot",
                         ],
-                        (4, b"c") => &[b"r", b"s", b"t"],
-                        (5, b"f") => &[],
+                        (4, b"c") => &[b"r", b"s", b"t", b"cm", b"vm"],
+                        (5, b"f") => &[
+                            b"t", b"ref", b"si", b"aca", b"ca", b"bx", b"r1", b"r2", b"dt2D",
+                            b"dtr", b"del1", b"del2",
+                        ],
                         (5, b"v" | b"is") | (6, b"t") => &[],
                         _ => return Err(unsupported()),
                     };
@@ -358,12 +363,13 @@ pub(crate) fn validate_model(sheet: &Worksheet, catalog: Option<&StyleCatalog>) 
     }
     let mut styles = StyleContext::Catalog(catalog);
     for cell in sheet.cells() {
-        if matches!(&cell.value, crabxl_core::CellValue::Formula(formula)
-            if formula.formula_type() != crabxl_core::FormulaType::Normal)
+        if matches!(cell.value.unannotated(), crabxl_core::CellValue::Formula(formula)
+            if matches!(formula.formula_type(), crabxl_core::FormulaType::Shared { .. })
+                && formula.expression().is_empty())
         {
             return Err(Error::new(
                 ErrorKind::Unsupported,
-                "Structural formula-group editing remains unimplemented",
+                "Cannot structurally edit an unresolved shared formula",
             )
             .with_cell(cell.address));
         }
@@ -408,6 +414,7 @@ pub(crate) struct Encoding {
     pub(crate) epoch: DateEpoch,
     pub(crate) non_finite: crate::NonFiniteWritePolicy,
     pub(crate) formula_attributes: crate::FormulaWritePolicy,
+    pub(crate) metadata_counts: Option<(usize, usize)>,
 }
 /// Reuse the same checked encoder as sequential and owned-model writers. Only
 /// one byte-bounded row buffer is resident; cell/style payloads stay borrowed.
@@ -561,6 +568,7 @@ fn encode_model_row<'a>(
         limits.max_row_cells,
         StyleContext::Catalog(catalog),
         ValueEncoding {
+            metadata_counts: encoding.metadata_counts,
             epoch: encoding.epoch,
             iso_dates: false,
             non_finite: encoding.non_finite,

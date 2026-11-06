@@ -18116,6 +18116,181 @@
         "crates/crabxl-xlsx/tests/writer.rs: canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically"
       ],
       "notes": "Native point checkpoint includes combined row/metadata capture, post-stream relationship resolution and lazy canonical loaded reads with clean adoption. Source preserving mutation, Python objects, range declarations and affected structural integration remain pending. Full baseline module and A11 release acceptance remain open."
+    },
+    {
+      "id": "model.drawing.native",
+      "description": "Native images, anchors, shapes, connectors and editable DrawingML graphs",
+      "status": "ported",
+      "milestone": "M6",
+      "capabilities": {
+        "read": "ported",
+        "create": "ported",
+        "edit": "ported",
+        "preserve": "ported"
+      },
+      "modes": [
+        "explicit-metadata-read",
+        "sequential-create",
+        "owned-model",
+        "loaded-source-edit"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/drawing/",
+        "crates/crabxl-core/src/binary.rs",
+        "crates/crabxl-xlsx/src/drawing.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/complex_features.rs::openpyxl_drawings_survive_loaded_edits_copies_removals_and_repeat_saves",
+        "crates/crabxl-xlsx/tests/complex_features.rs::native_chart_families_images_shapes_and_connectors_have_valid_graphs",
+        "crates/crabxl-xlsx/tests/complex_features.rs::disk_payload_readers_keep_independent_positions_and_record_buffers_are_bounded"
+      ],
+      "limitations": "Image bytes retain their original encoding. Object properties and relationships are editable native XML trees. No image rendering or format conversion.",
+      "notes": "Windows regression checkpoint: 335 workspace tests pass; all-target Clippy and formatting pass. Six output workbooks independently checked with openpyxl 3.1.5 without warnings. Coverage is scoped to the named tests; exhaustive baseline parity, Excel desktop/cross-platform and performance acceptance remain pending."
+    },
+    {
+      "id": "model.charts.native",
+      "description": "Native chart families, series and complete editable chart property trees",
+      "status": "ported",
+      "milestone": "M6",
+      "capabilities": {
+        "read": "ported",
+        "create": "ported",
+        "edit": "ported",
+        "preserve": "ported"
+      },
+      "modes": [
+        "explicit-metadata-read",
+        "sequential-create",
+        "owned-model",
+        "loaded-source-edit"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/drawing/chart.rs",
+        "crates/crabxl-xlsx/src/drawing.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/complex_features.rs::openpyxl_drawings_survive_loaded_edits_copies_removals_and_repeat_saves",
+        "crates/crabxl-xlsx/tests/complex_features.rs::native_chart_families_images_shapes_and_connectors_have_valid_graphs"
+      ],
+      "limitations": "Sixteen baseline family variants, combinations, axes, series, layout and formatting are represented in the native property tree. No chart rendering or calculation.",
+      "notes": "Windows regression checkpoint: 335 workspace tests pass; all-target Clippy and formatting pass. Six output workbooks independently checked with openpyxl 3.1.5 without warnings. Coverage is scoped to the named tests; exhaustive baseline parity, Excel desktop/cross-platform and performance acceptance remain pending."
+    },
+    {
+      "id": "model.chartsheets.native",
+      "description": "Chart-only sheet properties, drawing graphs and loaded catalog operations",
+      "status": "ported",
+      "milestone": "M6",
+      "capabilities": {
+        "read": "ported",
+        "create": "ported",
+        "edit": "ported",
+        "preserve": "ported"
+      },
+      "modes": [
+        "explicit-metadata-read",
+        "sequential-create",
+        "owned-model",
+        "loaded-source-edit"
+      ],
+      "modules": [
+        "crates/crabxl-xlsx/src/writer/sheet.rs",
+        "crates/crabxl-xlsx/src/loaded/catalog.rs",
+        "crates/crabxl-xlsx/src/editor/features.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/complex_features.rs::openpyxl_drawings_survive_loaded_edits_copies_removals_and_repeat_saves"
+      ],
+      "limitations": "Chartsheet properties use native editable XML. Non-cell sheets reject cell operations. Related printer and other parts retain their ownership.",
+      "notes": "Windows regression checkpoint: 335 workspace tests pass; all-target Clippy and formatting pass. Six output workbooks independently checked with openpyxl 3.1.5 without warnings. Coverage is scoped to the named tests; exhaustive baseline parity, Excel desktop/cross-platform and performance acceptance remain pending."
+    },
+    {
+      "id": "model.pivots.native",
+      "description": "Pivot definitions, shared caches, owned dependencies and bounded cache record IO",
+      "status": "ported",
+      "milestone": "M6",
+      "capabilities": {
+        "read": "ported",
+        "create": "ported",
+        "edit": "ported",
+        "preserve": "ported"
+      },
+      "modes": [
+        "explicit-metadata-read",
+        "sequential-create",
+        "owned-model",
+        "loaded-source-edit"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/features/pivot.rs",
+        "crates/crabxl-xlsx/src/pivot.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/complex_features.rs::pivot_records_and_caches_survive_layout_edits_and_sheet_copies",
+        "crates/crabxl-xlsx/tests/complex_features.rs::malformed_pivot_records_reject_counts_widths_and_shared_indices"
+      ],
+      "limitations": "Cache records stream one bounded record at a time. Pivot layouts and cache definitions are editable XML. No pivot result calculation or external data refresh.",
+      "notes": "Windows regression checkpoint: 335 workspace tests pass; all-target Clippy and formatting pass. Six output workbooks independently checked with openpyxl 3.1.5 without warnings. Coverage is scoped to the named tests; exhaustive baseline parity, Excel desktop/cross-platform and performance acceptance remain pending."
+    },
+    {
+      "id": "model.complex.native",
+      "description": "External-link caches, VBA policies, workbook formats and complex metadata graphs",
+      "status": "ported",
+      "milestone": "M6",
+      "capabilities": {
+        "read": "ported",
+        "create": "ported",
+        "edit": "ported",
+        "preserve": "ported"
+      },
+      "modes": [
+        "explicit-metadata-read",
+        "sequential-create",
+        "owned-model",
+        "loaded-source-edit"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/features/complex.rs",
+        "crates/crabxl-xlsx/src/complex.rs",
+        "crates/crabxl-xlsx/src/editor/features.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/complex_features.rs::complex_graphs_metadata_indices_formats_and_vba_policies_are_checked"
+      ],
+      "limitations": "XLSX/XLSM/XLTX/XLTM format and Preserve/Remove/Replace VBA policies; ordered external links; metadata, connections and rich-value graphs; cm/vm cell references. No external fetching or macro execution.",
+      "notes": "Windows regression checkpoint: 335 workspace tests pass; all-target Clippy and formatting pass. Six output workbooks independently checked with openpyxl 3.1.5 without warnings. Coverage is scoped to the named tests; exhaustive baseline parity, Excel desktop/cross-platform and performance acceptance remain pending."
+    },
+    {
+      "id": "model.feature-integration.native",
+      "description": "Feature-aware sheet copying/removal, notes, printer assets, formula metadata and data-only edits",
+      "status": "ported",
+      "milestone": "M4",
+      "capabilities": {
+        "read": "ported",
+        "create": "ported",
+        "edit": "ported",
+        "preserve": "ported"
+      },
+      "modes": [
+        "explicit-metadata-read",
+        "sequential-create",
+        "owned-model",
+        "loaded-source-edit"
+      ],
+      "modules": [
+        "crates/crabxl-core/src/features/comment_edit.rs",
+        "crates/crabxl-xlsx/src/loaded/",
+        "crates/crabxl-xlsx/src/editor/",
+        "crates/crabxl-xlsx/src/writer/hyperlinks.rs",
+        "crates/crabxl-xlsx/src/writer/live_hyperlinks/mod.rs"
+      ],
+      "tests": [
+        "crates/crabxl-xlsx/tests/complex_features.rs::openpyxl_drawings_survive_loaded_edits_copies_removals_and_repeat_saves",
+        "crates/crabxl-xlsx/tests/complex_features.rs::pivot_records_and_caches_survive_layout_edits_and_sheet_copies",
+        "crates/crabxl-xlsx/tests/complex_features.rs::complex_graphs_metadata_indices_formats_and_vba_policies_are_checked",
+        "crates/crabxl-xlsx/tests/complex_features.rs::streamed_hyperlinks_merge_with_feature_footers_and_relationships"
+      ],
+      "limitations": "Copied tables and pivots receive unique names. Notes follow physical cell edits; reference ranges, formulas, chart series and anchors retain their existing explicit-edit policies. Data-only saves project source formulas to cached scalars. Digital signatures and unknown affected markup retain explicit rejection gates. Streamed snapshot or live-group links can be combined with prebuilt features and point links; the two streaming link ownership modes remain mutually exclusive on one sheet.",
+      "notes": "Windows regression checkpoint: 335 workspace tests pass; all-target Clippy and formatting pass. Six output workbooks independently checked with openpyxl 3.1.5 without warnings. Coverage is scoped to the named tests; exhaustive baseline parity, Excel desktop/cross-platform and performance acceptance remain pending."
     }
   ],
   "inventory_scope": "Complete pinned runtime public-module/class/member/function/export and release RST-topic mapping; this is a feature audit index, not a claim of complete behavioral specification or implementation.",

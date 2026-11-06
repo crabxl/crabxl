@@ -4,6 +4,29 @@ use super::*;
 use crabxl_core::{SheetFeatures, WorkbookFeatures};
 
 impl<R: Read + Seek> LoadedWorkbook<R> {
+    fn reserve_feature_replacement(&mut self, old: usize, incoming: usize) -> Result<()> {
+        let maximum = self
+            .allowance
+            .retained_data_bytes
+            .min(self.options.workbook.max_bytes);
+        let mapping = self
+            .mapping_bytes()
+            .saturating_sub(old)
+            .saturating_add(incoming);
+        // Old snapshots and the caller's replacement coexist until commit.
+        let peak = self
+            .mapping_bytes()
+            .saturating_add(incoming)
+            .saturating_add(self.bank.charged_bytes())
+            .saturating_add(self.package_extra_bytes());
+        self.editor
+            .book
+            .rebalance_strings_for_retained(peak, maximum)?;
+        let available = maximum
+            .checked_sub(mapping.saturating_add(self.editor.retained_package_bytes()))
+            .ok_or_else(budget)?;
+        self.bank.set_memory_allowance(available)
+    }
     fn feature_index(&self, id: SheetId) -> Result<usize> {
         self.sheets
             .iter()
@@ -14,7 +37,10 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         if self.sheets[index].features.is_some() {
             return Ok(());
         }
-        if self.sheets[index].kind != crate::SheetKind::Worksheet {
+        if !matches!(
+            self.sheets[index].kind,
+            crate::SheetKind::Worksheet | crate::SheetKind::ChartSheet
+        ) {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Features require a cell worksheet",
@@ -27,6 +53,10 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             }
             None => SheetFeatures::default(),
         };
+        self.reserve_feature_replacement(
+            0,
+            size_of::<FeatureState<SheetFeatures>>() + source.heap_bytes().saturating_mul(2),
+        )?;
         self.sheets[index].features = Some(Box::new(FeatureState {
             current: source.clone(),
             source,
@@ -49,14 +79,257 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     pub fn set_sheet_features(&mut self, id: SheetId, features: SheetFeatures) -> Result<()> {
         let index = self.feature_index(id)?;
         self.ensure_sheet_features(index)?;
+        if self.sheets[index].kind == crate::SheetKind::Worksheet && features.chartsheet.is_some() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Chartsheet properties require a chartsheet",
+            ));
+        }
+        if self.sheets[index].kind == crate::SheetKind::ChartSheet {
+            let mut inline = features.clone();
+            inline.chartsheet = None;
+            inline.chartsheet_parts = None;
+            inline.images = None;
+            inline.charts = None;
+            inline.shapes = None;
+            if !inline.is_empty() {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Edit chartsheet properties through its XML property tree",
+                ));
+            }
+        }
+        let old = self.sheets[index]
+            .features
+            .as_ref()
+            .map_or(0, |state| state.current.heap_bytes());
+        self.reserve_feature_replacement(old, features.heap_bytes())?;
         if let Some(state) = &mut self.sheets[index].features {
             state.current = features;
         }
         Ok(())
     }
+    /// Pictures and anchors of a worksheet; cells stay lazy.
+    pub fn sheet_images(&mut self, id: SheetId) -> Result<&[crabxl_core::Image]> {
+        let index = self.feature_index(id)?;
+        self.ensure_sheet_features(index)?;
+        if self.sheets[index]
+            .features
+            .as_ref()
+            .is_some_and(|state| state.current.images.is_none())
+        {
+            let images = match self.sheets[index].original {
+                Some(original) => {
+                    let name = self.editor.book.sheets()[original].name().to_owned();
+                    self.editor.book.sheet_images(&name)?
+                }
+                None => Vec::new(),
+            };
+            let bytes = images
+                .iter()
+                .map(|item| size_of::<crabxl_core::Image>() + item.heap_bytes())
+                .sum::<usize>();
+            self.reserve_feature_replacement(0, bytes.saturating_mul(2))?;
+            if let Some(state) = &mut self.sheets[index].features {
+                state.source.images = Some(images.clone());
+                state.current.images = Some(images);
+            }
+        }
+        Ok(self.sheets[index]
+            .features
+            .as_ref()
+            .and_then(|state| state.current.images.as_deref())
+            .unwrap_or(&[]))
+    }
+    /// Replace worksheet pictures. Existing non-picture drawings reject on save.
+    pub fn set_sheet_images(&mut self, id: SheetId, images: Vec<crabxl_core::Image>) -> Result<()> {
+        for image in &images {
+            image.anchor.validate()?;
+        }
+        self.sheet_images(id)?;
+        let mut features = self.sheet_features(id)?.clone();
+        features.images = Some(images);
+        self.set_sheet_features(id, features)
+    }
+    /// Complete chart properties and placement; cells stay lazy.
+    pub fn sheet_charts(&mut self, id: SheetId) -> Result<&[crabxl_core::drawing::Chart]> {
+        let index = self.feature_index(id)?;
+        self.ensure_sheet_features(index)?;
+        if self.sheets[index]
+            .features
+            .as_ref()
+            .is_some_and(|state| state.current.charts.is_none())
+        {
+            let charts = match self.sheets[index].original {
+                Some(original) => {
+                    let name = self.editor.book.sheets()[original].name().to_owned();
+                    self.editor.book.sheet_charts(&name)?
+                }
+                None => Vec::new(),
+            };
+            let bytes = charts
+                .iter()
+                .map(|item| size_of::<crabxl_core::drawing::Chart>() + item.heap_bytes())
+                .sum::<usize>();
+            self.reserve_feature_replacement(0, bytes.saturating_mul(2))?;
+            if let Some(state) = &mut self.sheets[index].features {
+                state.source.charts = Some(charts.clone());
+                state.current.charts = Some(charts);
+            }
+        }
+        Ok(self.sheets[index]
+            .features
+            .as_ref()
+            .and_then(|state| state.current.charts.as_deref())
+            .unwrap_or(&[]))
+    }
+    /// Replace worksheet charts while retaining existing pictures.
+    pub fn set_sheet_charts(
+        &mut self,
+        id: SheetId,
+        charts: Vec<crabxl_core::drawing::Chart>,
+    ) -> Result<()> {
+        for chart in &charts {
+            chart.anchor.validate()?;
+        }
+        self.sheet_charts(id)?;
+        let mut features = self.sheet_features(id)?.clone();
+        features.charts = Some(charts);
+        self.set_sheet_features(id, features)
+    }
+    /// Shapes, connectors, grouped objects and placement; cells stay lazy.
+    pub fn sheet_shapes(&mut self, id: SheetId) -> Result<&[crabxl_core::drawing::Shape]> {
+        let index = self.feature_index(id)?;
+        self.ensure_sheet_features(index)?;
+        if self.sheets[index]
+            .features
+            .as_ref()
+            .is_some_and(|state| state.current.shapes.is_none())
+        {
+            let shapes = match self.sheets[index].original {
+                Some(original) => {
+                    let name = self.editor.book.sheets()[original].name().to_owned();
+                    self.editor.book.sheet_shapes(&name)?
+                }
+                None => Vec::new(),
+            };
+            let bytes = shapes
+                .iter()
+                .map(|item| size_of::<crabxl_core::drawing::Shape>() + item.heap_bytes())
+                .sum::<usize>();
+            self.reserve_feature_replacement(0, bytes.saturating_mul(2))?;
+            if let Some(state) = &mut self.sheets[index].features {
+                state.source.shapes = Some(shapes.clone());
+                state.current.shapes = Some(shapes);
+            }
+        }
+        Ok(self.sheets[index]
+            .features
+            .as_ref()
+            .and_then(|state| state.current.shapes.as_deref())
+            .unwrap_or(&[]))
+    }
+    /// Replace worksheet shapes while retaining existing pictures.
+    pub fn set_sheet_shapes(
+        &mut self,
+        id: SheetId,
+        shapes: Vec<crabxl_core::drawing::Shape>,
+    ) -> Result<()> {
+        for shape in &shapes {
+            shape.anchor.validate()?;
+        }
+        self.sheet_shapes(id)?;
+        let mut features = self.sheet_features(id)?.clone();
+        features.shapes = Some(shapes);
+        self.set_sheet_features(id, features)
+    }
+    /// Pivot tables and shared cache metadata, loaded independently of cells.
+    pub fn sheet_pivots(&mut self, id: SheetId) -> Result<&[crabxl_core::features::PivotTable]> {
+        let index = self.feature_index(id)?;
+        self.ensure_sheet_features(index)?;
+        if self.sheets[index]
+            .features
+            .as_ref()
+            .is_some_and(|state| state.current.pivots.is_none())
+        {
+            let pivots = match self.sheets[index].original {
+                Some(original) => {
+                    let name = self.editor.book.sheets()[original].name().to_owned();
+                    self.editor.book.sheet_pivots(&name)?
+                }
+                None => Vec::new(),
+            };
+            let bytes = pivots
+                .iter()
+                .map(|item| size_of::<crabxl_core::features::PivotTable>() + item.heap_bytes())
+                .sum::<usize>();
+            self.reserve_feature_replacement(0, bytes.saturating_mul(2))?;
+            if let Some(state) = &mut self.sheets[index].features {
+                state.source.pivots = Some(pivots.clone());
+                state.current.pivots = Some(pivots);
+            }
+        }
+        Ok(self.sheets[index]
+            .features
+            .as_ref()
+            .and_then(|state| state.current.pivots.as_deref())
+            .unwrap_or(&[]))
+    }
+    /// Replace pivot layouts and caches; cache records remain encoded sources.
+    pub fn set_sheet_pivots(
+        &mut self,
+        id: SheetId,
+        pivots: Vec<crabxl_core::features::PivotTable>,
+    ) -> Result<()> {
+        self.sheet_pivots(id)?;
+        let mut features = self.sheet_features(id)?.clone();
+        features.pivots = Some(pivots);
+        self.set_sheet_features(id, features)
+    }
+    pub(super) fn copied_features(&mut self, id: SheetId) -> Result<SheetFeatures> {
+        let mut copy = self.sheet_features(id)?.clone();
+        copy.header_footer = None;
+        copy.images = Some(self.sheet_images(id)?.to_vec());
+        copy.charts = Some(self.sheet_charts(id)?.to_vec());
+        copy.shapes = Some(self.sheet_shapes(id)?.to_vec());
+        if self.sheets[self.feature_index(id)?].kind == crate::SheetKind::Worksheet {
+            copy.pivots = Some(self.sheet_pivots(id)?.to_vec());
+        }
+        let ids: Vec<_> = self
+            .sheets
+            .iter()
+            .filter(|sheet| sheet.kind == crate::SheetKind::Worksheet)
+            .map(|sheet| sheet.id)
+            .collect();
+        let mut taken = std::collections::HashSet::new();
+        for id in ids {
+            self.sheet_pivots(id)?;
+            taken.extend(
+                self.sheet_features(id)?
+                    .object_names()
+                    .map(str::to_lowercase),
+            );
+        }
+        self.ensure_workbook_features()?;
+        if let Some(state) = &self.workbook_features {
+            taken.extend(
+                state
+                    .current
+                    .defined_names
+                    .iter()
+                    .map(|name| name.name.to_lowercase()),
+            );
+        }
+        copy.rename_for_copy(&mut taken);
+        Ok(copy)
+    }
     fn ensure_workbook_features(&mut self) -> Result<()> {
         if self.workbook_features.is_none() {
             let source = self.editor.book.workbook_features()?;
+            self.reserve_feature_replacement(
+                0,
+                size_of::<FeatureState<WorkbookFeatures>>() + source.heap_bytes().saturating_mul(2),
+            )?;
             self.workbook_features = Some(Box::new(FeatureState {
                 current: source.clone(),
                 source,
@@ -75,10 +348,113 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// Replace workbook features. Save writes them when they differ from the source.
     pub fn set_workbook_features(&mut self, features: WorkbookFeatures) -> Result<()> {
         self.ensure_workbook_features()?;
+        let old = self
+            .workbook_features
+            .as_ref()
+            .map_or(0, |state| state.current.heap_bytes());
+        self.reserve_feature_replacement(old, features.heap_bytes())?;
         if let Some(state) = &mut self.workbook_features {
             state.current = features;
         }
         Ok(())
+    }
+    /// Ordered external links, loaded independently of worksheet cells.
+    pub fn external_links(&mut self) -> Result<&[crabxl_core::features::ExternalLink]> {
+        self.ensure_workbook_features()?;
+        if self
+            .workbook_features
+            .as_ref()
+            .is_some_and(|state| state.current.external_links.is_none())
+        {
+            let links = self.editor.book.external_links()?;
+            let bytes = links
+                .iter()
+                .map(|item| size_of::<crabxl_core::features::ExternalLink>() + item.heap_bytes())
+                .sum::<usize>();
+            self.reserve_feature_replacement(0, bytes.saturating_mul(2))?;
+            if let Some(state) = &mut self.workbook_features {
+                state.source.external_links = Some(links.clone());
+                state.current.external_links = Some(links);
+            }
+        }
+        Ok(self
+            .workbook_features
+            .as_ref()
+            .and_then(|state| state.current.external_links.as_deref())
+            .unwrap_or(&[]))
+    }
+    /// Replace external links in reference order. Formula text is not rewritten.
+    pub fn set_external_links(
+        &mut self,
+        links: Vec<crabxl_core::features::ExternalLink>,
+    ) -> Result<()> {
+        let mut features = self.workbook_features()?.clone();
+        features.external_links = Some(links);
+        self.set_workbook_features(features)
+    }
+    /// Set an explicit XLSX-family format for the next save.
+    pub fn set_workbook_format(
+        &mut self,
+        format: crabxl_core::features::WorkbookFormat,
+    ) -> Result<()> {
+        let mut features = self.workbook_features()?.clone();
+        features.format = Some(format);
+        self.set_workbook_features(features)
+    }
+    /// Preserve, remove or replace the original VBA project graph.
+    pub fn set_macro_policy(&mut self, policy: crabxl_core::features::MacroPolicy) -> Result<()> {
+        let mut features = self.workbook_features()?.clone();
+        features.macros = policy;
+        self.set_workbook_features(features)
+    }
+    /// Metadata and rich-value graph roots, loaded without worksheet cells.
+    pub fn workbook_metadata(&mut self) -> Result<&[crabxl_core::features::WorkbookMetadata]> {
+        self.ensure_workbook_features()?;
+        if self
+            .workbook_features
+            .as_ref()
+            .is_some_and(|state| state.current.metadata.is_none())
+        {
+            let roots = self.editor.book.workbook_metadata()?;
+            let bytes = roots
+                .iter()
+                .map(|item| {
+                    size_of::<crabxl_core::features::WorkbookMetadata>() + item.heap_bytes()
+                })
+                .sum::<usize>();
+            self.reserve_feature_replacement(0, bytes.saturating_mul(2))?;
+            if let Some(state) = &mut self.workbook_features {
+                state.source.metadata = Some(roots.clone());
+                state.current.metadata = Some(roots);
+            }
+        }
+        Ok(self
+            .workbook_features
+            .as_ref()
+            .and_then(|state| state.current.metadata.as_deref())
+            .unwrap_or(&[]))
+    }
+    /// Replace workbook metadata roots. Existing cell indices must remain valid.
+    pub fn set_workbook_metadata(
+        &mut self,
+        metadata: Vec<crabxl_core::features::WorkbookMetadata>,
+    ) -> Result<()> {
+        let mut features = self.workbook_features()?.clone();
+        features.metadata = Some(metadata);
+        self.set_workbook_features(features)
+    }
+    /// Read the original encoded VBA project without executing it.
+    pub fn vba_project(&mut self) -> Result<Option<crabxl_core::features::VbaProject>> {
+        if let Some(state) = &self.workbook_features {
+            match &state.current.macros {
+                crabxl_core::features::MacroPolicy::Remove => return Ok(None),
+                crabxl_core::features::MacroPolicy::Replace(project) => {
+                    return Ok(Some(project.clone()));
+                }
+                _ => {}
+            }
+        }
+        self.editor.book.vba_project()
     }
     /// Add a differential style (`dxfId`) for conditional formats and tables.
     /// Equal styles share one index; the stylesheet is rewritten on save.

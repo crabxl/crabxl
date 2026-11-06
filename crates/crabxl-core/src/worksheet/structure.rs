@@ -2,6 +2,57 @@
 use super::*;
 
 impl Worksheet {
+    fn stage_comment_edit(
+        &self,
+        edit: crate::features::CommentEdit,
+    ) -> Result<Option<Vec<crate::features::Comment>>> {
+        let Some(features) = &self.features else {
+            return Ok(None);
+        };
+        if features.comments.is_empty() {
+            return Ok(None);
+        }
+        let comments = edit.apply(&features.comments)?;
+        let bytes = comments
+            .iter()
+            .map(|comment| size_of::<crate::features::Comment>() + comment.heap_bytes())
+            .sum();
+        self.work_allowance(bytes)?;
+        Ok(Some(comments))
+    }
+    fn comment_work(comments: &Option<Vec<crate::features::Comment>>) -> usize {
+        comments.as_ref().map_or(0, |comments| {
+            comments
+                .capacity()
+                .saturating_mul(size_of::<crate::features::Comment>())
+                .saturating_add(
+                    comments
+                        .iter()
+                        .map(crate::features::Comment::heap_bytes)
+                        .sum::<usize>(),
+                )
+        })
+    }
+    fn comment_growth(&self, comments: &Option<Vec<crate::features::Comment>>) -> usize {
+        let bytes = |comments: &[crate::features::Comment]| {
+            comments
+                .iter()
+                .map(|comment| size_of::<crate::features::Comment>() + comment.heap_bytes())
+                .sum::<usize>()
+        };
+        comments.as_ref().map_or(0, |comments| {
+            bytes(comments).saturating_sub(
+                self.features
+                    .as_ref()
+                    .map_or(0, |features| bytes(&features.comments)),
+            )
+        })
+    }
+    fn commit_comment_edit(&mut self, comments: Option<Vec<crate::features::Comment>>) {
+        if let (Some(features), Some(comments)) = (&mut self.features, comments) {
+            features.comments = comments;
+        }
+    }
     /// Insert empty rows; out-of-bounds movement is rejected before mutation.
     pub fn insert_rows(&mut self, at: RowIndex, count: u32) -> Result<()> {
         self.shift(at.get(), count, true, true)
@@ -38,6 +89,13 @@ impl Worksheet {
             offset(range.start, rows, columns)?,
             offset(range.end, rows, columns)?,
         )?;
+        let comments = self.stage_comment_edit(crate::features::CommentEdit::Range {
+            range,
+            rows,
+            columns,
+            copy: false,
+        })?;
+        let scratch = scratch.saturating_add(Self::comment_work(&comments));
         self.work_allowance(scratch)?;
         self.move_virtual_cells(range, destination, rows, columns, false, scratch)?;
         let original = std::mem::take(&mut self.cells);
@@ -54,6 +112,7 @@ impl Worksheet {
             self.append_cursor = self.append_cursor.max(cell.address.row.get() + 1);
             self.cells.insert(key, cell);
         }
+        self.commit_comment_edit(comments);
         self.recount();
         self.dirty = true;
         Ok(())
@@ -76,7 +135,8 @@ impl Worksheet {
             .cells
             .values()
             .filter(|cell| {
-                range.contains(cell.address) && matches!(cell.value, CellValue::Formula(_))
+                range.contains(cell.address)
+                    && matches!(cell.value.unannotated(), CellValue::Formula(_))
             })
             .count();
         let mut translated = Vec::new();
@@ -105,7 +165,7 @@ impl Worksheet {
             .values()
             .filter(|cell| range.contains(cell.address))
         {
-            if let CellValue::Formula(formula) = &cell.value {
+            if let CellValue::Formula(formula) = cell.value.unannotated() {
                 if matches!(
                     formula.formula_type(),
                     crate::FormulaType::Array | crate::FormulaType::DataTable
@@ -149,7 +209,7 @@ impl Worksheet {
         // by the validated operation; no further input/limit checks are needed.
         for (address, formula) in translated {
             if let Some(cell) = self.cells.get_mut(&key(address)) {
-                cell.value = CellValue::Formula(formula);
+                *cell.value.unannotated_mut() = CellValue::Formula(formula);
             }
         }
         self.recount();
@@ -166,6 +226,13 @@ impl Worksheet {
             offset(range.start, rows, columns)?,
             offset(range.end, rows, columns)?,
         )?;
+        let comments = self.stage_comment_edit(crate::features::CommentEdit::Range {
+            range,
+            rows,
+            columns,
+            copy: true,
+        })?;
+        let comment_growth = self.comment_growth(&comments);
         let selected = self
             .cells
             .values()
@@ -184,11 +251,13 @@ impl Worksheet {
         self.check(
             self.charged
                 .saturating_sub(removed_bytes)
-                .saturating_add(extra),
+                .saturating_add(extra)
+                .saturating_add(comment_growth),
             self.len() - removed_count + count,
         )?;
         // Includes clone Vec and destination nodes conservatively.
-        self.work_allowance(extra)?;
+        let scratch = extra.saturating_add(Self::comment_work(&comments));
+        self.work_allowance(scratch)?;
         let mut copies = Vec::new();
         copies.try_reserve_exact(count).map_err(|error| {
             Error::caused_by(
@@ -202,13 +271,14 @@ impl Worksheet {
             cell.address = offset(cell.address, rows, columns)?;
             copies.push(cell);
         }
-        self.move_virtual_cells(range, destination, rows, columns, true, extra)?;
+        self.move_virtual_cells(range, destination, rows, columns, true, scratch)?;
         self.cells
             .retain(|_, cell| !destination.contains(cell.address));
         for cell in copies {
             self.append_cursor = self.append_cursor.max(cell.address.row.get() + 1);
             self.cells.insert(key(cell.address), cell);
         }
+        self.commit_comment_edit(comments);
         self.recount();
         self.dirty = true;
         Ok(())
@@ -249,7 +319,13 @@ impl Worksheet {
                 return Err(invalid("Append extent exceeds row bounds"));
             }
         }
-        self.work_allowance(0)?;
+        let comments = self.stage_comment_edit(crate::features::CommentEdit::Shift {
+            at,
+            count,
+            rows,
+            insert,
+        })?;
+        self.work_allowance(Self::comment_work(&comments))?;
         self.shift_virtual_cells(at, count, rows, insert)?;
         for (_, mut cell) in std::mem::take(&mut self.cells) {
             let value = if rows {
@@ -281,6 +357,7 @@ impl Worksheet {
                 self.append_cursor - count.min(self.append_cursor - at)
             };
         }
+        self.commit_comment_edit(comments);
         self.recount();
         self.dirty = true;
         Ok(())

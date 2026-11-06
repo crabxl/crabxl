@@ -31,6 +31,8 @@ pub(crate) enum Scope {
     Relationships,
     ContentTypes,
     Drawing,
+    SpreadsheetDrawing,
+    Chart,
     Other,
 }
 
@@ -50,6 +52,8 @@ enum DefaultScope {
     Relationships,
     ContentTypes,
     Drawing,
+    SpreadsheetDrawing,
+    Chart,
     Other,
 }
 impl DefaultScope {
@@ -60,6 +64,8 @@ impl DefaultScope {
             Self::Relationships => Scope::Relationships,
             Self::ContentTypes => Scope::ContentTypes,
             Self::Drawing => Scope::Drawing,
+            Self::SpreadsheetDrawing => Scope::SpreadsheetDrawing,
+            Self::Chart => Scope::Chart,
             Self::Other => Scope::Other,
         }
     }
@@ -193,6 +199,24 @@ fn namespace_scope(namespace: ResolveResult<'_>) -> Result<DefaultScope> {
             ) =>
         {
             DefaultScope::Drawing
+        }
+        ResolveResult::Bound(ns)
+            if matches!(
+                ns.as_ref().as_bytes(),
+                b"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+                    | b"http://purl.oclc.org/ooxml/drawingml/spreadsheetDrawing"
+            ) =>
+        {
+            DefaultScope::SpreadsheetDrawing
+        }
+        ResolveResult::Bound(ns)
+            if matches!(
+                ns.as_ref().as_bytes(),
+                b"http://schemas.openxmlformats.org/drawingml/2006/chart"
+                    | b"http://purl.oclc.org/ooxml/drawingml/chart"
+            ) =>
+        {
+            DefaultScope::Chart
         }
         ResolveResult::Unknown(_) => {
             return Err(Error::new(
@@ -429,7 +453,13 @@ impl<B: BufRead> XmlStream<B> {
             && let Event::Start(e) = &event
             && matches!(
                 e.local_name().as_ref().as_bytes(),
-                b"sheet" | b"pageSetup" | b"hyperlink"
+                b"sheet"
+                    | b"pageSetup"
+                    | b"hyperlink"
+                    | b"drawing"
+                    | b"pivotTablePart"
+                    | b"pivotCache"
+                    | b"externalReference"
             )
         {
             for (index, attribute) in e.attributes().enumerate() {

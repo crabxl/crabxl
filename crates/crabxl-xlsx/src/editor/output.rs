@@ -4,17 +4,27 @@ use super::*;
 pub(super) fn check_printer_identity(
     original: &crabxl_core::PageSetup,
     replacement: &crabxl_core::PageSetup,
+    authorized: Option<&str>,
 ) -> Result<()> {
-    if original.printer_relationship != replacement.printer_relationship {
+    if replacement.printer_relationship != original.printer_relationship
+        && replacement.printer_relationship.is_some()
+        && replacement.printer_relationship.as_deref() != authorized
+    {
         return Err(Error::new(
             ErrorKind::Unsupported,
-            "Changing printer identities requires a package feature graph",
+            "Changing printer identities requires an owned printer feature graph",
         ));
+    }
+    if let Some(id) = &replacement.printer_relationship {
+        if id.is_empty() {
+            return Err(invalid("Empty printer relationship"));
+        }
+        crate::encode::validate_xml_text(id)?;
     }
     Ok(())
 }
 pub(super) fn contains_date(value: &CellValue) -> bool {
-    match value {
+    match value.unannotated() {
         CellValue::DateTime(_) => true,
         CellValue::Formula(formula) => formula.cached().is_some_and(contains_date),
         _ => false,

@@ -139,6 +139,7 @@ pub struct WriteStats {
     pub peak_temp_bytes: u64,
 }
 struct StoredSheet {
+    kind: crate::SheetKind,
     id: usize,
     name: String,
     file: NamedTempFile,
@@ -146,6 +147,7 @@ struct StoredSheet {
     relationships: Option<Vec<u8>>,
     relationship_spool: Option<NamedTempFile>,
     live_events: Option<live_hyperlinks::Events>,
+    live_insert: Option<(u64, bool)>,
     features: Option<Box<crate::features::package::SheetOutput>>,
 }
 struct ActiveSheet {
@@ -193,6 +195,8 @@ pub struct WorkbookWriter {
     cleanup_paths: Vec<PathBuf>,
     feature_numbers: crate::features::package::PartNumbers,
     workbook_features: Option<Box<crabxl_core::WorkbookFeatures>>,
+    metadata_counts: Option<(usize, usize)>,
+    annotation_maxima: (usize, usize),
 }
 // Constructor-only ownership transfer: keep this bounded stack value unboxed
 // rather than adding a heap allocation that is immediately moved into the writer.
@@ -351,6 +355,8 @@ impl WorkbookWriter {
             cleanup_paths: Vec::new(),
             feature_numbers: Default::default(),
             workbook_features: None,
+            metadata_counts: None,
+            annotation_maxima: (0, 0),
             view_index: None,
         };
         if writer.style_bytes() > writer.options.max_metadata_bytes {
@@ -490,19 +496,75 @@ fn package_metadata<W: Write + Seek>(
         .map(|features| &features.properties)
         .filter(|properties| **properties != crabxl_core::features::DocumentProperties::default());
     let custom = properties.is_some_and(crate::features::properties::has_custom);
+    use crabxl_core::features::{MacroPolicy, WorkbookFormat};
+    let default_features = crabxl_core::WorkbookFeatures::default();
+    let workbook_features = features.unwrap_or(&default_features);
+    let has_macros = matches!(workbook_features.macros, MacroPolicy::Replace(_));
+    let format = workbook_features.format.unwrap_or(if has_macros {
+        WorkbookFormat::Xlsm
+    } else {
+        WorkbookFormat::Xlsx
+    });
+    if has_macros && !format.allows_macros() {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "Workbook kind does not permit a VBA project",
+        ));
+    }
+    let mut numbers = fp::PartNumbers::avoiding(
+        sheets
+            .iter()
+            .filter_map(|sheet| sheet.features.as_deref())
+            .flat_map(|output| output.parts.iter().map(|part| part.name.as_str())),
+    );
+    let mut next = 0usize;
+    let workbook_output =
+        crate::complex::build_output(workbook_features, "xl/workbook.xml", &mut numbers, |_| {
+            next += 1;
+            format!("rIdComplex{next}")
+        })
+        .map_err(|error| io_error("Cannot encode workbook feature graphs", error))?;
+    if workbook_output
+        .parts
+        .iter()
+        .map(|part| part.bytes.memory_bytes() + part.name.len())
+        .sum::<usize>()
+        > configuration.max_metadata_bytes
+    {
+        return Err(limit("Workbook feature graphs exceed metadata allowance"));
+    }
     let date_1904 = configuration.date_1904;
     let active_sheet = configuration.active_sheet;
     let style_attributes = configuration.style_attributes;
     let theme = configuration.theme.bytes();
     write_part(zip, "[Content_Types].xml", options, |zip| {
-        zip.write_all(b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>")?;
+        zip.write_all(b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>")?;
+        write!(
+            zip,
+            "<Override PartName=\"/xl/workbook.xml\" ContentType=\"{}\"/>",
+            format.content_type()
+        )?;
+        for part in &workbook_output.parts {
+            write!(
+                zip,
+                "<Override PartName=\"/{}\" ContentType=\"{}\"/>",
+                quick_xml::escape::escape(&part.name),
+                quick_xml::escape::escape(part.content_type.as_ref())
+            )?;
+        }
         if theme.is_some() {
             zip.write_all(b"<Override PartName=\"/xl/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>")?;
         }
-        for index in 1..=sheets.len() {
+        for (index, sheet) in sheets.iter().enumerate() {
+            let index = index + 1;
+            let (folder, kind) = if sheet.kind == crate::SheetKind::ChartSheet {
+                ("chartsheets", "chartsheet")
+            } else {
+                ("worksheets", "worksheet")
+            };
             write!(
                 zip,
-                "<Override PartName=\"/xl/worksheets/sheet{index}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+                "<Override PartName=\"/xl/{folder}/sheet{index}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.{kind}+xml\"/>"
             )?;
         }
         let mut vml = false;
@@ -511,14 +573,15 @@ fn package_metadata<W: Write + Seek>(
             .filter_map(|sheet| sheet.features.as_deref())
             .flat_map(|output| output.parts.iter())
         {
-            if part.content_type == crate::features::CT_VML {
+            if part.content_type.as_ref() == crate::features::CT_VML {
                 vml = true;
                 continue;
             }
             write!(
                 zip,
                 "<Override PartName=\"/{}\" ContentType=\"{}\"/>",
-                part.name, part.content_type
+                quick_xml::escape::escape(&part.name),
+                quick_xml::escape::escape(part.content_type.as_ref())
             )?;
         }
         if vml {
@@ -583,11 +646,32 @@ fn package_metadata<W: Write + Seek>(
     }
     write_part(zip, "xl/_rels/workbook.xml.rels", options, |zip| {
         zip.write_all(b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">")?;
-        for index in 1..=sheets.len() {
+        for (index, sheet) in sheets.iter().enumerate() {
+            let index = index + 1;
+            let (folder, kind) = if sheet.kind == crate::SheetKind::ChartSheet {
+                ("chartsheets", "chartsheet")
+            } else {
+                ("worksheets", "worksheet")
+            };
             write!(
                 zip,
-                "<Relationship Id=\"rId{index}\" Type=\"{REL}/worksheet\" Target=\"worksheets/sheet{index}.xml\"/>"
+                "<Relationship Id=\"rId{index}\" Type=\"{REL}/{kind}\" Target=\"{folder}/sheet{index}.xml\"/>"
             )?;
+        }
+        for rel in &workbook_output.relationships {
+            rel.write(zip)?;
+        }
+        for cache in sheets
+            .iter()
+            .filter_map(|sheet| sheet.features.as_deref())
+            .flat_map(|output| &output.pivot_caches)
+        {
+            crate::features::package::OutputRelationship {
+                id: cache.relationship.clone(),
+                kind: crate::pivot::REL_CACHE.into(),
+                target: crate::features::package::relative_target("xl/workbook.xml", &cache.part),
+            }
+            .write(zip)?;
         }
         write!(
             zip,
@@ -639,8 +723,25 @@ fn package_metadata<W: Write + Seek>(
             zip.write_all(b"/>")?;
         }
         zip.write_all(b"</sheets>")?;
+        crate::complex::write_external_refs(zip, &workbook_output.external_refs, None)?;
         if let Some(features) = features {
             crate::features::defined_name::write(zip, &features.defined_names, None)?;
+        }
+        let caches: Vec<_> = sheets
+            .iter()
+            .filter_map(|sheet| sheet.features.as_deref())
+            .flat_map(|output| &output.pivot_caches)
+            .collect();
+        if !caches.is_empty() {
+            zip.write_all(b"<pivotCaches>")?;
+            for cache in caches {
+                write!(
+                    zip,
+                    "<pivotCache cacheId=\"{}\" r:id=\"{}\"/>",
+                    cache.id, cache.relationship
+                )?;
+            }
+            zip.write_all(b"</pivotCaches>")?;
         }
         zip.write_all(b"</workbook>")
     })?;
@@ -651,7 +752,18 @@ fn package_metadata<W: Write + Seek>(
     }
     write_part(zip, "xl/styles.xml", options, |zip| {
         crate::styles::write_styles(zip, styles, style_attributes)
-    })
+    })?;
+    for part in &workbook_output.parts {
+        start_part(
+            zip,
+            &part.name,
+            options.large_file(part.bytes.len() >= u64::from(u32::MAX)),
+        )?;
+        part.bytes.write_to(zip).map_err(|error| {
+            io_error("Cannot write workbook feature graph", error).with_part(&part.name)
+        })?;
+    }
+    Ok(())
 }
 
 pub(crate) fn zip_error(message: &str, error: zip::result::ZipError) -> Error {

@@ -141,9 +141,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     }
                     .map_err(|e| e.with_cell(header.address))?;
                     let annotations = if header.metadata
-                        && self.options.cell_metadata_policy
-                            == crabxl_core::CellMetadataReadPolicy::RetainFormulaReferences
-                    {
+                        && matches!(
+                            self.options.cell_metadata_policy,
+                            crabxl_core::CellMetadataReadPolicy::RetainFormulaReferences
+                                | crabxl_core::CellMetadataReadPolicy::RetainAllReferences
+                        ) {
                         let mut annotations = crabxl_core::FormulaAnnotations::default();
                         crate::metadata::attributes(&e, |name, value| {
                             if matches!(name, b"cm" | b"vm") {
@@ -452,7 +454,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         );
                     }
                     if seen_formula && self.options.data_only {
-                        return Ok(value);
+                        return Ok(if let Some(annotations) = annotations {
+                            value.with_annotations(*annotations)
+                        } else {
+                            value
+                        });
                     }
                     if let Some((expression, mut metadata)) = formula {
                         metadata.annotations = annotations;
@@ -479,7 +485,12 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                             preserve.then_some(metadata),
                         )?)));
                     }
-                    if annotations.is_some() {
+                    if let Some(annotations) = annotations {
+                        if self.options.cell_metadata_policy
+                            == crabxl_core::CellMetadataReadPolicy::RetainAllReferences
+                        {
+                            return Ok(value.with_annotations(*annotations));
+                        }
                         return Err(Error::new(
                             ErrorKind::Unsupported,
                             "Retaining scalar cm/vm metadata is not implemented",

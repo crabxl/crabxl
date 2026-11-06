@@ -12,7 +12,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         output: W,
         options: SaveOptions,
     ) -> Result<(W, SaveStats)> {
-        self.save_with_models(output, options, None, 0)
+        self.save_with_models(output, options, None, 0, false)
     }
     pub(crate) fn save_with_models<W: Write + Seek>(
         &mut self,
@@ -20,6 +20,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         options: SaveOptions,
         bank: Option<&crabxl_core::Workbook>,
         extra_retained: usize,
+        data_only: bool,
     ) -> Result<(W, SaveStats)> {
         if (!self.model_patches.is_empty() || self.membership.is_some()) && bank.is_none() {
             return Err(invalid(
@@ -63,6 +64,163 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             })
             .collect();
         let feature_save = self.prepare_feature_save(&hyperlink_relationships)?;
+        let printers: Vec<_> = self
+            .print_patches
+            .iter()
+            .filter(|(part, _)| self.feature_patches.contains_key(*part))
+            .filter_map(|(part, settings)| {
+                settings
+                    .setup
+                    .printer_relationship
+                    .as_ref()
+                    .map(|id| (part.clone(), id.to_string()))
+            })
+            .collect();
+        for (part, id) in printers {
+            let rels = crate::package::relationship_part(&part);
+            let bytes = match feature_save.replace.get(&rels) {
+                Some(bytes) => bytes.clone(),
+                None => self.book.part_bytes(&rels)?,
+            };
+            let mut xml = XmlStream::new(
+                io::Cursor::new(bytes.as_slice()),
+                rels.clone(),
+                bytes.len() as u64,
+                self.options.resources,
+            );
+            let mut found = false;
+            loop {
+                let frame = xml.next()?;
+                match frame.event {
+                    Event::Start(e)
+                        if frame.depth == 2
+                            && frame.scope == Scope::Relationships
+                            && e.local_name().as_ref() == "Relationship"
+                            && attribute(&e, b"Id")?.as_deref() == Some(&id) =>
+                    {
+                        if found
+                            || attribute(&e, b"Type")?
+                                .as_deref()
+                                .and_then(|kind| kind.rsplit('/').next())
+                                != Some("printerSettings")
+                            || attribute(&e, b"TargetMode")?.as_deref() == Some("External")
+                        {
+                            return Err(invalid("Invalid printer relationship"));
+                        }
+                        let target = crate::package::resolve_part(
+                            &part,
+                            &crate::xml::required_attribute(&e, b"Target")?,
+                        )?;
+                        if !feature_save.parts.iter().any(|part| part.name == target)
+                            && (feature_save.remove.contains(&target)
+                                || self.book.archive.index_for_name(&target).is_none())
+                        {
+                            return Err(invalid("Missing printer payload"));
+                        }
+                        found = true;
+                    }
+                    Event::Eof => break,
+                    _ => {}
+                }
+            }
+            if !found {
+                return Err(
+                    invalid("Page setup has no matching printer relationship").with_part(part)
+                );
+            }
+        }
+        let metadata_counts = if let Some(roots) = self
+            .workbook_feature_patch
+            .as_deref()
+            .and_then(|features| features.metadata.as_deref())
+        {
+            Some(
+                roots
+                    .iter()
+                    .find_map(crabxl_core::features::WorkbookMetadata::annotation_counts)
+                    .unwrap_or((0, 0)),
+            )
+        } else if self
+            .membership
+            .as_ref()
+            .is_some_and(|membership| !membership.created.is_empty())
+            || !self.model_patches.is_empty()
+            || self
+                .patches
+                .values()
+                .flat_map(|patches| patches.values())
+                .any(|patch| patch.cell.value.annotations().is_some())
+        {
+            Some(self.book.annotation_counts()?)
+        } else {
+            None
+        };
+        for patch in self.patches.values().flat_map(|patches| patches.values()) {
+            crate::encode::validate_annotations(&patch.cell.value, metadata_counts)?;
+        }
+        if self
+            .workbook_feature_patch
+            .as_deref()
+            .is_some_and(|features| features.metadata.is_some())
+        {
+            let sources: Vec<_> = self
+                .book
+                .sheets()
+                .iter()
+                .enumerate()
+                .filter(|(index, sheet)| {
+                    sheet.kind() == SheetKind::Worksheet
+                        && !self.model_patches.contains_key(index)
+                        && !self
+                            .membership
+                            .as_deref()
+                            .is_some_and(|membership| membership.removes_part(sheet.part()))
+                })
+                .map(|(_, sheet)| sheet.part().to_owned())
+                .collect();
+            for part in sources {
+                let mut xml = self.book.part_stream(&part)?;
+                loop {
+                    let frame = xml.next()?;
+                    match frame.event {
+                        Event::Start(e)
+                            if frame.scope == Scope::Spreadsheet
+                                && frame.depth == 4
+                                && e.local_name().as_ref() == "c" =>
+                        {
+                            let address = attribute(&e, b"r")?
+                                .map(|value| value.parse::<CellAddress>())
+                                .transpose()?;
+                            if address.is_some_and(|address| {
+                                self.patches.get(&part).is_some_and(|patches| {
+                                    patches.contains_key(&(address.row.get(), address.column.get()))
+                                })
+                            }) {
+                                continue;
+                            }
+                            let cell = attribute(&e, b"cm")?;
+                            let value = attribute(&e, b"vm")?;
+                            crate::encode::validate_annotation_indices(
+                                cell.as_deref(),
+                                value.as_deref(),
+                                metadata_counts,
+                            )
+                            .map_err(|error| error.with_part(&part))?;
+                        }
+                        Event::Eof => break,
+                        _ => {}
+                    }
+                }
+            }
+            if let Some(bank) = bank {
+                for (_, sheet) in bank.sheets() {
+                    for cell in sheet.cells() {
+                        crate::encode::validate_annotations(&cell.value, metadata_counts)
+                            .map_err(|error| error.with_cell(cell.address))?;
+                    }
+                }
+            }
+        }
         let feature_plans = &feature_save.sheets;
         let relationships_added = relationship_plans
             .keys()
@@ -89,7 +247,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         } else {
             DateEpoch::Windows1900
         };
-        let dirty = self.patch_cells != 0
+        let dirty = data_only
+            || self.patch_cells != 0
             || !self.model_patches.is_empty()
             || self.membership.as_deref().is_some_and(|membership| {
                 membership.removal_dirty
@@ -155,11 +314,39 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     crate::writer::compression_options(options.compression_level),
                 )
                 .map_err(|cause| zip_error("Cannot start rewritten feature part", cause))?;
-                zip.write_all(bytes)
-                    .map_err(|cause| io_error("Cannot write rewritten feature part", cause))?;
-                total = total - u128::from(part.uncompressed_bytes) + bytes.len() as u128;
+                let written = if part.name.as_ref() == self.workbook_relationships {
+                    patch_package_graph(
+                        io::Cursor::new(bytes.as_slice()),
+                        PartOutput {
+                            inner: BufWriter::with_capacity(64 * 1024, &mut zip),
+                            bytes: 0,
+                            maximum: self.options.resources.max_part_bytes,
+                        },
+                        &part.name,
+                        PackageGraphRewrite {
+                            chains: if dirty {
+                                &self.calc_chain_parts
+                            } else {
+                                &empty_chains
+                            },
+                            limits: self.options.resources,
+                            membership,
+                            relationships_added,
+                            additions: &catalog_parts,
+                            features: Some(&feature_save),
+                        },
+                    )?
+                } else {
+                    zip.write_all(bytes)
+                        .map_err(|cause| io_error("Cannot write rewritten feature part", cause))?;
+                    bytes.len() as u64
+                };
+                total = total - u128::from(part.uncompressed_bytes) + u128::from(written);
+                if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
+                    return Err(limit("Edited feature package exceeds configured limit"));
+                }
                 stats.rewritten_parts += 1;
-                stats.rewritten_xml_bytes += bytes.len() as u64;
+                stats.rewritten_xml_bytes += written;
                 continue;
             }
             let chain_metadata = (!catalog_parts.is_empty()
@@ -227,20 +414,32 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 && self.book.sheets().iter().any(|sheet| {
                     sheet.kind() == SheetKind::Worksheet && sheet.part() == part.name.as_ref()
                 });
+            let chartsheet = feature_plans.contains_key(part.name.as_ref())
+                && self.book.sheets().iter().any(|sheet| {
+                    sheet.kind() == SheetKind::ChartSheet && sheet.part() == part.name.as_ref()
+                });
             let workbook = (dirty
                 || active.is_some()
                 || !self.visibility_patches.is_empty()
                 || !self.name_patches.is_empty()
                 || self.catalog_order.is_some()
                 || membership.is_some()
-                || feature_save.workbook.is_some())
+                || feature_save.workbook.is_some()
+                || !feature_save.pivot_caches.is_empty())
                 && part.name.as_ref() == self.book.workbook_part;
             let shared_strings = dirty && self.shared_string_parts.contains(part.name.as_ref());
             let styles =
                 self.styles_dirty && self.book.style_part.as_deref() == Some(part.name.as_ref());
             let theme =
                 self.theme_dirty && self.book.theme_part.as_deref() == Some(part.name.as_ref());
-            if styles || theme || worksheet || workbook || shared_strings || chain_metadata {
+            if styles
+                || theme
+                || worksheet
+                || chartsheet
+                || workbook
+                || shared_strings
+                || chain_metadata
+            {
                 let file = self.book.archive.by_index(index).map_err(|error| {
                     zip_error("Cannot read affected XML part", error).with_part(part.name.as_ref())
                 })?;
@@ -290,12 +489,44 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         .flush()
                         .map_err(|cause| io_error("Cannot flush source theme", cause))?;
                     Ok(budget.bytes)
+                } else if chartsheet {
+                    let mut xml = XmlStream::new(
+                        BufReader::with_capacity(self.options.resources.input_buffer_bytes, file),
+                        part.name.to_string(),
+                        self.options
+                            .resources
+                            .max_metadata_bytes
+                            .min(self.options.resources.max_part_bytes),
+                        self.options.resources,
+                    );
+                    let original = crate::drawing::read_chartsheet(&mut xml)?;
+                    let root = feature_plans
+                        .get(part.name.as_ref())
+                        .and_then(|plan| plan.features.chartsheet.clone())
+                        .unwrap_or(original);
+                    let uri = crate::drawing::chartsheet_namespace(&root)?;
+                    let mut budget = budget;
+                    crate::drawing::write_chartsheet(
+                        &mut budget,
+                        Some(root),
+                        feature_plans
+                            .get(part.name.as_ref())
+                            .and_then(|plan| plan.output.refs.drawing.as_deref()),
+                        uri,
+                    )
+                    .map_err(|cause| io_error("Cannot rewrite chartsheet", cause))?;
+                    budget
+                        .flush()
+                        .map_err(|cause| io_error("Cannot flush chartsheet", cause))?;
+                    Ok(budget.bytes)
                 } else if worksheet {
                     patch_worksheet(
                         file,
                         budget,
                         &part.name,
                         WorksheetRewrite {
+                            data_only,
+                            metadata_counts,
                             patches: self.patches.get(part.name.as_ref()),
                             limits: self.options.resources,
                             formula_attributes: self.options.formula_attributes,
@@ -327,6 +558,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             order: self.catalog_order.as_deref(),
                             membership,
                             features: feature_save.workbook.as_deref(),
+                            pivot_caches: &feature_save.pivot_caches,
+                            external_refs: feature_save.external_refs.as_deref(),
                         },
                     )
                 } else if shared_strings {
@@ -389,34 +622,37 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 stats.copied_parts += 1;
             }
         }
-        for (name, bytes) in feature_save
+        let mut new_features: Vec<(String, crabxl_core::BinaryPayload)> = feature_save
             .parts
             .iter()
-            .map(|part| (part.name.as_str(), &part.bytes))
-            .chain(
-                feature_save
-                    .replace
-                    .iter()
-                    .filter(|(name, _)| self.book.archive.index_for_name(name).is_none())
-                    .map(|(name, bytes)| (name.as_str(), bytes)),
-            )
-        {
-            if bytes.len() as u64 > self.options.resources.max_part_bytes {
+            .map(|part| (part.name.clone(), part.bytes.clone()))
+            .collect();
+        new_features.extend(
+            feature_save
+                .replace
+                .iter()
+                .filter(|(name, _)| self.book.archive.index_for_name(name).is_none())
+                .map(|(name, bytes)| (name.clone(), bytes.as_slice().into())),
+        );
+        for (name, bytes) in &new_features {
+            if bytes.len() > self.options.resources.max_part_bytes {
                 return Err(limit("New feature part exceeds configured limit").with_part(name));
             }
             zip.start_file(
                 name,
-                crate::writer::compression_options(options.compression_level),
+                crate::writer::compression_options(options.compression_level)
+                    .large_file(bytes.len() >= u64::from(u32::MAX)),
             )
             .map_err(|cause| zip_error("Cannot start new feature part", cause))?;
-            zip.write_all(bytes)
+            bytes
+                .write_to(&mut zip)
                 .map_err(|cause| io_error("Cannot write new feature part", cause))?;
-            total += bytes.len() as u128;
+            total += u128::from(bytes.len());
             if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
                 return Err(limit("Created feature package exceeds configured limit"));
             }
             stats.created_parts += 1;
-            stats.rewritten_xml_bytes += bytes.len() as u64;
+            stats.rewritten_xml_bytes += bytes.len();
         }
         for (part, (_, plan)) in &relationship_plans {
             if self.book.archive.index_for_name(part).is_some()
@@ -507,7 +743,33 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     bytes: 0,
                     maximum: self.options.resources.max_part_bytes,
                 };
-                let bytes = if let Some(index) = created.template {
+                let bytes = if created.kind == SheetKind::ChartSheet {
+                    let source = if let Some(root) = feature_plans
+                        .get(created.part.as_str())
+                        .and_then(|plan| plan.features.chartsheet.clone())
+                    {
+                        Some(root)
+                    } else if let Some(index) = created.template {
+                        let part = self.book.sheets()[index].part().to_owned();
+                        let mut xml = self.book.part_stream(&part)?;
+                        Some(crate::drawing::read_chartsheet(&mut xml)?)
+                    } else {
+                        None
+                    };
+                    crate::drawing::write_chartsheet(
+                        &mut output,
+                        source,
+                        feature_plans
+                            .get(created.part.as_str())
+                            .and_then(|plan| plan.output.refs.drawing.as_deref()),
+                        membership.namespace(),
+                    )
+                    .map_err(|cause| io_error("Cannot create chartsheet", cause))?;
+                    output
+                        .flush()
+                        .map_err(|cause| io_error("Cannot flush chartsheet", cause))?;
+                    output.bytes
+                } else if let Some(index) = created.template {
                     let part = self
                         .book
                         .sheets()
@@ -525,6 +787,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         output,
                         &part,
                         WorksheetRewrite {
+                            data_only,
+                            metadata_counts,
                             patches: None,
                             limits: self.options.resources,
                             formula_attributes: self.options.formula_attributes,
@@ -556,6 +820,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         bank.style_catalog(),
                         self.options.resources,
                         crate::loaded_codec::Encoding {
+                            metadata_counts,
                             epoch,
                             non_finite: self.options.non_finite,
                             formula_attributes: self.options.formula_attributes,

@@ -18,13 +18,94 @@ pub(crate) struct SourceParts {
     pub comments: Option<(String, String)>,
     /// Relationship id and part name of the legacy VML drawing.
     pub vml: Option<(String, String)>,
+    /// Spreadsheet drawing relationship and part.
+    pub drawing: Option<(String, String)>,
+    pub pivots: Vec<(String, String)>,
+    pub printer: Option<(String, String)>,
 }
 fn kind_is(kind: &str, suffix: &str) -> bool {
     kind.rsplit('/').next() == Some(suffix)
 }
 
 impl<R: Read + Seek> WorkbookReader<R> {
-    fn sheet_part(&self, name: &str) -> Result<String> {
+    /// Retain small assets in memory and spool larger assets without a full-file buffer.
+    pub(crate) fn part_payload(&mut self, part: &str) -> Result<crabxl_core::BinaryPayload> {
+        let maximum = self.limits.max_part_bytes;
+        let mut input = self.archive.by_name(part).map_err(|error| {
+            crabxl_core::Error::caused_by(
+                crabxl_core::ErrorKind::Archive,
+                "Cannot open encoded asset",
+                error,
+            )
+            .with_part(part)
+        })?;
+        if input.size() > maximum {
+            return Err(crabxl_core::Error::new(
+                crabxl_core::ErrorKind::LimitExceeded,
+                "Encoded asset exceeds part byte limit",
+            )
+            .with_part(part));
+        }
+        let threshold = self
+            .limits
+            .input_buffer_bytes
+            .min(self.limits.max_materialized_bytes);
+        if input.size() <= threshold as u64 {
+            let mut data = Vec::new();
+            input
+                .by_ref()
+                .take(maximum.saturating_add(1))
+                .read_to_end(&mut data)
+                .map_err(|error| {
+                    crabxl_core::Error::caused_by(
+                        crabxl_core::ErrorKind::Io,
+                        "Cannot read encoded asset",
+                        error,
+                    )
+                    .with_part(part)
+                })?;
+            if data.len() as u64 > maximum {
+                return Err(crabxl_core::Error::new(
+                    crabxl_core::ErrorKind::LimitExceeded,
+                    "Encoded asset exceeds part byte limit",
+                )
+                .with_part(part));
+            }
+            return Ok(data.into());
+        }
+        let mut output = tempfile::tempfile().map_err(|error| {
+            crabxl_core::Error::caused_by(
+                crabxl_core::ErrorKind::Io,
+                "Cannot create encoded asset spool",
+                error,
+            )
+        })?;
+        let length =
+            io::copy(&mut input.take(maximum.saturating_add(1)), &mut output).map_err(|error| {
+                crabxl_core::Error::caused_by(
+                    crabxl_core::ErrorKind::Io,
+                    "Cannot spool encoded asset",
+                    error,
+                )
+                .with_part(part)
+            })?;
+        if length > maximum {
+            return Err(crabxl_core::Error::new(
+                crabxl_core::ErrorKind::LimitExceeded,
+                "Encoded asset exceeds part byte limit",
+            )
+            .with_part(part));
+        }
+        crabxl_core::BinaryPayload::from_file(output).map_err(|error| {
+            crabxl_core::Error::caused_by(
+                crabxl_core::ErrorKind::Io,
+                "Cannot retain encoded asset spool",
+                error,
+            )
+            .with_part(part)
+        })
+    }
+    pub(crate) fn sheet_part(&self, name: &str) -> Result<String> {
         let info = self
             .sheets()
             .iter()
@@ -35,16 +116,26 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     "Worksheet not found",
                 )
             })?;
-        if info.kind() != crate::SheetKind::Worksheet {
+        if !matches!(
+            info.kind(),
+            crate::SheetKind::Worksheet | crate::SheetKind::ChartSheet
+        ) {
             return Err(unsupported("Features require a cell worksheet"));
         }
         Ok(info.part().to_owned())
     }
 
-    fn part_stream(
+    pub(crate) fn part_stream(
         &mut self,
         part: &str,
     ) -> Result<XmlStream<BufReader<zip::read::ZipFile<'_, R>>>> {
+        let byte_limit = if self.sheets().iter().any(|sheet| sheet.part() == part) {
+            self.limits.max_part_bytes
+        } else {
+            self.limits
+                .max_part_bytes
+                .min(self.limits.max_metadata_bytes)
+        };
         let file = self.archive.by_name(part).map_err(|error| {
             crabxl_core::Error::caused_by(
                 crabxl_core::ErrorKind::Archive,
@@ -56,12 +147,12 @@ impl<R: Read + Seek> WorkbookReader<R> {
         Ok(XmlStream::new(
             BufReader::with_capacity(self.limits.input_buffer_bytes, file),
             part.to_owned(),
-            self.limits.max_part_bytes,
+            byte_limit,
             self.limits,
         ))
     }
 
-    fn part_bytes(&mut self, part: &str) -> Result<Vec<u8>> {
+    pub(crate) fn part_bytes(&mut self, part: &str) -> Result<Vec<u8>> {
         let maximum = self.limits.max_part_bytes;
         let file = self.archive.by_name(part).map_err(|error| {
             crabxl_core::Error::caused_by(
@@ -105,7 +196,48 @@ impl<R: Read + Seek> WorkbookReader<R> {
         name: &str,
     ) -> Result<(SheetFeatures, SourceParts)> {
         let part = self.sheet_part(name)?;
-        let (mut features, refs) = {
+        let chartsheet = self
+            .sheets()
+            .iter()
+            .find(|sheet| sheet.name() == name)
+            .is_some_and(|sheet| sheet.kind() == crate::SheetKind::ChartSheet);
+        let (mut features, refs) = if chartsheet {
+            let mut xml = self.part_stream(&part)?;
+            let root = crate::drawing::read_chartsheet(&mut xml)?;
+            let mut refs = PartRefs::default();
+            for element in root.children.iter().filter_map(|child| match child {
+                crabxl_core::XmlContent::Element(element) => Some(element),
+                _ => None,
+            }) {
+                if element.local_name() == "drawing" {
+                    refs.drawing = element.attributes.iter().find_map(|(name, value)| {
+                        let (prefix, local) = name.split_once(':')?;
+                        if local != "id" {
+                            return None;
+                        }
+                        let namespace = format!("xmlns:{prefix}");
+                        let uri = element
+                            .attribute(&namespace)
+                            .or_else(|| root.attribute(&namespace))?;
+                        matches!(
+                            uri,
+                            crate::xml::OFFICE_REL_URI | crate::xml::STRICT_OFFICE_REL_URI
+                        )
+                        .then(|| value.to_string())
+                    });
+                    if refs.drawing.is_none() {
+                        return Err(invalid("Chartsheet drawing has no relationship"));
+                    }
+                }
+            }
+            (
+                SheetFeatures {
+                    chartsheet: Some(root),
+                    ..Default::default()
+                },
+                refs,
+            )
+        } else {
             let mut xml = self.part_stream(&part)?;
             super::sheet::read_worksheet(&mut xml).map_err(|error| error.with_part(&part))?
         };
@@ -133,8 +265,29 @@ impl<R: Read + Seek> WorkbookReader<R> {
             }
             crate::package::resolve_part(&part, &relationship.target)
         };
+        if let Some(id) = &refs.printer {
+            let rel = relationships
+                .get(id)
+                .ok_or_else(|| invalid("Missing printer relationship"))?;
+            if rel.external || !kind_is(&rel.kind, "printerSettings") {
+                return Err(invalid("Invalid printer relationship"));
+            }
+            sources.printer = Some((id.clone(), target(id)?));
+        }
+        for id in &refs.pivots {
+            sources.pivots.push((id.clone(), target(id)?));
+        }
         for id in &refs.tables {
             sources.tables.push((id.clone(), target(id)?));
+        }
+        if let Some(id) = &refs.drawing {
+            let rel = relationships
+                .get(id)
+                .ok_or_else(|| invalid("Missing drawing relationship"))?;
+            if !kind_is(&rel.kind, "drawing") {
+                return Err(invalid("Wrong drawing relationship type"));
+            }
+            sources.drawing = Some((id.clone(), target(id)?));
         }
         if let Some(id) = &refs.legacy_drawing {
             sources.vml = Some((id.clone(), target(id)?));
@@ -165,6 +318,29 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 super::comment::apply_vml(&bytes, &mut features.comments)
                     .map_err(|error| error.with_part(vml_part))?;
             }
+        }
+        if let Some((id, part)) = &sources.printer {
+            let data = self.part_payload(part)?;
+            let (relationships, parts) = self.read_part_dependencies(part)?;
+            features.printer_settings = Some(crabxl_core::features::PrinterSettings {
+                relationship: id.clone().into(),
+                data,
+                source_part: Some(part.clone().into()),
+                relationships,
+                parts,
+            });
+        }
+        if chartsheet {
+            let root = features
+                .chartsheet
+                .as_ref()
+                .ok_or_else(|| invalid("Missing chartsheet properties"))?;
+            features.chartsheet_parts = Some(self.read_object_parts(
+                &part,
+                root,
+                refs.drawing.as_deref().unwrap_or(""),
+                true,
+            )?);
         }
         Ok((features, sources))
     }
@@ -244,40 +420,87 @@ impl<R: Read + Seek> WorkbookReader<R> {
 #[derive(Clone, Debug)]
 pub(crate) struct OutputPart {
     pub name: String,
-    pub content_type: &'static str,
-    pub bytes: Vec<u8>,
+    pub content_type: Box<str>,
+    pub bytes: crabxl_core::BinaryPayload,
 }
 
 /// A new worksheet relationship.
 #[derive(Clone, Debug)]
 pub(crate) struct OutputRelationship {
     pub id: String,
-    pub kind: &'static str,
+    pub kind: Box<str>,
     pub target: String,
 }
 impl OutputRelationship {
     pub(crate) fn write(&self, out: &mut impl Write) -> io::Result<()> {
+        if self.id.is_empty() || self.kind.is_empty() || self.target.is_empty() {
+            return Err(io::Error::other("Empty package relationship field"));
+        }
+        for value in [self.id.as_str(), self.kind.as_ref(), self.target.as_str()] {
+            crate::encode::validate_xml_text(value).map_err(io::Error::other)?;
+        }
         out.write_all(b"<Relationship Id=\"")?;
         out.write_all(quick_xml::escape::escape(self.id.as_str()).as_bytes())?;
-        write!(out, "\" Type=\"{}\" Target=\"", self.kind)?;
+        write!(
+            out,
+            "\" Type=\"{}\" Target=\"",
+            quick_xml::escape::escape(self.kind.as_ref())
+        )?;
         out.write_all(quick_xml::escape::escape(self.target.as_str()).as_bytes())?;
         out.write_all(b"\"/>")
     }
 }
 
+pub(crate) fn validate_relationship_ids(bytes: &[u8]) -> Result<()> {
+    let mut xml = XmlStream::new(
+        io::Cursor::new(bytes),
+        "relationships".into(),
+        bytes.len() as u64,
+        crabxl_core::ResourceLimits::default(),
+    );
+    let mut ids = std::collections::HashSet::new();
+    loop {
+        let frame = xml.next()?;
+        match frame.event {
+            Event::Start(e)
+                if frame.depth == 2
+                    && frame.scope == Scope::Relationships
+                    && e.local_name().as_ref() == "Relationship" =>
+            {
+                let id = crate::xml::required_attribute(&e, b"Id")?;
+                if id.is_empty() || !ids.insert(id) {
+                    return Err(invalid("Empty or duplicate package relationship id"));
+                }
+            }
+            Event::Eof => return Ok(()),
+            _ => {}
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct PivotCacheOutput {
+    pub id: u32,
+    pub part: String,
+    pub relationship: String,
+}
 /// Feature parts and relationships for one worksheet.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct SheetOutput {
     pub refs: PartRefs,
     pub parts: Vec<OutputPart>,
     pub relationships: Vec<OutputRelationship>,
+    pub pivot_caches: Vec<PivotCacheOutput>,
+    pub extra_relationships: Vec<u8>,
 }
 impl SheetOutput {
     pub(crate) fn heap_bytes(&self) -> usize {
-        self.parts
-            .iter()
-            .map(|part| part.name.capacity() + part.bytes.capacity() + 64)
-            .sum::<usize>()
+        self.extra_relationships.capacity()
+            + self
+                .parts
+                .iter()
+                .map(|part| part.name.capacity() + part.bytes.memory_bytes() + 64)
+                .sum::<usize>()
             + self
                 .relationships
                 .iter()
@@ -290,9 +513,19 @@ impl SheetOutput {
 #[derive(Clone, Debug)]
 pub(crate) struct PartNumbers {
     pub table_file: u32,
-    pub table_id: u32,
+    pub table_id: u64,
     pub comments_file: u32,
     pub vml_file: u32,
+    pub drawing_file: u32,
+    pub image_file: u32,
+    pub chart_file: u32,
+    pub related_file: u32,
+    pub pivot_file: u32,
+    pub pivot_cache_file: u32,
+    pub pivot_cache_id: u64,
+    pub external_file: u32,
+    pub vba_file: u32,
+    pub metadata_file: u32,
     taken: std::collections::HashSet<String>,
 }
 impl Default for PartNumbers {
@@ -302,6 +535,16 @@ impl Default for PartNumbers {
             table_id: 1,
             comments_file: 1,
             vml_file: 1,
+            drawing_file: 1,
+            image_file: 1,
+            chart_file: 1,
+            related_file: 1,
+            pivot_file: 1,
+            pivot_cache_file: 1,
+            pivot_cache_id: 0,
+            external_file: 1,
+            vba_file: 1,
+            metadata_file: 1,
             taken: Default::default(),
         }
     }
@@ -316,9 +559,13 @@ impl PartNumbers {
     }
     /// Reserve table ids up to and including `id`.
     pub(crate) fn reserve_table_id(&mut self, id: u32) {
-        self.table_id = self.table_id.max(id.saturating_add(1));
+        self.table_id = self.table_id.max(u64::from(id) + 1);
     }
-    fn next_name(&mut self, counter: fn(&mut Self) -> &mut u32, pattern: (&str, &str)) -> String {
+    pub(crate) fn next_name(
+        &mut self,
+        counter: fn(&mut Self) -> &mut u32,
+        pattern: (&str, &str),
+    ) -> String {
         loop {
             let number = *counter(self);
             *counter(self) += 1;
@@ -331,7 +578,7 @@ impl PartNumbers {
 }
 
 /// Relative target from a worksheet part to `part` (both package names).
-fn relative_target(sheet_part: &str, part: &str) -> String {
+pub(crate) fn relative_target(sheet_part: &str, part: &str) -> String {
     let from: Vec<&str> = sheet_part.split('/').collect();
     let to: Vec<&str> = part.split('/').collect();
     let folder = &from[..from.len().saturating_sub(1)];
@@ -358,23 +605,73 @@ pub(crate) fn build_sheet_output(
     mut relationship_id: impl FnMut(&str) -> String,
 ) -> io::Result<SheetOutput> {
     let mut output = SheetOutput::default();
+    if let Some(graph) = &features.chartsheet_parts {
+        crate::drawing::build_part_dependencies(
+            &graph.relationships,
+            &graph.parts,
+            graph.source_part.as_deref(),
+            sheet_part,
+            numbers,
+            &mut output,
+        )?;
+        output.extra_relationships =
+            crate::drawing::take_relationships(&mut output.parts, sheet_part)?;
+    }
+    let reserved: std::collections::HashSet<_> = features
+        .chartsheet_parts
+        .iter()
+        .flat_map(|graph| graph.relationships.iter().map(|rel| rel.id.as_ref()))
+        .chain(
+            features
+                .printer_settings
+                .iter()
+                .map(|settings| settings.relationship.as_ref()),
+        )
+        .collect();
+    let mut allocate = |kind: &str| {
+        let mut id = relationship_id(kind);
+        while reserved.contains(id.as_str()) {
+            id.push('_');
+        }
+        id
+    };
+    if let Some(settings) = &features.printer_settings {
+        if settings.relationship.is_empty() {
+            return Err(io::Error::other("Empty printer relationship"));
+        }
+        let part = numbers.next_name(
+            |n| &mut n.related_file,
+            ("xl/printerSettings/printerSettings", ".bin"),
+        );
+        output.relationships.push(OutputRelationship { id: settings.relationship.to_string(), kind: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/printerSettings".into(), target: relative_target(sheet_part, &part) });
+        output.parts.push(OutputPart { name: part.clone(), content_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.printerSettings".into(), bytes: settings.data.clone() });
+        crate::drawing::build_part_dependencies(
+            &settings.relationships,
+            &settings.parts,
+            settings.source_part.as_deref(),
+            &part,
+            numbers,
+            &mut output,
+        )?;
+    }
     for table in &features.tables {
         let name = numbers.next_name(|n| &mut n.table_file, ("xl/tables/table", ".xml"));
-        let id = numbers.table_id;
+        let id = u32::try_from(numbers.table_id)
+            .map_err(|_| io::Error::other("Table identifier space exhausted"))?;
         numbers.table_id += 1;
         let mut bytes = Vec::new();
         super::table::write_part(&mut bytes, table, id)?;
-        let rid = relationship_id("table");
+        let rid = allocate("table");
         output.relationships.push(OutputRelationship {
             id: rid.clone(),
-            kind: REL_TABLE,
+            kind: REL_TABLE.into(),
             target: relative_target(sheet_part, &name),
         });
         output.refs.tables.push(rid);
         output.parts.push(OutputPart {
             name,
-            content_type: CT_TABLE,
-            bytes,
+            content_type: CT_TABLE.into(),
+            bytes: bytes.into(),
         });
     }
     if !features.comments.is_empty() {
@@ -382,30 +679,42 @@ pub(crate) fn build_sheet_output(
         let mut bytes = Vec::new();
         super::comment::write_part(&mut bytes, &features.comments)?;
         output.relationships.push(OutputRelationship {
-            id: relationship_id("comments"),
-            kind: REL_COMMENTS,
+            id: allocate("comments"),
+            kind: REL_COMMENTS.into(),
             target: relative_target(sheet_part, &name),
         });
         output.parts.push(OutputPart {
             name,
-            content_type: CT_COMMENTS,
-            bytes,
+            content_type: CT_COMMENTS.into(),
+            bytes: bytes.into(),
         });
         let name = numbers.next_name(|n| &mut n.vml_file, ("xl/drawings/commentsDrawing", ".vml"));
         let mut bytes = Vec::new();
         super::comment::write_vml(&mut bytes, &features.comments, sheet_index)?;
-        let rid = relationship_id("vml");
+        let rid = allocate("vml");
         output.relationships.push(OutputRelationship {
             id: rid.clone(),
-            kind: REL_VML,
+            kind: REL_VML.into(),
             target: relative_target(sheet_part, &name),
         });
         output.refs.legacy_drawing = Some(rid);
         output.parts.push(OutputPart {
             name,
-            content_type: CT_VML,
-            bytes,
+            content_type: CT_VML.into(),
+            bytes: bytes.into(),
         });
+    }
+    crate::drawing::build_output(
+        features.images.as_deref().unwrap_or(&[]),
+        features.charts.as_deref().unwrap_or(&[]),
+        features.shapes.as_deref().unwrap_or(&[]),
+        sheet_part,
+        numbers,
+        &mut allocate,
+        &mut output,
+    )?;
+    if let Some(pivots) = &features.pivots {
+        crate::pivot::build_output(pivots, sheet_part, numbers, &mut allocate, &mut output)?;
     }
     Ok(output)
 }

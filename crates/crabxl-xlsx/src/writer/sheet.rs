@@ -6,6 +6,113 @@
 use super::*;
 
 impl WorkbookWriter {
+    /// Write a complete chartsheet containing one chart, without cell materialization.
+    pub fn write_chartsheet(
+        &mut self,
+        name: impl Into<String>,
+        chart: &crabxl_core::Chart,
+    ) -> Result<usize> {
+        self.write_chartsheet_with_properties(name, chart, None)
+    }
+    /// Create a chart-only sheet with editable view, page, protection and extension properties.
+    pub fn write_chartsheet_with_properties(
+        &mut self,
+        name: impl Into<String>,
+        chart: &crabxl_core::Chart,
+        properties: Option<&crabxl_core::XmlElement>,
+    ) -> Result<usize> {
+        let features = crabxl_core::SheetFeatures {
+            charts: Some(vec![chart.clone()]),
+            chartsheet: properties.cloned(),
+            ..Default::default()
+        };
+        self.write_chartsheet_with_features(name, &features)
+    }
+    /// Create a chart-only sheet with drawing objects, editable properties and owned part graphs.
+    pub fn write_chartsheet_with_features(
+        &mut self,
+        name: impl Into<String>,
+        features: &crabxl_core::SheetFeatures,
+    ) -> Result<usize> {
+        self.ensure_open()?;
+        let properties = features.chartsheet.as_ref();
+        if let Some(properties) = properties {
+            crate::drawing::validate_chartsheet_copy(
+                properties,
+                features.chartsheet_parts.as_ref(),
+            )?;
+        }
+        let mut inline = features.clone();
+        inline.chartsheet = None;
+        inline.chartsheet_parts = None;
+        inline.images = None;
+        inline.charts = None;
+        inline.shapes = None;
+        if !inline.is_empty() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Edit chartsheet metadata through its XML property tree",
+            ));
+        }
+        let name = name.into();
+        validate_sheet_name(&name)?;
+        let id = self.next_sheet;
+        let output = crate::features::package::build_sheet_output(
+            features,
+            id,
+            "xl/chartsheets/sheet.xml",
+            &mut self.feature_numbers,
+            |_| "rIdDrawing".into(),
+        )
+        .map_err(|error| io_error("Cannot encode chartsheet drawing", error))?;
+        let mut relationships = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">".to_vec();
+        for rel in &output.relationships {
+            rel.write(&mut relationships)
+                .map_err(|error| io_error("Cannot encode chartsheet relationships", error))?;
+        }
+        relationships.extend_from_slice(&output.extra_relationships);
+        relationships.extend_from_slice(b"</Relationships>");
+        let mut bytes = RowBuffer {
+            data: Vec::new(),
+            maximum: self.options.max_metadata_bytes,
+        };
+        crate::drawing::write_chartsheet(
+            &mut bytes,
+            properties.cloned(),
+            output.refs.drawing.as_deref(),
+            MAIN,
+        )
+        .map_err(|error| io_error("Cannot encode chartsheet properties", error))?;
+        let closing = format!(
+            "</{}>",
+            properties.map_or("chartsheet", |properties| properties.name.as_ref())
+        );
+        let split = bytes
+            .data
+            .len()
+            .checked_sub(closing.len())
+            .ok_or_else(|| state("Invalid chartsheet closing tag"))?;
+        let footer = bytes.data.split_off(split);
+        self.start_sheet_with_header(
+            name,
+            &bytes.data,
+            Some(footer),
+            output
+                .heap_bytes()
+                .saturating_add(relationships.len())
+                .saturating_add(bytes.data.capacity()),
+        )?;
+        if let Some(active) = &mut self.active {
+            active.columns_written = true;
+            active.features = Some(Box::new(output));
+            active.relationships = Some(relationships);
+        }
+        self.close_sheet()?;
+        if let Some(sheet) = self.sheets.last_mut() {
+            sheet.kind = crate::SheetKind::ChartSheet;
+        }
+        Ok(id)
+    }
     /// Start a sheet, completing the previous one. Failed validation or temporary
     /// file creation leaves the previous active sheet usable.
     pub fn start_sheet(&mut self, name: impl Into<String>) -> Result<()> {
@@ -50,8 +157,8 @@ impl WorkbookWriter {
     ) -> Result<()> {
         self.start_sheet_with_settings(name, Some(views), None)
     }
-    /// Borrow canonical views and printing settings. Encoded metadata is bounded;
-    /// printing relationships require the later new-package relationship graph.
+    /// Borrow canonical views and printing settings. Printer payloads can be
+    /// supplied with the other features through `start_sheet_with_metadata`.
     pub fn start_sheet_with_settings(
         &mut self,
         name: impl Into<String>,
@@ -77,8 +184,28 @@ impl WorkbookWriter {
             Some(features),
         )
     }
+    /// Start streaming cells with views, printing, point links and package-backed features.
+    /// Metadata is borrowed and encoded before the previous sheet is closed.
+    pub fn start_sheet_with_metadata(
+        &mut self,
+        name: impl Into<String>,
+        views: Option<&crabxl_core::SheetViews>,
+        printing: Option<&crabxl_core::PrintSettings>,
+        hyperlinks: &crabxl_core::Hyperlinks,
+        features: Option<&crabxl_core::SheetFeatures>,
+    ) -> Result<()> {
+        self.start_sheet_with_dimensions(name, views, printing, &[], &[], hyperlinks, features)
+    }
     /// Set defined names, workbook protection and document properties.
     pub fn set_workbook_features(&mut self, features: Option<crabxl_core::WorkbookFeatures>) {
+        self.metadata_counts = features
+            .as_ref()
+            .and_then(|features| features.metadata.as_deref())
+            .and_then(|roots| {
+                roots
+                    .iter()
+                    .find_map(crabxl_core::features::WorkbookMetadata::annotation_counts)
+            });
         self.workbook_features = features
             .filter(|features| !features.is_empty())
             .map(Box::new);
@@ -96,6 +223,12 @@ impl WorkbookWriter {
     ) -> Result<()> {
         self.ensure_open()?;
         let features = features.filter(|features| !features.is_empty());
+        if features.is_some_and(|features| features.chartsheet.is_some()) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Use the chartsheet writer for chartsheet properties",
+            ));
+        }
         if views.is_none()
             && printing.is_none()
             && columns.is_empty()
@@ -110,12 +243,23 @@ impl WorkbookWriter {
         }
         if let Some(printing) = printing {
             crate::printing::validate(printing)?;
-            if printing.setup.printer_relationship.is_some() {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "New printer relationships require a package feature graph",
-                ));
-            }
+        }
+        if printing.and_then(|printing| printing.setup.printer_relationship.as_deref())
+            != features
+                .and_then(|features| features.printer_settings.as_ref())
+                .map(|settings| settings.relationship.as_ref())
+        {
+            return Err(Error::new(
+                if features
+                    .and_then(|features| features.printer_settings.as_ref())
+                    .is_none()
+                {
+                    ErrorKind::Unsupported
+                } else {
+                    ErrorKind::InvalidData
+                },
+                "Printer settings must match the page-setup relationship",
+            ));
         }
         for column in columns {
             column.validate()?;
@@ -157,15 +301,24 @@ impl WorkbookWriter {
                     "xl/worksheets/sheet.xml",
                     &mut self.feature_numbers,
                     |_| {
-                        next += 1;
-                        format!("rIdF{next}")
+                        loop {
+                            next += 1;
+                            let id = format!("rIdF{next}");
+                            if features
+                                .printer_settings
+                                .as_ref()
+                                .is_none_or(|settings| settings.relationship.as_ref() != id)
+                            {
+                                break id;
+                            }
+                        }
                     },
                 )
                 .map_err(|error| io_error("Cannot encode worksheet feature parts", error))?;
                 if output.heap_bytes() > maximum {
                     return Err(limit("Worksheet feature parts exceed metadata allowance"));
                 }
-                if !output.relationships.is_empty() {
+                if !output.relationships.is_empty() || !output.extra_relationships.is_empty() {
                     let mut bytes = relationships.take().unwrap_or_else(|| {
                         b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"></Relationships>".to_vec()
                     });
@@ -174,7 +327,7 @@ impl WorkbookWriter {
                         .windows(end.len())
                         .rposition(|window| window == end)
                         .ok_or_else(|| state("Invalid worksheet relationships"))?;
-                    let mut tail = Vec::new();
+                    let mut tail = output.extra_relationships.clone();
                     for relationship in &output.relationships {
                         relationship
                             .write(&mut tail)
@@ -187,6 +340,9 @@ impl WorkbookWriter {
             }
             None => None,
         };
+        if let Some(bytes) = &relationships {
+            crate::features::package::validate_relationship_ids(bytes)?;
+        }
         let maximum = maximum
             .saturating_sub(relationships.as_ref().map_or(0, Vec::capacity))
             .saturating_sub(

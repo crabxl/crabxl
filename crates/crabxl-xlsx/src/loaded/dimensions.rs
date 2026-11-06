@@ -79,12 +79,6 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         id: SheetId,
         edit: impl FnOnce(&mut crabxl_core::WorksheetEditor<'_>) -> Result<()>,
     ) -> Result<()> {
-        if self.options.read.data_only {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Data-only dimension editing remains unimplemented",
-            ));
-        }
         let source = self
             .sheets
             .iter()

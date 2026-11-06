@@ -36,14 +36,24 @@ pub(super) fn patched_start(
         }
     }
     start.push_attribute(("xmlns", uri));
-    let literal = match value {
+    if let Some(annotations) = value.annotations() {
+        for (name, value) in [
+            ("cm", &annotations.cell_metadata),
+            ("vm", &annotations.value_metadata),
+        ] {
+            if let Some(value) = value {
+                start.push_attribute((name, value.as_ref()));
+            }
+        }
+    }
+    let literal = match value.unannotated() {
         CellValue::Formula(formula) => formula.cached(),
         value => Some(value),
     };
     match literal {
         Some(CellValue::Text(_) | CellValue::RichText(_)) => start.push_attribute((
             "t",
-            if matches!(value, CellValue::Formula(_)) {
+            if matches!(value.unannotated(), CellValue::Formula(_)) {
                 "str"
             } else {
                 "inlineStr"
@@ -61,6 +71,7 @@ pub(super) fn write_body<W: Write>(
     buffer: &mut RowBuffer,
     limits: ResourceLimits,
     formula_attributes: crate::FormulaWritePolicy,
+    metadata_counts: Option<(usize, usize)>,
 ) -> Result<()> {
     encode_cells(
         buffer,
@@ -70,6 +81,7 @@ pub(super) fn write_body<W: Write>(
         1,
         StyleContext::Appearance(&[CellStyle::default()]),
         ValueEncoding {
+            metadata_counts,
             epoch: DateEpoch::Windows1900,
             iso_dates: false,
             non_finite: crate::NonFiniteWritePolicy::Blank,
@@ -123,6 +135,7 @@ pub(super) fn write_inserted_cell<W: Write>(
     buffer: &mut RowBuffer,
     limits: ResourceLimits,
     formula_attributes: crate::FormulaWritePolicy,
+    metadata_counts: Option<(usize, usize)>,
 ) -> Result<()> {
     if !patch.insert_missing {
         return Err(
@@ -135,7 +148,14 @@ pub(super) fn write_inserted_cell<W: Write>(
     base.push_attribute(("r", reference.as_str()));
     let start = patched_start(&base, uri, &patch.cell.value)?;
     emit(writer, Event::Start(start))?;
-    write_body(writer, &patch.cell, buffer, limits, formula_attributes)?;
+    write_body(
+        writer,
+        &patch.cell,
+        buffer,
+        limits,
+        formula_attributes,
+        metadata_counts,
+    )?;
     emit(writer, Event::End(quick_xml::events::BytesEnd::new("c")))
 }
 pub(super) fn positioned_start(
@@ -219,6 +239,8 @@ pub(super) struct WorksheetRewrite<'a> {
     pub(super) epoch: DateEpoch,
     pub(super) non_finite: crate::NonFiniteWritePolicy,
     pub(super) copying: bool,
+    pub(super) data_only: bool,
+    pub(super) metadata_counts: Option<(usize, usize)>,
 }
 pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
@@ -240,6 +262,8 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         epoch,
         non_finite,
         copying,
+        data_only,
+        metadata_counts,
     } = rewrite;
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
@@ -495,6 +519,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         catalog,
                         limits,
                         crate::loaded_codec::Encoding {
+                            metadata_counts,
                             epoch,
                             non_finite,
                             formula_attributes,
@@ -623,6 +648,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             &mut buffer,
                             limits,
                             formula_attributes,
+                            metadata_counts,
                         )?;
                         found += 1;
                     }
@@ -666,6 +692,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         &mut buffer,
                         limits,
                         formula_attributes,
+                        metadata_counts,
                     )?;
                     found += 1;
                 }
@@ -709,6 +736,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             &mut buffer,
                             limits,
                             formula_attributes,
+                            metadata_counts,
                         )?;
                         found += 1;
                     }
@@ -772,10 +800,12 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                                         crate::formula_codec::HeaderPolicy::KnownRecords,
                                     )
                                     .map_err(|error| error.with_cell(cell.address))?;
-                                    if matches!(
-                                        metadata.kind,
-                                        crabxl_core::FormulaType::Shared { .. }
-                                    ) {
+                                    if !data_only
+                                        && matches!(
+                                            metadata.kind,
+                                            crabxl_core::FormulaType::Shared { .. }
+                                        )
+                                    {
                                         return Err(Error::new(ErrorKind::Unsupported, "Replacing shared formula records requires group normalization").with_cell(cell.address));
                                     }
                                 }
@@ -785,7 +815,14 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         }
                     }
                     emit(&mut writer, Event::Start(start))?;
-                    write_body(&mut writer, cell, &mut buffer, limits, formula_attributes)?;
+                    write_body(
+                        &mut writer,
+                        cell,
+                        &mut buffer,
+                        limits,
+                        formula_attributes,
+                        metadata_counts,
+                    )?;
                     let name = std::str::from_utf8(&name).map_err(|error| {
                         Error::caused_by(ErrorKind::Xml, "Invalid cell name", error)
                     })?;
@@ -813,7 +850,11 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                     return Err(invalid("Formula follows its cached value"));
                 }
                 formula = true;
-                emit(&mut writer, Event::Start(e))?;
+                if data_only {
+                    crate::style_codec::skip(&mut xml, 5)?;
+                } else {
+                    emit(&mut writer, Event::Start(e))?;
+                }
             }
             Event::Start(e)
                 if in_cell
@@ -822,7 +863,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                     && e.local_name().as_ref().as_bytes() == b"v" =>
             {
                 seen_v = true;
-                if formula && invalidate_caches {
+                if formula && invalidate_caches && !data_only {
                     loop {
                         let frame = xml.next()?;
                         if matches!(&frame.event,Event::End(end) if frame.depth==4 && end.local_name().as_ref().as_bytes()==b"v")
@@ -867,6 +908,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         &mut buffer,
                         limits,
                         formula_attributes,
+                        metadata_counts,
                     )?;
                     found += 1;
                 }
@@ -901,6 +943,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             &mut buffer,
                             limits,
                             formula_attributes,
+                            metadata_counts,
                         )?;
                         found += 1;
                     }

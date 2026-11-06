@@ -16,6 +16,7 @@ use std::{
 const CREATED_BYTES: usize = 2048;
 pub(super) struct Created {
     pub(super) part: String,
+    pub(super) kind: crate::SheetKind,
     pub(super) bank_id: Option<SheetId>,
     target: String,
     relationship: String,
@@ -62,6 +63,17 @@ impl Membership {
                 .sum::<usize>()
             + self.created.values().map(Created::bytes).sum::<usize>()
             + self.removed.values().map(Removed::bytes).sum::<usize>()
+    }
+    pub(super) fn removed_roots(&self) -> Vec<(String, String)> {
+        self.removed
+            .iter()
+            .filter_map(|(index, removed)| {
+                self.declarations
+                    .get(*index)
+                    .and_then(|entry| entry.relationship.as_ref())
+                    .map(|id| (removed.part.to_string(), id.to_string()))
+            })
+            .collect()
     }
     pub(super) fn removes_part(&self, part: &str) -> bool {
         self.removed.values().any(|entry| entry.contains(part))
@@ -148,7 +160,11 @@ impl Membership {
                 start.push_attribute(("PartName", part.as_str()));
                 start.push_attribute((
                     "ContentType",
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml",
+                    if created.kind == crate::SheetKind::ChartSheet {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml"
+                    } else {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"
+                    },
                 ));
             } else {
                 start.push_attribute((
@@ -156,7 +172,12 @@ impl Membership {
                     "http://schemas.openxmlformats.org/package/2006/relationships",
                 ));
                 start.push_attribute(("Id", created.relationship.as_str()));
-                let kind = format!("{}/worksheet", self.relationship_namespace());
+                let suffix = if created.kind == crate::SheetKind::ChartSheet {
+                    "chartsheet"
+                } else {
+                    "worksheet"
+                };
+                let kind = format!("{}/{suffix}", self.relationship_namespace());
                 start.push_attribute(("Type", kind.as_str()));
                 start.push_attribute(("Target", created.target.as_str()));
             }
@@ -204,7 +225,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 if e.local_name().as_ref().as_bytes() == b"AlternateContent"
                     || (frame.scope == Scope::Spreadsheet && frame.depth == 2
                         && matches!(e.local_name().as_ref().as_bytes(),
-                            b"pivotCaches" | b"customWorkbookViews" | b"extLst")))
+                            b"customWorkbookViews" | b"extLst")))
             {
                 return Err(Error::new(
                     ErrorKind::Unsupported,
@@ -440,6 +461,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .ok_or_else(|| invalid("Missing copied source identity"))?;
         let name = info.name().to_owned();
         let part = info.part().to_owned();
+        if info.kind() == crate::SheetKind::ChartSheet {
+            let mut xml = self.book.part_stream(&part)?;
+            crate::drawing::read_chartsheet(&mut xml)?;
+            return Ok(());
+        }
         // Reuse the affected-cell/feature and SST checks without marking the source dirty.
         self.prepare_model(&name)?;
         let limits = self.options.resources;
@@ -462,7 +488,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 let name = e.local_name();
                 let name = name.as_ref().as_bytes();
                 if frame.depth == 2 {
-                    if matches!(name, b"sheetViews" | b"headerFooter") {
+                    if matches!(name, b"sheetViews" | b"headerFooter")
+                        || crate::features::sheet::owns(name)
+                    {
+                        let depth = frame.depth;
+                        crate::style_codec::skip(&mut xml, depth)?;
+                        continue;
+                    }
+                    if name == b"pageSetup" {
                         let depth = frame.depth;
                         crate::style_codec::skip(&mut xml, depth)?;
                         continue;
@@ -659,6 +692,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         );
         let created = Created {
             bank_id: None,
+            kind: crate::SheetKind::Worksheet,
             part,
             target,
             relationship,
@@ -703,6 +737,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         plan.created.template = template;
         plan.created.values_dirty = true;
         Ok(plan)
+    }
+    pub(crate) fn chartsheet_plan(&self, mut plan: CreatePlan) -> CreatePlan {
+        plan.created.kind = crate::SheetKind::ChartSheet;
+        plan
     }
     pub(crate) fn commit_create(&mut self, plan: CreatePlan, id: SheetId) {
         if let Some(incoming) = plan.incoming {

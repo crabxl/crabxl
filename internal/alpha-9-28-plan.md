@@ -2,9 +2,9 @@
 
 ## Status and scope
 
-This is the active plan for the complete feature scope originally assigned to Alpha 9–28. Alpha 6–10 are published history, including verified public Rust and Python Alpha 9/10 artifacts. On 2026-10-07 the remaining work was consolidated into approximately six releases to reduce repeated packaging and publication overhead. No feature scope is removed.
+This is the active plan for the complete feature scope originally assigned to Alpha 9–28. Alpha 6–10 are published history, including verified public Rust and Python Alpha 9/10 artifacts. On 2026-11-01 the remaining work was consolidated into A12 for all remaining feature implementation and integration, followed by A13 for full-feature performance and release quality. No feature scope is removed.
 
-A11–A16 below are the current release numbers. W11–W28 are stable work-package identifiers corresponding to the former alpha targets; they are no longer individual releases. W11/W12 have usable checkpoints; W13 rich-value integration is described in [ADR 0088](decisions/0088-canonical-rich-model-edits.md). Hyperlinks and consolidated A11 acceptance remain open; incomplete work is not published as a completed feature.
+A11–A13 below are the current release numbers. Former A12–A15 are combined into A12; former A16 is A13. W11–W28 are stable work-package identifiers corresponding to the former alpha targets; they are no longer individual releases. W11/W12 have usable checkpoints; W13 rich-value integration is described in [ADR 0088](decisions/0088-canonical-rich-model-edits.md). Hyperlinks and consolidated A11 acceptance remain open; incomplete work is not published as a completed feature.
 
 Rust and Python must expose each release's applicable usable functionality. Plan-only changes, refactors and disconnected ports do not advance alpha numbers. Numbers are manually selected; urgent usable fixes may insert a release and shift subsequent targets. No release dates or effort percentages are implied.
 
@@ -21,13 +21,10 @@ Existing compact worksheet ranges and native formula lexical states are selected
 | Release | Included work packages | Completion gate |
 | --- | --- | --- |
 | A11 | W11–W13 | Named styles/themes, row/column styles, merges/dimensions/outlines, hyperlinks and editable rich text; Rust/Python integration and applicable structural behavior. |
-| A12 | W14–W19 | Tables/filters, rules, comments, printing/protection, names/properties/formulas, and full M5 acceptance. |
-| A13 | W20–W23 | Images/anchors, baseline chart families/chartsheets, loaded drawing/chart graph edits. |
-| A14 | W24–W25 | Pivots/caches/records, external links, macro/template policies and complex metadata graphs. |
-| A15 | W26 | Complete M4/M6 feature-aware integration and acceptance; close milestones only when their full matrices pass. |
-| A16 | W27–W28 | Full-feature performance/RAM work, compatibility/platform acceptance and M7 release quality. |
+| A12 | W14–W26 | Complete remaining M5 features, images/anchors, all baseline chart families/chartsheets, loaded drawing graphs, pivots/caches/records, external links, macro/template policies, complex metadata, and full M4/M5/M6 integration and acceptance. |
+| A13 | W27–W28 | Full-feature performance/RAM work, compatibility/platform acceptance and M7 release quality. |
 
-Complete the entire release scope through the native model, codecs and Python interfaces before writing additional tests. During implementation, run only necessary compilation and formatting checks. At the pre-release acceptance stage, add missing high-value behavioral checks once, fix acceptance failures together, and run the relevant regression, preservation, performance and packaging gates. Do not use intermediate implementation checkpoints to add tests or run full suites. Reuse existing regression cases; do not add tests for every helper or merge cases merely to reduce the test count.
+Complete all A12 implementation (W14–W26) through the native model, codecs and Python interfaces before adding or running tests. Do not start acceptance testing at former A12/A13/A14/A15 boundaries. Once all implementation is complete, add missing tests, run acceptance and fix failures. During implementation, run only necessary compilation and formatting checks. At the pre-release acceptance stage, add missing high-value behavioral checks once, fix acceptance failures together, and run the relevant regression, preservation, performance and packaging gates. Do not use intermediate implementation checkpoints to add tests or run full suites. Reuse existing regression cases; do not add tests for every helper or merge cases merely to reduce the test count.
 
 W12 now has a verified [sparse merge checkpoint](decisions/0087-sparse-merged-geometry.md) and narrow [measurements](../benchmarks/reports/alpha11-merged-geometry.md). High-level owned/loaded merge/unmerge is usable; affected structural operations and raw live metadata mutation remain tracked dependencies. W13 hyperlinks/editable rich text and complete A11 acceptance remain open.
 
@@ -47,7 +44,7 @@ and alias edge cases, applicable structural interactions and consolidated releas
 acceptance still prevent an A11 release.
 
 Development paused on 2026-10-07 and resumed on 2026-10-21. A11 is now
-published; A12–A16 have not started. Live raw merged sets,
+published; The latest status files supersede this historical checkpoint: Stage 1 common features are implemented but unreleased; A12 remains incomplete. Live raw merged sets,
 stable coordinate identities, bulk replacement, sparse realized-cell structural
 edits and hyperlink owner/relationship coordination are integrated in ADR 0102
 and adapter ADR 0042. Consolidated acceptance also corrected rich-copy bindings,

@@ -77,6 +77,7 @@ pub struct WorkbookReader<R: Read + Seek = File> {
     sheets: Vec<SheetInfo>,
     pub(crate) limits: ResourceLimits,
     date_1904: bool,
+    format: crabxl_core::features::WorkbookFormat,
     active_sheet: i64,
     pub(crate) workbook_part: String,
     shared_string_part: Option<String>,
@@ -254,6 +255,8 @@ impl<R: Read + Seek> WorkbookReader<R> {
             sheets,
             limits,
             date_1904,
+            format: crabxl_core::features::WorkbookFormat::from_content_type(workbook_type)
+                .ok_or_else(|| invalid("Unknown workbook format"))?,
             active_sheet,
             workbook_part,
             shared_string_part,
@@ -270,6 +273,10 @@ impl<R: Read + Seek> WorkbookReader<R> {
     /// Inspect workbook sheets without loading their data.
     pub fn sheets(&self) -> &[SheetInfo] {
         &self.sheets
+    }
+    /// Workbook kind declared by the package, independent of its filename.
+    pub const fn workbook_format(&self) -> crabxl_core::features::WorkbookFormat {
+        self.format
     }
     /// Original relationship-resolved SST identity, independent of conventional paths.
     pub(crate) fn source_strings_part(&self) -> Option<&str> {

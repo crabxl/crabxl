@@ -30,8 +30,7 @@ impl Workbook {
         sheet.set_edit_limits(self.limits.sheet);
         self.insert(sheet, capacity)
     }
-    /// Copy all owned scalar cells/styles/formulas and logical append extent.
-    /// This does not copy original-package drawings or other feature graphs.
+    /// Copy owned cells, styles and feature graphs with independent metadata and unique object names.
     pub fn copy_sheet(&mut self, id: SheetId, name: impl Into<Box<str>>) -> Result<SheetId> {
         let name = name.into();
         self.validate_name(&name, None)?;
@@ -64,6 +63,25 @@ impl Workbook {
                 max_cells: self.limits.sheet.max_cells,
             },
         )?;
+        if let Some(mut features) = sheet.take_features() {
+            let mut taken: std::collections::HashSet<String> = self
+                .entries
+                .iter()
+                .filter_map(|entry| entry.sheet.features())
+                .flat_map(crate::SheetFeatures::object_names)
+                .map(str::to_lowercase)
+                .collect();
+            if let Some(features) = self.features() {
+                taken.extend(
+                    features
+                        .defined_names
+                        .iter()
+                        .map(|name| name.name.to_lowercase()),
+                );
+            }
+            features.rename_for_copy(&mut taken);
+            sheet.set_features(Some(features))?;
+        }
         sheet.set_edit_limits(self.limits.sheet);
         self.insert(sheet, capacity)
     }

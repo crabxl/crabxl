@@ -38,7 +38,7 @@ impl LinkSpool {
 impl WorkbookWriter {
     /// Spool a validated sparse row and its point hyperlinks. Link declarations
     /// and relationships use owned disk files; RAM does not grow with link count.
-    /// Prebuilt model/printing footers cannot accept additional streamed links.
+    /// Feature footers and existing point declarations share the same output owner.
     /// Rejection does not partly commit the requested row or its link records;
     /// pending dimension-only rows follow normal sequential emission.
     /// an I/O failure poisons the writer for explicit abort/cleanup.
@@ -55,13 +55,13 @@ impl WorkbookWriter {
             .active
             .as_ref()
             .ok_or_else(|| state("No active worksheet"))?;
-        if active.footer.is_some() || active.relationships.is_some() || active.live_events.is_some()
-        {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Appending hyperlinks to a prebuilt worksheet footer is not implemented",
+        if active.live_events.is_some() {
+            return Err(state(
+                "Snapshot and live hyperlink rows cannot share a sheet",
             ));
         }
+        let prefix = relationship_prefix(active.relationships.as_deref())?;
+        footer_split(active.footer.as_deref().unwrap_or(FOOTER))?;
         if links.len() > self.options.max_row_cells {
             return Err(limit("Row hyperlink count exceeds configured limit"));
         }
@@ -99,7 +99,7 @@ impl WorkbookWriter {
         let mut external = 0_u64;
         (|| -> io::Result<()> {
             for (index, (address, link)) in links.iter().enumerate() {
-                let id = format!("rId{}", count + index as u64 + 1);
+                let id = format!("{prefix}{}", count + index as u64 + 1);
                 crate::hyperlinks::write_link(&mut encoded, *address, link, Some(&id))?;
             }
             Ok(())
@@ -112,7 +112,7 @@ impl WorkbookWriter {
             }
             for (index, (_, link)) in links.iter().enumerate() {
                 if let Some(target) = &link.target {
-                    let id = format!("rId{}", count + index as u64 + 1);
+                    let id = format!("{prefix}{}", count + index as u64 + 1);
                     crate::hyperlinks::write_relationship(&mut encoded, &id, target, false)?;
                     external += 1;
                 }
@@ -206,7 +206,18 @@ impl WorkbookWriter {
         else {
             return Ok((false, None));
         };
-        let additional = FOOTER.len() as u64 + spool.pending_bytes();
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        let footer_bytes = active.footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64;
+        let base_bytes = active
+            .relationships
+            .as_deref()
+            .map(relationship_inner)
+            .transpose()?
+            .map_or(0, <[u8]>::len) as u64;
+        let additional = footer_bytes + spool.pending_bytes() + base_bytes;
         self.check_temp(additional + self.paused_footers())?;
         let active = self
             .active
@@ -214,7 +225,7 @@ impl WorkbookWriter {
             .ok_or_else(|| state("No active worksheet"))?;
         if active
             .bytes
-            .saturating_add(FOOTER.len() as u64)
+            .saturating_add(footer_bytes)
             .saturating_add(spool.pending_sheet_bytes())
             > self.options.max_sheet_bytes
         {
@@ -225,9 +236,18 @@ impl WorkbookWriter {
             .as_mut()
             .and_then(|sheet| sheet.link_spool.take())
             .ok_or_else(|| state("Missing hyperlink spools"))?;
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        let footer = active.footer.take().unwrap_or_else(|| FOOTER.to_vec());
+        let base = active.relationships.take();
+        let (at, envelope) = footer_split(&footer)?;
         let result = (|| -> Result<()> {
-            self.write_active(b"</sheetData>")?;
-            self.write_active(LINKS_START)?;
+            self.write_active(&footer[..at])?;
+            if envelope {
+                self.write_active(LINKS_START)?;
+            }
             spool
                 .declarations
                 .rewind()
@@ -244,8 +264,19 @@ impl WorkbookWriter {
             active.bytes += copied;
             self.temporary_bytes += copied;
             self.stats.peak_temp_bytes = self.stats.peak_temp_bytes.max(self.temporary_bytes);
-            self.write_active(LINKS_END)?;
-            self.write_active(b"</worksheet>")?;
+            if envelope {
+                self.write_active(LINKS_END)?;
+            }
+            self.write_active(&footer[at..])?;
+            if let Some(base) = &base {
+                let bytes = relationship_inner(base)?;
+                spool
+                    .relationships
+                    .write_all(bytes)
+                    .map_err(|cause| io_error("Cannot merge feature relationships", cause))?;
+                spool.relationship_bytes += bytes.len() as u64;
+                self.temporary_bytes += bytes.len() as u64;
+            }
             spool
                 .relationships
                 .write_all(RELS_END)
@@ -265,7 +296,7 @@ impl WorkbookWriter {
             }
             return Err(error);
         }
-        let has_external = spool.external > 0;
+        let has_external = spool.external > 0 || base.is_some();
         let declaration_bytes = spool.declaration_bytes;
         let relationship_bytes = spool.relationship_bytes + RELS_END.len() as u64;
         let (declarations, _) = spool.declarations.into_parts();
@@ -312,4 +343,94 @@ fn link_encoding_error(cause: io::Error) -> Error {
         "Cannot encode bounded row hyperlink metadata",
         cause,
     )
+}
+
+// These envelopes are generated by this writer, rather than read from arbitrary packages.
+pub(super) fn relationship_inner(bytes: &[u8]) -> Result<&[u8]> {
+    let marker = b"<Relationships";
+    let start = bytes
+        .windows(marker.len())
+        .position(|window| window == marker)
+        .ok_or_else(|| state("Missing relationship envelope"))?;
+    let start = start
+        + bytes[start..]
+            .iter()
+            .position(|byte| *byte == b'>')
+            .ok_or_else(|| state("Invalid relationship envelope"))?
+        + 1;
+    let end = bytes
+        .len()
+        .checked_sub(RELS_END.len())
+        .filter(|end| *end >= start && bytes.ends_with(RELS_END))
+        .ok_or_else(|| state("Invalid relationship closing tag"))?;
+    Ok(&bytes[start..end])
+}
+pub(super) fn relationship_prefix(bytes: Option<&[u8]>) -> Result<String> {
+    let mut prefix = String::from("rId");
+    if let Some(bytes) = bytes {
+        let mut xml = crate::xml::XmlStream::new(
+            io::Cursor::new(bytes),
+            "relationships".into(),
+            bytes.len() as u64,
+            Default::default(),
+        );
+        let mut ids = Vec::new();
+        loop {
+            let frame = xml.next()?;
+            match frame.event {
+                quick_xml::events::Event::Start(e) if frame.depth == 2 => {
+                    ids.push(crate::xml::required_attribute(&e, b"Id")?)
+                }
+                quick_xml::events::Event::Eof => break,
+                _ => {}
+            }
+        }
+        while ids.iter().any(|id| {
+            id.strip_prefix(&prefix).is_some_and(|suffix| {
+                !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
+            })
+        }) {
+            prefix.push('_');
+        }
+    }
+    Ok(prefix)
+}
+pub(super) fn footer_split(footer: &[u8]) -> Result<(usize, bool)> {
+    use quick_xml::events::Event;
+    use std::io::Read;
+    const PREFIX: &[u8] = b"<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>";
+    let input = io::Cursor::new(PREFIX).chain(io::Cursor::new(footer));
+    let mut xml = crate::xml::XmlStream::new(
+        BufReader::new(input),
+        "footer".into(),
+        (PREFIX.len() + footer.len()) as u64,
+        Default::default(),
+    );
+    let rank = crate::features::sheet::rank(b"hyperlinks");
+    loop {
+        let position = xml.bytes_consumed();
+        let frame = xml.next()?;
+        let envelope = match &frame.event {
+            Event::Start(e)
+                if frame.depth == 2
+                    && crate::features::sheet::rank(e.local_name().as_ref().as_bytes()) > rank =>
+            {
+                Some(true)
+            }
+            Event::End(e) if frame.depth == 1 && e.local_name().as_ref() == "hyperlinks" => {
+                Some(false)
+            }
+            Event::End(_) if frame.depth == 0 => Some(true),
+            Event::Eof => return Err(state("Invalid worksheet footer")),
+            _ => None,
+        };
+        if let Some(envelope) = envelope {
+            let at = usize::try_from(position)
+                .ok()
+                .and_then(|position| position.checked_sub(PREFIX.len()))
+                .filter(|at| *at <= footer.len())
+                .ok_or_else(|| state("Invalid hyperlink insertion position"))?;
+            return Ok((at, envelope));
+        }
+    }
 }

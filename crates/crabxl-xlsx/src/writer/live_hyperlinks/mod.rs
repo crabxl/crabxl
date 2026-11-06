@@ -41,7 +41,10 @@ impl WorkbookWriter {
                 events,
                 store,
                 maximum,
-                false,
+                EventOutput::Links {
+                    prefix: &hyperlinks::relationship_prefix(sheet.relationships.as_deref())?,
+                    envelope: true,
+                },
                 u64::MAX,
                 identity,
             )?;
@@ -147,13 +150,12 @@ impl WorkbookWriter {
             .active
             .as_ref()
             .ok_or_else(|| state("No active worksheet"))?;
-        if active.footer.is_some() || active.relationships.is_some() || active.link_spool.is_some()
-        {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Live hyperlink groups with prebuilt or snapshot metadata remain unimplemented",
+        if active.link_spool.is_some() {
+            return Err(state(
+                "Snapshot and live hyperlink rows cannot share a sheet",
             ));
         }
+        hyperlinks::footer_split(active.footer.as_deref().unwrap_or(FOOTER))?;
         if links.len() > self.options.max_row_cells {
             return Err(limit("Too many row hyperlinks"));
         }
@@ -228,6 +230,11 @@ impl WorkbookWriter {
     }
 }
 
+pub(super) enum EventOutput<'a> {
+    Links { prefix: &'a str, envelope: bool },
+    Relationships { prefix: &'a str, envelope: bool },
+}
+
 /// Render one worksheet's deferred declarations or relationships, retaining one
 /// bounded decoded payload at a time. Owner order controls output identities.
 pub(super) fn write_events(
@@ -235,10 +242,14 @@ pub(super) fn write_events(
     events: &mut Events,
     store: &mut Store,
     maximum: usize,
-    relationships: bool,
+    mode: EventOutput<'_>,
     part_maximum: u64,
     mut identity: impl FnMut(u64, Option<&str>) -> Result<()>,
 ) -> Result<bool> {
+    let (relationships, prefix, envelope) = match mode {
+        EventOutput::Links { prefix, envelope } => (false, prefix, envelope),
+        EventOutput::Relationships { prefix, envelope } => (true, prefix, envelope),
+    };
     events.rewind()?;
     let output = &mut BoundedOutput {
         output,
@@ -251,7 +262,7 @@ pub(super) fn write_events(
         b"<hyperlinks xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
     };
     output
-        .write_all(header)
+        .write_all(if envelope { header } else { b"" })
         .map_err(|cause| io_error("Cannot write live hyperlink header", cause))?;
     let mut current = None;
     for index in 0..events.count {
@@ -268,7 +279,7 @@ pub(super) fn write_events(
             .as_ref()
             .ok_or_else(|| state("Missing decoded hyperlink"))?
             .1;
-        let id = format!("rId{}", index + 1);
+        let id = format!("{prefix}{}", index + 1);
         let written = if relationships {
             if let Some(target) = &link.target {
                 crate::hyperlinks::write_relationship(output, &id, target, false)
@@ -283,7 +294,9 @@ pub(super) fn write_events(
         external |= link.target.is_some();
     }
     output
-        .write_all(if relationships {
+        .write_all(if !envelope {
+            b""
+        } else if relationships {
             b"</Relationships>"
         } else {
             b"</hyperlinks>"

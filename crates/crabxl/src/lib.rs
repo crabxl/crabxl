@@ -1,8 +1,9 @@
 //! Rust spreadsheet processing with bounded streaming XLSX reads.
 //!
-//! Reads include sparse scalars, bounded plain/rich strings, numeric and ISO dates,
-//! shared style catalogs and normal formulas. Sequential creation shares the core models. Other
-//! spreadsheet features remain planned; unsupported selected cells fail loudly.
+//! Streaming reads, sequential creation and source-preserving edits share native
+//! cell, style, worksheet, drawing, chart, pivot and workbook metadata models.
+//! Binary assets and pivot records can stay on disk while cells stream. Formulas
+//! and pivot results are retained or marked for recalculation; CrabXL does not calculate them.
 //!
 //! ```no_run
 //! use crabxl::{AccessPattern, MemoryPolicy, ReadData, WorkbookReader};
@@ -129,3 +130,16 @@ pub use crabxl_core::features;
 pub use crabxl_core::{SheetFeatures, WorkbookFeatures};
 /// Convert features from and to SpreadsheetML XML, for language bindings.
 pub use crabxl_xlsx::feature_xml;
+
+pub use crabxl_core::drawing;
+pub use crabxl_core::drawing::{
+    DrawingAnchor, DrawingEditAs, DrawingExtent, DrawingMarker, Image, ImageFormat,
+};
+
+pub use crabxl_core::drawing::{Chart, ChartKind, PartGraph, Shape, XmlContent, XmlElement};
+
+pub use crabxl_core::{BinaryPayload, BinaryReader};
+
+pub use crabxl_xlsx::{PivotRecords, write_pivot_records};
+
+pub use crabxl_core::AnnotatedValue;

@@ -1,102 +1,63 @@
 # Status
 
-Last update: 2026-10-24.
-
-Replace this file when the status changes. Do not append a history log.
+Last update: 2026-11-01.
 
 ## Current release
 
-- Latest release: `0.1.0-alpha.11` (crates.io and Git tag).
-- The Python binding has the same release number, `0.1.0a11`, but its
-  release numbers are independent.
-- No release is in preparation.
+- Published Rust release: `0.1.0-alpha.11`.
+- The combined A12 implementation pass (former A12-A15, W14-W26) is committed with
+  a subsequent Rust regression and interoperability fix checkpoint. It is not a release.
+- This pass changes Rust only. Python integration remains a separate task.
 
-## What works
+## Implemented Rust scope
 
-- Streaming read of rows with bounded memory.
-- Sequential creation of workbooks.
-- Edits of existing files. Parts that are not changed are copied without
-  change.
-- Values: numbers, exact integers, text, rich text, booleans, errors, dates,
-  times, durations and formulas with cached results. CrabXL does not calculate
-  formulas.
-- Cell styles, named styles, themes and row and column styles.
-- Merged cells, row and column dimensions and outline groups.
-- Hyperlinks, worksheet views and print settings.
-- Sheet operations on a loaded workbook: create, copy, remove, rename, move,
-  and insert or delete rows and columns.
-- Memory limits, shared-string storage in memory or on disk, and ZIP
-  compression levels 0–9.
-- Tables, auto filters and sort state, conditional formatting, data
-  validation, comments, sheet and workbook protection, header/footer, defined
-  names (print areas and titles) and document properties. Read, create and
-  edit in every mode except streaming write of hyperlinks combined with
-  features. Features load without cell materialization.
+- Existing cells, styles, tables, filters, sorting, rules, validation, notes,
+  printing, protection, names and document properties remain integrated.
+- Images, one/two-cell and absolute anchors, shapes, connectors, grouped objects,
+  drawing dependencies and picture/frame hyperlinks.
+- All 16 baseline chart-family variants, series and editable chart properties,
+  including combinations, axes, layouts, labels, formatting and extensions.
+- Chartsheet creation, properties, drawings, related assets, copy and removal.
+- Pivot definitions, shared caches, owned dependencies and bounded record
+  reading/writing. Definitions and layouts are editable without calculating results.
+- Ordered external-link caches; VBA Preserve/Remove/Replace; XLSX, XLSM, XLTX and
+  XLTM formats; metadata, connections, rich-value and cm/vm graphs.
+- Sheet copying rebuilds owned graphs and assigns unique table/pivot names.
+  Graph removal keeps parts with surviving consumers. Notes follow cell edits.
+  Resolved shared formulas can be structurally edited using expanded expressions.
+- Data-only model edits and saves project source formulas to cached scalar values.
+- Printer payloads and relationships participate in new and copied packages.
+- Streamed snapshot and live-group hyperlinks merge with prebuilt feature
+  footers, point declarations and relationship parts without a second worksheet
+  or relationship envelope.
+- Binary payloads can remain on disk. Loaded feature snapshots count toward the
+  retained-data allowance. Metadata replacement validates existing cell indices.
 
-Unsupported operations return an `Unsupported` error. They do not drop data.
+Detailed native coverage is in `internal/features.json`; port origins and notices
+are in `third_party/ports.json`.
 
-## Next tasks
+## Validation and next stage
 
-### Documentation (to do)
+Windows validation passes: 335 Rust tests across 26 workspace test/doc-test
+targets, including seven new complex-feature integration tests. Formatting and
+Clippy for all workspace targets pass. Openpyxl 3.1.5 independently loads six
+produced workbooks without warnings, checking charts, images, pivot records,
+external links, templates and streamed hyperlinks.
 
-The documentation site is in [crabxl-docs](https://github.com/crabxl/crabxl-docs).
-It publishes `docs/` from this repository. Follow the content specification in
-crabxl-docs.
+Regression fixes cover drawing serialization, relationship capture and copying,
+picture/frame dependencies, printer identities, metadata error context and
+atomic rejected edits. The integration fixtures include independently generated
+DrawingML and chartsheet printer dependencies.
 
-1. Write `docs/` user pages:
-   - Installation and a quick start.
-   - How to select an API: `WorkbookReader`, `WorkbookWriter`,
-     `WorkbookEditor` or `LoadedWorkbook`.
-   - Reading, writing and editing.
-   - Styles, dates and formulas.
-   - Memory limits and large files.
-   - Errors.
-   - Supported features. Generate this table from `internal/features.json`;
-     do not write it by hand.
-2. Add user examples to `crates/crabxl/examples`: large-file streaming and
-   edit of an existing file. `quickstart.rs` is complete.
-3. Add a crate-level introduction to the docs.rs page in
-   `crates/crabxl/src/lib.rs`.
-4. Make the README shorter. Link it to the documentation site after the site
-   is published.
-5. Rewrite `internal/roadmap.md` in plain language. Use the writing rules in
-   [AGENTS.md](../AGENTS.md). Remove completed items.
-6. Mark the status lines in `internal/validation/` as historical. Some lines
-   say "not a published release" for releases that are now published.
+Full release readiness, Excel desktop/cross-platform validation, performance/RAM
+claims and Python acceptance remain pending. This checkpoint does not establish
+complete baseline-module parity or M4/M5/M6 completion.
 
-### Features (next stage)
+## Deliberate boundaries
 
-Stage 1 is complete on branch `stage1` (not released). Next stage: images and
-charts. Open items from stage 1:
-
-- `copy_worksheet` drops tables, rules, validation and comments (openpyxl
-  drops most of them too).
-- Structural edits (insert/delete rows and columns) keep feature ranges
-  unchanged, as openpyxl does.
-- A rule-level `extLst` (Excel 2010 data bar link) is kept as raw XML. Other
-  `extLst` elements inside feature elements return `Unsupported` on read.
-
-### Features (later releases)
-
-- Images and charts.
-- Pivot tables, external links, macros and templates.
-- Complete integration of structural edits with all features.
-- Performance and memory work on the complete feature set.
-
-## Known problems
-
-- Most programs in `crates/crabxl-bench/examples` are benchmark drivers. They
-  are not usage examples.
-- `internal/features.json` is the capability inventory. It is not readable as
-  user documentation.
-
-## Terms in older records
-
-Older records use these codes:
-
-| Code | Meaning |
-|---|---|
-| M0–M7 | Milestones: M0 architecture and inventory, M1 numeric streaming, M2 values and large strings, M3 sequential writer, M4 editable model and file preservation, M5 common workbook and worksheet features, M6 drawings, charts, pivots and complex parts, M7 crate stabilization. M0–M3 are complete. |
-| A6, A11, … | Alpha release numbers, for example A11 is `0.1.0-alpha.11`. |
-| W11–W28 | Work packages in [alpha-9-28-plan.md](alpha-9-28-plan.md). They were release targets before the plan was consolidated. |
-| ADR | Architecture Decision Record in [decisions/](decisions/). |
+- CrabXL does not calculate formulas, chart caches or pivot results, execute VBA,
+  or refresh external sources.
+- Reference ranges, chart series and drawing anchors retain their explicit-edit
+  policies during row/column edits. Notes move with their cells.
+- Unknown affected markup and digitally signed edits return errors rather than
+  dropping data. Untouched source parts retain their compressed payloads.

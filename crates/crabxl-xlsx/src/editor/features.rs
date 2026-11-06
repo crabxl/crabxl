@@ -6,6 +6,7 @@ use crate::features::package::{
     OutputPart, OutputRelationship, PartNumbers, SheetOutput, build_sheet_output,
 };
 use crabxl_core::{SheetFeatures, WorkbookFeatures};
+use std::collections::HashMap;
 
 /// Planned worksheet rewrite.
 pub(super) struct FeaturePlan {
@@ -26,11 +27,13 @@ pub(super) struct FeatureSave {
     /// relationship parts (`*.rels`).
     pub(super) replace: BTreeMap<String, Vec<u8>>,
     /// Content-type overrides to add.
-    pub(super) overrides: Vec<(String, &'static str)>,
+    pub(super) overrides: Vec<(String, Box<str>)>,
     /// Add `<Default Extension="vml">` when missing.
     pub(super) vml_default: bool,
     /// Workbook names and protection for `workbook.xml`.
     pub(super) workbook: Option<Box<WorkbookFeatures>>,
+    pub(super) pivot_caches: Vec<crate::features::package::PivotCacheOutput>,
+    pub(super) external_refs: Option<Vec<String>>,
 }
 impl FeatureSave {
     pub(super) fn types_changed(&self) -> bool {
@@ -74,6 +77,14 @@ fn rewrite_relationships(
     remove: &HashSet<String>,
     add: &[OutputRelationship],
 ) -> Result<Vec<u8>> {
+    rewrite_relationships_with_extra(bytes, remove, add, &[])
+}
+fn rewrite_relationships_with_extra(
+    bytes: &[u8],
+    remove: &HashSet<String>,
+    add: &[OutputRelationship],
+    extra: &[u8],
+) -> Result<Vec<u8>> {
     let mut xml = XmlStream::new(
         io::Cursor::new(bytes),
         "relationships".into(),
@@ -103,6 +114,7 @@ fn rewrite_relationships(
             }
             _ if skip => {}
             Event::End(e) if frame.depth == 0 => {
+                writer.get_mut().extend_from_slice(extra);
                 for relationship in add {
                     relationship
                         .write(writer.get_mut())
@@ -118,10 +130,259 @@ fn rewrite_relationships(
                 .map_err(|cause| io_error("Cannot write relationships", cause))?,
         }
     }
-    Ok(writer.into_inner())
+    let bytes = writer.into_inner();
+    crate::features::package::validate_relationship_ids(&bytes)?;
+    Ok(bytes)
 }
 
 impl<R: Read + Seek> WorkbookEditor<R> {
+    /// Remove only graph members with no consumers outside the replaced owner.
+    pub(super) fn remove_feature_graph(
+        &mut self,
+        root: &str,
+        owner: &str,
+        id: &str,
+        strict: bool,
+        save: &mut FeatureSave,
+    ) -> Result<()> {
+        let mut remaining = self.options.resources.max_metadata_bytes;
+        let mut edges = HashMap::<String, Vec<String>>::new();
+        let mut queue = vec![root.to_owned()];
+        while let Some(part) = queue.pop() {
+            if edges.contains_key(&part) {
+                continue;
+            }
+            if self.book.archive.index_for_name(&part).is_none() {
+                return Err(invalid("Owned feature part is missing").with_part(part));
+            }
+            let rels = crate::package::relationship_part(&part);
+            let mut targets = Vec::new();
+            if self.book.archive.index_for_name(&rels).is_some() {
+                for rel in crate::package::read_relationships(
+                    &mut self.book.archive,
+                    &rels,
+                    self.options.resources,
+                    &mut remaining,
+                )?
+                .values()
+                {
+                    if !rel.external {
+                        targets.push(crate::package::resolve_part(&part, &rel.target)?);
+                    }
+                }
+            }
+            queue.extend(targets.iter().cloned());
+            edges.insert(part, targets);
+        }
+        let mut keep = HashSet::new();
+        for info in &self.parts {
+            let Some(source) = crate::package::relationship_source(&info.name) else {
+                continue;
+            };
+            if edges.contains_key(&source)
+                || save.remove.contains(&source)
+                || self
+                    .membership
+                    .as_deref()
+                    .is_some_and(|membership| membership.removes_part(&source))
+            {
+                continue;
+            }
+            for (rid, rel) in crate::package::read_relationships(
+                &mut self.book.archive,
+                &info.name,
+                self.options.resources,
+                &mut remaining,
+            )? {
+                if rel.external
+                    || source == owner && rid == id
+                    || source == self.book.workbook_part
+                        && self
+                            .membership
+                            .as_deref()
+                            .is_some_and(|membership| membership.removes_relationship(&rid))
+                {
+                    continue;
+                }
+                let target = crate::package::resolve_part(&source, &rel.target)?;
+                if edges.contains_key(&target) {
+                    keep.insert(target);
+                }
+            }
+        }
+        if strict && keep.contains(root) {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "VBA project has another package owner",
+            ));
+        }
+        let mut queue: Vec<_> = keep.iter().cloned().collect();
+        while let Some(source) = queue.pop() {
+            if let Some(targets) = edges.get(&source) {
+                for target in targets {
+                    if keep.insert(target.clone()) {
+                        queue.push(target.clone());
+                    }
+                }
+            }
+        }
+        for part in edges.keys().filter(|part| !keep.contains(*part)) {
+            save.remove.insert(part.clone());
+            let rels = crate::package::relationship_part(part);
+            if self.book.archive.index_for_name(&rels).is_some() {
+                save.remove.insert(rels);
+            }
+        }
+        Ok(())
+    }
+
+    fn prepare_complex_features(
+        &mut self,
+        features: &WorkbookFeatures,
+        numbers: &mut PartNumbers,
+        save: &mut FeatureSave,
+    ) -> Result<()> {
+        use crabxl_core::features::{MacroPolicy, WorkbookFormat};
+        if features.metadata.is_none()
+            && features.external_links.is_none()
+            && features.format.is_none()
+            && matches!(features.macros, MacroPolicy::Preserve)
+        {
+            return Ok(());
+        }
+        let workbook = self.book.workbook_part.clone();
+        let rels_part = self.workbook_relationships.clone();
+        let base = match save.replace.get(&rels_part) {
+            Some(bytes) => bytes.clone(),
+            None => self.part_bytes(&rels_part)?,
+        };
+        let mut remaining = self.options.resources.max_metadata_bytes;
+        let relationships = crate::package::read_relationships(
+            &mut self.book.archive,
+            &rels_part,
+            self.options.resources,
+            &mut remaining,
+        )?;
+        let had_macros = relationships
+            .values()
+            .any(|rel| rel.kind.rsplit('/').next() == Some("vbaProject"));
+        let macros = match features.macros {
+            MacroPolicy::Preserve => had_macros,
+            MacroPolicy::Remove => false,
+            MacroPolicy::Replace(_) => true,
+        };
+        let source_format = self.book.workbook_format();
+        let default_format = if matches!(features.macros, MacroPolicy::Preserve) {
+            source_format
+        } else {
+            match (source_format.is_template(), macros) {
+                (false, false) => WorkbookFormat::Xlsx,
+                (false, true) => WorkbookFormat::Xlsm,
+                (true, false) => WorkbookFormat::Xltx,
+                (true, true) => WorkbookFormat::Xltm,
+            }
+        };
+        let format = features.format.unwrap_or(default_format);
+        if macros && !format.allows_macros() {
+            return Err(invalid("Removing VBA requires an explicit Remove policy"));
+        }
+        if format != source_format {
+            save.overrides
+                .push((workbook.clone(), format.content_type().into()));
+        }
+        let mut remove = HashSet::new();
+        for (id, rel) in &relationships {
+            let role = rel.kind.rsplit('/').next().unwrap_or("");
+            if features.metadata.is_some() && crate::complex::metadata_relationship(&rel.kind)
+                || features.external_links.is_some() && role == "externalLink"
+                || !matches!(features.macros, MacroPolicy::Preserve) && role == "vbaProject"
+            {
+                if rel.external {
+                    return Err(invalid("Workbook feature root cannot be external"));
+                }
+                let target = crate::package::resolve_part(&workbook, &rel.target)?;
+                self.remove_feature_graph(&target, &workbook, id, role == "vbaProject", save)?;
+                remove.insert(id.clone());
+            }
+        }
+        let mut taken = relationship_ids(&base)?;
+        let mut next = 0u64;
+        let output = crate::complex::build_output(features, &workbook, numbers, |_| {
+            loop {
+                next += 1;
+                let id = format!("rIdComplex{next}");
+                if taken.insert(id.clone()) {
+                    break id;
+                }
+            }
+        })
+        .map_err(|cause| io_error("Cannot encode workbook feature graphs", cause))?;
+        if features.external_links.is_some() {
+            save.external_refs = Some(output.external_refs);
+        }
+        save.replace.insert(
+            rels_part,
+            rewrite_relationships(&base, &remove, &output.relationships)?,
+        );
+        for part in output.parts {
+            save.overrides
+                .push((part.name.clone(), part.content_type.clone()));
+            save.parts.push(part);
+        }
+        Ok(())
+    }
+    fn next_pivot_cache_id(&mut self) -> Result<u64> {
+        let part = self.book.workbook_part.clone();
+        let mut xml = self.book.part_stream(&part)?;
+        let mut next = 0u64;
+        loop {
+            let frame = xml.next()?;
+            match frame.event {
+                Event::Start(e)
+                    if frame.depth == 3
+                        && frame.scope == Scope::Spreadsheet
+                        && e.local_name().as_ref() == "pivotCache" =>
+                {
+                    let id: u32 = crate::xml::required_attribute(&e, b"cacheId")?
+                        .parse()
+                        .map_err(|_| invalid("Invalid pivot cache id"))?;
+                    next = next.max(u64::from(id) + 1);
+                }
+                Event::Eof => return Ok(next),
+                _ => {}
+            }
+        }
+    }
+    fn prepare_pivot_cache_relationships(&mut self, save: &mut FeatureSave) -> Result<()> {
+        if save.pivot_caches.is_empty() {
+            return Ok(());
+        }
+        let part = self.workbook_relationships.clone();
+        let bytes = match save.replace.get(&part) {
+            Some(bytes) => bytes.clone(),
+            None => self.part_bytes(&part)?,
+        };
+        let mut taken = relationship_ids(&bytes)?;
+        let mut added = Vec::new();
+        for cache in &mut save.pivot_caches {
+            while !taken.insert(cache.relationship.clone()) {
+                cache.relationship.push('_');
+            }
+            added.push(OutputRelationship {
+                id: cache.relationship.clone(),
+                kind: crate::pivot::REL_CACHE.into(),
+                target: crate::features::package::relative_target(
+                    &self.book.workbook_part,
+                    &cache.part,
+                ),
+            });
+        }
+        save.replace.insert(
+            part,
+            rewrite_relationships(&bytes, &HashSet::new(), &added)?,
+        );
+        Ok(())
+    }
     fn worksheet_part(&self, sheet: &str) -> Result<String> {
         let info = self
             .book
@@ -129,7 +390,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .iter()
             .find(|info| info.name() == sheet)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet not found"))?;
-        if info.kind() != SheetKind::Worksheet {
+        if !matches!(info.kind(), SheetKind::Worksheet | SheetKind::ChartSheet) {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Features require a cell worksheet",
@@ -218,10 +479,57 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     }
 
     fn table_ids(&mut self) -> Result<u32> {
+        let mut overrides = std::collections::HashMap::new();
+        let mut defaults = std::collections::HashMap::new();
+        {
+            let mut xml = self.book.part_stream("[Content_Types].xml")?;
+            loop {
+                let frame = xml.next()?;
+                match frame.event {
+                    Event::Start(e) if frame.depth == 2 && frame.scope == Scope::ContentTypes => {
+                        match e.local_name().as_ref() {
+                            "Override" => {
+                                overrides.insert(
+                                    crate::package::resolve_part(
+                                        "",
+                                        &crate::xml::required_attribute(&e, b"PartName")?,
+                                    )?,
+                                    crate::xml::required_attribute(&e, b"ContentType")?,
+                                );
+                            }
+                            "Default" => {
+                                defaults.insert(
+                                    crate::xml::required_attribute(&e, b"Extension")?
+                                        .to_ascii_lowercase(),
+                                    crate::xml::required_attribute(&e, b"ContentType")?,
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                    Event::Eof => break,
+                    _ => {}
+                }
+            }
+        }
         let names: Vec<String> = self
             .parts
             .iter()
-            .filter(|part| part.name.starts_with("xl/tables/") && part.name.ends_with(".xml"))
+            .filter(|part| {
+                overrides
+                    .get(part.name.as_ref())
+                    .or_else(|| {
+                        defaults.get(
+                            &part
+                                .name
+                                .rsplit('.')
+                                .next()
+                                .unwrap_or("")
+                                .to_ascii_lowercase(),
+                        )
+                    })
+                    .is_some_and(|kind| kind == crate::features::CT_TABLE)
+            })
             .map(|part| part.name.to_string())
             .collect();
         let mut maximum = 0u32;
@@ -237,9 +545,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 let frame = xml.next()?;
                 match frame.event {
                     Event::Start(e) if frame.depth == 1 => {
-                        if let Some(id) = attribute(&e, b"id")?.and_then(|id| id.parse().ok()) {
-                            maximum = maximum.max(id);
+                        if frame.scope != Scope::Spreadsheet || e.local_name().as_ref() != "table" {
+                            return Err(invalid("Invalid table part root"));
                         }
+                        let id: u32 = crate::xml::required_attribute(&e, b"id")?
+                            .parse()
+                            .map_err(|_| invalid("Invalid table id"))?;
+                        maximum = maximum.max(id);
                         break;
                     }
                     Event::Eof => break,
@@ -257,6 +569,21 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         hyperlink_relationships: &BTreeMap<String, &[u8]>,
     ) -> Result<FeatureSave> {
         let mut save = FeatureSave::default();
+        if self.signed && self.has_feature_patches() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Editing signed packages is unsupported",
+            ));
+        }
+        let removed = self
+            .membership
+            .as_deref()
+            .map(|membership| membership.removed_roots())
+            .unwrap_or_default();
+        let workbook = self.book.workbook_part.clone();
+        for (part, id) in &removed {
+            self.remove_feature_graph(part, &workbook, id, false, &mut save)?;
+        }
         if !self.has_feature_patches() {
             return Ok(save);
         }
@@ -266,6 +593,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .map(|part| part.name.to_string())
             .collect();
         let mut numbers = PartNumbers::avoiding(existing.iter().map(String::as_str));
+        numbers.pivot_cache_id = self.next_pivot_cache_id()?;
         let patches: Vec<(String, Box<SheetFeatures>)> = self
             .feature_patches
             .iter()
@@ -277,6 +605,13 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             numbers.reserve_table_id(maximum);
         }
         for (part, features) in patches {
+            if self
+                .membership
+                .as_deref()
+                .is_some_and(|membership| membership.removes_part(&part))
+            {
+                continue;
+            }
             let (index, name) = self
                 .book
                 .sheets()
@@ -286,10 +621,66 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 .map(|(index, info)| (index, info.name().to_owned()))
                 .ok_or_else(|| invalid("Feature patch sheet is missing"))?;
             let (source, sources) = self.book.sheet_features_with_sources(&name)?;
+            if let Some(root) = features.chartsheet.as_ref().or(source.chartsheet.as_ref()) {
+                crate::drawing::validate_chartsheet_copy(root, features.chartsheet_parts.as_ref())?;
+            }
+            let chart_parts_changed = source.chartsheet_parts != features.chartsheet_parts;
+            let printer_changed = source.printer_settings != features.printer_settings;
+            if printer_changed {
+                let printing_id = self
+                    .print_patches
+                    .get(&part)
+                    .map(|settings| settings.setup.printer_relationship.as_deref())
+                    .unwrap_or_else(|| {
+                        source
+                            .printer_settings
+                            .as_ref()
+                            .map(|settings| settings.relationship.as_ref())
+                    });
+                if printing_id
+                    != features
+                        .printer_settings
+                        .as_ref()
+                        .map(|settings| settings.relationship.as_ref())
+                {
+                    return Err(invalid(
+                        "Printer settings must match the page-setup relationship",
+                    ));
+                }
+            }
             let tables_changed = source.tables != features.tables;
             let comments_changed = source.comments != features.comments;
-            if !tables_changed && !comments_changed {
+            let images_changed = if let Some(images) = &features.images {
+                *images != self.book.sheet_images(&name)?
+            } else {
+                false
+            };
+            let charts_changed = if let Some(charts) = &features.charts {
+                *charts != self.book.sheet_charts(&name)?
+            } else {
+                false
+            };
+            let shapes_changed = if let Some(shapes) = &features.shapes {
+                *shapes != self.book.sheet_shapes(&name)?
+            } else {
+                false
+            };
+            let drawings_changed = images_changed || charts_changed || shapes_changed;
+            let pivots_changed = if let Some(pivots) = &features.pivots {
+                *pivots != self.book.sheet_pivots(&name)?
+            } else {
+                false
+            };
+            if !chart_parts_changed
+                && !printer_changed
+                && !tables_changed
+                && !comments_changed
+                && !drawings_changed
+                && !pivots_changed
+            {
                 let mut output = SheetOutput::default();
+                output.refs.pivots = sources.pivots.iter().map(|(id, _)| id.clone()).collect();
+                output.refs.drawing = sources.drawing.as_ref().map(|(id, _)| id.clone());
                 output.refs.tables = sources.tables.iter().map(|(id, _)| id.clone()).collect();
                 output.refs.legacy_drawing = sources.vml.as_ref().map(|(id, _)| id.clone());
                 save.sheets.insert(part, FeaturePlan { features, output });
@@ -297,19 +688,80 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             }
             // Rebuild only the changed part group; keep the other group's parts.
             let mut removed_ids = HashSet::new();
+            if chart_parts_changed && let Some(graph) = &source.chartsheet_parts {
+                for rel in &graph.relationships {
+                    removed_ids.insert(rel.id.to_string());
+                    if !rel.external {
+                        self.remove_feature_graph(&rel.target, &part, &rel.id, false, &mut save)?;
+                    }
+                }
+            }
+            if printer_changed && let Some((id, name)) = &sources.printer {
+                self.remove_feature_graph(name, &part, id, false, &mut save)?;
+                removed_ids.insert(id.clone());
+            }
             if tables_changed {
                 for (id, name) in &sources.tables {
                     removed_ids.insert(id.clone());
-                    save.remove.insert(name.clone());
+                    self.remove_feature_graph(name, &part, id, false, &mut save)?;
                 }
             }
             if comments_changed {
                 for (id, name) in sources.comments.iter().chain(sources.vml.iter()) {
                     removed_ids.insert(id.clone());
-                    save.remove.insert(name.clone());
+                    self.remove_feature_graph(name, &part, id, false, &mut save)?;
+                }
+            }
+            if drawings_changed && let Some((id, name)) = &sources.drawing {
+                self.remove_feature_graph(name, &part, id, false, &mut save)?;
+                removed_ids.insert(id.clone());
+            }
+            if pivots_changed {
+                for (id, name) in &sources.pivots {
+                    self.remove_feature_graph(name, &part, id, false, &mut save)?;
+                    removed_ids.insert(id.clone());
                 }
             }
             let rebuilt = SheetFeatures {
+                chartsheet_parts: if chart_parts_changed {
+                    features.chartsheet_parts.clone()
+                } else {
+                    None
+                },
+                shapes: if drawings_changed {
+                    Some(match &features.shapes {
+                        Some(shapes) => shapes.clone(),
+                        None => self.book.sheet_shapes(&name)?,
+                    })
+                } else {
+                    None
+                },
+                printer_settings: if printer_changed {
+                    features.printer_settings.clone()
+                } else {
+                    None
+                },
+                pivots: if pivots_changed {
+                    features.pivots.clone()
+                } else {
+                    None
+                },
+                images: if drawings_changed {
+                    Some(match &features.images {
+                        Some(images) => images.clone(),
+                        None => self.book.sheet_images(&name)?,
+                    })
+                } else {
+                    None
+                },
+                charts: if drawings_changed {
+                    Some(match &features.charts {
+                        Some(charts) => charts.clone(),
+                        None => self.book.sheet_charts(&name)?,
+                    })
+                } else {
+                    None
+                },
                 tables: if tables_changed {
                     features.tables.clone()
                 } else {
@@ -331,6 +783,16 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 EMPTY_RELS.to_vec()
             };
             let mut taken = relationship_ids(&base)?;
+            if let Some(settings) = &rebuilt.printer_settings {
+                if taken.contains(settings.relationship.as_ref())
+                    && !removed_ids.contains(settings.relationship.as_ref())
+                {
+                    return Err(invalid(
+                        "Printer relationship collides with an existing owner",
+                    ));
+                }
+                taken.insert(settings.relationship.to_string());
+            }
             let mut next = 0u32;
             let mut output = build_sheet_output(&rebuilt, index, &part, &mut numbers, |_| {
                 loop {
@@ -342,19 +804,32 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 }
             })
             .map_err(|cause| io_error("Cannot encode worksheet feature parts", cause))?;
+            if !pivots_changed {
+                output.refs.pivots = sources.pivots.iter().map(|(id, _)| id.clone()).collect();
+            }
+            if !drawings_changed {
+                output.refs.drawing = sources.drawing.as_ref().map(|(id, _)| id.clone());
+            }
             if !tables_changed {
                 output.refs.tables = sources.tables.iter().map(|(id, _)| id.clone()).collect();
             }
             if !comments_changed {
                 output.refs.legacy_drawing = sources.vml.as_ref().map(|(id, _)| id.clone());
             }
-            let rels = rewrite_relationships(&base, &removed_ids, &output.relationships)?;
+            let rels = rewrite_relationships_with_extra(
+                &base,
+                &removed_ids,
+                &output.relationships,
+                &output.extra_relationships,
+            )?;
             save.replace.insert(rels_part, rels);
+            save.pivot_caches.append(&mut output.pivot_caches);
             for part in output.parts.drain(..) {
-                if part.content_type == crate::features::CT_VML {
+                if part.content_type.as_ref() == crate::features::CT_VML {
                     save.vml_default = true;
                 } else {
-                    save.overrides.push((part.name.clone(), part.content_type));
+                    save.overrides
+                        .push((part.name.clone(), part.content_type.clone()));
                 }
                 save.parts.push(part);
             }
@@ -382,12 +857,22 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             numbers.reserve_table_id(maximum);
         }
         for (part, features) in created {
+            if let Some(root) = &features.chartsheet {
+                crate::drawing::validate_chartsheet_copy(root, features.chartsheet_parts.as_ref())?;
+            }
             let index = self.book.sheets().len() + save.sheets.len();
             let rels_part = crate::package::relationship_part(&part);
             let base = hyperlink_relationships
                 .get(&rels_part)
                 .map_or_else(|| EMPTY_RELS.to_vec(), |bytes| bytes.to_vec());
             let mut taken = relationship_ids(&base)?;
+            if let Some(settings) = &features.printer_settings
+                && !taken.insert(settings.relationship.to_string())
+            {
+                return Err(invalid(
+                    "Printer relationship collides with an existing owner",
+                ));
+            }
             let mut next = 0u32;
             let mut output = build_sheet_output(&features, index, &part, &mut numbers, |_| {
                 loop {
@@ -399,15 +884,22 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 }
             })
             .map_err(|cause| io_error("Cannot encode worksheet feature parts", cause))?;
-            if !output.relationships.is_empty() {
-                let rels = rewrite_relationships(&base, &HashSet::new(), &output.relationships)?;
+            if !output.relationships.is_empty() || !output.extra_relationships.is_empty() {
+                let rels = rewrite_relationships_with_extra(
+                    &base,
+                    &HashSet::new(),
+                    &output.relationships,
+                    &output.extra_relationships,
+                )?;
                 save.replace.insert(rels_part, rels);
             }
+            save.pivot_caches.append(&mut output.pivot_caches);
             for part in output.parts.drain(..) {
-                if part.content_type == crate::features::CT_VML {
+                if part.content_type.as_ref() == crate::features::CT_VML {
                     save.vml_default = true;
                 } else {
-                    save.overrides.push((part.name.clone(), part.content_type));
+                    save.overrides
+                        .push((part.name.clone(), part.content_type.clone()));
                 }
                 save.parts.push(part);
             }
@@ -415,8 +907,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         if let Some(features) = self.workbook_feature_patch.clone() {
             self.prepare_workbook_features(&features, &mut save)?;
+            self.prepare_complex_features(&features, &mut numbers, &mut save)?;
             save.workbook = Some(features);
         }
+        self.prepare_pivot_cache_relationships(&mut save)?;
         Ok(save)
     }
 
@@ -508,14 +1002,15 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             };
             added.push(OutputRelationship {
                 id,
-                kind,
+                kind: kind.into(),
                 target: default_name.to_owned(),
             });
-            save.overrides.push((default_name.to_owned(), content_type));
+            save.overrides
+                .push((default_name.to_owned(), content_type.into()));
             save.parts.push(OutputPart {
                 name: default_name.to_owned(),
-                content_type,
-                bytes,
+                content_type: content_type.into(),
+                bytes: bytes.into(),
             });
         }
         if !added.is_empty() {
@@ -524,6 +1019,28 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         Ok(())
     }
+}
+
+pub(super) fn write_pivot_cache_refs(
+    out: &mut impl Write,
+    caches: &[crate::features::package::PivotCacheOutput],
+    uri: Option<&str>,
+) -> io::Result<()> {
+    for cache in caches {
+        out.write_all(b"<pivotCache")?;
+        crate::printing::namespace(out, uri)?;
+        let rel = if uri == Some(crate::xml::STRICT_MAIN_URI) {
+            crate::xml::STRICT_OFFICE_REL_URI
+        } else {
+            crate::xml::OFFICE_REL_URI
+        };
+        write!(
+            out,
+            " xmlns:r=\"{rel}\" cacheId=\"{}\" r:id=\"{}\"/>",
+            cache.id, cache.relationship
+        )?;
+    }
+    Ok(())
 }
 
 /// Child order of `CT_Workbook`.
@@ -549,7 +1066,7 @@ const WORKBOOK_ORDER: &[&[u8]] = &[
     b"extLst",
 ];
 
-fn workbook_rank(name: &[u8]) -> usize {
+pub(super) fn workbook_rank(name: &[u8]) -> usize {
     WORKBOOK_ORDER
         .iter()
         .position(|item| *item == name)

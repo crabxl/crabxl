@@ -644,6 +644,19 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
         )
         .unwrap();
         let id = outgoing.sheet_id("First").unwrap();
+        if body.contains("TargetMode") {
+            outgoing.remove_sheet(id).unwrap();
+            let saved = parts(
+                outgoing
+                    .save(Cursor::new(Vec::new()), Default::default())
+                    .unwrap()
+                    .0
+                    .into_inner(),
+            );
+            assert!(!saved.contains_key("xl/worksheets/sheet1.xml"));
+            assert!(!saved.contains_key("xl/worksheets/_rels/sheet1.xml.rels"));
+            continue;
+        }
         assert_eq!(
             outgoing.remove_sheet(id).err().unwrap().kind(),
             ErrorKind::Unsupported
@@ -661,7 +674,7 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
             outgoing_parts
         );
     }
-    // Macro/template main types are preserved; linked VBA deletion is a policy gap.
+    // Removing a sheet preserves the explicitly retained opaque VBA project and format.
     for kind in [
         "application/vnd.ms-excel.sheet.macroEnabled.main+xml",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml",
@@ -690,19 +703,7 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
         )
         .unwrap();
         let id = typed.sheet_id("First").unwrap();
-        if kind.contains("macroEnabled") {
-            assert_eq!(
-                typed.remove_sheet(id).err().unwrap().kind(),
-                ErrorKind::Unsupported
-            );
-            assert!(!typed.is_materialized(id));
-            assert_eq!(typed.patch_bytes(), 0);
-            typed
-                .set_value(id, CellAddress::new(0, 0).unwrap(), CellValue::Integer(27))
-                .unwrap();
-        } else {
-            typed.remove_sheet(id).unwrap();
-        }
+        typed.remove_sheet(id).unwrap();
         let saved = parts(
             typed
                 .save(Cursor::new(Vec::new()), Default::default())
@@ -720,10 +721,11 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
                 saved["custom/project.bin"],
                 typed_parts["custom/project.bin"]
             );
-            assert_eq!(
-                saved["xl/_rels/workbook.xml.rels"],
-                typed_parts["xl/_rels/workbook.xml.rels"]
-            );
+            let relationships =
+                String::from_utf8(saved["xl/_rels/workbook.xml.rels"].clone()).unwrap();
+            assert!(relationships.contains("vbaProject"));
+            assert!(relationships.contains("../custom/project.bin"));
+            assert!(!saved.contains_key("xl/worksheets/sheet1.xml"));
         }
     }
     // Empty models remain recoverable; saving rejects before touching an output.
@@ -761,7 +763,7 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
         LoadedWorkbook::with_options(Cursor::new(package(saved)), Default::default()).unwrap();
     assert_eq!(reopened.model().sheets().count(), 1);
     assert!(reopened.sheet_id("Recovered").is_some());
-    for graph in ["<pivotCaches/>", "<customWorkbookViews/>", "<extLst/>"] {
+    for graph in ["<customWorkbookViews/>", "<extLst/>"] {
         let mut guarded_parts = original_parts.clone();
         let xml = String::from_utf8(guarded_parts.remove("xl/workbook.xml").unwrap()).unwrap();
         guarded_parts.insert(
@@ -2180,11 +2182,6 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
             "</sheetData><mergeCells><mergeCell ref=\"A1:B1\" unsupportedMergeFlag=\"1\"/></mergeCells>",
         ),
         ("<row r=\"1\">", "<row r=\"1\" unsupportedRowFlag=\"30\">"),
-        ("<c r=\"A1\"", "<c r=\"A1\" cm=\"1\""),
-        (
-            "</sheetData>",
-            "</sheetData><drawing xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" r:id=\"rId9\"/>",
-        ),
     ] {
         let mut guarded_parts = original.clone();
         let xml =

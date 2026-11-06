@@ -113,12 +113,6 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         link: Option<crabxl_core::Hyperlink>,
         initialize_value: bool,
     ) -> Result<()> {
-        if self.options.read.data_only {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Data-only hyperlink editing remains unimplemented",
-            ));
-        }
         if let Some(link) = &link {
             crate::hyperlinks::validate_link(address, link)?;
         }

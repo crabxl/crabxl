@@ -113,6 +113,7 @@ pub(crate) const WORKSHEET_ORDER: &[&[u8]] = &[
     b"controls",
     b"webPublishItems",
     b"tableParts",
+    b"pivotTableParts",
     b"extLst",
 ];
 

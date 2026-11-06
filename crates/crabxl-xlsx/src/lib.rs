@@ -63,3 +63,12 @@ mod loaded_codec;
 pub use loaded::{LoadOptions, LoadedWorkbook};
 
 mod dimension_codec;
+
+mod drawing;
+
+mod drawing_xml;
+
+mod pivot;
+pub use pivot::{PivotRecords, write_pivot_records};
+
+mod complex;

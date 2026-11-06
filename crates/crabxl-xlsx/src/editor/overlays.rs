@@ -196,7 +196,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             )
             .with_cell(address));
         }
-        if let CellValue::RichText(value) = value
+        if let CellValue::RichText(value) = value.unannotated()
             && let Some(properties) = &value.phonetic_properties
         {
             let fonts = self.model_font_count.ok_or_else(|| {

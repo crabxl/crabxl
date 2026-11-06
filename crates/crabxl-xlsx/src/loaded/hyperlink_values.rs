@@ -143,12 +143,6 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             if !self.sheets[index].hyperlink_values_dirty || self.sheets[index].original.is_none() {
                 continue;
             }
-            if self.options.read.data_only {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Saving initialized data-only hyperlink values remains unimplemented",
-                ));
-            }
             let id = self.sheets[index].id;
             let plan = self
                 .editor
