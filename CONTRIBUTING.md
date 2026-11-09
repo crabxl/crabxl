@@ -24,13 +24,12 @@ Do not report security problems in public issues. Read [SECURITY.md](SECURITY.md
 | `crates/crabxl` | Public facade crate. Users depend only on this crate. |
 | `crates/crabxl-core` | Format-independent models: values, addresses, styles, formulas, worksheets and memory accounting. |
 | `crates/crabxl-xlsx` | XLSX package I/O: streaming reader, sequential writer, editor and loaded workbook. |
-| `crates/crabxl-bench` | Benchmark drivers and fixture generators. Not published. |
 | `crates/crabxl/examples` | Usage examples. Start with [`quickstart.rs`](crates/crabxl/examples/quickstart.rs). |
 | `docs/` | Public user documentation. |
-| `internal/` | Maintainer records: [status](internal/STATUS.md), roadmap, architecture, design decisions and release evidence. |
-| `benchmarks/` | Benchmark scripts. Reports are in `reports/`. Raw data is in `results/`. |
+| `internal/` | Maintainer records: [status](internal/STATUS.md), roadmap, architecture and the release process. |
+| `benchmarks/` | The benchmark suite. The latest results are in `results/`. |
 | `third_party/` | Provenance and licenses of code ported from other projects. |
-| `tools/` | Release and inventory scripts. |
+| `tools/` | Release scripts. |
 
 The Python package is in a separate repository,
 [crabxl-python](https://github.com/crabxl/crabxl-python). It uses a pinned

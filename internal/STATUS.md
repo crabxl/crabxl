@@ -40,8 +40,7 @@ Last update: 2026-11-09.
 - Binary payloads can remain on disk. Loaded feature snapshots count toward the
   retained-data allowance. Metadata replacement validates existing cell indices.
 
-Detailed native coverage is in `internal/features.json`; port origins and notices
-are in `third_party/ports.json`.
+Port origins and notices are in `third_party/ports.json`.
 
 ## Validation
 

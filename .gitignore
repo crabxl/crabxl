@@ -1,9 +1,6 @@
 /target/
-/benchmarks/calamine/target/
-/benchmarks/umya/target/
-/benchmarks/measure
+/benchmarks/driver/target/
 /benchmarks/data/
-/benchmarks/*.local.json
 __pycache__/
 
 .pytest_cache/

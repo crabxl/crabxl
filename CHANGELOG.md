@@ -42,8 +42,9 @@ The Python package has its own
 - Loaded workbooks can create, move, copy and remove sheets when the workbook
   has sheet-local defined names. The names stay on their sheets.
 
-- Benchmark drivers moved from `crates/crabxl/examples` to the unpublished
-  `crabxl-bench` crate. The new `quickstart` example shows the main APIs.
+- One benchmark suite (`benchmarks/run.py`) compares read, write and edit
+  with calamine, rust_xlsxwriter and umya-spreadsheet. It replaces the
+  earlier benchmark scripts. The new `quickstart` example shows the main APIs.
 
 ## [0.1.0-alpha.11] - 2026-10-21
 

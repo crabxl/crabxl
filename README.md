@@ -26,9 +26,10 @@ openpyxl while keeping the Rust API idiomatic.
 - Configure memory allowances, shared-string RAM/disk storage, caches, resource
   limits, and ZIP compression.
 
-**Currently alpha.** Full editing and openpyxl feature coverage are still in
-progress. Unsupported operations return explicit errors. Formula calculation is
-not provided. See [project status](internal/STATUS.md) for the current scope.
+**Currently alpha.** CrabXL has the capabilities of openpyxl 3.1.5. The next
+stage optimizes speed and memory before the beta. Unsupported operations return
+explicit errors. Formula calculation is not provided. See
+[project status](internal/STATUS.md).
 
 ## Installation
 
@@ -99,6 +100,7 @@ parts.
 ## Documentation
 
 - [API reference](https://docs.rs/crabxl)
+- [Benchmarks](benchmarks/results/results.md)
 - [Project status](internal/STATUS.md)
 - [Changelog](CHANGELOG.md)
 
