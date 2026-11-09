@@ -4,8 +4,8 @@ A12 completed openpyxl 3.1.5 capability. One stage remains before the beta.
 
 ## A13: performance and memory
 
-Goal: meet the hard requirements in [AGENTS.md](../AGENTS.md) on every
-benchmark scenario.
+Goal: on every benchmark scenario, be faster and use less peak memory than
+the libraries in this table.
 
 | Scenario | Faster than | Lower peak memory than |
 |---|---|---|
