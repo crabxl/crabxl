@@ -5,9 +5,17 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// Append a complete scalar/formula row after actual source/pending extent.
     /// The selected sheet materializes once; advertised dimensions do not choose
     /// the append position. Validate all values and joint model/overlay/scratch
-    /// allowances before committing either representation. Date and unresolved
-    /// phonetic-font assignments retain their explicit unsupported errors.
+    /// allowances before committing either representation. Temporal rows use
+    /// the canonical model and register their workbook-local number formats.
     pub fn append(&mut self, id: SheetId, values: Vec<CellValue>) -> Result<RowIndex> {
+        if values.iter().any(|value| value.temporal_value().is_some()) {
+            self.prepare_style_edit()?;
+            self.sheet(id)?;
+            let row = self.edit_structure_when(id, |sheet| sheet.append(values), |_| true)?;
+            self.editor.styles_changed();
+            self.rebalance()?;
+            return Ok(row);
+        }
         self.editor.model_font_count = self.bank.style_catalog().map(|catalog| catalog.fonts.len());
         self.sheet(id)?;
         let source = self
@@ -109,6 +117,33 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         value: CellValue,
         insert_missing: bool,
     ) -> Result<()> {
+        if value.temporal_value().is_some() {
+            self.prepare_style_edit()?;
+            self.sheet(id)?;
+            if !insert_missing && self.bank.sheet(id)?.get(address).is_none() {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Replacement targets a missing model cell",
+                )
+                .with_cell(address));
+            }
+            self.edit_structure_when(
+                id,
+                |sheet| {
+                    let style = sheet
+                        .get(address)
+                        .map_or(crabxl_core::StyleId::new(0), |cell| cell.style);
+                    sheet.set(Cell {
+                        address,
+                        value,
+                        style,
+                    })
+                },
+                |_| true,
+            )?;
+            self.editor.styles_changed();
+            return self.rebalance();
+        }
         self.editor.model_font_count = self.bank.style_catalog().map(|catalog| catalog.fonts.len());
         let source = self
             .sheets

@@ -173,7 +173,7 @@ fn printing_and_views_share_one_owned_model_export() {
 fn repeated_printing_edits_preserve_other_properties_and_tail_order() {
     let bytes = fixture(None);
     let source=part(&bytes,"xl/worksheets/sheet1.xml")
-        .replace("<sheetData>","<sheetPr codeName=\"Keep\"><tabColor rgb=\"FF123456\"/><pageSetUpPr fitToPage=\"0\"/></sheetPr><sheetData>")
+        .replace("<sheetFormatPr ","<sheetPr codeName=\"Keep\"><tabColor rgb=\"FF123456\"/><pageSetUpPr fitToPage=\"0\"/></sheetPr><sheetFormatPr ")
         .replace("<v>42</v>","<f>20+22</f><v>42</v>")
         .replace("</worksheet>","<headerFooter><oddHeader>Keep header</oddHeader></headerFooter><ignoredErrors><ignoredError sqref=\"A1\" numberStoredAsText=\"1\"/></ignoredErrors></worksheet>");
     let bytes = replace(&bytes, "xl/worksheets/sheet1.xml", &source);

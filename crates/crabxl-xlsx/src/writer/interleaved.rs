@@ -6,6 +6,337 @@
 use super::*;
 
 impl WorkbookWriter {
+    /// Close an empty interleaved slot as a chartsheet while preserving its tab order.
+    pub fn close_interleaved_chartsheet(
+        &mut self,
+        id: usize,
+        charts: Vec<crabxl_core::Chart>,
+    ) -> Result<()> {
+        self.close_interleaved_chartsheet_with_properties(id, charts, None)
+    }
+
+    /// Finish a chart-only sheet with its complete property document.
+    pub fn close_interleaved_chartsheet_with_properties(
+        &mut self,
+        id: usize,
+        charts: Vec<crabxl_core::Chart>,
+        properties: Option<crabxl_core::XmlElement>,
+    ) -> Result<()> {
+        self.activate_sheet(id)?;
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.last_row.is_some()
+            || active.bytes != HEADER.len() as u64
+            || active.footer.is_some()
+            || active.features.is_some()
+            || active.relationships.is_some()
+            || active.live_events.is_some()
+            || active.link_spool.is_some()
+            || active.dimensions.heap_bytes() != 0
+        {
+            return Err(state("Chartsheet requires an empty interleaved sheet"));
+        }
+        let features = crabxl_core::SheetFeatures {
+            charts: Some(charts),
+            chartsheet: properties,
+            ..Default::default()
+        };
+        let super::sheet::PreparedChartsheet {
+            header,
+            footer,
+            relationships,
+            output,
+            numbers,
+        } = self.prepare_chartsheet(id, &features)?;
+        let retained = footer
+            .capacity()
+            .saturating_add(relationships.capacity())
+            .saturating_add(output.heap_bytes());
+        if self
+            .style_memory_bytes()
+            .saturating_add(self.catalog_bytes())
+            .saturating_add(retained)
+            .saturating_add(header.capacity())
+            > self.options.max_metadata_bytes
+        {
+            return Err(limit("Chartsheet metadata exceeds writer allowance"));
+        }
+        let bytes = header.len() as u64;
+        if bytes.saturating_add(footer.len() as u64) > self.options.max_sheet_bytes {
+            return Err(limit("Writer sheet byte limit exceeded"));
+        }
+        self.check_temp(
+            bytes
+                .saturating_sub(active.bytes)
+                .saturating_add(footer.len() as u64)
+                .saturating_add(self.paused_footers()),
+        )?;
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        let rewrite = (|| -> io::Result<()> {
+            active.output.seek(std::io::SeekFrom::Start(0))?;
+            active.output.write_all(&header)?;
+            active.output.flush()?;
+            active.output.get_ref().as_file().set_len(bytes)
+        })();
+        if let Err(error) = rewrite {
+            self.poisoned = true;
+            return Err(io_error("Cannot spool chartsheet", error));
+        }
+        self.temporary_bytes = self
+            .temporary_bytes
+            .saturating_sub(active.bytes)
+            .saturating_add(bytes);
+        self.stats.peak_temp_bytes = self.stats.peak_temp_bytes.max(self.temporary_bytes);
+        active.bytes = bytes;
+        active.columns_written = true;
+        active.footer = Some(footer);
+        active.relationships = Some(relationships);
+        active.features = Some(Box::new(output));
+        self.feature_numbers = numbers;
+        self.close_sheet()?;
+        if let Some(sheet) = self.sheets.last_mut() {
+            sheet.kind = crate::SheetKind::ChartSheet;
+        }
+        Ok(())
+    }
+
+    /// Attach drawings after streaming rows and before closing an interleaved sheet.
+    pub fn set_interleaved_drawings(
+        &mut self,
+        id: usize,
+        images: Vec<crabxl_core::Image>,
+        charts: Vec<crabxl_core::Chart>,
+    ) -> Result<()> {
+        if images.is_empty() && charts.is_empty() {
+            self.activate_sheet(id)?;
+            return Ok(());
+        }
+        self.set_interleaved_features(
+            id,
+            crabxl_core::SheetFeatures {
+                images: Some(images),
+                charts: Some(charts),
+                ..Default::default()
+            },
+        )
+    }
+
+    /// Attach package-backed worksheet features before its footer is closed.
+    pub fn set_interleaved_features(
+        &mut self,
+        id: usize,
+        mut features: crabxl_core::SheetFeatures,
+    ) -> Result<()> {
+        self.activate_sheet(id)?;
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        let comment_heap = std::mem::take(&mut active.comment_heap);
+        let explicit = features.comments.len();
+        if explicit == 0 {
+            std::mem::swap(&mut features.comments, &mut active.comments);
+        } else {
+            features.comments.append(&mut active.comments);
+        }
+        let result = self.prepare_interleaved_features(id, &features);
+        if result.is_err() {
+            features.comments.drain(..explicit);
+            let active = self
+                .active
+                .as_mut()
+                .ok_or_else(|| state("No active worksheet"))?;
+            if explicit == 0 {
+                active.comments = features.comments;
+            } else {
+                active.comments.extend(features.comments);
+            }
+            active.comment_heap = comment_heap;
+        }
+        result
+    }
+    /// Append a bounded row and snapshot its notes only after the row succeeds.
+    pub fn write_row_with_annotations(
+        &mut self,
+        row: &Row,
+        links: &[(crabxl_core::CellAddress, u64)],
+        comments: Vec<crabxl_core::features::Comment>,
+    ) -> Result<()> {
+        if comments.is_empty() {
+            return self.write_row_with_hyperlink_groups(row, links);
+        }
+        self.ensure_open()?;
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.features.is_some() || active.footer.is_some() {
+            return Err(state(
+                "Cannot append notes after preparing worksheet features",
+            ));
+        }
+        let mut heap = 0usize;
+        let mut previous = None;
+        for comment in &comments {
+            if comment.address.row != row.index
+                || previous.is_some_and(|column| comment.address.column <= column)
+            {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Comments must belong to the appended row in column order",
+                ));
+            }
+            validate_xml_text(&comment.text)?;
+            validate_xml_text(&comment.author)?;
+            if !comment.width.is_finite()
+                || !comment.height.is_finite()
+                || comment.width < 0.0
+                || comment.height < 0.0
+            {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Invalid comment dimensions",
+                ));
+            }
+            heap = heap.saturating_add(comment.heap_bytes());
+            previous = Some(comment.address.column);
+        }
+        let length = active.comments.len().saturating_add(comments.len());
+        let capacity = active.comments.capacity();
+        let target = if length > capacity {
+            length.max(capacity.saturating_mul(2))
+        } else {
+            capacity
+        };
+        let available = self
+            .options
+            .max_metadata_bytes
+            .saturating_sub(self.style_memory_bytes())
+            .saturating_sub(self.catalog_bytes());
+        let scratch = comments
+            .capacity()
+            .saturating_mul(size_of::<crabxl_core::features::Comment>())
+            .saturating_add(heap);
+        let growth = target
+            .saturating_sub(capacity)
+            .saturating_mul(size_of::<crabxl_core::features::Comment>());
+        if growth.saturating_add(heap).saturating_add(scratch) > available {
+            return Err(limit("Streamed comments exceed metadata allowance"));
+        }
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        active
+            .comments
+            .try_reserve_exact(target.saturating_sub(active.comments.len()))
+            .map_err(|_| limit("Cannot reserve streamed comments"))?;
+        // Reserve note ownership while row/style/link validation shares the same budget.
+        active.comment_heap = active
+            .comment_heap
+            .saturating_add(heap)
+            .saturating_add(scratch);
+        let result = self.write_row_with_hyperlink_groups(row, links);
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        active.comment_heap = active.comment_heap.saturating_sub(scratch);
+        if result.is_ok() {
+            active.comments.extend(comments);
+        } else {
+            active.comment_heap = active.comment_heap.saturating_sub(heap);
+        }
+        result
+    }
+    fn prepare_interleaved_features(
+        &mut self,
+        id: usize,
+        features: &crabxl_core::SheetFeatures,
+    ) -> Result<()> {
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.footer.is_some() || active.relationships.is_some() || active.features.is_some() {
+            return Err(state("Worksheet already has prepared features"));
+        }
+        if self
+            .style_memory_bytes()
+            .saturating_add(self.catalog_bytes())
+            .saturating_add(features.heap_bytes())
+            > self.options.max_metadata_bytes
+        {
+            return Err(limit("Streamed features exceed metadata allowance"));
+        }
+        let mut numbers = self.feature_numbers.clone();
+        let mut feature_id = 0;
+        let output = crate::features::package::build_sheet_output(
+            features,
+            id,
+            "xl/worksheets/sheet.xml",
+            &mut numbers,
+            |kind| {
+                if kind == "drawing" {
+                    "rIdDrawing".into()
+                } else {
+                    feature_id += 1;
+                    format!("rIdFeature{feature_id}")
+                }
+            },
+        )
+        .map_err(|error| io_error("Cannot encode streamed drawings", error))?;
+        let mut footer = b"</sheetData>".to_vec();
+        crate::features::sheet::write_ranks(
+            &mut footer,
+            features,
+            &output.refs,
+            0,
+            usize::MAX,
+            None,
+        )
+        .map_err(|error| io_error("Cannot encode streamed drawing footer", error))?;
+        footer.extend_from_slice(b"</worksheet>");
+        let mut relationships = b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">".to_vec();
+        relationships.extend_from_slice(&output.extra_relationships);
+        for relationship in &output.relationships {
+            relationship
+                .write(&mut relationships)
+                .map_err(|error| io_error("Cannot encode streamed drawing relationships", error))?;
+        }
+        relationships.extend_from_slice(b"</Relationships>");
+        crate::features::package::validate_relationship_ids(&relationships)?;
+        if self
+            .style_memory_bytes()
+            .saturating_add(self.catalog_bytes())
+            .saturating_add(features.heap_bytes())
+            .saturating_add(output.heap_bytes())
+            .saturating_add(footer.capacity())
+            .saturating_add(relationships.capacity())
+            > self.options.max_metadata_bytes
+        {
+            return Err(limit("Streamed drawings exceed metadata allowance"));
+        }
+        if active.bytes.saturating_add(footer.len() as u64) > self.options.max_sheet_bytes {
+            return Err(limit("Writer sheet byte limit exceeded"));
+        }
+        self.check_temp(self.paused_footers().saturating_add(footer.len() as u64))?;
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        active.footer = Some(footer);
+        active.relationships = Some(relationships);
+        active.features = Some(Box::new(output));
+        self.feature_numbers = numbers;
+        Ok(())
+    }
+
     /// Start an independently appendable sheet, preserving other live spools.
     /// The returned ID is stable until finish/abort. Sheets package in creation
     /// order; buffers, catalogs and temporary bytes remain explicitly bounded.
@@ -76,12 +407,6 @@ impl WorkbookWriter {
     ) -> Result<()> {
         dimension.validate()?;
         self.validate_dimension_style(dimension.style)?;
-        if dimension.descent.is_some() {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Extended row descent serialization is not implemented",
-            ));
-        }
         self.activate_sheet(id)?;
         let active = self
             .active

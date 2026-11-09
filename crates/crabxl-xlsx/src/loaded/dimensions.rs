@@ -9,12 +9,6 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         dimension: crabxl_core::RowDimension,
     ) -> Result<()> {
         dimension.validate()?;
-        if dimension.descent.is_some() {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Extended row descent serialization is not implemented",
-            ));
-        }
         self.edit_dimension(id, |sheet| sheet.set_row_dimension(dimension))
     }
     /// Update canonical column metadata after validating the affected source graph.

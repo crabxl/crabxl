@@ -26,8 +26,12 @@ pub(crate) fn write_row_attributes(output: &mut impl Write, row: &RowDimension) 
     flag(output, "customFormat", row.custom_format)?;
     flag(output, "thickTop", row.thick_top)?;
     flag(output, "thickBot", row.thick_bottom)?;
-    // x14ac descent requires an extension namespace; preserve it in the model,
-    // and reject package creation until extension-aware output is available.
+    if let Some(descent) = row.descent {
+        write!(
+            output,
+            " xmlns:x14ac=\"http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac\" xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" mc:Ignorable=\"x14ac\" x14ac:dyDescent=\"{descent}\""
+        )?;
+    }
     Ok(())
 }
 pub(crate) fn write_columns(
@@ -81,6 +85,7 @@ fn boolean(value: &str) -> crabxl_core::Result<bool> {
 pub(crate) fn read_row(
     start: &quick_xml::events::BytesStart<'_>,
     index: crabxl_core::RowIndex,
+    namespaces: &quick_xml::name::NamespaceResolver,
 ) -> crabxl_core::Result<Option<RowDimension>> {
     let mut row = RowDimension::new(index);
     let mut explicit = false;
@@ -100,6 +105,15 @@ pub(crate) fn read_row(
             b"customFormat" => row.custom_format = Some(boolean(&value)?),
             b"thickTop" => row.thick_top = Some(boolean(&value)?),
             b"thickBot" => row.thick_bottom = Some(boolean(&value)?),
+            _ if crate::xml::namespaced_attribute(
+                namespaces,
+                attribute.key,
+                crate::xml::EXCEL_ROW_EXT,
+                b"dyDescent",
+            ) =>
+            {
+                row.descent = Some(parse(&value)?);
+            }
             _ => continue,
         }
         explicit = true;

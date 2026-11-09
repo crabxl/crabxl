@@ -23,6 +23,222 @@ fn io_error(error: io::Error) -> crabxl_core::Error {
 const HEAD: &[u8] = b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
 const MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
+/// Decode a chartsheet property document without loading worksheet cells.
+pub fn chartsheet_from_xml(bytes: &[u8]) -> Result<crabxl_core::XmlElement> {
+    let root = spreadsheet_element(bytes, "chartsheet")?;
+    crate::drawing::chartsheet_namespace(&root)?;
+    Ok(root)
+}
+
+/// Encode a complete chartsheet property document for language bindings.
+pub fn chartsheet_to_xml(root: &crabxl_core::XmlElement) -> Result<Vec<u8>> {
+    crate::drawing::chartsheet_namespace(root)?;
+    let mut output = Vec::new();
+    crate::drawing_xml::write(&mut output, root, 0).map_err(io_error)?;
+    Ok(output)
+}
+
+/// Decode a table descriptor while retaining its complete XML metadata.
+pub fn pivot_table_from_xml(bytes: &[u8]) -> Result<crabxl_core::XmlElement> {
+    spreadsheet_element(bytes, "pivotTableDefinition")
+}
+
+/// Decode cache metadata independently of encoded record sources.
+pub fn pivot_cache_from_xml(bytes: &[u8]) -> Result<crabxl_core::XmlElement> {
+    spreadsheet_element(bytes, "pivotCacheDefinition")
+}
+
+/// Decode a cache-record descriptor under the metadata XML limits.
+pub fn pivot_records_from_xml(bytes: &[u8]) -> Result<crabxl_core::XmlElement> {
+    spreadsheet_element(bytes, "pivotCacheRecords")
+}
+
+/// Encode an existing pivot descriptor without regenerating its package graph.
+pub fn pivot_definition_to_xml(root: &crabxl_core::XmlElement) -> Result<Vec<u8>> {
+    if !matches!(
+        root.name.rsplit(':').next(),
+        Some("pivotTableDefinition" | "pivotCacheDefinition")
+    ) {
+        return Err(super::invalid("Invalid pivot definition root"));
+    }
+    let mut output = Vec::new();
+    crate::drawing_xml::write(&mut output, root, 0).map_err(io_error)?;
+    Ok(output)
+}
+
+fn spreadsheet_element(bytes: &[u8], expected: &str) -> Result<crabxl_core::XmlElement> {
+    let mut xml = stream(bytes, expected);
+    let mut element = None;
+    loop {
+        let frame = xml.next()?;
+        match frame.event {
+            Event::Start(start)
+                if frame.depth == 1
+                    && frame.scope == Scope::Spreadsheet
+                    && start.local_name().as_ref() == expected
+                    && element.is_none() =>
+            {
+                let start = start.into_owned();
+                let mut remaining =
+                    usize::try_from(crabxl_core::ResourceLimits::default().max_metadata_bytes)
+                        .unwrap_or(usize::MAX);
+                element = Some(crate::drawing_xml::read_limited(
+                    &mut xml,
+                    &start,
+                    1,
+                    &mut remaining,
+                )?);
+            }
+            Event::Decl(_) | Event::Comment(_) => {}
+            Event::Text(text) if text.as_ref().trim().is_empty() => {}
+            Event::Eof => return element.ok_or_else(|| super::invalid("Missing pivot definition")),
+            _ => return Err(super::invalid("Invalid pivot definition document")),
+        }
+    }
+}
+
+/// Build a canonical pivot graph from a binding's XML descriptor objects.
+pub fn pivot_from_xml(
+    table: &[u8],
+    cache: &[u8],
+    records: Option<&[u8]>,
+) -> Result<crabxl_core::features::PivotTable> {
+    use crabxl_core::features::{PivotCache, PivotTable};
+    let mut definition = pivot_table_from_xml(table)?;
+    definition
+        .attributes
+        .retain(|(name, _)| !(name.contains(':') && name.rsplit(':').next() == Some("id")));
+    definition.set_attribute(
+        "xmlns:r",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+    );
+    definition.set_attribute("r:id", "rIdCache");
+    let id = definition
+        .attribute("cacheId")
+        .unwrap_or("0")
+        .parse()
+        .map_err(|_| super::invalid("Invalid pivot cache identity"))?;
+    let mut cache = PivotCache {
+        id,
+        definition: pivot_cache_from_xml(cache)?,
+        source_part: None,
+        relationships: Vec::new(),
+        parts: Vec::new(),
+    };
+    if let Some(records) = records {
+        let document = pivot_records_from_xml(records)?;
+        let count = document
+            .attribute("count")
+            .unwrap_or("0")
+            .parse()
+            .map_err(|_| super::invalid("Invalid pivot record count"))?;
+        cache.set_records(records.into(), count);
+    }
+    Ok(PivotTable {
+        definition,
+        cache: std::sync::Arc::new(cache),
+        relationships: vec![crabxl_core::drawing::PartRelationship {
+            id: "rIdCache".into(),
+            kind: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition".into(),
+            target: "crabxl/cache".into(),
+            external: false,
+        }],
+        parts: Vec::new(),
+        source_part: None,
+    })
+}
+
+/// Decode worksheet views supplied by a language binding.
+pub fn sheet_views_from_xml(bytes: &[u8]) -> Result<crabxl_core::SheetViews> {
+    let mut document = format!("<worksheet xmlns=\"{MAIN}\">").into_bytes();
+    document.extend_from_slice(bytes);
+    document.extend_from_slice(b"<sheetData/></worksheet>");
+    let maximum = usize::try_from(crabxl_core::ResourceLimits::default().max_metadata_bytes)
+        .unwrap_or(usize::MAX);
+    crate::worksheet_view::read_header(&mut stream(&document, "views"), maximum)
+}
+
+/// Encode canonical worksheet views for a language binding.
+pub fn sheet_views_to_xml(views: &crabxl_core::SheetViews) -> Result<Vec<u8>> {
+    crate::worksheet_view::validate(views)?;
+    let mut output = Vec::new();
+    crate::worksheet_view::write_views(&mut output, views, Some(MAIN)).map_err(io_error)?;
+    Ok(output)
+}
+
+/// Decode a complete worksheet printing fragment supplied by a binding.
+pub fn print_settings_from_xml(bytes: &[u8]) -> Result<crabxl_core::PrintSettings> {
+    let maximum = usize::try_from(crabxl_core::ResourceLimits::default().max_metadata_bytes)
+        .unwrap_or(usize::MAX);
+    crate::printing::read(&mut stream(bytes, "printing"), maximum)
+}
+
+/// Encode canonical printing metadata without worksheet cell data.
+pub fn print_settings_to_xml(settings: &crabxl_core::PrintSettings) -> Result<Vec<u8>> {
+    crate::printing::validate(settings)?;
+    let mut output = format!("<worksheet xmlns=\"{MAIN}\">").into_bytes();
+    crate::printing::write_properties(&mut output, settings, None, true).map_err(io_error)?;
+    output.extend_from_slice(b"<sheetData/>");
+    crate::printing::write_page(&mut output, settings, None).map_err(io_error)?;
+    crate::printing::write_breaks(&mut output, "rowBreaks", &settings.row_breaks, None)
+        .map_err(io_error)?;
+    crate::printing::write_breaks(&mut output, "colBreaks", &settings.column_breaks, None)
+        .map_err(io_error)?;
+    output.extend_from_slice(b"</worksheet>");
+    Ok(output)
+}
+
+/// Parse a complete, relationship-free chart part supplied by a binding.
+pub fn chart_from_xml(
+    bytes: &[u8],
+    anchor: crabxl_core::DrawingAnchor,
+) -> Result<crabxl_core::Chart> {
+    anchor.validate()?;
+    let mut xml = stream(bytes, "chart");
+    let space = loop {
+        let frame = xml.next()?;
+        match frame.event {
+            Event::Start(start)
+                if frame.scope == Scope::Chart && start.local_name().as_ref() == "chartSpace" =>
+            {
+                let start = start.into_owned();
+                let mut remaining =
+                    usize::try_from(crabxl_core::ResourceLimits::default().max_metadata_bytes)
+                        .unwrap_or(usize::MAX);
+                break crate::drawing_xml::read_limited(&mut xml, &start, 1, &mut remaining)?;
+            }
+            Event::Decl(_) | Event::Comment(_) | Event::Text(_) => {}
+            _ => return Err(super::invalid("Expected a chartSpace document")),
+        }
+    };
+    loop {
+        match xml.next()?.event {
+            Event::Eof => break,
+            Event::Comment(_) | Event::Text(_) => {}
+            _ => return Err(super::invalid("Unexpected content after chartSpace")),
+        }
+    }
+    if space
+        .child("chart")
+        .and_then(|chart| chart.child("plotArea"))
+        .is_none()
+    {
+        return Err(super::invalid("Chart requires a plot area"));
+    }
+    Ok(crabxl_core::Chart {
+        anchor,
+        space,
+        name: "Chart".into(),
+        frame: None,
+        drawing_parts: Default::default(),
+        client_data: None,
+        order: 0,
+        relationships: Vec::new(),
+        parts: Vec::new(),
+        source_part: None,
+    })
+}
+
 /// Worksheet features as XML.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SheetFeaturesXml {
@@ -105,15 +321,62 @@ pub fn workbook_features_from_xml(
     custom: Option<&[u8]>,
 ) -> Result<WorkbookFeatures> {
     let mut features = WorkbookFeatures::default();
+    let mut parent = None;
+    let calculation_limit =
+        usize::try_from(crabxl_core::ResourceLimits::default().max_metadata_bytes)
+            .unwrap_or(usize::MAX);
     let mut xml = stream(workbook, "workbook");
     loop {
         let frame = xml.next()?;
         match frame.event {
+            Event::Start(e) if frame.depth == 1 => {
+                if e.len() > calculation_limit {
+                    return Err(crabxl_core::Error::new(
+                        crabxl_core::ErrorKind::LimitExceeded,
+                        "Workbook namespace context exceeds metadata allowance",
+                    ));
+                }
+                let mut context = crate::drawing_xml::element(&e)?;
+                context
+                    .attributes
+                    .retain(|(name, _)| name.as_ref() == "xmlns" || name.starts_with("xmlns:"));
+                parent = Some(context);
+            }
+
             Event::Start(e) if frame.depth == 2 && frame.scope == Scope::Spreadsheet => {
                 let e = e.into_owned();
                 match e.local_name().as_ref().as_bytes() {
                     b"definedNames" => {
                         features.defined_names = super::defined_name::read(&mut xml, &e, 2)?;
+                    }
+                    b"calcPr" | b"bookViews" | b"workbookPr" => {
+                        if e.len() > calculation_limit {
+                            return Err(crabxl_core::Error::new(
+                                crabxl_core::ErrorKind::LimitExceeded,
+                                "Calculation properties exceed metadata allowance",
+                            ));
+                        }
+                        let mut remaining = calculation_limit;
+                        let mut calculation =
+                            crate::drawing_xml::read_limited(&mut xml, &e, 2, &mut remaining)?;
+                        if let Some(parent) = &parent {
+                            crate::drawing_xml::inherit(&mut calculation, parent);
+                        }
+                        if std::mem::size_of::<crabxl_core::XmlElement>() + calculation.heap_bytes()
+                            > calculation_limit
+                        {
+                            return Err(crabxl_core::Error::new(
+                                crabxl_core::ErrorKind::LimitExceeded,
+                                "Calculation properties exceed metadata allowance",
+                            ));
+                        }
+                        if e.local_name().as_ref() == "workbookPr" {
+                            features.workbook_properties = Some(calculation);
+                        } else if e.local_name().as_ref() == "bookViews" {
+                            features.views = Some(calculation);
+                        } else {
+                            features.calculation = Some(calculation);
+                        }
                     }
                     b"workbookProtection" => {
                         features.protection =
@@ -154,10 +417,20 @@ pub fn workbook_features_to_xml(features: &WorkbookFeatures) -> Result<WorkbookF
     }
     let mut workbook = HEAD.to_vec();
     workbook.extend_from_slice(format!("<workbook xmlns=\"{MAIN}\">").as_bytes());
+    if let Some(properties) = &features.workbook_properties {
+        super::workbook_properties::write(&mut workbook, properties, None, None)
+            .map_err(io_error)?;
+    }
+    if let Some(views) = &features.views {
+        super::book_views::write(&mut workbook, views, None, None).map_err(io_error)?;
+    }
     if let Some(protection) = &features.protection {
         super::protection::write_workbook(&mut workbook, protection, None).map_err(io_error)?;
     }
     super::defined_name::write(&mut workbook, &features.defined_names, None).map_err(io_error)?;
+    if let Some(calculation) = &features.calculation {
+        crate::drawing_xml::write(&mut workbook, calculation, 0).map_err(io_error)?;
+    }
     workbook.extend_from_slice(b"</workbook>");
     let props = &features.properties;
     let set = *props != crabxl_core::features::DocumentProperties::default();

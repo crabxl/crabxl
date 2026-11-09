@@ -85,6 +85,30 @@ pub struct MergedRanges {
 }
 
 impl MergedRanges {
+    pub(crate) fn reserve_appearance(&mut self, range: CellRange, maximum: usize) -> Result<()> {
+        if self.next_identity == u64::MAX {
+            return Err(budget());
+        }
+        if self.detached.iter().any(|entry| entry.range == range) {
+            return Ok(());
+        }
+        self.reserve_detached(1, maximum)
+    }
+
+    pub(crate) fn insert_detached(&mut self, mut range: MergedCellRange) {
+        range.identity = self.next_identity;
+        self.next_identity += 1;
+        if let Some(existing) = self
+            .detached
+            .iter_mut()
+            .find(|entry| entry.range == range.range)
+        {
+            *existing = range;
+        } else {
+            self.detached.push(range);
+        }
+    }
+
     /// Borrow canonical declarations without allocating covered coordinates.
     pub fn ranges(&self) -> &[MergedCellRange] {
         &self.ranges

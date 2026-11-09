@@ -100,6 +100,141 @@ pub struct FormulaToken<'a> {
     pub subtype: TokenSubtype,
 }
 
+/// One lexical operation for callers that explicitly advance a scanner.
+#[derive(Clone, Copy, Debug)]
+pub enum FormulaScan {
+    /// Quoted text or a quoted worksheet link.
+    Quoted,
+    /// A balanced, possibly nested bracket group.
+    Brackets,
+    /// An Excel error literal.
+    Error,
+    /// A run of spaces and newlines.
+    Whitespace,
+    /// An arithmetic or comparison operator.
+    Operator,
+    /// A function, parenthesis or array opener.
+    Opener,
+    /// A matching closing boundary.
+    Closer,
+    /// An argument, row or range-union separator.
+    Separator,
+}
+
+/// Scan one fragment at a Unicode character offset without advancing its owner.
+/// Source and pending text share the caller's byte allowance.
+pub fn scan_formula_fragment<'a>(
+    source: &'a str,
+    offset: usize,
+    operation: FormulaScan,
+    pending: &str,
+    previous_operand: bool,
+    top: Option<TokenKind>,
+    maximum: usize,
+) -> Result<(FormulaToken<'a>, usize)> {
+    if source.len().saturating_add(pending.len()) > maximum {
+        return Err(budget());
+    }
+    let start = source
+        .char_indices()
+        .nth(offset)
+        .map(|(index, _)| index)
+        .ok_or_else(|| invalid("Formula scanner offset is outside the source"))?;
+    let bytes = source.as_bytes();
+    let byte = bytes[start];
+    let (end, kind, subtype) = match operation {
+        FormulaScan::Quoted if matches!(byte, b'\'' | b'"') => (
+            quoted(bytes, start, byte)?,
+            TokenKind::Operand,
+            if byte == b'"' {
+                TokenSubtype::Text
+            } else {
+                TokenSubtype::Range
+            },
+        ),
+        FormulaScan::Brackets if byte == b'[' => (
+            bracket_end(bytes, start)?,
+            TokenKind::Operand,
+            TokenSubtype::Range,
+        ),
+        FormulaScan::Error if byte == b'#' => (
+            start
+                + error_literal(&source[start..])
+                    .ok_or_else(|| invalid("Unknown formula error literal"))?
+                    .len(),
+            TokenKind::Operand,
+            TokenSubtype::Error,
+        ),
+        FormulaScan::Whitespace if matches!(byte, b' ' | b'\n') => (
+            whitespace_end(bytes, start),
+            TokenKind::Whitespace,
+            TokenSubtype::None,
+        ),
+        FormulaScan::Operator if b"%*/^&=><+-".contains(&byte) => (
+            operator_end(bytes, start),
+            operator_kind(byte, previous_operand),
+            TokenSubtype::None,
+        ),
+        FormulaScan::Opener if matches!(byte, b'(' | b'{') => (
+            start + 1,
+            opening_kind(byte, !pending.is_empty())?,
+            TokenSubtype::Open,
+        ),
+        FormulaScan::Closer if matches!(byte, b')' | b'}') => (
+            start + 1,
+            closing_kind(
+                byte,
+                top.ok_or_else(|| invalid("Unmatched formula closer"))?,
+            )?,
+            TokenSubtype::Close,
+        ),
+        FormulaScan::Separator if matches!(byte, b',' | b';') => {
+            let (kind, subtype) = separator_kind(byte, top);
+            (start + 1, kind, subtype)
+        }
+        _ => {
+            return Err(invalid(
+                "Formula fragment does not match the requested operation",
+            ));
+        }
+    };
+    let value = if matches!(operation, FormulaScan::Opener) && kind == TokenKind::Function {
+        let mut value = String::new();
+        value
+            .try_reserve_exact(pending.len() + 1)
+            .map_err(|_| budget())?;
+        if value.capacity() > maximum {
+            return Err(budget());
+        }
+        value.push_str(pending);
+        value.push('(');
+        Cow::Owned(value)
+    } else if matches!(operation, FormulaScan::Whitespace) {
+        Cow::Borrowed(&source[start..start + 1])
+    } else {
+        Cow::Borrowed(&source[start..end])
+    };
+    Ok((
+        FormulaToken {
+            value,
+            kind,
+            subtype,
+        },
+        source[start..end].chars().count(),
+    ))
+}
+
+/// Whether a pending operand ends with the exposed scientific-prefix grammar.
+pub fn formula_scientific_prefix(source: &str) -> bool {
+    let bytes = source.as_bytes();
+    matches!(bytes.first(), Some(b'1'..=b'9'))
+        && matches!(bytes.last(), Some(b'e' | b'E'))
+        && (bytes.len() == 2
+            || (bytes.len() >= 4
+                && bytes[1] == b'.'
+                && bytes[2..bytes.len() - 1].iter().all(u8::is_ascii_digit)))
+}
+
 /// Tokenize with a joint byte cap on source length and token/stack work capacity.
 /// Source input is borrowed. Unclosed function/group openers remain observable,
 /// matching the reference lexer; unmatched closers return a typed error.
@@ -135,10 +270,7 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
         let mut segment = start;
         let (kind, mut subtype) = match byte {
             b' ' | b'\n' => {
-                index += 1;
-                while bytes.get(index) == Some(&byte) {
-                    index += 1;
-                }
+                index = whitespace_end(bytes, index);
                 (TokenKind::Whitespace, TokenSubtype::None)
             }
             b'"' => {
@@ -146,21 +278,13 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                 (TokenKind::Operand, TokenSubtype::Text)
             }
             b'#' => {
-                let error = [
-                    "#NULL!", "#DIV/0!", "#VALUE!", "#REF!", "#NAME?", "#NUM!", "#N/A",
-                ]
-                .into_iter()
-                .find(|error| source[index..].starts_with(error))
-                .ok_or_else(|| invalid("Unknown formula error literal or spill operator"))?;
+                let error = error_literal(&source[index..])
+                    .ok_or_else(|| invalid("Unknown formula error literal or spill operator"))?;
                 index += error.len();
                 (TokenKind::Operand, TokenSubtype::Error)
             }
             b'(' | b'{' => {
-                let kind = if byte == b'(' {
-                    TokenKind::Parenthesis
-                } else {
-                    TokenKind::Array
-                };
+                let kind = opening_kind(byte, false)?;
                 push(
                     &mut stack,
                     kind,
@@ -176,21 +300,13 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                 let kind = stack
                     .pop()
                     .ok_or_else(|| invalid("Unmatched formula closer"))?;
-                if (byte == b'}') != (kind == TokenKind::Array) {
-                    return Err(invalid("Mismatched formula closer"));
-                }
+                let kind = closing_kind(byte, kind)?;
                 index += 1;
                 (kind, TokenSubtype::Close)
             }
             b',' | b';' => {
                 index += 1;
-                if byte == b';' {
-                    (TokenKind::Separator, TokenSubtype::Row)
-                } else if matches!(stack.last(), Some(TokenKind::Function | TokenKind::Array)) {
-                    (TokenKind::Separator, TokenSubtype::Argument)
-                } else {
-                    (TokenKind::Infix, TokenSubtype::None)
-                }
+                separator_kind(byte, stack.last().copied())
             }
             b'%' => {
                 index += 1;
@@ -203,46 +319,38 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                 (TokenKind::Infix, TokenSubtype::None)
             }
             b'+' | b'-' | b'*' | b'/' | b'^' | b'&' | b'=' | b'<' | b'>' => {
-                index += 1;
-                if matches!(bytes.get(start..index + 1), Some(b">=" | b"<=" | b"<>")) {
-                    index += 1;
-                }
-                let prefix = matches!(byte, b'+' | b'-')
-                    && !matches!(
-                        previous,
-                        Some((TokenKind::Operand | TokenKind::Postfix, _))
-                            | Some((_, TokenSubtype::Close))
-                    );
-                (
-                    if prefix {
-                        TokenKind::Prefix
-                    } else {
-                        TokenKind::Infix
-                    },
-                    TokenSubtype::None,
-                )
+                index = operator_end(bytes, index);
+                let previous_operand = matches!(
+                    previous,
+                    Some((TokenKind::Operand | TokenKind::Postfix, _))
+                        | Some((_, TokenSubtype::Close))
+                );
+                (operator_kind(byte, previous_operand), TokenSubtype::None)
             }
             _ => {
                 while index < bytes.len() {
                     match bytes[index] {
                         b'\'' => {
+                            if index > start
+                                && !source[start..index]
+                                    .trim_end_matches([' ', '\n'])
+                                    .ends_with(':')
+                            {
+                                return Err(invalid("Quoted link follows an unfinished operand"));
+                            }
                             index = quoted(bytes, index, b'\'')?;
                         }
                         b'[' => {
-                            let mut depth = 1usize;
-                            index += 1;
-                            while index < bytes.len() && depth != 0 {
-                                match bytes[index] {
-                                    b'[' => depth += 1,
-                                    b']' => depth -= 1,
-                                    _ => {}
-                                }
-                                index += 1;
-                            }
-                            if depth != 0 {
-                                return Err(invalid("Unclosed formula bracket"));
-                            }
+                            index = bracket_end(bytes, index)?;
                         }
+                        b'#' if index > start && bytes[index - 1] == b'!' => {
+                            let error = error_literal(&source[index..]).ok_or_else(|| {
+                                invalid("Unknown qualified formula error literal")
+                            })?;
+                            index += error.len();
+                            break;
+                        }
+                        b'#' => return Err(invalid("Error literal follows an unfinished operand")),
                         b'+' | b'-'
                             if index > start + 1
                                 && matches!(bytes[index - 1], b'e' | b'E')
@@ -268,13 +376,20 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                                 maximum,
                             )?;
                             index += 1;
-                            while bytes.get(index) == Some(&b'\n') {
+                            while matches!(bytes.get(index), Some(b' ' | b'\n')) {
                                 index += 1;
                             }
                             segment = index;
                         }
-                        b' ' | b'"' | b'#' | b'(' | b')' | b'{' | b'}' | b',' | b';' | b'%'
-                        | b'+' | b'-' | b'*' | b'/' | b'^' | b'&' | b'=' | b'<' | b'>' => {
+                        b'"' if !source[start..index]
+                            .trim_end_matches([' ', '\n'])
+                            .ends_with(':') =>
+                        {
+                            return Err(invalid("Quoted text follows an unfinished operand"));
+                        }
+                        b'{' => return Err(invalid("Array opener follows an unfinished operand")),
+                        b' ' | b'"' | b'(' | b')' | b'}' | b',' | b';' | b'%' | b'+' | b'-'
+                        | b'*' | b'/' | b'^' | b'&' | b'=' | b'<' | b'>' => {
                             break;
                         }
                         _ => {
@@ -341,6 +456,100 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
     Ok(tokens)
 }
 
+fn whitespace_end(bytes: &[u8], mut index: usize) -> usize {
+    while matches!(bytes.get(index), Some(b' ' | b'\n')) {
+        index += 1;
+    }
+    index
+}
+
+fn bracket_end(bytes: &[u8], start: usize) -> Result<usize> {
+    let mut depth = 1usize;
+    let mut index = start + 1;
+    while index < bytes.len() && depth != 0 {
+        match bytes[index] {
+            b'[' => depth += 1,
+            b']' => depth -= 1,
+            _ => {}
+        }
+        index += 1;
+    }
+    if depth != 0 {
+        return Err(invalid("Unclosed formula bracket"));
+    }
+    Ok(index)
+}
+
+fn operator_end(bytes: &[u8], start: usize) -> usize {
+    start
+        + if matches!(bytes.get(start..start + 2), Some(b">=" | b"<=" | b"<>")) {
+            2
+        } else {
+            1
+        }
+}
+
+fn operator_kind(byte: u8, previous_operand: bool) -> TokenKind {
+    if byte == b'%' {
+        TokenKind::Postfix
+    } else if matches!(byte, b'+' | b'-') && !previous_operand {
+        TokenKind::Prefix
+    } else {
+        TokenKind::Infix
+    }
+}
+
+fn opening_kind(byte: u8, pending: bool) -> Result<TokenKind> {
+    if byte == b'{' {
+        if pending {
+            return Err(invalid("Array opener follows an unfinished operand"));
+        }
+        Ok(TokenKind::Array)
+    } else if pending {
+        Ok(TokenKind::Function)
+    } else {
+        Ok(TokenKind::Parenthesis)
+    }
+}
+
+fn closing_kind(byte: u8, kind: TokenKind) -> Result<TokenKind> {
+    if !matches!(
+        kind,
+        TokenKind::Function | TokenKind::Parenthesis | TokenKind::Array
+    ) {
+        return Err(invalid("Invalid formula opening token"));
+    }
+    if (byte == b'}') != (kind == TokenKind::Array) {
+        return Err(invalid("Mismatched formula closer"));
+    }
+    Ok(kind)
+}
+
+fn separator_kind(byte: u8, top: Option<TokenKind>) -> (TokenKind, TokenSubtype) {
+    if byte == b';' {
+        (TokenKind::Separator, TokenSubtype::Row)
+    } else if matches!(top, Some(TokenKind::Function | TokenKind::Array)) {
+        (TokenKind::Separator, TokenSubtype::Argument)
+    } else {
+        (TokenKind::Infix, TokenSubtype::None)
+    }
+}
+
+fn error_literal(source: &str) -> Option<&'static str> {
+    [
+        "#NULL!",
+        "#DIV/0!",
+        "#VALUE!",
+        "#REF!",
+        "#NAME?",
+        "#NUM!",
+        "#N/A",
+        "#GETTING_DATA",
+    ]
+    .into_iter()
+    .find(|error| source.starts_with(error))
+}
+
 fn quoted(bytes: &[u8], start: usize, quote: u8) -> Result<usize> {
     let mut index = start + 1;
     while index < bytes.len() {
@@ -405,11 +614,52 @@ pub fn classify_formula_operand(value: &str) -> TokenSubtype {
         TokenSubtype::Error
     } else if matches!(value, "TRUE" | "FALSE") {
         TokenSubtype::Logical
-    } else if value.trim().parse::<f64>().is_ok() {
+    } else if value.trim().parse::<f64>().is_ok() || underscored_number(value.trim()) {
         TokenSubtype::Number
     } else {
         TokenSubtype::Range
     }
+}
+
+fn underscored_number(value: &str) -> bool {
+    if !value.contains('_') {
+        return false;
+    }
+    fn digits(bytes: &[u8], index: &mut usize) -> bool {
+        let start = *index;
+        while let Some(byte) = bytes.get(*index) {
+            if byte.is_ascii_digit()
+                || (*byte == b'_'
+                    && *index > start
+                    && bytes.get(*index + 1).is_some_and(u8::is_ascii_digit))
+            {
+                *index += 1;
+            } else {
+                break;
+            }
+        }
+        *index > start
+    }
+    let bytes = value.as_bytes();
+    let mut index = usize::from(matches!(bytes.first(), Some(b'+' | b'-')));
+    let mut present = digits(bytes, &mut index);
+    if bytes.get(index) == Some(&b'.') {
+        index += 1;
+        present |= digits(bytes, &mut index);
+    }
+    if !present {
+        return false;
+    }
+    if matches!(bytes.get(index), Some(b'e' | b'E')) {
+        index += 1;
+        if matches!(bytes.get(index), Some(b'+' | b'-')) {
+            index += 1;
+        }
+        if !digits(bytes, &mut index) {
+            return false;
+        }
+    }
+    index == bytes.len()
 }
 
 fn append_word(

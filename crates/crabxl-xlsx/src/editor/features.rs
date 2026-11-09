@@ -2,6 +2,7 @@
 //! elements, table/comment parts, relationships, content types, workbook
 //! names/protection and document properties.
 use super::*;
+use crate::features::may_reference_external_link;
 use crate::features::package::{
     OutputPart, OutputRelationship, PartNumbers, SheetOutput, build_sheet_output,
 };
@@ -41,6 +42,48 @@ impl FeatureSave {
     }
     pub(super) fn new_parts(&self) -> usize {
         self.parts.len() + self.replace.len()
+    }
+}
+
+impl<R: Read + Seek> WorkbookEditor<R> {
+    pub(crate) fn source_has_external_formulas(
+        &mut self,
+        index: usize,
+        maximum: usize,
+        retained: usize,
+        catalog: Option<&crabxl_core::StyleCatalog>,
+    ) -> Result<bool> {
+        let info =
+            self.book.sheets().get(index).ok_or_else(|| {
+                Error::new(ErrorKind::SheetNotFound, "Unknown formula source sheet")
+            })?;
+        let name = info.name().to_owned();
+        let retained = retained.saturating_add(name.capacity());
+        let patches = self.patches.get(info.part());
+        let mut rows = self.book.rows_with_catalog_allowance(
+            &name,
+            crabxl_core::ReadOptions::default(),
+            Some(maximum),
+            catalog,
+            retained,
+            false,
+        )?;
+        let mut row = crabxl_core::Row::new(crabxl_core::RowIndex::FIRST);
+        while rows.read_row_into(&mut row)? {
+            for cell in &row.cells {
+                let value = patches
+                    .and_then(|patches| {
+                        patches.get(&(cell.address.row.get(), cell.address.column.get()))
+                    })
+                    .map_or(&cell.value, |patch| &patch.cell.value);
+                if let crabxl_core::CellValue::Formula(formula) = value.unannotated()
+                    && may_reference_external_link(formula.expression())
+                {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
     }
 }
 
@@ -152,9 +195,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             if edges.contains_key(&part) {
                 continue;
             }
-            if self.book.archive.index_for_name(&part).is_none() {
-                return Err(invalid("Owned feature part is missing").with_part(part));
-            }
+            // Deleting a dangling part still removes its owned relationships and overrides.
             let rels = crate::package::relationship_part(&part);
             let mut targets = Vec::new();
             if self.book.archive.index_for_name(&rels).is_some() {
@@ -243,6 +284,16 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         save: &mut FeatureSave,
     ) -> Result<()> {
         use crabxl_core::features::{MacroPolicy, WorkbookFormat};
+        if features.external_links.as_ref().is_some_and(Vec::is_empty)
+            && features
+                .defined_names
+                .iter()
+                .any(|name| may_reference_external_link(&name.value))
+        {
+            return Err(crate::features::unsupported(
+                "Cannot remove external links while a defined name may reference them",
+            ));
+        }
         if features.metadata.is_none()
             && features.external_links.is_none()
             && features.format.is_none()
@@ -1077,10 +1128,24 @@ pub(super) fn workbook_rank(name: &[u8]) -> usize {
 pub(super) struct WorkbookFeatureRewrite<'a> {
     features: &'a WorkbookFeatures,
     next: usize,
+    invalidate_caches: bool,
+    active: Option<crabxl_core::ActiveViewSelection>,
+    date_1904: bool,
 }
 impl<'a> WorkbookFeatureRewrite<'a> {
-    pub(super) fn new(features: &'a WorkbookFeatures) -> Self {
-        Self { features, next: 0 }
+    pub(super) fn new(
+        features: &'a WorkbookFeatures,
+        invalidate_caches: bool,
+        active: Option<crabxl_core::ActiveViewSelection>,
+        date_1904: bool,
+    ) -> Self {
+        Self {
+            features,
+            next: 0,
+            invalidate_caches,
+            active,
+            date_1904,
+        }
     }
     fn write_rank(&self, out: &mut impl Write, rank: usize, uri: Option<&str>) -> io::Result<()> {
         match WORKBOOK_ORDER.get(rank).copied() {
@@ -1091,6 +1156,31 @@ impl<'a> WorkbookFeatureRewrite<'a> {
             }
             Some(b"definedNames") => {
                 crate::features::defined_name::write(out, &self.features.defined_names, uri)?;
+            }
+            Some(b"workbookPr") => {
+                if let Some(properties) = &self.features.workbook_properties {
+                    crate::features::workbook_properties::write(
+                        out,
+                        properties,
+                        uri,
+                        Some(self.date_1904),
+                    )?;
+                }
+            }
+            Some(b"bookViews") => {
+                if let Some(views) = &self.features.views {
+                    crate::features::book_views::write(out, views, uri, self.active)?;
+                }
+            }
+            Some(b"calcPr") => {
+                if let Some(calculation) = &self.features.calculation {
+                    crate::features::calculation::write(
+                        out,
+                        calculation,
+                        uri,
+                        self.invalidate_caches,
+                    )?;
+                }
             }
             _ => {}
         }
@@ -1104,7 +1194,9 @@ impl<'a> WorkbookFeatureRewrite<'a> {
         uri: Option<&str>,
     ) -> io::Result<bool> {
         let rank = workbook_rank(name);
-        let owned = matches!(name, b"workbookProtection" | b"definedNames");
+        let owned = matches!(name, b"workbookProtection" | b"definedNames" | b"calcPr")
+            || (name == b"bookViews" && self.features.views.is_some())
+            || (name == b"workbookPr" && self.features.workbook_properties.is_some());
         if rank < self.next {
             return Ok(owned);
         }

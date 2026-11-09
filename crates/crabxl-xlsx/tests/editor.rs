@@ -79,6 +79,100 @@ fn rich_source() -> Vec<u8> {
     packed(&data)
 }
 #[test]
+fn upsert_preserves_excel_workbook_absolute_path_alternative() {
+    let mut data = parts(&source());
+    let workbook = String::from_utf8(data["xl/workbook.xml"].clone()).unwrap();
+    let alternative = concat!(
+        "<m:AlternateContent xmlns:m=\"http://schemas.openxmlformats.org/markup-compatibility/2006\">",
+        "<m:Choice Requires=\"x\" xmlns:x=\"http://schemas.microsoft.com/office/spreadsheetml/2010/11/main\">",
+        "<p:absPath xmlns:p=\"http://schemas.microsoft.com/office/spreadsheetml/2010/11/ac\" url=\"C:\\Reports\\\"></p:absPath>",
+        "</m:Choice></m:AlternateContent>",
+    );
+    for (markup, supported) in [
+        (alternative.to_owned(), true),
+        (
+            alternative.replace("</m:Choice>", "<calcPr/></m:Choice>"),
+            false,
+        ),
+    ] {
+        let xml = workbook.replacen("<sheets>", &format!("{markup}<sheets>"), 1);
+        assert_ne!(xml, workbook);
+        data.insert("xl/workbook.xml".into(), xml.into_bytes());
+        let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+        if supported {
+            editor.set_active_sheet("Other").unwrap();
+        } else {
+            assert_eq!(
+                editor.set_active_sheet("Other").unwrap_err().kind(),
+                ErrorKind::Unsupported
+            );
+        }
+        editor
+            .upsert_value("Sheet", "E9".parse().unwrap(), Value::Integer(12))
+            .unwrap();
+        let result = editor.save(Cursor::new(Vec::new()), SaveOptions::default());
+        if supported {
+            let (output, _) = result.unwrap();
+            let output = parts(output.get_ref());
+            assert!(String::from_utf8_lossy(&output["xl/workbook.xml"]).contains(alternative));
+            assert!(
+                String::from_utf8_lossy(&output["xl/worksheets/sheet1.xml"]).contains("r=\"E9\"")
+            );
+        } else {
+            assert_eq!(result.unwrap_err().kind(), ErrorKind::Unsupported);
+        }
+    }
+}
+
+#[test]
+fn copy_preserves_excel_row_descent_without_reusing_sheet_revision_identity() {
+    let mut data = parts(&source());
+    let part = "xl/worksheets/sheet1.xml";
+    let original = String::from_utf8(data[part].clone()).unwrap();
+    let sheet = original
+        .replacen(
+            "<worksheet ",
+            concat!(
+                "<worksheet xmlns:m=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" ",
+                "xmlns:d=\"http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac\" ",
+                "xmlns:r1=\"http://schemas.microsoft.com/office/spreadsheetml/2014/revision\" ",
+                "m:Ignorable=\"d r1\" r1:uid=\"{00000000-0001-0000-0000-000000000000}\" ",
+            ),
+            1,
+        )
+        .replace("<row r=\"1\"", "<row r=\"1\" d:dyDescent=\"0.3\"")
+        .replace("</sheetData>", "</sheetData><phoneticPr fontId=\"0\"/>");
+    assert!(sheet.contains("d:dyDescent"));
+    data.insert(part.into(), sheet.into_bytes());
+    let mut book = crabxl_xlsx::LoadedWorkbook::with_options(
+        Cursor::new(packed(&data)),
+        crabxl_xlsx::LoadOptions::default(),
+    )
+    .unwrap();
+    let id = book.sheet_id("Sheet").unwrap();
+    let copy = book.copy_sheet(id, "Copy").unwrap();
+    let (output, _) = book
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    let output_parts = parts(output.get_ref());
+    let reader = WorkbookReader::new(Cursor::new(output.get_ref())).unwrap();
+    let part = reader
+        .sheets()
+        .iter()
+        .find(|sheet| sheet.name() == "Copy")
+        .unwrap()
+        .part();
+    let copied = String::from_utf8_lossy(&output_parts[part]);
+    assert!(copied.contains("x14ac:dyDescent=\"0.3\""));
+    assert!(copied.contains("phoneticPr"));
+    assert!(!copied.contains("r1:uid"));
+    assert_eq!(
+        book.sheet(copy).unwrap().dimensions().rows()[0].descent,
+        Some(0.3)
+    );
+}
+
+#[test]
 fn unchanged_saves_keep_every_original_part_and_repeat_with_owned_source() {
     let original = rich_source();
     let expected = parts(&original);

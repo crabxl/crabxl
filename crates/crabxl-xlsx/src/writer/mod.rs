@@ -27,7 +27,8 @@ use tempfile::NamedTempFile;
 use zip::{ZipWriter, write::SimpleFileOptions};
 
 use crate::xml::{MAIN_URI as MAIN, OFFICE_REL_URI as REL};
-const HEADER: &[u8] = b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>";
+const HEADER: &[u8] = b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetFormatPr baseColWidth=\"8\" defaultRowHeight=\"15\"/><sheetData>";
+const SHEET_FORMAT: &[u8] = b"<sheetFormatPr baseColWidth=\"8\" defaultRowHeight=\"15\"/>";
 const FOOTER: &[u8] = b"</sheetData></worksheet>";
 
 /// XLSX serialization of nonfinite numeric values and formula caches.
@@ -164,7 +165,14 @@ struct ActiveSheet {
     dimensions: crabxl_core::SheetDimensions,
     header_prefix_bytes: u64,
     columns_written: bool,
+    comments: Vec<crabxl_core::features::Comment>,
+    comment_heap: usize,
     features: Option<Box<crate::features::package::SheetOutput>>,
+}
+impl ActiveSheet {
+    fn comment_bytes(&self) -> usize {
+        self.comments.capacity() * size_of::<crabxl_core::features::Comment>() + self.comment_heap
+    }
 }
 
 /// One-shot XLSX writer using bounded rows and owned temporary worksheets.
@@ -690,13 +698,21 @@ fn package_metadata<W: Write + Seek>(
     write_part(zip, "xl/workbook.xml", options, |zip| {
         write!(
             zip,
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><workbook xmlns=\"{MAIN}\" xmlns:r=\"{REL}\"><workbookPr date1904=\"{}\"/>",
-            u8::from(date_1904)
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><workbook xmlns=\"{MAIN}\" xmlns:r=\"{REL}\">"
         )?;
+        if let Some(properties) =
+            features.and_then(|features| features.workbook_properties.as_ref())
+        {
+            crate::features::workbook_properties::write(zip, properties, None, Some(date_1904))?;
+        } else {
+            write!(zip, "<workbookPr date1904=\"{}\"/>", u8::from(date_1904))?;
+        }
         if let Some(protection) = features.and_then(|features| features.protection.as_ref()) {
             crate::features::protection::write_workbook(zip, protection, None)?;
         }
-        if let Some(view) = active_view {
+        if let Some(views) = features.and_then(|features| features.views.as_ref()) {
+            crate::features::book_views::write(zip, views, None, active_view)?;
+        } else if let Some(view) = active_view {
             zip.write_all(b"<bookViews><workbookView")?;
             if let Some(index) = view.serialized_index {
                 write!(zip, " activeTab=\"{index}\"")?;
@@ -726,6 +742,9 @@ fn package_metadata<W: Write + Seek>(
         crate::complex::write_external_refs(zip, &workbook_output.external_refs, None)?;
         if let Some(features) = features {
             crate::features::defined_name::write(zip, &features.defined_names, None)?;
+        }
+        if let Some(calculation) = features.and_then(|features| features.calculation.as_ref()) {
+            crate::features::calculation::write(zip, calculation, None, false)?;
         }
         let caches: Vec<_> = sheets
             .iter()

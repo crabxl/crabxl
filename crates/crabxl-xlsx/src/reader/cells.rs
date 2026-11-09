@@ -44,7 +44,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     let index = RowIndex::new(index)?;
                     if self.capture_dimensions {
                         self.row_dimension = if dimension_attributes {
-                            crate::dimension_codec::read_row(&e, index)?
+                            crate::dimension_codec::read_row(&e, index, frame.namespaces)?
                         } else {
                             None
                         };

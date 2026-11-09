@@ -339,12 +339,6 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
     let (index, dimension) = row;
     if let Some(dimension) = dimension {
         dimension.validate()?;
-        if dimension.descent.is_some() {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Extended row descent serialization is not implemented",
-            ));
-        }
         if dimension.index != index
             || dimension
                 .style
@@ -405,11 +399,19 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
             .map_err(|error| error.with_cell(cell.address))?;
         validate_value(cell.value, maximum_cell, validation_epoch)
             .map_err(|error| error.with_cell(cell.address))?;
+        let stored = cell
+            .value
+            .storage_value()
+            .map_err(|error| error.with_cell(cell.address))?;
+        if cell.value.storage_type().is_some() {
+            validate_value(&stored, maximum_cell, validation_epoch)
+                .map_err(|error| error.with_cell(cell.address))?;
+        }
         if iso_date && let Some(date) = date_value(cell.value) {
             validate_text(&date.to_iso8601()?, maximum_cell)
                 .map_err(|error| error.with_cell(cell.address))?;
         }
-        if let CellValue::RichText(value) = cell.value.unannotated()
+        if let CellValue::RichText(value) = stored.as_ref()
             && value
                 .phonetic_properties
                 .as_ref()
@@ -456,7 +458,10 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
                     }
                 }
             }
-            let (literal, formula) = match cell.value.unannotated() {
+            let stored = cell.value.storage_value().map_err(io::Error::other)?;
+            let formula_string =
+                cell.value.storage_type() == Some(crabxl_core::CellStorageType::FormulaString);
+            let (literal, formula) = match stored.as_ref() {
                 CellValue::Formula(formula) => (
                     formula.cached().filter(|_| !invalidate_caches),
                     Some(formula),
@@ -465,7 +470,7 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
             };
             match literal {
                 Some(CellValue::Text(_) | CellValue::RichText(_)) => {
-                    buffer.write_all(if formula.is_some() {
+                    buffer.write_all(if formula.is_some() || formula_string {
                         b" t=\"str\""
                     } else {
                         b" t=\"inlineStr\""
@@ -486,7 +491,7 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
             }
             match literal {
                 None | Some(CellValue::Empty) => {}
-                Some(CellValue::Text(value)) if formula.is_none() => {
+                Some(CellValue::Text(value)) if formula.is_none() && !formula_string => {
                     buffer.write_all(b"<is><t xml:space=\"preserve\">")?;
                     write_text(buffer, value.as_str())?;
                     buffer.write_all(b"</t></is>")?;

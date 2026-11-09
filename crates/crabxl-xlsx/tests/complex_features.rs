@@ -319,6 +319,22 @@ fn native_chart_families_images_shapes_and_connectors_have_valid_graphs() {
                     (kind == ChartKind::Bubble).then_some("Data!$B$2:$B$3"),
                 )
                 .unwrap();
+            if kind == ChartKind::Doughnut {
+                assert_eq!(
+                    chart
+                        .space
+                        .child("chart")
+                        .unwrap()
+                        .child("plotArea")
+                        .unwrap()
+                        .child("doughnutChart")
+                        .unwrap()
+                        .child("holeSize")
+                        .unwrap()
+                        .attribute("val"),
+                    Some("10"),
+                );
+            }
             chart
         })
         .collect();

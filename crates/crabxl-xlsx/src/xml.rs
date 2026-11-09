@@ -18,6 +18,11 @@ pub(crate) const MAIN_URI: &str = "http://schemas.openxmlformats.org/spreadsheet
 pub(crate) const MAIN: &[u8] = MAIN_URI.as_bytes();
 pub(crate) const STRICT_MAIN_URI: &str = "http://purl.oclc.org/ooxml/spreadsheetml/main";
 pub(crate) const STRICT_MAIN: &[u8] = STRICT_MAIN_URI.as_bytes();
+pub(crate) const MC: &[u8] = b"http://schemas.openxmlformats.org/markup-compatibility/2006";
+pub(crate) const EXCEL_ROW_EXT: &[u8] =
+    b"http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac";
+pub(crate) const EXCEL_REVISION: &[u8] =
+    b"http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
 pub(crate) const OFFICE_REL_URI: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const OFFICE_REL: &[u8] = OFFICE_REL_URI.as_bytes();
@@ -33,16 +38,30 @@ pub(crate) enum Scope {
     Drawing,
     SpreadsheetDrawing,
     Chart,
+    MarkupCompatibility,
+    ExcelAbsolutePath,
     Other,
 }
 
 pub(crate) struct Frame<'a> {
+    pub namespaces: &'a NamespaceResolver,
     pub scope: Scope,
     pub spreadsheet_uri: Option<&'static str>,
     pub event: Event<'a>,
     pub office_relationship: Option<String>,
     pub office_relationship_attribute: Option<usize>,
     pub depth: usize,
+}
+
+pub(crate) fn namespaced_attribute(
+    namespaces: &NamespaceResolver,
+    key: QName<'_>,
+    uri: &[u8],
+    local: &[u8],
+) -> bool {
+    let (namespace, name) = namespaces.resolve_attribute(key);
+    name.as_ref().as_bytes() == local
+        && matches!(namespace, ResolveResult::Bound(bound) if bound.as_ref().as_bytes() == uri)
 }
 
 #[derive(Clone, Copy)]
@@ -54,6 +73,8 @@ enum DefaultScope {
     Drawing,
     SpreadsheetDrawing,
     Chart,
+    MarkupCompatibility,
+    ExcelAbsolutePath,
     Other,
 }
 impl DefaultScope {
@@ -66,6 +87,8 @@ impl DefaultScope {
             Self::Drawing => Scope::Drawing,
             Self::SpreadsheetDrawing => Scope::SpreadsheetDrawing,
             Self::Chart => Scope::Chart,
+            Self::MarkupCompatibility => Scope::MarkupCompatibility,
+            Self::ExcelAbsolutePath => Scope::ExcelAbsolutePath,
             Self::Other => Scope::Other,
         }
     }
@@ -217,6 +240,18 @@ fn namespace_scope(namespace: ResolveResult<'_>) -> Result<DefaultScope> {
             ) =>
         {
             DefaultScope::Chart
+        }
+        ResolveResult::Bound(ns)
+            if ns.as_ref().as_bytes()
+                == b"http://schemas.openxmlformats.org/markup-compatibility/2006" =>
+        {
+            DefaultScope::MarkupCompatibility
+        }
+        ResolveResult::Bound(ns)
+            if ns.as_ref().as_bytes()
+                == b"http://schemas.microsoft.com/office/spreadsheetml/2010/11/ac" =>
+        {
+            DefaultScope::ExcelAbsolutePath
         }
         ResolveResult::Unknown(_) => {
             return Err(Error::new(
@@ -492,6 +527,7 @@ impl<B: BufRead> XmlStream<B> {
             }
         }
         Ok(Frame {
+            namespaces: &self.namespaces.resolver,
             scope,
             spreadsheet_uri,
             event,

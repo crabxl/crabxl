@@ -174,6 +174,7 @@ impl Chart {
             ChartKind::Scatter => add(val("c:scatterStyle", "lineMarker")),
             ChartKind::Radar => add(val("c:radarStyle", "standard")),
             ChartKind::OfPie => add(val("c:ofPieType", "pie")),
+            ChartKind::Doughnut => add(val("c:holeSize", 10)),
             ChartKind::Surface | ChartKind::Surface3D => add(val("c:wireframe", 0)),
             _ => {}
         }
@@ -196,20 +197,37 @@ impl Chart {
                 100,
                 "b",
             )));
-            plot.children
-                .push(XmlContent::Element(axis("c:valAx", 100, 10, "l")));
+            let mut value_axis = axis("c:valAx", 100, 10, "l");
+            if matches!(kind, ChartKind::Area | ChartKind::Area3D) {
+                value_axis
+                    .children
+                    .insert(3, XmlContent::Element(XmlElement::new("c:majorGridlines")));
+            }
+            plot.children.push(XmlContent::Element(value_axis));
             if kind.has_series_axis() {
                 plot.children
                     .push(XmlContent::Element(axis("c:serAx", 1000, 10, "b")));
             }
         }
-        let mut space = node(
-            "c:chartSpace",
-            vec![node(
-                "c:chart",
-                vec![plot, val("c:plotVisOnly", 1), val("c:dispBlanksAs", "gap")],
-            )],
-        );
+        let mut body = Vec::new();
+        if matches!(
+            kind,
+            ChartKind::Bar3D | ChartKind::Surface | ChartKind::Surface3D
+        ) {
+            let view = if kind == ChartKind::Surface {
+                vec![
+                    val("c:rotX", 90),
+                    val("c:rotY", 0),
+                    val("c:rAngAx", 0),
+                    val("c:perspective", 0),
+                ]
+            } else {
+                vec![val("c:rotX", 15), val("c:rotY", 20), val("c:rAngAx", 1)]
+            };
+            body.push(node("c:view3D", view));
+        }
+        body.extend([plot, val("c:plotVisOnly", 1), val("c:dispBlanksAs", "gap")]);
+        let mut space = node("c:chartSpace", vec![node("c:chart", body)]);
         space.set_attribute(
             "xmlns:c",
             "http://schemas.openxmlformats.org/drawingml/2006/chart",
@@ -331,6 +349,15 @@ impl Chart {
             series
                 .children
                 .push(XmlContent::Element(node("c:tx", vec![text("c:v", title)])));
+        }
+        if matches!(
+            kind,
+            ChartKind::Line | ChartKind::Scatter | ChartKind::Radar | ChartKind::Stock
+        ) {
+            series.children.push(XmlContent::Element(node(
+                "c:marker",
+                vec![val("c:symbol", "none")],
+            )));
         }
         let reference = |name: &str, formula: &str, numeric: bool| {
             node(

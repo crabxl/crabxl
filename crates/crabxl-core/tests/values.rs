@@ -504,3 +504,42 @@ fn literal_formula_flags_keep_unknown_properties_without_boolean_fabrication() {
     assert_eq!(FormulaFlag::new(true).spelling(), "1");
     assert!(FormulaFlag::from_xml("opaque").is_err());
 }
+
+#[test]
+fn batch_style_arrays_keep_scalar_identities_and_default_components() {
+    use crabxl_core::{
+        Alignment, CellFormat, NumberFormat, Protection, StyleCatalog, StyleId, StyleLimits,
+        StyleRegistry,
+    };
+    assert!(StyleCatalog::default().style_arrays().unwrap().is_empty());
+    let registry = StyleRegistry::new(StyleLimits::default()).unwrap();
+    let mut catalog = registry.catalog().clone();
+    catalog
+        .number_formats
+        .push(NumberFormat::new(200, "0.0000"));
+    let format = CellFormat {
+        number_format_id: 200,
+        alignment: Some(Box::new(Alignment {
+            wrap_text: Some(true),
+            ..Default::default()
+        })),
+        protection: Some(Protection {
+            locked: Some(false),
+            hidden: Some(true),
+        }),
+        quote_prefix: Some(true),
+        ..Default::default()
+    };
+    catalog.cell_formats.push(format.clone());
+    catalog.cell_formats.push(format);
+    let arrays = catalog.style_arrays().unwrap();
+    assert_eq!(arrays[1], [0, 0, 0, 164, 1, 1, 0, 1, 0]);
+    assert_eq!(arrays[1], arrays[2]);
+    for (index, array) in arrays.iter().enumerate() {
+        assert_eq!(
+            *array,
+            catalog.style_array(StyleId::new(index as u32)).unwrap()
+        );
+    }
+    assert!(catalog.style_array(StyleId::new(99)).is_err());
+}

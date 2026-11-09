@@ -16,6 +16,68 @@ fn row(index: u32, value: i64) -> Row {
 }
 
 #[test]
+fn streamed_comments_follow_rows_and_recover_from_rejected_annotations() {
+    use crabxl_core::features::Comment;
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        max_metadata_bytes: 64 * 1024,
+        buffer_bytes: 1024,
+        ..Default::default()
+    })
+    .unwrap();
+    let first = writer.start_interleaved_sheet("First").unwrap();
+    let note =
+        |index, text: &str| Comment::new(CellAddress::new(index, 1).unwrap(), text, "author");
+    writer
+        .write_row_with_annotations(&row(0, 1), &[], vec![note(0, "original")])
+        .unwrap();
+    assert!(
+        writer
+            .write_row_with_annotations(&row(0, 2), &[], vec![note(0, "rejected row")])
+            .is_err()
+    );
+    assert!(
+        writer
+            .write_row_with_annotations(&row(1, 3), &[], vec![note(2, "wrong row")])
+            .is_err()
+    );
+    assert!(
+        writer
+            .write_row_with_annotations(&row(1, 3), &[], vec![note(1, &"x".repeat(128 * 1024))])
+            .is_err()
+    );
+    writer
+        .write_row_with_annotations(&row(1, 3), &[], vec![note(1, "after rejection")])
+        .unwrap();
+    let mut invalid = crabxl_core::SheetFeatures::default();
+    invalid.comments.push(note(2, "invalid\0text"));
+    assert!(writer.set_interleaved_features(first, invalid).is_err());
+    let second = writer.start_interleaved_sheet("Second").unwrap();
+    writer
+        .write_row_with_annotations(&row(0, 4), &[], vec![note(0, "second sheet")])
+        .unwrap();
+    writer.close_interleaved_sheet(first).unwrap();
+    writer.close_interleaved_sheet(second).unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut reader = WorkbookReader::new(output).unwrap();
+    let first = reader.sheet_features("First").unwrap();
+    assert_eq!(
+        first
+            .comments
+            .iter()
+            .map(|note| note.text.as_ref())
+            .collect::<Vec<_>>(),
+        ["original", "after rejection"]
+    );
+    assert_eq!(first.comments[1].address, CellAddress::new(1, 1).unwrap());
+    assert_eq!(
+        reader.sheet_features("Second").unwrap().comments[0]
+            .text
+            .as_ref(),
+        "second sheet"
+    );
+}
+
+#[test]
 fn interleaved_spools_keep_creation_order_rows_names_and_active_sheet() {
     let directory = tempfile::tempdir().unwrap();
     let mut writer = WorkbookWriter::new(WriteOptions {

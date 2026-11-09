@@ -23,6 +23,30 @@ fn values(sheet: &Worksheet) -> Vec<(String, Value)> {
         .collect()
 }
 #[test]
+fn structural_edit_tracking_distinguishes_cell_edits_and_failed_shifts() {
+    let mut sheet = Worksheet::new("Data", EditLimits::default()).unwrap();
+    set(&mut sheet, 0, 0, Value::Integer(1));
+    assert!(!sheet.has_structural_edits());
+    sheet.mark_clean();
+    assert!(
+        sheet
+            .insert_rows(RowIndex::new(0).unwrap(), MAX_ROWS)
+            .is_err()
+    );
+    assert!(!sheet.has_structural_edits());
+    assert!(sheet.insert_rows(RowIndex::new(0).unwrap(), 0).is_err());
+    assert!(!sheet.has_structural_edits());
+    sheet.insert_rows(RowIndex::new(0).unwrap(), 1).unwrap();
+    assert!(sheet.has_structural_edits());
+    sheet.mark_clean();
+    assert!(!sheet.has_structural_edits());
+    set(&mut sheet, 0, 0, Value::Integer(2));
+    assert!(!sheet.has_structural_edits());
+    sheet.move_range("A1:A1".parse().unwrap(), 1, 0).unwrap();
+    assert!(sheet.has_structural_edits());
+}
+
+#[test]
 fn sparse_get_append_empty_rows_remove_and_dirty_tracking() {
     // Metadata capacities are charged independently of cells and replacement is bounded.
     {

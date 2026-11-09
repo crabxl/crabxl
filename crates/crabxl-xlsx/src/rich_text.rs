@@ -26,7 +26,7 @@ impl ParsedText {
 
 /// The public reference removes protection in rich mode within each display run.
 #[inline]
-pub(crate) fn unprotect(text: &mut Box<str>) {
+pub fn unprotect(text: &mut Box<str>) {
     if text.contains("x005F_") {
         *text = text.replace("x005F_", "").into_boxed_str();
     }

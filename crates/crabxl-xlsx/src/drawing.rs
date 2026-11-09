@@ -93,6 +93,7 @@ pub(crate) fn write_chartsheet(
         let mut views = XmlElement::new("sheetViews");
         let mut view = XmlElement::new("sheetView");
         view.set_attribute("workbookViewId", "0");
+        view.set_attribute("zoomToFit", "1");
         views.children.push(XmlContent::Element(view));
         root.children.push(XmlContent::Element(views));
         root

@@ -51,6 +51,8 @@ pub use crabxl_core::{ActiveViewSelection, normalize_active_view, resolve_sheet_
 pub use crabxl_core::{CellRange, EditLimits, SheetVisibility, Worksheet, WorksheetRange};
 pub use crabxl_core::{Hyperlink, Hyperlinks};
 pub use crabxl_core::{MergedCellRange, MergedRangeIter, MergedRanges};
+pub use crabxl_xlsx::resolve_relationship_targets;
+pub use crabxl_xlsx::unprotect_rich_text_literal;
 pub use crabxl_xlsx::{HyperlinkOutput, visit_owned_hyperlink_ids};
 pub use crabxl_xlsx::{read_rich_text, write_rich_text};
 
@@ -62,7 +64,8 @@ pub use crabxl_core::MemoryAllowance;
 pub use crabxl_xlsx::memory_allowance;
 
 pub use crabxl_core::{
-    FormulaToken, TokenKind, TokenSubtype, classify_formula_operand, tokenize_formula,
+    FormulaScan, FormulaToken, TokenKind, TokenSubtype, classify_formula_operand,
+    formula_scientific_prefix, scan_formula_fragment, tokenize_formula,
 };
 pub use crabxl_core::{formula_position, translate_axis, translate_expression};
 
@@ -143,3 +146,4 @@ pub use crabxl_core::{BinaryPayload, BinaryReader};
 pub use crabxl_xlsx::{PivotRecords, write_pivot_records};
 
 pub use crabxl_core::AnnotatedValue;
+pub use crabxl_core::CellStorageType;

@@ -550,6 +550,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         budget,
                         &part.name,
                         WorkbookRewrite {
+                            date_1904: epoch == DateEpoch::Mac1904,
                             limits: self.options.resources,
                             invalidate_caches: dirty,
                             active,
@@ -792,8 +793,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             patches: None,
                             limits: self.options.resources,
                             formula_attributes: self.options.formula_attributes,
-                            views: None,
-                            printing: None,
+                            views: sheet.sheet_views(),
+                            printing: sheet.print_settings(),
                             // openpyxl's copy omits tables, rules, validation and comments.
                             features: Some(
                                 feature_plans

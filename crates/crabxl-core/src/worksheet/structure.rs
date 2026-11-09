@@ -115,6 +115,7 @@ impl Worksheet {
         self.commit_comment_edit(comments);
         self.recount();
         self.dirty = true;
+        self.structural_edits = true;
         Ok(())
     }
     /// Move a range while translating relative references in its normal formulas.
@@ -281,6 +282,7 @@ impl Worksheet {
         self.commit_comment_edit(comments);
         self.recount();
         self.dirty = true;
+        self.structural_edits = true;
         Ok(())
     }
     pub(super) fn validate_range(&self, range: CellRange, rows: i32, columns: i32) -> Result<()> {
@@ -360,6 +362,7 @@ impl Worksheet {
         self.commit_comment_edit(comments);
         self.recount();
         self.dirty = true;
+        self.structural_edits = true;
         Ok(())
     }
 }

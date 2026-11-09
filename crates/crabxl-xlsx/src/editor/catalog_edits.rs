@@ -531,11 +531,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             }
             match frame.event {
                 Event::Start(e) if e.local_name().as_ref().as_bytes() == b"AlternateContent" => {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Editing markup-compatibility alternatives requires typed branch handling",
-                    )
-                    .with_part(&part));
+                    let (depth, scope) = (frame.depth, frame.scope);
+                    workbook_xml::preserve_absolute_path(&mut xml, depth, scope, |_| Ok(()))
+                        .map_err(|error| error.with_part(&part))?;
                 }
                 Event::Start(e)
                     if sheets_open

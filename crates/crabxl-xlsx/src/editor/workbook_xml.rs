@@ -4,6 +4,7 @@ use super::*;
 pub(super) struct WorkbookRewrite<'a> {
     pub(super) limits: ResourceLimits,
     pub(super) invalidate_caches: bool,
+    pub(super) date_1904: bool,
     pub(super) active: Option<crabxl_core::ActiveViewSelection>,
     pub(super) visibility: &'a BTreeMap<usize, crabxl_core::SheetVisibility>,
     pub(super) names: &'a BTreeMap<usize, Box<str>>,
@@ -38,6 +39,50 @@ pub(super) fn rewritten_catalog_entry(
     }
     Ok(start)
 }
+pub(super) fn preserve_absolute_path<R: std::io::BufRead>(
+    xml: &mut XmlStream<R>,
+    depth: usize,
+    scope: Scope,
+    mut preserve: impl FnMut(Event<'_>) -> Result<()>,
+) -> Result<()> {
+    let unsupported_alternative = || {
+        Error::new(
+            ErrorKind::Unsupported,
+            "Editing markup-compatibility alternatives requires typed branch handling",
+        )
+    };
+    if depth != 2 || scope != Scope::MarkupCompatibility {
+        return Err(unsupported_alternative());
+    }
+    for (depth, scope, name, start) in [
+        (3, Scope::MarkupCompatibility, "Choice", true),
+        (4, Scope::ExcelAbsolutePath, "absPath", true),
+        (3, Scope::ExcelAbsolutePath, "absPath", false),
+        (2, Scope::MarkupCompatibility, "Choice", false),
+        (1, Scope::MarkupCompatibility, "AlternateContent", false),
+    ] {
+        loop {
+            let frame = xml.next()?;
+            let matches = match &frame.event {
+                Event::Text(text)
+                    if text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) =>
+                {
+                    preserve(frame.event)?;
+                    continue;
+                }
+                Event::Start(e) => start && e.local_name().as_ref() == name,
+                Event::End(e) => !start && e.local_name().as_ref() == name,
+                _ => false,
+            };
+            if !matches || frame.depth != depth || frame.scope != scope {
+                return Err(unsupported_alternative());
+            }
+            preserve(frame.event)?;
+            break;
+        }
+    }
+    Ok(())
+}
 pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
     output: PartOutput<W>,
@@ -47,6 +92,7 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
     let WorkbookRewrite {
         limits,
         invalidate_caches,
+        date_1904,
         active,
         visibility,
         names,
@@ -56,7 +102,9 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
         pivot_caches,
         external_refs,
     } = rewrite;
-    let mut feature_rewrite = features.map(features::WorkbookFeatureRewrite::new);
+    let mut feature_rewrite = features.map(|features| {
+        features::WorkbookFeatureRewrite::new(features, invalidate_caches, active, date_1904)
+    });
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
         part.into(),
@@ -64,11 +112,11 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
         limits,
     );
     let mut writer = Writer::new(output);
-    let mut seen = false;
+    let mut seen = features.is_some_and(|features| features.calculation.is_some());
     let mut uri = None;
-    let mut views_seen = false;
+    let mut views_seen = features.is_some_and(|features| features.views.is_some());
     let mut views_open = false;
-    let mut active_written = false;
+    let mut active_written = views_seen;
     let mut sheet_index = 0usize;
     let mut sheets_open = false;
     let mut skipped_sheet = false;
@@ -78,6 +126,13 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
     loop {
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
+        if matches!(&frame.event, Event::Start(e) if e.local_name().as_ref() == "AlternateContent")
+        {
+            let (depth, scope) = (frame.depth, frame.scope);
+            emit(&mut writer, frame.event)?;
+            preserve_absolute_path(&mut xml, depth, scope, |event| emit(&mut writer, event))?;
+            continue;
+        }
         if skipped_sheet {
             match &frame.event {
                 Event::End(_) if frame.depth == 2 => skipped_sheet = false,
@@ -194,13 +249,6 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
                 }
                 _ => {}
             }
-        }
-        if matches!(&frame.event,Event::Start(e) if e.local_name().as_ref().as_bytes()==b"AlternateContent")
-        {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing markup-compatibility alternatives requires typed branch handling",
-            ));
         }
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {

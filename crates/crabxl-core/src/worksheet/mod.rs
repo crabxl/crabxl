@@ -137,6 +137,7 @@ pub struct Worksheet {
     charged: usize,
     append_cursor: u32,
     dirty: bool,
+    structural_edits: bool,
     views: Option<Box<crate::SheetViews>>,
     printing: Option<Box<crate::PrintSettings>>,
     features: Option<Box<crate::SheetFeatures>>,
@@ -162,6 +163,7 @@ impl Worksheet {
             limits,
             append_cursor: 0,
             dirty: false,
+            structural_edits: false,
             views: None,
             printing: None,
             features: None,
@@ -240,6 +242,7 @@ impl Worksheet {
         copy.set_hyperlinks(self.hyperlinks.clone())?;
         copy.append_cursor = self.append_cursor;
         copy.dirty = true;
+        copy.structural_edits = self.structural_edits;
         Ok(copy)
     }
     /// Number of physically present cells, including explicit Empty values.
@@ -312,6 +315,11 @@ impl Worksheet {
     /// Mark this model clean after a caller-controlled successful publication.
     pub fn mark_clean(&mut self) {
         self.dirty = false;
+        self.structural_edits = false;
+    }
+    /// Whether a successful range move/copy or row/column shift changed this model's layout.
+    pub const fn has_structural_edits(&self) -> bool {
+        self.structural_edits
     }
     /// Read one cell without expanding missing rows/columns.
     pub fn get(&self, address: CellAddress) -> Option<&Cell> {

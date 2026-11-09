@@ -1,6 +1,76 @@
 //! Worksheet and workbook features of a loaded workbook. Features load on
 //! first access, independently of cell materialization.
 use super::*;
+use crate::features::may_reference_external_link;
+
+fn retarget_chart_ranges(
+    element: &mut crabxl_core::XmlElement,
+    source: &str,
+    quoted_source: &str,
+    destination: &str,
+) {
+    use crabxl_core::XmlContent;
+    match element.local_name() {
+        "extLst" => return,
+        "numRef" | "strRef" | "multiLvlStrRef" => {
+            if let Some(formula) = element.child_mut("f")
+                && let [XmlContent::Text(text)] = formula.children.as_mut_slice()
+                && let Some((sheet, range)) = text.rsplit_once('!')
+                && (sheet.eq_ignore_ascii_case(source) || sheet.eq_ignore_ascii_case(quoted_source))
+                && range
+                    .replace('$', "")
+                    .parse::<crabxl_core::CellRange>()
+                    .is_ok()
+            {
+                *text = format!("{destination}!{range}").into();
+            }
+        }
+        _ => {}
+    }
+    for child in &mut element.children {
+        if let XmlContent::Element(child) = child {
+            retarget_chart_ranges(child, source, quoted_source, destination);
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn copied_chart_redirects_only_local_sheet_ranges() {
+    use crabxl_core::{XmlContent, XmlElement};
+    let mut chart = XmlElement::new("c:chartSpace");
+    for source in [
+        "'O''Brien'!$A$1:$A$3",
+        "'[Other.xlsx]O''Brien'!$A$1",
+        "Other!$A$1",
+    ] {
+        let mut reference = XmlElement::new("c:numRef");
+        let mut formula = XmlElement::new("c:f");
+        formula.children.push(XmlContent::Text(source.into()));
+        reference.children.push(XmlContent::Element(formula));
+        chart.children.push(XmlContent::Element(reference));
+    }
+    retarget_chart_ranges(&mut chart, "O'Brien", "'O''Brien'", "'Copy'");
+    let formulas: Vec<_> = chart
+        .children
+        .iter()
+        .filter_map(|node| match node {
+            XmlContent::Element(reference) => match reference.child("f")?.children.as_slice() {
+                [XmlContent::Text(text)] => Some(text.as_ref()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        formulas,
+        [
+            "'Copy'!$A$1:$A$3",
+            "'[Other.xlsx]O''Brien'!$A$1",
+            "Other!$A$1"
+        ]
+    );
+}
 use crabxl_core::{SheetFeatures, WorkbookFeatures};
 
 impl<R: Read + Seek> LoadedWorkbook<R> {
@@ -33,6 +103,72 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .position(|sheet| sheet.id == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))
     }
+    /// Read the worksheet's source views without materializing its cells.
+    pub fn sheet_views(&mut self, id: SheetId) -> Result<crabxl_core::SheetViews> {
+        let index = self.feature_index(id)?;
+        if let Some(original) = self.sheets[index].original {
+            let name = self.editor.book.sheets()[original].name().to_owned();
+            if let Some(views) = self.editor.pending_sheet_views(&name) {
+                return Ok(views.clone());
+            }
+            return self.editor.sheet_views(&name);
+        }
+        Ok(self
+            .bank
+            .sheet(id)?
+            .sheet_views()
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    /// Replace worksheet views while retaining unrelated original parts.
+    pub fn set_sheet_views(&mut self, id: SheetId, views: crabxl_core::SheetViews) -> Result<()> {
+        let index = self.feature_index(id)?;
+        if let Some(original) = self.sheets[index].original {
+            let name = self.editor.book.sheets()[original].name().to_owned();
+            self.editor.set_sheet_views(&name, views)?;
+        } else {
+            self.bank.sheet_mut(id)?.set_sheet_views(Some(views))?;
+        }
+        Ok(())
+    }
+
+    /// Read canonical source or pending printing metadata without loading cells.
+    pub fn print_settings(&mut self, id: SheetId) -> Result<crabxl_core::PrintSettings> {
+        let index = self.feature_index(id)?;
+        if let Some(original) = self.sheets[index].original {
+            let name = self.editor.book.sheets()[original].name().to_owned();
+            if let Some(settings) = self.editor.pending_print_settings(&name) {
+                return Ok(settings.clone());
+            }
+            return self.editor.print_settings(&name);
+        }
+        Ok(self
+            .bank
+            .sheet(id)?
+            .print_settings()
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    /// Replace printing settings through the preserving package editor.
+    pub fn set_print_settings(
+        &mut self,
+        id: SheetId,
+        settings: crabxl_core::PrintSettings,
+    ) -> Result<()> {
+        let index = self.feature_index(id)?;
+        if let Some(original) = self.sheets[index].original {
+            let name = self.editor.book.sheets()[original].name().to_owned();
+            self.editor.set_print_settings(&name, settings)?;
+        } else {
+            self.bank
+                .sheet_mut(id)?
+                .set_print_settings(Some(settings))?;
+        }
+        Ok(())
+    }
+
     fn ensure_sheet_features(&mut self, index: usize) -> Result<()> {
         if self.sheets[index].features.is_some() {
             return Ok(());
@@ -286,14 +422,24 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         features.pivots = Some(pivots);
         self.set_sheet_features(id, features)
     }
-    pub(super) fn copied_features(&mut self, id: SheetId) -> Result<SheetFeatures> {
+    pub(super) fn copied_features(&mut self, id: SheetId, name: &str) -> Result<SheetFeatures> {
         let mut copy = self.sheet_features(id)?.clone();
         copy.header_footer = None;
         copy.images = Some(self.sheet_images(id)?.to_vec());
-        copy.charts = Some(self.sheet_charts(id)?.to_vec());
+        let mut charts = self.sheet_charts(id)?.to_vec();
+        let source = self.bank.sheet(id)?.name();
+        let quoted_source = crabxl_core::features::quote_sheet_name(source);
+        let quoted_name = crabxl_core::features::quote_sheet_name(name);
+        for chart in &mut charts {
+            retarget_chart_ranges(&mut chart.space, source, &quoted_source, &quoted_name);
+        }
+        copy.charts = Some(charts);
         copy.shapes = Some(self.sheet_shapes(id)?.to_vec());
         if self.sheets[self.feature_index(id)?].kind == crate::SheetKind::Worksheet {
             copy.pivots = Some(self.sheet_pivots(id)?.to_vec());
+        }
+        if copy.object_names().next().is_none() {
+            return Ok(copy);
         }
         let ids: Vec<_> = self
             .sheets
@@ -392,6 +538,103 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         features.external_links = Some(links);
         self.set_workbook_features(features)
     }
+    /// Drop unused link graphs, rejecting dangling formulas, names and feature references.
+    pub fn remove_external_links(&mut self) -> Result<()> {
+        self.validate_external_link_removal()?;
+        self.set_external_links(Vec::new())
+    }
+    fn validate_external_link_removal(&mut self) -> Result<()> {
+        if self
+            .workbook_features()?
+            .defined_names
+            .iter()
+            .any(|name| may_reference_external_link(&name.value))
+        {
+            return Err(crate::features::unsupported(
+                "Cannot remove external links while a defined name may reference them",
+            ));
+        }
+        self.rebalance()?;
+        for index in 0..self.sheets.len() {
+            if self.sheets[index].kind == crate::SheetKind::DialogSheet {
+                continue;
+            }
+            let id = self.sheets[index].id;
+            if self.sheets[index].kind == crate::SheetKind::Worksheet {
+                let external = |value: &CellValue| matches!(value.unannotated(), CellValue::Formula(formula) if may_reference_external_link(formula.expression()));
+                if self.pending_cells(id).any(|cell| external(&cell.value))
+                    || self.sheets[index].loaded
+                        && self
+                            .bank
+                            .sheet(id)?
+                            .cells()
+                            .any(|cell| external(&cell.value))
+                {
+                    return Err(crate::features::unsupported(
+                        "Cannot remove external links while retaining formulas that reference them",
+                    ));
+                }
+                if !self.options.read.data_only
+                    && !self.sheets[index].loaded
+                    && let Some(original) = self.sheets[index].original
+                {
+                    let maximum = self
+                        .allowance
+                        .retained_data_bytes
+                        .min(self.options.workbook.max_bytes);
+                    let retained = self.managed_retained_bytes();
+                    if self.editor.source_has_external_formulas(
+                        original,
+                        maximum,
+                        retained,
+                        self.bank.style_catalog(),
+                    )? {
+                        return Err(crate::features::unsupported(
+                            "Cannot remove external links while retaining formulas that reference them",
+                        ));
+                    }
+                }
+                let features = self.sheet_features(id)?;
+                let validations = features
+                    .data_validations
+                    .validations
+                    .iter()
+                    .flat_map(|rule| {
+                        [rule.formula1.as_deref(), rule.formula2.as_deref()]
+                            .into_iter()
+                            .flatten()
+                    });
+                let conditional = features.conditional_formats.iter().flat_map(|block| {
+                    block
+                        .rules
+                        .iter()
+                        .flat_map(|rule| rule.formulas.iter().map(AsRef::as_ref))
+                });
+                if validations
+                    .chain(conditional)
+                    .any(may_reference_external_link)
+                {
+                    return Err(crate::features::unsupported(
+                        "Cannot remove external links while a worksheet rule may reference them",
+                    ));
+                }
+            }
+            if self
+                .sheet_charts(id)?
+                .iter()
+                .any(|chart| chart_has_external_formula(&chart.space))
+            {
+                return Err(crate::features::unsupported(
+                    "Cannot remove external links while a chart may reference them",
+                ));
+            }
+        }
+        Ok(())
+    }
+    /// XLSX-family format declared by the original package.
+    pub fn source_workbook_format(&self) -> crabxl_core::features::WorkbookFormat {
+        self.editor.book.workbook_format()
+    }
     /// Set an explicit XLSX-family format for the next save.
     pub fn set_workbook_format(
         &mut self,
@@ -483,6 +726,16 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .map_or(&[], |catalog| catalog.differential_styles.as_slice())
     }
     pub(super) fn prepare_features_for_save(&mut self) -> Result<()> {
+        if self.workbook_features.as_ref().is_some_and(|state| {
+            state
+                .current
+                .external_links
+                .as_ref()
+                .is_some_and(Vec::is_empty)
+                && state.current.external_links != state.source.external_links
+        }) {
+            self.validate_external_link_removal()?;
+        }
         for sheet in &self.sheets {
             let Some(state) = &sheet.features else {
                 continue;
@@ -552,4 +805,23 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         }
         Ok(())
     }
+}
+
+fn chart_has_external_formula(element: &crabxl_core::XmlElement) -> bool {
+    use crabxl_core::XmlContent;
+    if element.local_name() == "f" {
+        let formula: String = element
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                XmlContent::Text(text) => Some(text.as_ref()),
+                _ => None,
+            })
+            .collect();
+        return may_reference_external_link(&formula);
+    }
+    element.children.iter().any(|child| match child {
+        XmlContent::Element(child) => chart_has_external_formula(child),
+        _ => false,
+    })
 }

@@ -15,6 +15,18 @@ fn invalid(message: &str) -> crabxl_core::Error {
     crate::features::invalid(message)
 }
 
+pub(crate) fn implicit_pivot_ids(
+    relationships: &HashMap<String, crate::package::Relationship>,
+) -> Vec<String> {
+    let mut ids: Vec<_> = relationships
+        .iter()
+        .filter(|(_, rel)| rel.kind.rsplit('/').next() == Some("pivotTable"))
+        .map(|(id, _)| id.clone())
+        .collect();
+    ids.sort_unstable();
+    ids
+}
+
 impl<R: Read + Seek> crate::WorkbookReader<R> {
     pub(crate) fn metadata_element(&mut self, part: &str, expected: &str) -> Result<XmlElement> {
         let mut xml = self.part_stream(part)?;
@@ -75,16 +87,23 @@ impl<R: Read + Seek> crate::WorkbookReader<R> {
                 }
             }
         }
-        if ids.is_empty() {
+        let rels_part = crate::package::relationship_part(&sheet_part);
+        if ids.is_empty() && self.archive.index_for_name(&rels_part).is_none() {
             return Ok(Vec::new());
         }
         let mut remaining = self.limits.max_metadata_bytes;
         let relationships = crate::package::read_relationships(
             &mut self.archive,
-            &crate::package::relationship_part(&sheet_part),
+            &rels_part,
             self.limits,
             &mut remaining,
         )?;
+        if ids.is_empty() {
+            ids = implicit_pivot_ids(&relationships);
+        }
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
         let workbook = self.workbook_part.clone();
         let book_relationships = crate::package::read_relationships(
             &mut self.archive,
@@ -420,6 +439,53 @@ const CT_PIVOT: &str = "application/vnd.openxmlformats-officedocument.spreadshee
 const CT_CACHE: &str =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheDefinition+xml";
 
+fn excel_cache_definition(definition: &XmlElement) -> std::borrow::Cow<'_, XmlElement> {
+    let needs_items = |field: &XmlElement| {
+        field.local_name() == "cacheField"
+            && field.child("sharedItems").is_none()
+            && !matches!(field.attribute("databaseField"), Some("0" | "false"))
+    };
+    if definition
+        .child("cacheSource")
+        .and_then(|source| source.attribute("type"))
+        != Some("worksheet")
+        || !definition.child("cacheFields").is_some_and(|fields| {
+            fields
+                .children
+                .iter()
+                .any(|child| matches!(child, XmlContent::Element(field) if needs_items(field)))
+        })
+    {
+        return std::borrow::Cow::Borrowed(definition);
+    }
+    let mut definition = definition.clone();
+    if let Some(fields) = definition.child_mut("cacheFields") {
+        for child in &mut fields.children {
+            let XmlContent::Element(field) = child else {
+                continue;
+            };
+            if !needs_items(field) {
+                continue;
+            }
+            let name = field.name.rsplit_once(':').map_or_else(
+                || "sharedItems".to_owned(),
+                |(prefix, _)| format!("{prefix}:sharedItems"),
+            );
+            let mut items = XmlElement::new(name);
+            for attribute in [
+                "containsSemiMixedTypes",
+                "containsNonDate",
+                "containsString",
+            ] {
+                items.set_attribute(attribute, "0");
+            }
+            // Excel requires an empty dictionary even when records store literals directly.
+            field.children.insert(0, XmlContent::Element(items));
+        }
+    }
+    std::borrow::Cow::Owned(definition)
+}
+
 pub(crate) fn build_output(
     pivots: &[PivotTable],
     sheet_part: &str,
@@ -428,10 +494,9 @@ pub(crate) fn build_output(
     output: &mut crate::features::package::SheetOutput,
 ) -> std::io::Result<()> {
     use crate::features::package::{
-        OutputPart, OutputRelationship, PivotCacheOutput, relative_target,
+        OutputPart, OutputRelationship, PivotCacheAllocation, PivotCacheOutput, relative_target,
     };
     use std::io;
-    let mut caches = HashMap::new();
     for pivot in pivots {
         if pivot.definition.local_name() != "pivotTableDefinition"
             || pivot.definition.child("location").is_none()
@@ -439,9 +504,12 @@ pub(crate) fn build_output(
         {
             return Err(io::Error::other("Invalid pivot table definition"));
         }
-        let key = Arc::as_ptr(&pivot.cache);
-        if let std::collections::hash_map::Entry::Vacant(entry) = caches.entry(key) {
+        let key = Arc::as_ptr(&pivot.cache) as usize;
+        if !numbers.pivot_caches.contains_key(&key) {
             let cache = &pivot.cache;
+            cache
+                .validate_worksheet_fields()
+                .map_err(io::Error::other)?;
             if cache.definition.local_name() != "pivotCacheDefinition"
                 || cache.definition.child("cacheSource").is_none()
                 || cache.definition.child("cacheFields").is_none()
@@ -478,7 +546,7 @@ pub(crate) fn build_output(
                 ("xl/pivotCache/pivotCacheDefinition", ".xml"),
             );
             let mut bytes = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>".to_vec();
-            crate::drawing_xml::write(&mut bytes, &cache.definition, 0)?;
+            crate::drawing_xml::write(&mut bytes, &excel_cache_definition(&cache.definition), 0)?;
             output.parts.push(OutputPart {
                 name: part.clone(),
                 content_type: CT_CACHE.into(),
@@ -497,11 +565,23 @@ pub(crate) fn build_output(
                 part: part.clone(),
                 relationship: format!("rIdPivot{id}"),
             });
-            entry.insert((id, part));
+            numbers.pivot_caches.insert(
+                key,
+                PivotCacheAllocation {
+                    cache: Arc::downgrade(cache),
+                    id,
+                    part,
+                },
+            );
         }
-        let (id, cache_part) = caches
+        let allocation = numbers
+            .pivot_caches
             .get(&key)
             .ok_or_else(|| io::Error::other("Missing pivot cache allocation"))?;
+        if allocation.cache.strong_count() == 0 {
+            return Err(io::Error::other("Pivot cache allocation expired"));
+        }
+        let (id, cache_part) = (allocation.id, allocation.part.clone());
         let ids = pivot
             .relationships
             .iter()
@@ -534,7 +614,7 @@ pub(crate) fn build_output(
             &part,
             numbers,
             output,
-            &[(cache_source, cache_part)],
+            &[(cache_source, &cache_part)],
         )?;
         let id = relationship_id("pivot");
         output.refs.pivots.push(id.clone());

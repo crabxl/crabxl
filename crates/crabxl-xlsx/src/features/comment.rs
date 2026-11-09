@@ -292,6 +292,8 @@ pub(crate) fn write_part(out: &mut impl Write, comments: &[Comment]) -> io::Resu
     let mut ids: HashMap<&str, usize> = HashMap::new();
     let mut author_of = Vec::with_capacity(comments.len());
     for c in comments {
+        crate::encode::validate_xml_text(&c.author).map_err(io::Error::other)?;
+        crate::encode::validate_xml_text(&c.text).map_err(io::Error::other)?;
         let next = authors.len();
         let id = *ids.entry(&c.author).or_insert(next);
         if id == next {

@@ -193,6 +193,12 @@ pub struct WorkbookFeatures {
     pub defined_names: Vec<DefinedName>,
     /// `<workbookProtection>`.
     pub protection: Option<WorkbookProtection>,
+    /// Explicit workbook property metadata; the canonical date epoch remains authoritative.
+    pub workbook_properties: Option<crate::XmlElement>,
+    /// Explicit workbook-view metadata; None keeps the default/native view handling.
+    pub views: Option<crate::XmlElement>,
+    /// Explicit calculation settings, retaining complete SpreadsheetML metadata.
+    pub calculation: Option<crate::XmlElement>,
     /// Core, extended and custom document properties.
     pub properties: DocumentProperties,
 }
@@ -228,6 +234,15 @@ impl WorkbookFeatures {
                 .protection
                 .as_ref()
                 .map_or(0, WorkbookProtection::heap_bytes)
+            + self.workbook_properties.as_ref().map_or(0, |value| {
+                size_of::<crate::XmlElement>() + value.heap_bytes()
+            })
+            + self.views.as_ref().map_or(0, |value| {
+                size_of::<crate::XmlElement>() + value.heap_bytes()
+            })
+            + self.calculation.as_ref().map_or(0, |value| {
+                size_of::<crate::XmlElement>() + value.heap_bytes()
+            })
             + self.properties.heap_bytes()
     }
 }

@@ -38,18 +38,21 @@ impl WorkbookWriter {
     /// Style IDs must refer to this writer's registered formats. This creates a
     /// new sheet; it does not preserve parts of a loaded source package.
     pub fn write_worksheet(&mut self, sheet: &crabxl_core::Worksheet) -> Result<()> {
-        sheet.dimensions().validate()?;
-        if sheet
-            .dimensions()
-            .rows()
-            .iter()
-            .any(|row| row.descent.is_some())
+        if let Some(features) = sheet
+            .features()
+            .filter(|features| features.chartsheet.is_some())
         {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Extended row descent serialization is not implemented",
-            ));
+            if sheet.cells().next().is_some() {
+                return Err(state("Chartsheets cannot contain cells"));
+            }
+            self.write_chartsheet_with_features(sheet.name(), features)?;
+            self.sheets
+                .last_mut()
+                .ok_or_else(|| state("Missing chartsheet"))?
+                .visibility = sheet.visibility();
+            return Ok(());
         }
+        sheet.dimensions().validate()?;
         self.start_sheet_with_dimensions(
             sheet.name(),
             sheet.sheet_views(),
@@ -312,6 +315,13 @@ impl WorkbookWriter {
         self.ensure_open()?;
         if self.active.is_none() {
             return Ok(());
+        }
+        if let Some(sheet) = self
+            .active
+            .as_ref()
+            .filter(|sheet| !sheet.comments.is_empty())
+        {
+            self.set_interleaved_features(sheet.id, Default::default())?;
         }
         self.flush_column_dimensions()?;
         loop {

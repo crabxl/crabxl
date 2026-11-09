@@ -46,14 +46,17 @@ pub(super) fn patched_start(
             }
         }
     }
-    let literal = match value.unannotated() {
+    let stored = value.storage_value()?;
+    let literal = match stored.as_ref() {
         CellValue::Formula(formula) => formula.cached(),
         value => Some(value),
     };
     match literal {
         Some(CellValue::Text(_) | CellValue::RichText(_)) => start.push_attribute((
             "t",
-            if matches!(value.unannotated(), CellValue::Formula(_)) {
+            if matches!(stored.as_ref(), CellValue::Formula(_))
+                || value.storage_type() == Some(crabxl_core::CellStorageType::FormulaString)
+            {
                 "str"
             } else {
                 "inlineStr"
@@ -377,12 +380,73 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
 
         if matches!(&frame.event,Event::Start(e) if e.local_name().as_ref().as_bytes()==b"AlternateContent")
         {
+            if !copying
+                && !in_data
+                && frame.depth >= 2
+                && frame.scope == Scope::MarkupCompatibility
+                && model.is_none_or(|model| !model.has_structural_edits())
+                && views.is_none()
+                && printing.is_none()
+                && features.is_none()
+                && hyperlinks.is_none()
+            {
+                let alternative_depth = frame.depth;
+                writer
+                    .write_event(frame.event.into_owned())
+                    .map_err(|cause| io_error("Cannot preserve worksheet alternative", cause))?;
+                loop {
+                    let nested = xml.next()?;
+                    let finished = matches!(nested.event, Event::End(_))
+                        && nested.depth + 1 == alternative_depth;
+                    if matches!(nested.event, Event::Eof)
+                        || nested.scope == Scope::Spreadsheet
+                            && matches!(&nested.event, Event::Start(start) if matches!(start.local_name().as_ref().as_bytes(), b"sheetData" | b"row" | b"c" | b"f"))
+                    {
+                        return Err(Error::new(
+                            ErrorKind::Unsupported,
+                            "Editing alternative cell data requires typed branch handling",
+                        ));
+                    }
+                    writer
+                        .write_event(nested.event.into_owned())
+                        .map_err(|cause| {
+                            io_error("Cannot preserve worksheet alternative", cause)
+                        })?;
+                    if finished {
+                        break;
+                    }
+                }
+                continue;
+            }
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Editing markup-compatibility alternatives requires typed branch handling",
             ));
         }
         // openpyxl's public copy behavior omits views and header/footer state.
+        if copying
+            && frame.depth == 1
+            && frame.scope == Scope::Spreadsheet
+            && let Event::Start(e) = &frame.event
+        {
+            let mut start = e.to_owned();
+            start.clear_attributes();
+            for attribute in e.attributes() {
+                let attribute = attribute.map_err(|cause| {
+                    Error::caused_by(ErrorKind::Xml, "Invalid worksheet attribute", cause)
+                })?;
+                if !crate::xml::namespaced_attribute(
+                    frame.namespaces,
+                    attribute.key,
+                    crate::xml::EXCEL_REVISION,
+                    b"uid",
+                ) {
+                    start.push_attribute(attribute);
+                }
+            }
+            emit(&mut writer, Event::Start(start))?;
+            continue;
+        }
         if copying
             && frame.scope == Scope::Spreadsheet
             && frame.depth == 2

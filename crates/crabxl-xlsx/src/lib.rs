@@ -10,6 +10,7 @@ mod writer;
 mod xml;
 
 pub use adaptive::{AdaptiveRead, ReadData};
+pub use package::resolve_relationship_targets;
 pub use package::{SheetInfo, SheetKind, WorkbookReader};
 pub use reader::Rows;
 
@@ -31,6 +32,7 @@ pub use strings::{SharedStringOptions, SharedStringStats, SharedStringStorage};
 mod hyperlinks;
 pub use hyperlinks::output::{HyperlinkOutput, visit_owned_hyperlink_ids};
 mod rich_text;
+pub use rich_text::unprotect as unprotect_rich_text_literal;
 mod rich_text_xml;
 pub use rich_text_xml::{read_rich_text, write_rich_text};
 

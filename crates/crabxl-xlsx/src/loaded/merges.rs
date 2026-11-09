@@ -2,9 +2,34 @@
 use super::*;
 
 impl<R: Read + Seek> LoadedWorkbook<R> {
+    /// Normalize a merge anchor's border without registering merge geometry.
+    pub fn prepare_merge_anchor(&mut self, id: SheetId, range: CellRange) -> Result<()> {
+        self.prepare_style_edit()?;
+        let sheet = self.sheet(id)?;
+        let anchor = sheet.style_at(range.start);
+        let corner = sheet
+            .get(range.end)
+            .is_some()
+            .then(|| sheet.style_at(range.end));
+        self.rebalance()?;
+        let result = self.bank.prepare_merge(range, anchor, corner);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        self.assign_style(id, range.start, result?.1, false)
+    }
+
     /// Merge a finite rectangle after validating the affected original graph.
     /// Covered values are removed; borders/protection use compact virtual styles.
     pub fn merge_cells(&mut self, id: SheetId, range: CellRange) -> Result<()> {
+        self.apply_merged_cells(id, range, true)
+    }
+    /// Realize merged appearance independently of worksheet merge declarations.
+    pub fn format_merged_cells(&mut self, id: SheetId, range: CellRange) -> Result<()> {
+        self.apply_merged_cells(id, range, false)
+    }
+    fn apply_merged_cells(&mut self, id: SheetId, range: CellRange, declare: bool) -> Result<()> {
         CellRange::new(range.start, range.end)?;
         let source = self
             .sheets
@@ -18,7 +43,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         };
         self.hyperlinks(id)?;
         let sheet = self.sheet(id)?;
-        if sheet.merged_ranges().contains(range) {
+        if declare && sheet.merged_ranges().contains(range) {
             return Ok(());
         }
         let hyperlink_patch = if !sheet.hyperlinks().is_empty() {
@@ -37,7 +62,11 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         if let Some(plan) = &plan {
             self.reserve_workbook_patch(plan.bytes.max(self.editor.patch_bytes()))?;
         }
-        let result = self.bank.merge_cells(id, range);
+        let result = if declare {
+            self.bank.merge_cells(id, range)
+        } else {
+            self.bank.format_merged_cells(id, range)
+        };
         if result.is_ok() {
             if let Some(plan) = plan {
                 self.editor.commit_model(plan, id);

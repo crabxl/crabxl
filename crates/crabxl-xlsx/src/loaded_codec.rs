@@ -71,6 +71,7 @@ pub(crate) fn guard<B: BufRead>(
                                 | b"tableParts"
                                 | b"drawing"
                                 | b"pivotTableParts"
+                                | b"phoneticPr"
                         )
                     {
                         return Err(unsupported());
@@ -206,6 +207,13 @@ pub(crate) fn guard<B: BufRead>(
                             && !key.starts_with(b"xmlns:")
                             && !(name == b"t" && key == b"xml:space")
                             && !allowed.contains(&key)
+                            && !(name == b"row"
+                                && crate::xml::namespaced_attribute(
+                                    frame.namespaces,
+                                    attr.key,
+                                    crate::xml::EXCEL_ROW_EXT,
+                                    b"dyDescent",
+                                ))
                         {
                             return Err(unsupported());
                         }
@@ -349,17 +357,6 @@ pub(crate) fn validate_model(sheet: &Worksheet, catalog: Option<&StyleCatalog>) 
                 "Unknown dimension style identity",
             ));
         }
-    }
-    if sheet
-        .dimensions()
-        .rows()
-        .iter()
-        .any(|row| row.descent.is_some())
-    {
-        return Err(Error::new(
-            ErrorKind::Unsupported,
-            "Extended row descent serialization is not implemented",
-        ));
     }
     let mut styles = StyleContext::Catalog(catalog);
     for cell in sheet.cells() {

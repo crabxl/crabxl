@@ -61,6 +61,12 @@ impl Capture {
                     let a = a.map_err(|_| invalid("Invalid hyperlink attribute"))?;
                     if a.key.as_namespace_binding().is_none()
                         && frame.office_relationship_attribute != Some(index)
+                        && !crate::xml::namespaced_attribute(
+                            frame.namespaces,
+                            a.key,
+                            crate::xml::EXCEL_REVISION,
+                            b"uid",
+                        )
                         && !matches!(
                             a.key.as_ref().as_bytes(),
                             b"ref" | b"location" | b"display" | b"tooltip"

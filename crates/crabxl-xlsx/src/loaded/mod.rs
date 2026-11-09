@@ -320,8 +320,8 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     }
     /// Set a source cell or insert a missing scalar/formula cell without eagerly
     /// materializing its worksheet. Source overlays and cached models share the
-    /// same managed cap. This scalar checkpoint retains the editor's explicit
-    /// typed-date and affected-graph restrictions.
+    /// same managed cap. Temporal values register styles through the canonical
+    /// model; affected-graph restrictions still apply.
     pub fn upsert_value(
         &mut self,
         id: SheetId,

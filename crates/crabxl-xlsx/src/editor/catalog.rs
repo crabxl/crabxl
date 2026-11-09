@@ -221,11 +221,17 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         loop {
             let frame = xml.next()?;
             super::check_declaration(&frame.event)?;
+            if matches!(&frame.event, Event::Start(e) if e.local_name().as_ref() == "AlternateContent")
+            {
+                let (depth, scope) = (frame.depth, frame.scope);
+                super::workbook_xml::preserve_absolute_path(&mut xml, depth, scope, |_| Ok(()))
+                    .map_err(|error| error.with_part(&workbook))?;
+                continue;
+            }
             if matches!(&frame.event, Event::Start(e)
-                if e.local_name().as_ref().as_bytes() == b"AlternateContent"
-                    || (frame.scope == Scope::Spreadsheet && frame.depth == 2
+                if frame.scope == Scope::Spreadsheet && frame.depth == 2
                         && matches!(e.local_name().as_ref().as_bytes(),
-                            b"customWorkbookViews" | b"extLst")))
+                            b"customWorkbookViews" | b"extLst"))
             {
                 return Err(Error::new(
                     ErrorKind::Unsupported,
@@ -531,8 +537,29 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             )
                         })?;
                         let key = attr.key.as_ref().as_bytes();
+                        let known_excel_metadata = (frame.depth == 1
+                            && (crate::xml::namespaced_attribute(
+                                frame.namespaces,
+                                attr.key,
+                                crate::xml::MC,
+                                b"Ignorable",
+                            ) || crate::xml::namespaced_attribute(
+                                frame.namespaces,
+                                attr.key,
+                                crate::xml::EXCEL_REVISION,
+                                b"uid",
+                            )))
+                            || (frame.depth == 2
+                                && name == b"sheetFormatPr"
+                                && crate::xml::namespaced_attribute(
+                                    frame.namespaces,
+                                    attr.key,
+                                    crate::xml::EXCEL_ROW_EXT,
+                                    b"dyDescent",
+                                ));
                         if key != b"xmlns"
                             && !key.starts_with(b"xmlns:")
+                            && !known_excel_metadata
                             && (key.contains(&b':') || frame.depth == 1 || key == b"codeName")
                         {
                             return Err(Error::new(

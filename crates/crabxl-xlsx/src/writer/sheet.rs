@@ -5,6 +5,14 @@
 //! Sheet operations for the single workbook writer owner.
 use super::*;
 
+pub(super) struct PreparedChartsheet {
+    pub(super) header: Vec<u8>,
+    pub(super) footer: Vec<u8>,
+    pub(super) relationships: Vec<u8>,
+    pub(super) output: crate::features::package::SheetOutput,
+    pub(super) numbers: crate::features::package::PartNumbers,
+}
+
 impl WorkbookWriter {
     /// Write a complete chartsheet containing one chart, without cell materialization.
     pub fn write_chartsheet(
@@ -35,6 +43,42 @@ impl WorkbookWriter {
         features: &crabxl_core::SheetFeatures,
     ) -> Result<usize> {
         self.ensure_open()?;
+        let name = name.into();
+        validate_sheet_name(&name)?;
+        let id = self.next_sheet;
+        let PreparedChartsheet {
+            header,
+            footer,
+            relationships,
+            output,
+            numbers,
+        } = self.prepare_chartsheet(id, features)?;
+        self.start_sheet_with_header(
+            name,
+            &header,
+            Some(footer),
+            output
+                .heap_bytes()
+                .saturating_add(relationships.len())
+                .saturating_add(header.capacity()),
+        )?;
+        if let Some(active) = &mut self.active {
+            active.columns_written = true;
+            active.features = Some(Box::new(output));
+            active.relationships = Some(relationships);
+        }
+        self.feature_numbers = numbers;
+        self.close_sheet()?;
+        if let Some(sheet) = self.sheets.last_mut() {
+            sheet.kind = crate::SheetKind::ChartSheet;
+        }
+        Ok(id)
+    }
+    pub(super) fn prepare_chartsheet(
+        &self,
+        id: usize,
+        features: &crabxl_core::SheetFeatures,
+    ) -> Result<PreparedChartsheet> {
         let properties = features.chartsheet.as_ref();
         if let Some(properties) = properties {
             crate::drawing::validate_chartsheet_copy(
@@ -54,14 +98,12 @@ impl WorkbookWriter {
                 "Edit chartsheet metadata through its XML property tree",
             ));
         }
-        let name = name.into();
-        validate_sheet_name(&name)?;
-        let id = self.next_sheet;
+        let mut numbers = self.feature_numbers.clone();
         let output = crate::features::package::build_sheet_output(
             features,
             id,
             "xl/chartsheets/sheet.xml",
-            &mut self.feature_numbers,
+            &mut numbers,
             |_| "rIdDrawing".into(),
         )
         .map_err(|error| io_error("Cannot encode chartsheet drawing", error))?;
@@ -93,25 +135,13 @@ impl WorkbookWriter {
             .checked_sub(closing.len())
             .ok_or_else(|| state("Invalid chartsheet closing tag"))?;
         let footer = bytes.data.split_off(split);
-        self.start_sheet_with_header(
-            name,
-            &bytes.data,
-            Some(footer),
-            output
-                .heap_bytes()
-                .saturating_add(relationships.len())
-                .saturating_add(bytes.data.capacity()),
-        )?;
-        if let Some(active) = &mut self.active {
-            active.columns_written = true;
-            active.features = Some(Box::new(output));
-            active.relationships = Some(relationships);
-        }
-        self.close_sheet()?;
-        if let Some(sheet) = self.sheets.last_mut() {
-            sheet.kind = crate::SheetKind::ChartSheet;
-        }
-        Ok(id)
+        Ok(PreparedChartsheet {
+            header: bytes.data,
+            footer,
+            relationships,
+            output,
+            numbers,
+        })
     }
     /// Start a sheet, completing the previous one. Failed validation or temporary
     /// file creation leaves the previous active sheet usable.
@@ -195,6 +225,10 @@ impl WorkbookWriter {
         features: Option<&crabxl_core::SheetFeatures>,
     ) -> Result<()> {
         self.start_sheet_with_dimensions(name, views, printing, &[], &[], hyperlinks, features)
+    }
+    /// Borrow workbook-level metadata for binding-side property views.
+    pub fn workbook_features(&self) -> Option<&crabxl_core::WorkbookFeatures> {
+        self.workbook_features.as_deref()
     }
     /// Set defined names, workbook protection and document properties.
     pub fn set_workbook_features(&mut self, features: Option<crabxl_core::WorkbookFeatures>) {
@@ -292,6 +326,7 @@ impl WorkbookWriter {
             .saturating_sub(self.style_memory_bytes())
             .saturating_sub(self.catalog_bytes());
         let mut relationships = crate::hyperlinks::relationships(hyperlinks, maximum)?;
+        let mut numbers = self.feature_numbers.clone();
         let feature_output = match features {
             Some(features) => {
                 let mut next = 0u32;
@@ -299,7 +334,7 @@ impl WorkbookWriter {
                     features,
                     self.next_sheet,
                     "xl/worksheets/sheet.xml",
-                    &mut self.feature_numbers,
+                    &mut numbers,
                     |_| {
                         loop {
                             next += 1;
@@ -365,13 +400,15 @@ impl WorkbookWriter {
             maximum: 0,
         };
         let encoded = (|| -> io::Result<()> {
-            header.write_all(&HEADER[..HEADER.len() - b"<sheetData>".len()])?;
+            header
+                .write_all(&HEADER[..HEADER.len() - SHEET_FORMAT.len() - b"<sheetData>".len()])?;
             if let Some(printing) = printing {
                 crate::printing::write_properties(&mut header, printing, None, true)?;
             }
             if let Some(views) = views {
                 crate::worksheet_view::write_views(&mut header, views, None)?;
             }
+            header.write_all(SHEET_FORMAT)?;
             crate::dimension_codec::write_columns(&mut header, columns, None)?;
             header.write_all(b"<sheetData>")?;
             if printing.is_some()
@@ -467,6 +504,7 @@ impl WorkbookWriter {
             active.relationships = relationships;
             active.features = feature_output;
         }
+        self.feature_numbers = numbers;
         Ok(())
     }
     pub(super) fn start_sheet_with_header(
@@ -570,6 +608,8 @@ impl WorkbookWriter {
             dimensions: crabxl_core::SheetDimensions::default(),
             header_prefix_bytes: header.len().saturating_sub(b"<sheetData>".len()) as u64,
             columns_written: false,
+            comments: Vec::new(),
+            comment_heap: 0,
             footer,
             relationships: None,
             link_spool: None,

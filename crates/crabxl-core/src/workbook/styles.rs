@@ -182,6 +182,92 @@ impl Workbook {
         let (prepared, anchor_style) = self.prepare_merge(range, anchor, corner)?;
         self.sheet_mut(id)?.merge_prepared(prepared, anchor_style)
     }
+    /// Apply compact merged appearances without adding a merge declaration.
+    pub fn format_merged_cells(&mut self, id: SheetId, range: crate::CellRange) -> Result<()> {
+        let count = self
+            .sheet(id)?
+            .cells()
+            .filter(|cell| cell.address != range.start && range.contains(cell.address))
+            .count();
+        let bytes = count.saturating_mul(size_of::<(crate::CellAddress, crate::StyleId)>());
+        if bytes > self.remaining_bytes() {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Merge appearance work exceeds workbook allowance",
+            ));
+        }
+        let mut updates = Vec::new();
+        updates.try_reserve_exact(count).map_err(|_| {
+            Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Cannot reserve merge appearance work",
+            )
+        })?;
+        updates.extend(
+            self.sheet(id)?
+                .cells()
+                .filter(|cell| cell.address != range.start && range.contains(cell.address))
+                .map(|cell| (cell.address, cell.style)),
+        );
+        let bytes = updates
+            .capacity()
+            .saturating_mul(size_of::<(crate::CellAddress, crate::StyleId)>());
+        if bytes > self.remaining_bytes() {
+            return Err(Error::new(
+                ErrorKind::MemoryBudgetExceeded,
+                "Merge appearance work exceeds workbook allowance",
+            ));
+        }
+        let maximum = self.limits.max_bytes;
+        self.limits.max_bytes = maximum.saturating_sub(bytes);
+        let result = (|| {
+            let sheet = self.sheet(id)?;
+            let anchor = sheet.style_at(range.start);
+            let corner = sheet
+                .get(range.end)
+                .is_some()
+                .then(|| sheet.style_at(range.end));
+            let (prepared, anchor) = self.prepare_merge(range, anchor, corner)?;
+            let protection = self
+                .style_catalog()
+                .ok_or_else(|| {
+                    Error::new(ErrorKind::InvalidData, "Merge style catalog is missing")
+                })?
+                .cell_style(anchor)?
+                .protection
+                .copied();
+            for (address, style) in &mut updates {
+                let catalog = self.style_catalog().ok_or_else(|| {
+                    Error::new(ErrorKind::InvalidData, "Merge style catalog is missing")
+                })?;
+                let mut border = catalog.cell_style(*style)?.border.clone();
+                let edge = catalog
+                    .cell_style(prepared.virtual_style(*address).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidData, "Merged appearance is missing")
+                    })?)?
+                    .border;
+                for side in 0..4 {
+                    merge_border_side(&mut border.sides[side], &edge.sides[side]);
+                }
+                *style = self.derive_style_component(
+                    *style,
+                    crate::StyleComponent::Border(Box::new(border)),
+                )?;
+                *style = self.derive_style_component(
+                    *style,
+                    crate::StyleComponent::Protection(protection),
+                )?;
+            }
+            let mut sheet = self.sheet_mut(id)?;
+            sheet.format_prepared_merge(prepared, anchor)?;
+            for (address, style) in updates {
+                sheet.set_style(address, style)?;
+            }
+            Ok(())
+        })();
+        self.limits.max_bytes = maximum;
+        result
+    }
     /// Resolve shared appearances without mutating a caller's materialized sheet.
     /// Coordinators must reserve that sheet's bytes in the workbook allowance
     /// before preparing styles, then apply the result under its own sheet limit.

@@ -2,6 +2,8 @@
 
 mod address;
 mod cell_store;
+mod cell_type;
+pub use cell_type::CellStorageType;
 mod date;
 mod error;
 mod formula;
@@ -53,7 +55,8 @@ mod translate;
 pub use translate::{formula_position, translate_axis, translate_expression};
 mod tokenizer;
 pub use tokenizer::{
-    FormulaToken, TokenKind, TokenSubtype, classify_formula_operand, tokenize_formula,
+    FormulaScan, FormulaToken, TokenKind, TokenSubtype, classify_formula_operand,
+    formula_scientific_prefix, scan_formula_fragment, tokenize_formula,
 };
 
 mod workbook;

@@ -24,17 +24,27 @@ impl Worksheet {
         &mut self,
         range: crate::MergedCellRange,
         anchor_style: StyleId,
+        declare: bool,
     ) -> Result<()> {
-        let links = self.links_after_merge(range.range())?;
+        let links = if declare {
+            self.links_after_merge(range.range())?
+        } else {
+            None
+        };
         let staged = links.as_ref().map_or(0, crate::Hyperlinks::heap_bytes);
         let other = self.charged.saturating_sub(self.merges.heap_bytes());
-        let reserved = self.merges.reserve_range(
-            range.range(),
-            self.limits
-                .max_bytes
-                .saturating_sub(other)
-                .saturating_sub(staged),
-        );
+        let maximum = self
+            .limits
+            .max_bytes
+            .saturating_sub(other)
+            .saturating_sub(staged);
+        let reserved = if declare {
+            self.merges.reserve_range(range.range(), maximum)
+        } else {
+            self.merges
+                .reserve_appearance(range.range(), maximum)
+                .map(|()| true)
+        };
         self.charged = other.saturating_add(self.merges.heap_bytes());
         if !reserved? {
             return Ok(());
@@ -60,8 +70,14 @@ impl Worksheet {
                 .saturating_add(links.heap_bytes());
             self.hyperlinks = links;
         }
-        self.merges.insert_reserved(range);
-        self.remove_merge_interior(geometry);
+        if declare {
+            self.merges.insert_reserved(range);
+        } else {
+            self.merges.insert_detached(range);
+        }
+        if declare {
+            self.remove_merge_interior(geometry);
+        }
         self.dirty = true;
         Ok(())
     }

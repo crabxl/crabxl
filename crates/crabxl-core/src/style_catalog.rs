@@ -163,6 +163,122 @@ pub struct StyleCatalog {
     pub unmodeled_sections: Vec<Box<str>>,
 }
 impl StyleCatalog {
+    /// Project a format into the public indexed style representation.
+    /// Alignment/protection IDs follow first occurrence, with defaults at zero.
+    pub fn style_array(&self, id: StyleId) -> crate::Result<[u32; 9]> {
+        if self.cell_format(id).is_none() {
+            return Err(crate::Error::new(
+                crate::ErrorKind::InvalidData,
+                "Unknown cell style identity",
+            ));
+        }
+        let mut result = [0; 9];
+        self.project_style_arrays(id.get() as usize, |array| result = array)?;
+        Ok(result)
+    }
+    /// Project the indexed metadata in one pass for explicit collection access.
+    pub fn style_arrays(&self) -> crate::Result<Vec<[u32; 9]>> {
+        let mut result = Vec::new();
+        result
+            .try_reserve_exact(self.cell_formats.len())
+            .map_err(|e| {
+                crate::Error::caused_by(
+                    crate::ErrorKind::MemoryBudgetExceeded,
+                    "Cannot project style identities",
+                    e,
+                )
+            })?;
+        self.project_style_arrays(self.cell_formats.len().saturating_sub(1), |array| {
+            result.push(array)
+        })?;
+        Ok(result)
+    }
+    fn project_style_arrays(
+        &self,
+        end: usize,
+        mut emit: impl FnMut([u32; 9]),
+    ) -> crate::Result<()> {
+        use std::collections::HashMap;
+        let zero = |value: Option<f64>| {
+            let value = value.unwrap_or(0.0);
+            if value == 0.0 { 0 } else { value.to_bits() }
+        };
+        let alignment_key = |value: &Alignment| {
+            (
+                value.horizontal,
+                value.vertical,
+                value.rotation.unwrap_or(0),
+                value.wrap_text,
+                value.shrink_to_fit,
+                zero(value.indent),
+                zero(value.relative_indent),
+                value.justify_last_line,
+                zero(value.reading_order),
+            )
+        };
+        let mut alignments = HashMap::new();
+        let mut protections = HashMap::new();
+        let mut numbers = HashMap::new();
+        let allocation = || {
+            crate::Error::new(
+                crate::ErrorKind::MemoryBudgetExceeded,
+                "Cannot project style identities",
+            )
+        };
+        let count = end + 2;
+        alignments.try_reserve(count).map_err(|_| allocation())?;
+        protections
+            .try_reserve(count.min(4))
+            .map_err(|_| allocation())?;
+        numbers.try_reserve(count).map_err(|_| allocation())?;
+        alignments.insert(alignment_key(&Alignment::default()), 0);
+        protections.insert((true, false), 0);
+        for format in self.cell_formats.iter().take(end + 1) {
+            let mut result = [
+                format.font_id,
+                format.fill_id,
+                format.border_id,
+                format.number_format_id,
+                0,
+                0,
+                u32::from(format.pivot_button.unwrap_or(false)),
+                u32::from(format.quote_prefix.unwrap_or(false)),
+                format.base_format_id.unwrap_or(0),
+            ];
+
+            let alignment = format.alignment.as_deref().map_or(0, |value| {
+                let next = alignments.len() as u32;
+                *alignments.entry(alignment_key(value)).or_insert(next)
+            });
+            let protection = format.protection.as_ref().map_or(0, |value| {
+                let next = protections.len() as u32;
+                *protections
+                    .entry((value.locked.unwrap_or(true), value.hidden.unwrap_or(false)))
+                    .or_insert(next)
+            });
+            let number = if let Some(declared) = self
+                .number_formats
+                .iter()
+                .find(|number| number.id() == format.number_format_id)
+            {
+                if let Some(builtin) = (0..164)
+                    .find(|number| crate::builtin_number_format(*number) == Some(declared.code()))
+                {
+                    builtin
+                } else {
+                    let next = 164 + numbers.len() as u32;
+                    *numbers.entry(declared.code()).or_insert(next)
+                }
+            } else {
+                format.number_format_id
+            };
+            result[3] = number;
+            result[4] = protection;
+            result[5] = alignment;
+            emit(result);
+        }
+        Ok(())
+    }
     /// Borrow a cell format without cloning component payloads.
     pub fn cell_format(&self, id: StyleId) -> Option<&CellFormat> {
         self.cell_formats.get(id.get() as usize)

@@ -42,6 +42,8 @@ pub struct AnnotatedValue {
     pub value: CellValue,
     /// References into workbook cell/value metadata tables.
     pub annotations: crate::FormulaAnnotations,
+    /// Optional explicit storage category, without coercing the logical value.
+    pub storage_type: Option<crate::CellStorageType>,
 }
 
 impl CellValue {
@@ -78,7 +80,11 @@ impl CellValue {
                 value.annotations = annotations;
                 Self::Annotated(value)
             }
-            value => Self::Annotated(Box::new(AnnotatedValue { value, annotations })),
+            value => Self::Annotated(Box::new(AnnotatedValue {
+                value,
+                annotations,
+                storage_type: None,
+            })),
         }
     }
     /// Borrow a temporal literal or a formula's temporal cached result.

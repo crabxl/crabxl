@@ -669,3 +669,50 @@ pub(crate) fn relationship_source(part: &str) -> Option<String> {
         format!("{prefix}/{name}")
     })
 }
+
+/// Resolve targets from a relationship part using the package's URI rules.
+/// External addresses are returned unchanged and never opened.
+pub fn resolve_relationship_targets(
+    relationships_part: &str,
+    targets: &[(&str, bool)],
+) -> Result<Vec<String>> {
+    let source = relationship_source(relationships_part)
+        .ok_or_else(|| invalid("Invalid relationship part path"))?;
+    targets
+        .iter()
+        .map(|(target, external)| {
+            if *external {
+                Ok((*target).to_owned())
+            } else {
+                resolve_part(&source, target)
+            }
+        })
+        .collect()
+}
+
+#[cfg(test)]
+#[test]
+fn relationship_target_projection_uses_canonical_uri_validation() {
+    let targets = [
+        ("../drawings/drawing1.xml", false),
+        ("/xl/media/image%201.png", false),
+        ("https://example.com/a#b", true),
+    ];
+    let actual = resolve_relationship_targets("xl/worksheets/_rels/sheet1.xml.rels", &targets);
+    assert_eq!(
+        actual.ok(),
+        Some(vec![
+            "xl/drawings/drawing1.xml".into(),
+            "xl/media/image 1.png".into(),
+            "https://example.com/a#b".into()
+        ])
+    );
+    assert!(
+        resolve_relationship_targets(
+            "xl/_rels/workbook.xml.rels",
+            &[("../../outside.xml", false)]
+        )
+        .is_err()
+    );
+    assert!(resolve_relationship_targets("workbook.xml", &[]).is_err());
+}

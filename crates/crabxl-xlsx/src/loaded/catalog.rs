@@ -2,6 +2,10 @@
 use super::*;
 
 impl<R: Read + Seek> LoadedWorkbook<R> {
+    /// Create a chart-only sheet that can receive drawings later.
+    pub fn create_empty_chartsheet(&mut self, name: impl Into<Box<str>>) -> Result<SheetId> {
+        self.add_sheet_kind(name.into(), None, crate::SheetKind::ChartSheet, None)
+    }
     /// Create an empty worksheet in the same source-backed canonical bank.
     /// A bounded catalog/relationship/content-type transaction commits after
     /// source policies and aggregate model/metadata allowances are checked.
@@ -79,9 +83,19 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             None
         };
         let copied_features = match source {
-            Some(id) => Some(self.copied_features(id)?),
+            Some(id) => Some(self.copied_features(id, &name)?),
             None => features,
         };
+        let copied_metadata = source
+            .filter(|_| kind == crate::SheetKind::Worksheet)
+            .and_then(|id| self.sheets.iter().find(|entry| entry.id == id)?.original)
+            .map(|original| {
+                let name = self.editor.book.sheets()[original].name();
+                (
+                    self.editor.pending_sheet_views(name).cloned(),
+                    self.editor.pending_print_settings(name).cloned(),
+                )
+            });
         let originals = self.original_identities()?;
         let maximum = self
             .allowance
@@ -113,6 +127,16 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 .saturating_add(plan.scratch_bytes)
                 .saturating_add(copied_features.as_ref().map_or(0, |features| {
                     size_of::<FeatureState<crabxl_core::SheetFeatures>>() + features.heap_bytes()
+                }))
+                .saturating_add(copied_metadata.as_ref().map_or(0, |(views, printing)| {
+                    views
+                        .as_ref()
+                        .map_or(0, crabxl_core::SheetViews::memory_bytes)
+                        .saturating_add(
+                            printing
+                                .as_ref()
+                                .map_or(0, crabxl_core::PrintSettings::memory_bytes),
+                        )
                 })),
         )?;
         let view = self.active_view_index();
@@ -128,6 +152,25 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 return Err(error);
             }
         };
+        if let Some((views, printing)) = copied_metadata {
+            let result = (|| {
+                if let Some(views) = views {
+                    self.bank.sheet_mut(id)?.set_sheet_views(Some(views))?;
+                }
+                if let Some(printing) = printing {
+                    self.bank
+                        .sheet_mut(id)?
+                        .set_print_settings(Some(printing))?;
+                }
+                Ok(())
+            })();
+            if let Err(error) = result {
+                self.bank.remove_sheet(id)?;
+                self.bank.set_active_view_index(view);
+                self.rebalance()?;
+                return Err(error);
+            }
+        }
         self.sheets.push(SourceSheet {
             id,
             name: "".into(),

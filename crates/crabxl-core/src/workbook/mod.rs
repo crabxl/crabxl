@@ -586,11 +586,27 @@ impl WorksheetEditor<'_> {
         range: crate::MergedCellRange,
         anchor: crate::StyleId,
     ) -> Result<()> {
+        self.apply_prepared_merge(range, anchor, true)
+    }
+    /// Realize merged appearance without adding a serialized merge declaration.
+    pub fn format_prepared_merge(
+        &mut self,
+        range: crate::MergedCellRange,
+        anchor: crate::StyleId,
+    ) -> Result<()> {
+        self.apply_prepared_merge(range, anchor, false)
+    }
+    fn apply_prepared_merge(
+        &mut self,
+        range: crate::MergedCellRange,
+        anchor: crate::StyleId,
+        declare: bool,
+    ) -> Result<()> {
         self.validate_style_id(anchor, range.range().start)?;
         for style in range.appearances() {
             self.validate_style_id(*style, range.range().start)?;
         }
-        self.sheet.apply_merge(range, anchor)
+        self.sheet.apply_merge(range, anchor, declare)
     }
     /// Replace dimension metadata only after validating every shared style link.
     pub fn set_dimensions(&mut self, dimensions: crate::SheetDimensions) -> Result<()> {

@@ -313,7 +313,7 @@ impl MergedRanges {
         self.rebuild();
         Ok(())
     }
-    fn reserve_detached(&mut self, extra: usize, maximum: usize) -> Result<()> {
+    pub(super) fn reserve_detached(&mut self, extra: usize, maximum: usize) -> Result<()> {
         let needed = self.detached.len().checked_add(extra).ok_or_else(budget)?;
         if needed > self.detached.capacity() {
             let additional = needed.saturating_sub(self.detached.capacity());

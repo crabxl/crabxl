@@ -21,8 +21,16 @@ pub struct PivotCache {
     pub parts: Vec<RelatedPart>,
 }
 impl PivotCache {
-    /// Attach an encoded record source. Record serialization can stream to a temporary file.
-    pub fn set_records(&mut self, records: BinaryPayload, count: u32) {
+    /// Reject worksheet-cache combinations which Excel cannot open.
+    pub fn validate_worksheet_fields(&self) -> Result<()> {
+        if self.definition.child("cacheSource").and_then(|source| source.attribute("type")) == Some("worksheet")
+            && self.definition.child("cacheFields").is_some_and(|fields| fields.children.iter().any(|child| matches!(child, crate::XmlContent::Element(field) if field.local_name() == "cacheField" && field.attribute("caption").is_some()))) {
+            return Err(Error::new(ErrorKind::Unsupported, "Worksheet pivot cache field captions are unsupported by Excel; set the pivot field name instead"));
+        }
+        Ok(())
+    }
+    /// Remove the cache record edge and dependencies no longer used by the graph.
+    pub fn clear_records(&mut self) {
         let retired: std::collections::HashSet<_> = self
             .relationships
             .iter()
@@ -45,13 +53,45 @@ impl PivotCache {
             .collect();
         self.parts
             .retain(|part| !retired.contains(&part.name) || retained.contains(&part.name));
+        self.definition
+            .attributes
+            .retain(|(name, _)| !(name.contains(':') && name.rsplit(':').next() == Some("id")));
+        self.definition.set_attribute("recordCount", "0");
+    }
+    /// Attach an encoded record source. Record serialization can stream to a temporary file.
+    pub fn set_records(&mut self, records: BinaryPayload, count: u32) {
+        self.clear_records();
         let mut target = String::from("crabxl/pivotCacheRecords.xml");
         while self.parts.iter().any(|part| part.name.as_ref() == target) {
             target.insert(target.len() - 4, '_');
         }
+        let mut id = String::from("rIdRecords");
+        while self.relationships.iter().any(|rel| rel.id.as_ref() == id) {
+            id.push('_');
+        }
+        self.definition
+            .set_attribute("recordCount", count.to_string());
+        self.relationships.push(PartRelationship { id: id.into(), kind: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheRecords".into(), target: target.clone().into(), external: false });
+        self.parts.push(RelatedPart {
+            name: target.into(),
+            content_type:
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml"
+                    .into(),
+            data: records,
+            relationships: Vec::new(),
+        });
+        self.synchronize_records_reference();
+    }
+    /// Restore the records relationship attribute after descriptor metadata edits.
+    pub fn synchronize_records_reference(&mut self) {
         self.definition
             .attributes
             .retain(|(name, _)| !(name.contains(':') && name.rsplit(':').next() == Some("id")));
+        let Some(edge) = self.relationships.iter().find(|edge| {
+            !edge.external && edge.kind.rsplit('/').next() == Some("pivotCacheRecords")
+        }) else {
+            return;
+        };
         let strict =
             self.definition.attributes.iter().any(|(_, value)| {
                 value.as_ref() == "http://purl.oclc.org/ooxml/spreadsheetml/main"
@@ -64,22 +104,7 @@ impl PivotCache {
                 "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
             },
         );
-        let mut id = String::from("rIdRecords");
-        while self.relationships.iter().any(|rel| rel.id.as_ref() == id) {
-            id.push('_');
-        }
-        self.definition.set_attribute("r:id", id.as_str());
-        self.definition
-            .set_attribute("recordCount", count.to_string());
-        self.relationships.push(PartRelationship { id: id.into(), kind: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheRecords".into(), target: target.clone().into(), external: false });
-        self.parts.push(RelatedPart {
-            name: target.into(),
-            content_type:
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml"
-                    .into(),
-            data: records,
-            relationships: Vec::new(),
-        });
+        self.definition.set_attribute("r:id", edge.id.as_ref());
     }
     /// Create a worksheet-backed cache with field names, without calculating pivot results.
     pub fn worksheet(

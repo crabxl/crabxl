@@ -274,7 +274,12 @@ impl<R: Read + Seek> WorkbookReader<R> {
             }
             sources.printer = Some((id.clone(), target(id)?));
         }
-        for id in &refs.pivots {
+        let pivot_ids = if refs.pivots.is_empty() {
+            crate::pivot::implicit_pivot_ids(&relationships)
+        } else {
+            refs.pivots
+        };
+        for id in &pivot_ids {
             sources.pivots.push((id.clone(), target(id)?));
         }
         for id in &refs.tables {
@@ -348,18 +353,69 @@ impl<R: Read + Seek> WorkbookReader<R> {
     /// Read defined names, workbook protection and document properties.
     pub fn workbook_features(&mut self) -> Result<WorkbookFeatures> {
         let mut features = WorkbookFeatures::default();
+        let mut parent = None;
+        let calculation_limit =
+            usize::try_from(self.limits.max_metadata_bytes).unwrap_or(usize::MAX);
         let workbook_part = self.workbook_part.clone();
         {
             let mut xml = self.part_stream(&workbook_part)?;
             loop {
                 let frame = xml.next()?;
                 match frame.event {
+                    Event::Start(e) if frame.depth == 1 => {
+                        if e.len() > calculation_limit {
+                            return Err(crabxl_core::Error::new(
+                                crabxl_core::ErrorKind::LimitExceeded,
+                                "Workbook namespace context exceeds metadata allowance",
+                            ));
+                        }
+                        let mut context = crate::drawing_xml::element(&e)?;
+                        context.attributes.retain(|(name, _)| {
+                            name.as_ref() == "xmlns" || name.starts_with("xmlns:")
+                        });
+                        parent = Some(context);
+                    }
+
                     Event::Start(e) if frame.depth == 2 && frame.scope == Scope::Spreadsheet => {
                         let e = e.into_owned();
                         match e.local_name().as_ref().as_bytes() {
                             b"definedNames" => {
                                 features.defined_names =
                                     super::defined_name::read(&mut xml, &e, 2)?;
+                            }
+                            b"calcPr" | b"bookViews" | b"workbookPr" => {
+                                if e.len() > calculation_limit {
+                                    return Err(crabxl_core::Error::new(
+                                        crabxl_core::ErrorKind::LimitExceeded,
+                                        "Calculation properties exceed metadata allowance",
+                                    ));
+                                }
+                                let mut remaining = calculation_limit;
+                                let mut calculation = crate::drawing_xml::read_limited(
+                                    &mut xml,
+                                    &e,
+                                    2,
+                                    &mut remaining,
+                                )?;
+                                if let Some(parent) = &parent {
+                                    crate::drawing_xml::inherit(&mut calculation, parent);
+                                }
+                                if std::mem::size_of::<crabxl_core::XmlElement>()
+                                    + calculation.heap_bytes()
+                                    > calculation_limit
+                                {
+                                    return Err(crabxl_core::Error::new(
+                                        crabxl_core::ErrorKind::LimitExceeded,
+                                        "Calculation properties exceed metadata allowance",
+                                    ));
+                                }
+                                if e.local_name().as_ref() == "workbookPr" {
+                                    features.workbook_properties = Some(calculation);
+                                } else if e.local_name().as_ref() == "bookViews" {
+                                    features.views = Some(calculation);
+                                } else {
+                                    features.calculation = Some(calculation);
+                                }
                             }
                             b"workbookProtection" => {
                                 features.protection =
@@ -506,7 +562,26 @@ impl SheetOutput {
                 .iter()
                 .map(|rel| rel.id.capacity() + rel.target.capacity() + 64)
                 .sum::<usize>()
+            + self
+                .pivot_caches
+                .iter()
+                .map(|cache| {
+                    cache.part.capacity() * 4
+                        + cache.relationship.capacity()
+                        + size_of::<PivotCacheOutput>()
+                        + 4 * size_of::<(usize, PivotCacheAllocation)>()
+                        + size_of::<crabxl_core::features::PivotCache>()
+                        + 2 * size_of::<usize>()
+                })
+                .sum::<usize>()
     }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct PivotCacheAllocation {
+    pub cache: std::sync::Weak<crabxl_core::features::PivotCache>,
+    pub id: u32,
+    pub part: String,
 }
 
 /// Part-number allocator that keeps new part names and table ids unique.
@@ -523,6 +598,7 @@ pub(crate) struct PartNumbers {
     pub pivot_file: u32,
     pub pivot_cache_file: u32,
     pub pivot_cache_id: u64,
+    pub pivot_caches: std::collections::HashMap<usize, PivotCacheAllocation>,
     pub external_file: u32,
     pub vba_file: u32,
     pub metadata_file: u32,
@@ -542,6 +618,7 @@ impl Default for PartNumbers {
             pivot_file: 1,
             pivot_cache_file: 1,
             pivot_cache_id: 0,
+            pivot_caches: Default::default(),
             external_file: 1,
             vba_file: 1,
             metadata_file: 1,

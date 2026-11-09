@@ -245,3 +245,49 @@ fn loaded_workbook_keeps_local_names_on_their_sheets() {
         assert_eq!(area.local_sheet_id, Some(1));
     }
 }
+
+#[test]
+fn calculation_properties_keep_namespace_context_and_enforce_metadata_allowance() {
+    use crabxl_core::{ErrorKind, ResourceLimits, WorkbookFeatures, XmlElement};
+    let mut calculation = XmlElement::new("s:calcPr");
+    calculation.set_attribute(
+        "xmlns:s",
+        "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+    );
+    calculation.set_attribute("xmlns:probe", "urn:calculation-test");
+    calculation.set_attribute(
+        "xmlns:mc",
+        "http://schemas.openxmlformats.org/markup-compatibility/2006",
+    );
+    calculation.set_attribute("mc:Ignorable", "probe");
+    calculation.set_attribute("calcId", "42");
+    calculation.set_attribute("calcMode", "manual");
+    calculation.set_attribute("probe:payload", "x".repeat(32768));
+    let mut book = Workbook::new(WorkbookLimits::default()).unwrap();
+    book.create_sheet("Data").unwrap();
+    book.set_features(Some(WorkbookFeatures {
+        calculation: Some(calculation),
+        ..Default::default()
+    }));
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.write_workbook(&book).unwrap();
+    let bytes = writer.finish(Cursor::new(Vec::new())).unwrap().into_inner();
+    let mut output = reader(bytes.clone());
+    let features = output.workbook_features().unwrap();
+    let calc = features.calculation.unwrap();
+    assert_eq!(calc.local_name(), "calcPr");
+    assert_eq!(calc.attribute("calcId"), Some("42"));
+    assert_eq!(calc.attribute("calcMode"), Some("manual"));
+    assert_eq!(calc.attribute("probe:payload").unwrap().len(), 32768);
+    let rejected = match WorkbookReader::with_limits(
+        Cursor::new(bytes),
+        ResourceLimits {
+            max_metadata_bytes: 8192,
+            ..ResourceLimits::default()
+        },
+    ) {
+        Err(error) => error,
+        Ok(mut limited) => limited.workbook_features().unwrap_err(),
+    };
+    assert_eq!(rejected.kind(), ErrorKind::LimitExceeded);
+}

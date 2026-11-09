@@ -205,6 +205,10 @@ impl WorkbookWriter {
                         + sheet.file.path().as_os_str().len()
                         + sheet.relationships.as_ref().map_or(0, Vec::capacity)
                         + sheet
+                            .features
+                            .as_deref()
+                            .map_or(0, crate::features::package::SheetOutput::heap_bytes)
+                        + sheet
                             .relationship_spool
                             .as_ref()
                             .map_or(0, |file| file.path().as_os_str().len())
@@ -219,7 +223,12 @@ impl WorkbookWriter {
                     + sheet.output.get_ref().path().as_os_str().len()
                     + sheet.footer.as_ref().map_or(0, Vec::capacity)
                     + sheet.relationships.as_ref().map_or(0, Vec::capacity)
+                    + sheet
+                        .features
+                        .as_deref()
+                        .map_or(0, crate::features::package::SheetOutput::heap_bytes)
                     + sheet.dimensions.heap_bytes()
+                    + sheet.comment_bytes()
                     + sheet
                         .link_spool
                         .as_ref()
@@ -244,8 +253,13 @@ impl WorkbookWriter {
                         + sheet.output.capacity()
                         + sheet.output.get_ref().path().as_os_str().len()
                         + sheet.dimensions.heap_bytes()
+                        + sheet.comment_bytes()
                         + sheet.footer.as_ref().map_or(0, Vec::capacity)
                         + sheet.relationships.as_ref().map_or(0, Vec::capacity)
+                        + sheet
+                            .features
+                            .as_deref()
+                            .map_or(0, crate::features::package::SheetOutput::heap_bytes)
                         + sheet
                             .link_spool
                             .as_ref()

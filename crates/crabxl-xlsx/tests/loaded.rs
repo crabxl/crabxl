@@ -1788,18 +1788,6 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
             appended
                 .append(
                     id,
-                    vec![CellValue::Integer(1), CellValue::DateTime(Box::new(date))]
-                )
-                .unwrap_err()
-                .kind(),
-            ErrorKind::Unsupported
-        );
-        assert_eq!(appended.patch_bytes(), 0);
-        assert_eq!(appended.sheet(id).unwrap().row_extent(), 9);
-        assert_eq!(
-            appended
-                .append(
-                    id,
                     vec![CellValue::Integer(41), CellValue::text("appended")]
                 )
                 .unwrap()
@@ -1808,6 +1796,13 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
         );
         assert_eq!(appended.append(id, Vec::new()).unwrap().get(), 10);
         assert_eq!(appended.sheet(id).unwrap().row_extent(), 11);
+        assert_eq!(
+            appended
+                .append(id, vec![CellValue::DateTime(Box::new(date))])
+                .unwrap()
+                .get(),
+            11
+        );
         assert!(!appended.is_materialized(appended.sheet_id("Second").unwrap()));
         for _ in 0..2 {
             let mut target = Cursor::new(Vec::new());
@@ -1817,6 +1812,15 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
                 LoadedWorkbook::with_options(Cursor::new(saved.clone()), Default::default())
                     .unwrap();
             let id = reloaded.sheet_id("First").unwrap();
+            assert!(matches!(
+                reloaded
+                    .sheet(id)
+                    .unwrap()
+                    .get(CellAddress::new(11, 0).unwrap())
+                    .unwrap()
+                    .value,
+                CellValue::DateTime(_)
+            ));
             assert_eq!(
                 reloaded
                     .sheet(id)
