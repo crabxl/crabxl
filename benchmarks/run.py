@@ -24,14 +24,28 @@ DRIVER = ROOT / "driver"
 EXE = DRIVER / "target/release" / ("driver.exe" if os.name == "nt" else "driver")
 RESULTS = ROOT / "results"
 
-SIZES = {"small": 10_000, "medium": 100_000, "large": 1_000_000}
+# Size name: (rows, columns). The xl and xxl files (about 370 MB and 1 GB) are
+# read only, by the readers that can hold them in memory.
+SIZES = {
+    "small": (10_000, 10),
+    "medium": (100_000, 10),
+    "large": (1_000_000, 10),
+    "xl": (1_000_000, 100),
+    "xxl": (1_000_000, 280),
+    # The NYC 311 sample that the calamine README uses: 1,000,000 service requests
+    # and a header row, 41 columns, mostly text. See benchmarks/README.md.
+    "nyc311": (1_000_001, 41),
+}
+HUGE = {"xl", "xxl", "nyc311"}
+HUGE_READERS = ["crabxl", "calamine-stream", "crabxl-model", "calamine"]
 SCENARIOS = {
     # Streaming readers first, then readers that load the whole sheet.
     "read": ["crabxl", "calamine-stream", "oxlsx", "crabxl-model", "calamine", "umya"],
     "write": ["crabxl", "rust_xlsxwriter", "rust_xlsxwriter-constant-memory", "oxlsx", "umya"],
     "edit": ["crabxl", "oxlsx", "umya"],
 }
-TIMEOUT = 900
+TIMEOUT = 300
+SLOW_CASE = 10  # seconds; slower cases get one measured run
 
 
 def slow(previous, scenario, library):
@@ -42,9 +56,13 @@ def slow(previous, scenario, library):
 
 def check(record):
     """Mark a case that did not handle every expected cell as incomplete."""
-    rows = record["rows"]
-    expected = {"read": rows * 10, "write": rows * 10, "edit": -(-rows // 100) + 1000}
-    want = expected[record["scenario"]]
+    rows, columns = record["rows"], record.get("columns", 10)
+    expected = {
+        "read": rows * columns,
+        "write": rows * columns,
+        "edit": -(-rows // 100) + 1000,
+    }
+    want = record.get("expected_cells") or expected[record["scenario"]]
     if "cells" in record and record["cells"] != want:
         record["error"] = f"incomplete: handled {record['cells']:,} of {want:,} cells"
         for key in ("seconds", "peak_mib"):
@@ -72,10 +90,42 @@ def peak_memory(process):
     return process.peak  # set by run() from wait4
 
 
-def run(command):
-    """Run one case. Return (seconds, peak bytes, stdout) or None on timeout."""
+PINNED_CPU = 2  # Not CPU 0, which handles most interrupts.
+
+
+def cpu_time(process):
+    """User plus kernel CPU time of a finished child on Windows, in seconds."""
+    times = [ctypes.c_ulonglong() for _ in range(4)]
+    if not ctypes.windll.kernel32.GetProcessTimes(
+        ctypes.c_void_p(int(process._handle)), *map(ctypes.byref, times)
+    ):
+        raise ctypes.WinError()
+    return (times[2].value + times[3].value) / 1e7
+
+
+def run(command, cpus, env=None):
+    """Run one case on one pinned CPU or on all CPUs.
+
+    Return (seconds, peak bytes, CPU seconds, stdout), or None on a timeout. A
+    pinned child starts suspended and gets its CPU before it runs any code, so
+    it cannot size thread pools for more CPUs.
+    """
+    pinned = cpus == "1"
+    options = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": env}
+    if pinned and os.name == "nt":
+        options["creationflags"] = 0x4  # CREATE_SUSPENDED
+    elif pinned and hasattr(os, "sched_setaffinity"):
+        options["preexec_fn"] = lambda: os.sched_setaffinity(0, {PINNED_CPU})
+    elif pinned:
+        raise SystemExit("This platform cannot pin a process to one CPU.")
+    process = subprocess.Popen(command, **options)
+    if pinned and os.name == "nt":
+        handle = ctypes.c_void_p(int(process._handle))
+        if not ctypes.windll.kernel32.SetProcessAffinityMask(handle, ctypes.c_size_t(1 << PINNED_CPU)):
+            process.kill()
+            raise ctypes.WinError()
+        ctypes.windll.ntdll.NtResumeProcess(handle)
     start = time.perf_counter()
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if os.name == "nt":
         try:
             out, err = process.communicate(timeout=TIMEOUT)
@@ -85,6 +135,7 @@ def run(command):
             return None
         seconds = time.perf_counter() - start
         code = process.returncode
+        used = cpu_time(process)
     else:
         # shortcut: no timeout on POSIX; wait4 is the only way to read child peak RSS.
         out, err = process.stdout.read(), process.stderr.read()
@@ -94,23 +145,32 @@ def run(command):
         process.returncode = code
         scale = 1 if sys.platform == "darwin" else 1024
         process.peak = usage.ru_maxrss * scale
+        used = usage.ru_utime + usage.ru_stime
     if code != 0:
         raise RuntimeError(f"{command} failed: {err.decode(errors='replace')}")
-    return seconds, peak_memory(process), out.decode().strip()
+    return seconds, peak_memory(process), used, out.decode().strip()
 
 
 def cases(sizes):
     for size in sizes:
-        rows = SIZES[size]
-        for scenario, libraries in SCENARIOS.items():
+        rows, columns = SIZES[size]
+        scenarios = {"read": HUGE_READERS} if size in HUGE else SCENARIOS
+        for scenario, libraries in scenarios.items():
             for library in libraries:
-                yield size, rows, scenario, library
+                yield size, rows, columns, scenario, library
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sizes", nargs="+", choices=SIZES, default=list(SIZES))
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument(
+        "--cpus",
+        nargs="+",
+        choices=["all", "1"],
+        default=["all", "1"],
+        help="run each case on all CPUs, on one pinned CPU, or both",
+    )
     parser.add_argument(
         "--report-only", action="store_true", help="rewrite results.md from results.json"
     )
@@ -130,12 +190,18 @@ def main():
     work.mkdir(exist_ok=True)
     for size in args.sizes:
         fixture = work / f"{size}.xlsx"
+        if size == "nyc311" and not fixture.exists():
+            raise SystemExit(
+                f"{fixture} is missing. Build it as described in benchmarks/README.md."
+            )
         if not fixture.exists():
-            subprocess.run([EXE, "fixture", str(SIZES[size]), fixture], check=True)
+            rows, columns = SIZES[size]
+            subprocess.run([EXE, "fixture", str(rows), fixture, str(columns)], check=True)
 
     results = []
     previous = {}
-    for size, rows, scenario, library in cases(args.sizes):
+    every = [(cpus, case) for cpus in args.cpus for case in cases(args.sizes)]
+    for cpus, (size, rows, columns, scenario, library) in every:
         fixture = work / f"{size}.xlsx"
         output = work / f"out-{library}.xlsx"
         command = {
@@ -144,14 +210,27 @@ def main():
             "edit": [EXE, library, "edit", fixture, output, str(rows)],
         }[scenario]
         runs = []
-        record = {"size": size, "rows": rows, "scenario": scenario, "library": library}
-        if slow(previous, scenario, library):
+        record = {
+            "size": size,
+            "rows": rows,
+            "columns": columns,
+            "file_mib": fixture.stat().st_size / 2**20,
+            "scenario": scenario,
+            "library": library,
+            "cpus": cpus,
+        }
+        if size == "nyc311":
+            # The CSV has empty fields; readers count non-empty cells.
+            record["expected_cells"] = int((work / "nyc311.cells").read_text())
+        if slow(previous, (cpus, scenario), library):
             record["timeout"] = TIMEOUT
             record["estimated"] = True
-        # One extra first run warms the file cache; it is not counted.
-        for attempt in range(0 if "timeout" in record else args.runs + 1):
+        # One extra first run warms the file cache; it is not counted. A case
+        # slower than SLOW_CASE seconds gets one measured run instead of several.
+        wanted, attempt = args.runs, 0
+        while "timeout" not in record and attempt <= wanted:
             try:
-                measured = run(command)
+                measured = run(command, cpus)
             except RuntimeError as error:
                 record["error"] = str(error).strip().splitlines()[-1]
                 break
@@ -160,12 +239,17 @@ def main():
                 break
             if attempt:
                 runs.append(measured)
-        if len(runs) == args.runs:
+            elif measured[0] > SLOW_CASE:
+                wanted = 1
+            attempt += 1
+        if runs and len(runs) == wanted:
+            record["runs"] = wanted
             record["seconds"] = statistics.median(r[0] for r in runs)
             record["peak_mib"] = statistics.median(r[1] for r in runs) / 2**20
-            record["cells"] = int(runs[0][2])
+            record["cpu_seconds"] = statistics.median(r[2] for r in runs)
+            record["cells"] = int(runs[0][3])
         results.append(check(record))
-        previous[(scenario, library)] = record
+        previous[((cpus, scenario), library)] = record
         print(json.dumps(record), flush=True)
         output.unlink(missing_ok=True)
 
@@ -176,7 +260,20 @@ def main():
         "results": results,
     }
     RESULTS.mkdir(exist_ok=True)
-    (RESULTS / "results.json").write_text(json.dumps(report, indent=1) + "\n")
+    # Keep earlier results for the sizes and CPU modes that this run did not measure.
+    saved = RESULTS / "results.json"
+    if saved.exists():
+        measured = {(size, cpus) for size in args.sizes for cpus in args.cpus}
+        kept = [
+            r
+            for r in json.loads(saved.read_text())["results"]
+            if (r["size"], r.get("cpus", "all")) not in measured
+        ]
+        order = list(SIZES)
+        report["results"] = sorted(
+            kept + results, key=lambda r: (r.get("cpus", "all") == "1", order.index(r["size"]))
+        )
+    saved.write_text(json.dumps(report, indent=1) + "\n")
     write_report(report, "Rust")
 
 
@@ -195,29 +292,50 @@ def write_report(report, title):
     ]
     groups = {}
     for record in report["results"]:
-        groups.setdefault((record["scenario"], record["size"]), []).append(record)
-    for (scenario, size), records in groups.items():
-        rows = records[0]["rows"]
+        key = (record.get("cpus", "all"), record["scenario"], record["size"])
+        groups.setdefault(key, []).append(record)
+    for cpus in ("all", "1"):
+        if not any(key[0] == cpus for key in groups):
+            continue
         lines += [
-            f"## {scenario.capitalize()}, {size} ({rows:,} rows × 10 columns)",
+            "# All CPUs" if cpus == "all" else "# One CPU",
             "",
-            f"![{scenario} {size}]({scenario}-{size}.svg)",
+            "Every library can use all logical CPUs."
+            if cpus == "all"
+            else "Every library is pinned to the same single logical CPU.",
             "",
-            "| Library | Time (s) | Peak memory (MiB) |",
-            "|---|---:|---:|",
         ]
-        for record in records:
-            if "timeout" in record:
-                note = " (estimated from the smaller size)" if record.get("estimated") else ""
-                lines.append(f"| {record['library']} | > {record['timeout']}{note} | – |")
-            elif "error" in record:
-                lines.append(f"| {record['library']} | failed: {record['error']} | – |")
-            else:
-                lines.append(
-                    f"| {record['library']} | {record['seconds']:.3f} | {record['peak_mib']:.1f} |"
-                )
-        lines.append("")
-        (RESULTS / f"{scenario}-{size}.svg").write_text(chart(records))
+        for (mode, scenario, size), records in groups.items():
+            if mode != cpus:
+                continue
+            first = records[0]
+            shape = f"{first['rows']:,} rows × {first.get('columns', 10)} columns"
+            if scenario != "write" and "file_mib" in first:
+                shape += f", {first['file_mib']:,.0f} MiB file"
+            name = f"{scenario}-{size}" + ("" if cpus == "all" else "-1cpu")
+            lines += [
+                f"## {scenario.capitalize()}, {size} ({shape})",
+                "",
+                f"![{scenario} {size}]({name}.svg)",
+                "",
+                "| Library | Time (s) | CPU time (s) | Peak memory (MiB) |",
+                "|---|---:|---:|---:|",
+            ]
+            for record in records:
+                if "timeout" in record:
+                    note = " (estimated from the smaller size)" if record.get("estimated") else ""
+                    lines.append(f"| {record['library']} | > {record['timeout']}{note} | – | – |")
+                elif "error" in record:
+                    lines.append(f"| {record['library']} | failed: {record['error']} | – | – |")
+                else:
+                    used = record.get("cpu_seconds")
+                    used = "–" if used is None else f"{used:.3f}"
+                    lines.append(
+                        f"| {record['library']} | {record['seconds']:.3f} | {used} "
+                        f"| {record['peak_mib']:.1f} |"
+                    )
+            lines.append("")
+            (RESULTS / f"{name}.svg").write_text(chart(records))
     (RESULTS / "results.md").write_text("\n".join(lines))
 
 

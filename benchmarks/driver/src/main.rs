@@ -2,7 +2,8 @@
 //! peak memory of exactly one library doing one task.
 //!
 //! ```text
-//! driver fixture <rows> <output>
+//! driver fixture <rows> <output> [columns]
+//! driver csv-fixture <csv> <output>
 //! driver <library> read  <input>
 //! driver <library> write <rows> <output>
 //! driver <library> edit  <input> <output> <rows in input>
@@ -46,7 +47,9 @@ fn value(row: u32, column: u32) -> Value {
             )
         }
         5 => Value::Bool(row.is_multiple_of(2)),
-        _ => Value::Float(f64::from(row * column) / 7.0),
+        6..=9 => Value::Float(f64::from(row * column) / 7.0),
+        // Wider sheets repeat the same 10-column pattern.
+        _ => value(row, column % 10),
     }
 }
 
@@ -60,8 +63,10 @@ fn main() -> Result<()> {
     let cells = match (arg(0)?, arg(1).unwrap_or("")) {
         ("fixture", _) => {
             let rows = arg(1)?.parse()?;
-            rust_xlsxwriter_write(rows, Path::new(arg(2)?), false)?
+            let columns = args.get(3).map_or(Ok(COLUMNS), |text| text.parse())?;
+            fixture(rows, columns, Path::new(arg(2)?))?
         }
+        ("csv-fixture", _) => csv_fixture(Path::new(arg(1)?), Path::new(arg(2)?))?,
         (library, "read") => read(library, Path::new(arg(2)?))?,
         (library, "write") => write(library, arg(2)?.parse()?, Path::new(arg(3)?))?,
         (library, "edit") => edit(
@@ -78,12 +83,14 @@ fn main() -> Result<()> {
 
 // ---------------------------------------------------------------- read
 
+/// Read the first worksheet, whatever its name.
 fn read(library: &str, input: &Path) -> Result<u64> {
     match library {
         "crabxl" => {
             use crabxl::CellValue;
             let mut reader = crabxl::WorkbookReader::open(input)?;
-            let mut rows = reader.rows(SHEET)?;
+            let first = reader.sheets().first().ok_or("No sheet")?.name().to_owned();
+            let mut rows = reader.rows(&first)?;
             let mut row = crabxl::Row::new(crabxl::RowIndex::new(0)?);
             let mut cells = 0;
             while rows.read_row_into(&mut row)? {
@@ -94,7 +101,7 @@ fn read(library: &str, input: &Path) -> Result<u64> {
                         CellValue::Empty => 0,
                         _ => 1,
                     });
-                    cells += 1;
+                    cells += u64::from(!matches!(cell.value, CellValue::Empty));
                 }
             }
             Ok(cells)
@@ -104,47 +111,50 @@ fn read(library: &str, input: &Path) -> Result<u64> {
             let budget = 8 * 1024 * 1024 * 1024;
             let mut book =
                 crabxl::LoadedWorkbook::with_options(File::open(input)?, load_options(budget))?;
-            let id = book.sheet_id(SHEET).ok_or("Missing sheet")?;
+            let id = book.model().sheets().next().ok_or("No sheet")?.0;
             let mut cells = 0;
             for cell in book.sheet(id)?.cells() {
                 std::hint::black_box(match &cell.value {
                     CellValue::Text(text) => text.as_str().len(),
                     _ => 1,
                 });
-                cells += 1;
+                cells += u64::from(!matches!(cell.value, CellValue::Empty));
             }
             Ok(cells)
         }
         "calamine-stream" => {
+            use calamine::Reader;
             let mut book: calamine::Xlsx<_> = calamine::open_workbook(input)?;
-            let mut reader = book.worksheet_cells_reader(SHEET)?;
+            let first = book.sheet_names().first().ok_or("No sheet")?.clone();
+            let mut reader = book.worksheet_cells_reader(&first)?;
             let mut cells = 0;
             while let Some(cell) = reader.next_cell()? {
-                std::hint::black_box(cell.get_value());
-                cells += 1;
+                let value = std::hint::black_box(cell.get_value());
+                cells += u64::from(!matches!(value, calamine::DataRef::Empty));
             }
             Ok(cells)
         }
         "calamine" => {
             use calamine::Reader;
             let mut book: calamine::Xlsx<_> = calamine::open_workbook(input)?;
-            let range = book.worksheet_range(SHEET)?;
+            let first = book.sheet_names().first().ok_or("No sheet")?.clone();
+            let range = book.worksheet_range(&first)?;
             let mut cells = 0;
             for row in range.rows() {
                 for value in row {
                     std::hint::black_box(value);
-                    cells += 1;
+                    cells += u64::from(!matches!(value, calamine::Data::Empty));
                 }
             }
             Ok(cells)
         }
         "umya" => {
             let book = umya_spreadsheet::reader::xlsx::read(input)?;
-            let sheet = book.sheet_by_name(SHEET)?;
+            let sheet = book.sheet(0)?;
             let mut cells = 0;
             for cell in sheet.cells() {
-                std::hint::black_box(cell.value());
-                cells += 1;
+                let value = std::hint::black_box(cell.value());
+                cells += u64::from(!value.is_empty());
             }
             Ok(cells)
         }
@@ -154,8 +164,8 @@ fn read(library: &str, input: &Path) -> Result<u64> {
             let mut cells = 0;
             for row in sheet.rows() {
                 for cell in row {
-                    std::hint::black_box(&cell);
-                    cells += 1;
+                    let value = std::hint::black_box(cell.value());
+                    cells += u64::from(!matches!(value, oxlsx::Value::Empty));
                 }
             }
             Ok(cells)
@@ -217,6 +227,66 @@ fn crabxl_write(rows: u32, output: &Path) -> Result<u64> {
     writer.close_sheet()?;
     writer.finish(File::create(output)?)?;
     Ok(u64::from(rows) * u64::from(COLUMNS))
+}
+
+/// Write the input file. Low-memory mode keeps the shared string table, as in
+/// files that Excel saves, without holding all rows in memory.
+fn fixture(rows: u32, columns: u32, output: &Path) -> Result<u64> {
+    let mut book = rust_xlsxwriter::Workbook::new();
+    let date = rust_xlsxwriter::Format::new().set_num_format("yyyy-mm-dd");
+    let sheet = book.add_worksheet_with_low_memory();
+    sheet.set_name(SHEET)?;
+    for row in 0..rows {
+        for column in 0..columns {
+            let col = column as u16;
+            match value(row, column) {
+                Value::Int(number) => sheet.write_number(row, col, number as f64)?,
+                Value::Float(number) => sheet.write_number(row, col, number)?,
+                Value::Text(text) => sheet.write_string(row, col, text)?,
+                Value::Date(year, month, day) => {
+                    let when = rust_xlsxwriter::ExcelDateTime::from_ymd(
+                        year as u16,
+                        month as u8,
+                        day as u8,
+                    )?;
+                    sheet.write_datetime_with_format(row, col, &when, &date)?
+                }
+                Value::Bool(flag) => sheet.write_boolean(row, col, flag)?,
+            };
+        }
+    }
+    book.save(output)?;
+    Ok(u64::from(rows) * u64::from(columns))
+}
+
+/// Convert a CSV file (the NYC 311 sample from the calamine README) to XLSX.
+/// Numbers become numbers, other fields text; empty fields stay empty.
+/// Returns the number of non-empty cells.
+fn csv_fixture(input: &Path, output: &Path) -> Result<u64> {
+    let mut book = rust_xlsxwriter::Workbook::new();
+    let sheet = book.add_worksheet_with_low_memory();
+    sheet.set_name(SHEET)?;
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .flexible(true)
+        .from_path(input)?;
+    let mut cells = 0;
+    for (row, record) in reader.records().enumerate() {
+        let row = u32::try_from(row)?;
+        for (column, field) in record?.iter().enumerate() {
+            if field.is_empty() {
+                continue;
+            }
+            let column = u16::try_from(column)?;
+            match field.parse::<f64>() {
+                Ok(number) if number.is_finite() => sheet.write_number(row, column, number)?,
+                _ => sheet.write_string(row, column, field)?,
+            };
+            cells += 1;
+        }
+    }
+    book.save(output)?;
+    Ok(cells)
 }
 
 fn rust_xlsxwriter_write(rows: u32, output: &Path, constant_memory: bool) -> Result<u64> {
