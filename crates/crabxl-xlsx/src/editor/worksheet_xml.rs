@@ -539,6 +539,24 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                 continue;
             }
         }
+        if let Some(rewrite) = &mut print_rewrite
+            && let Event::Start(e) = &frame.event
+            && frame.scope == Scope::Spreadsheet
+        {
+            let skip = rewrite
+                .format(
+                    writer.get_mut(),
+                    e.local_name().as_ref().as_bytes(),
+                    frame.depth,
+                    frame.spreadsheet_uri,
+                )
+                .map_err(|error| io_error("Cannot replace sheet format", error))?;
+            if skip {
+                let depth = frame.depth;
+                crate::style_codec::skip(&mut xml, depth)?;
+                continue;
+            }
+        }
         if let Some(model) = model
             && let Event::Start(e) = &frame.event
             && frame.scope == Scope::Spreadsheet

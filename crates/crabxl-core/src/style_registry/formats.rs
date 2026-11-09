@@ -287,6 +287,8 @@ impl StyleRegistry {
                 ComponentChange::Alignment(value)
             }
             crate::StyleComponent::Protection(value) => ComponentChange::Protection(value),
+            crate::StyleComponent::QuotePrefix(value) => ComponentChange::QuotePrefix(value),
+            crate::StyleComponent::PivotButton(value) => ComponentChange::PivotButton(value),
         };
         let source = self
             .catalog

@@ -113,8 +113,9 @@ pub mod features;
 pub use features::{SheetFeatures, WorkbookFeatures};
 mod printing;
 pub use printing::{
-    PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup, PaperDimension, PrintOptions,
-    PrintSettings, PrintSettingsChange, PrintedComments, PrintedErrors,
+    ElementAttributes, PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup,
+    PaperDimension, PrintOptions, PrintSettings, PrintSettingsChange, PrintedComments,
+    PrintedErrors, SheetProperties,
 };
 
 pub mod drawing;

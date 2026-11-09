@@ -120,8 +120,9 @@ pub use crabxl_core::{
 pub use crabxl_core::{Pane, PanePosition, PaneState, Selection, SheetView, SheetViews, ViewMode};
 
 pub use crabxl_core::{
-    PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup, PaperDimension, PrintOptions,
-    PrintSettings, PrintSettingsChange, PrintedComments, PrintedErrors,
+    ElementAttributes, PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup,
+    PaperDimension, PrintOptions, PrintSettings, PrintSettingsChange, PrintedComments,
+    PrintedErrors, SheetProperties,
 };
 
 /// Sparse worksheet dimension metadata and shared appearance identities.

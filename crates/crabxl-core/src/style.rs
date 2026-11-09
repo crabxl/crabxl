@@ -86,4 +86,8 @@ pub enum StyleComponent {
     Alignment(Option<Box<crate::Alignment>>),
     /// Replace or clear explicit protection overrides.
     Protection(Option<crate::Protection>),
+    /// Replace or clear the `quotePrefix` text marker.
+    QuotePrefix(Option<bool>),
+    /// Replace or clear the `pivotButton` marker.
+    PivotButton(Option<bool>),
 }

@@ -21,6 +21,21 @@ The Python package has its own
   `LoadedWorkbook::register_differential_style` for conditional-format styles.
 - `feature_xml` converts features from and to SpreadsheetML for bindings.
 - Cell ranges accept whole columns (`A:B`), whole rows (`1:2`) and `$` markers.
+- Images, shapes, charts, chartsheets, pivot tables, external links, VBA
+  projects and the XLSM, XLTX and XLTM formats.
+- `SheetProperties` (`sheetPr`, tab color and outline settings) and sheet
+  format properties (`sheetFormatPr`) in `PrintSettings`. `properties: None`
+  keeps the source `sheetPr`.
+- Scenarios in `SheetFeatures`.
+- `StyleComponent::QuotePrefix` and `StyleComponent::PivotButton`.
+- The interleaved writer accepts views and print settings before the first
+  row (`set_interleaved_header`) and features, print settings and merged cells
+  after the last row (`set_interleaved_tail`).
+
+### Fixed
+
+- A new sheet in a loaded workbook kept its views, sheet properties and print
+  settings on save. Before, they were lost.
 
 ### Changed
 

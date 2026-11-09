@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This is the active plan for the complete feature scope originally assigned to Alpha 9–28. Alpha 6–10 are published history, including verified public Rust and Python Alpha 9/10 artifacts. On 2026-11-01 the remaining work was consolidated into A12 for all remaining feature implementation and integration, followed by A13 for full-feature performance and release quality. No feature scope is removed.
+This is the active plan for the complete feature scope originally assigned to Alpha 9–28. Alpha 6–10 are published history, including verified public Rust and Python Alpha 9/10 artifacts. On 2026-11-01 the remaining work was consolidated into A12 for all remaining feature implementation and integration, followed by A13 for full-feature performance and release quality. On 2026-11-09 full openpyxl compatibility became the A12 goal: W28 compatibility/platform/release-quality acceptance moved into A12, and A13 is performance/RAM optimization only (W27). No feature scope is removed.
 
 A11–A13 below are the current release numbers. Former A12–A15 are combined into A12; former A16 is A13. W11–W28 are stable work-package identifiers corresponding to the former alpha targets; they are no longer individual releases. W11/W12 have usable checkpoints; W13 rich-value integration is described in [ADR 0088](decisions/0088-canonical-rich-model-edits.md). Hyperlinks and consolidated A11 acceptance remain open; incomplete work is not published as a completed feature.
 
@@ -21,8 +21,8 @@ Existing compact worksheet ranges and native formula lexical states are selected
 | Release | Included work packages | Completion gate |
 | --- | --- | --- |
 | A11 | W11–W13 | Named styles/themes, row/column styles, merges/dimensions/outlines, hyperlinks and editable rich text; Rust/Python integration and applicable structural behavior. |
-| A12 | W14–W26 | Complete remaining M5 features, images/anchors, all baseline chart families/chartsheets, loaded drawing graphs, pivots/caches/records, external links, macro/template policies, complex metadata, and full M4/M5/M6 integration and acceptance. |
-| A13 | W27–W28 | Full-feature performance/RAM work, compatibility/platform acceptance and M7 release quality. |
+| A12 | W14–W26, W28 | Full openpyxl 3.1.5 compatibility: complete remaining M5 features, images/anchors, all baseline chart families/chartsheets, loaded drawing graphs, pivots/caches/records, external links, macro/template policies, complex metadata, full M4/M5/M6 integration and acceptance, and M7 compatibility/platform/release-quality acceptance. |
+| A13 | W27 | Full-feature performance/RAM optimization only. No new compatibility scope. |
 
 Complete all A12 implementation (W14–W26) through the native model, codecs and Python interfaces before adding or running tests. Do not start acceptance testing at former A12/A13/A14/A15 boundaries. Once all implementation is complete, add missing tests, run acceptance and fix failures. During implementation, run only necessary compilation and formatting checks. At the pre-release acceptance stage, add missing high-value behavioral checks once, fix acceptance failures together, and run the relevant regression, preservation, performance and packaging gates. Do not use intermediate implementation checkpoints to add tests or run full suites. Reuse existing regression cases; do not add tests for every helper or merge cases merely to reduce the test count.
 
@@ -103,7 +103,7 @@ Performance work accompanies every relevant port, not only W27. Compare equivale
 
 ## Milestone closure
 
-W19 targets full M5 closure; W26 targets full M4/M6 closure; W28 targets M7 closure. Each closure requires its entire behavioral acceptance definition, including missing upstream capabilities and Python integration where promised. If cases remain unresolved, leave the milestone open and schedule an additional usable alpha. Formula evaluation, other language bindings and capabilities outside the pinned baseline are not added as hidden completion requirements.
+W19 targets full M5 closure; W26 targets full M4/M6 closure; W28 (in A12) targets M7 compatibility/platform/release-quality closure; W27 (A13) owns the M7 performance measurement and tuning items. Each closure requires its entire behavioral acceptance definition, including missing upstream capabilities and Python integration where promised. If cases remain unresolved, leave the milestone open and schedule an additional usable alpha. Formula evaluation, other language bindings and capabilities outside the pinned baseline are not added as hidden completion requirements.
 
 ### W13 native hyperlink checkpoint
 

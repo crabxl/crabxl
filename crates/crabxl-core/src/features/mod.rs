@@ -66,6 +66,8 @@ pub struct SheetFeatures {
     pub tables: Vec<Table>,
     /// Cell comments (notes) from the comments part and its VML drawing.
     pub comments: Vec<Comment>,
+    /// Worksheet `<scenarios>` (what-if input sets), kept as an element tree.
+    pub scenarios: Option<crate::XmlElement>,
 }
 
 impl SheetFeatures {
@@ -115,9 +117,13 @@ impl SheetFeatures {
     }
     /// Approximate owned heap bytes, used for memory accounting.
     pub fn heap_bytes(&self) -> usize {
-        self.chartsheet_parts
+        self.scenarios
             .as_ref()
-            .map_or(0, crate::PartGraph::heap_bytes)
+            .map_or(0, crate::XmlElement::heap_bytes)
+            + self
+                .chartsheet_parts
+                .as_ref()
+                .map_or(0, crate::PartGraph::heap_bytes)
             + self
                 .shapes
                 .iter()

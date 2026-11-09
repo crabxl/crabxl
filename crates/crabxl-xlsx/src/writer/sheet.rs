@@ -403,12 +403,12 @@ impl WorkbookWriter {
             header
                 .write_all(&HEADER[..HEADER.len() - SHEET_FORMAT.len() - b"<sheetData>".len()])?;
             if let Some(printing) = printing {
-                crate::printing::write_properties(&mut header, printing, None, true)?;
+                crate::printing::write_properties(&mut header, printing, None)?;
             }
             if let Some(views) = views {
                 crate::worksheet_view::write_views(&mut header, views, None)?;
             }
-            header.write_all(SHEET_FORMAT)?;
+            crate::printing::write_format(&mut header, printing, None)?;
             crate::dimension_codec::write_columns(&mut header, columns, None)?;
             header.write_all(b"<sheetData>")?;
             if printing.is_some()

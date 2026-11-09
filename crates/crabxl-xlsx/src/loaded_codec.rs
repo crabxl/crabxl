@@ -63,6 +63,7 @@ pub(crate) fn guard<B: BufRead>(
                                 | b"pageSetup"
                                 | b"headerFooter"
                                 | b"sheetProtection"
+                                | b"scenarios"
                                 | b"autoFilter"
                                 | b"sortState"
                                 | b"conditionalFormatting"
@@ -508,7 +509,22 @@ pub(crate) fn write_new<W: Write>(
 ) -> Result<()> {
     use crate::features::sheet::{rank, write_ranks};
     let io = |cause| crate::writer::io_error("Cannot write new-sheet features", cause);
-    write!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"{uri}\"><dimension ref=\"{}\"/><sheetFormatPr defaultRowHeight=\"15\"/>", dimension(sheet))
+    let printing = sheet.print_settings();
+    let start = |output: &mut W| -> std::io::Result<()> {
+        write!(
+            output,
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"{uri}\">"
+        )?;
+        if let Some(printing) = printing {
+            crate::printing::write_properties(output, printing, None)?;
+        }
+        write!(output, "<dimension ref=\"{}\"/>", dimension(sheet))?;
+        if let Some(views) = sheet.sheet_views() {
+            crate::worksheet_view::write_views(output, views, None)?;
+        }
+        crate::printing::write_format(output, printing, None)
+    };
+    start(output)
         .map_err(|cause| crate::writer::io_error("Cannot start new model worksheet", cause))?;
     crate::dimension_codec::write_columns(output, sheet.dimensions().columns(), None)
         .map_err(|cause| crate::writer::io_error("Cannot write model columns", cause))?;
@@ -532,12 +548,34 @@ pub(crate) fn write_new<W: Write>(
         plan.write_links(output, sheet.hyperlinks(), Some(uri))
             .map_err(|cause| crate::writer::io_error("Cannot write new-sheet hyperlinks", cause))?;
     }
+    // Schema tail order: printing, headerFooter, page breaks, then drawings and tables.
+    if let Some(printing) = printing {
+        crate::printing::write_page(output, printing, Some(uri)).map_err(io)?;
+    }
+    if let Some((features, refs)) = features {
+        let header_footer = rank(b"headerFooter");
+        write_ranks(
+            output,
+            features,
+            refs,
+            header_footer,
+            header_footer + 1,
+            None,
+        )
+        .map_err(io)?;
+    }
+    if let Some(printing) = printing {
+        crate::printing::write_breaks(output, "rowBreaks", &printing.row_breaks, None)
+            .map_err(io)?;
+        crate::printing::write_breaks(output, "colBreaks", &printing.column_breaks, None)
+            .map_err(io)?;
+    }
     if let Some((features, refs)) = features {
         write_ranks(
             output,
             features,
             refs,
-            rank(b"hyperlinks") + 1,
+            crate::features::sheet::after_printing_rank(),
             usize::MAX,
             None,
         )

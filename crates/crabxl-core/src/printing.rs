@@ -205,9 +205,50 @@ impl Default for PageBreak {
         }
     }
 }
-/// Canonical printing metadata. Absence of this entire model costs no sheet allocation.
+/// Attribute names and literal values of one schema element, in source order.
+/// The XLSX codec restricts names to the element's schema attributes.
+pub type ElementAttributes = Vec<(Box<str>, Box<str>)>;
+
+fn attributes_bytes(attributes: &ElementAttributes) -> usize {
+    attributes.capacity() * size_of::<(Box<str>, Box<str>)>()
+        + attributes
+            .iter()
+            .map(|(name, value)| name.len() + value.len())
+            .sum::<usize>()
+}
+
+/// `<sheetPr>` content other than `pageSetUpPr`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SheetProperties {
+    /// `sheetPr` attributes such as `codeName` and `filterMode`.
+    pub attributes: ElementAttributes,
+    /// `tabColor` attributes; `None` omits the element.
+    pub tab_color: Option<ElementAttributes>,
+    /// `outlinePr` attributes; `None` omits the element.
+    pub outline: Option<ElementAttributes>,
+}
+impl SheetProperties {
+    /// Whether no `sheetPr` content is present.
+    pub fn is_empty(&self) -> bool {
+        self.attributes.is_empty() && self.tab_color.is_none() && self.outline.is_none()
+    }
+    fn heap_bytes(&self) -> usize {
+        attributes_bytes(&self.attributes)
+            + self.tab_color.as_ref().map_or(0, attributes_bytes)
+            + self.outline.as_ref().map_or(0, attributes_bytes)
+    }
+}
+
+/// Canonical printing and sheet-level layout metadata. Absence of this entire
+/// model costs no sheet allocation.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrintSettings {
+    /// `<sheetPr>` attributes, tab color and outline settings. `None` keeps the
+    /// source element's other content when an original package is edited.
+    pub properties: Option<SheetProperties>,
+    /// `<sheetFormatPr>` attributes. `None` keeps the source element, or writes
+    /// the default sheet format for a new sheet.
+    pub format: Option<ElementAttributes>,
     /// Automatic page-break setting from sheetPr/pageSetUpPr.
     pub auto_page_breaks: Option<bool>,
     /// Fit-to-page setting from sheetPr/pageSetUpPr.
@@ -226,6 +267,8 @@ pub struct PrintSettings {
 impl Default for PrintSettings {
     fn default() -> Self {
         Self {
+            properties: None,
+            format: None,
             auto_page_breaks: None,
             fit_to_page: None,
             margins: Some(PageMargins::default()),
@@ -272,6 +315,11 @@ impl PrintSettings {
     pub fn memory_bytes(&self) -> usize {
         size_of::<Self>()
             + self.setup.heap_bytes()
+            + self
+                .properties
+                .as_ref()
+                .map_or(0, SheetProperties::heap_bytes)
+            + self.format.as_ref().map_or(0, attributes_bytes)
             + (self.row_breaks.capacity() + self.column_breaks.capacity()) * size_of::<PageBreak>()
     }
     /// Prospective fixed model and payload bytes after one component replacement.

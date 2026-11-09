@@ -130,9 +130,93 @@ impl WorkbookWriter {
     pub fn set_interleaved_features(
         &mut self,
         id: usize,
-        mut features: crabxl_core::SheetFeatures,
+        features: crabxl_core::SheetFeatures,
+    ) -> Result<()> {
+        self.set_interleaved_tail(id, features, None, &[])
+    }
+
+    /// Replace sheet properties, views and the sheet format of a live sheet.
+    /// These precede the cells, so no row may have been written yet.
+    pub fn set_interleaved_header(
+        &mut self,
+        id: usize,
+        views: Option<&crabxl_core::SheetViews>,
+        printing: Option<&crabxl_core::PrintSettings>,
     ) -> Result<()> {
         self.activate_sheet(id)?;
+        if let Some(printing) = printing {
+            crate::printing::validate(printing)?;
+        }
+        let active = self
+            .active
+            .as_ref()
+            .ok_or_else(|| state("No active worksheet"))?;
+        if active.last_row.is_some() || active.columns_written {
+            return Err(state(
+                "Worksheet views and properties must be set before rows are written",
+            ));
+        }
+        let mut header = Vec::new();
+        (|| -> io::Result<()> {
+            header
+                .write_all(&HEADER[..HEADER.len() - SHEET_FORMAT.len() - b"<sheetData>".len()])?;
+            if let Some(printing) = printing {
+                crate::printing::write_properties(&mut header, printing, None)?;
+            }
+            if let Some(views) = views {
+                crate::worksheet_view::write_views(&mut header, views, None)?;
+            }
+            crate::printing::write_format(&mut header, printing, None)?;
+            header.write_all(b"<sheetData>")
+        })()
+        .map_err(|cause| io_error("Cannot encode worksheet header", cause))?;
+        let bytes = header.len() as u64;
+        let footer = active.footer.as_ref().map_or(FOOTER.len(), Vec::len) as u64;
+        if bytes.saturating_add(footer) > self.options.max_sheet_bytes {
+            return Err(limit("Writer sheet byte limit exceeded"));
+        }
+        self.check_temp(
+            bytes
+                .saturating_sub(active.bytes)
+                .saturating_add(footer)
+                .saturating_add(self.paused_footers()),
+        )?;
+        let active = self
+            .active
+            .as_mut()
+            .ok_or_else(|| state("No active worksheet"))?;
+        let rewrite = (|| -> io::Result<()> {
+            active.output.seek(std::io::SeekFrom::Start(0))?;
+            active.output.write_all(&header)?;
+            active.output.flush()?;
+            active.output.get_ref().as_file().set_len(bytes)
+        })();
+        if let Err(error) = rewrite {
+            self.poisoned = true;
+            return Err(io_error("Cannot spool worksheet header", error));
+        }
+        self.temporary_bytes = self
+            .temporary_bytes
+            .saturating_sub(active.bytes)
+            .saturating_add(bytes);
+        self.stats.peak_temp_bytes = self.stats.peak_temp_bytes.max(self.temporary_bytes);
+        active.bytes = bytes;
+        active.header_prefix_bytes = bytes - b"<sheetData>".len() as u64;
+        Ok(())
+    }
+
+    /// Attach features, printing settings and merged ranges, which all follow the cells.
+    pub fn set_interleaved_tail(
+        &mut self,
+        id: usize,
+        mut features: crabxl_core::SheetFeatures,
+        printing: Option<&crabxl_core::PrintSettings>,
+        merges: &[crabxl_core::CellRange],
+    ) -> Result<()> {
+        self.activate_sheet(id)?;
+        if let Some(printing) = printing {
+            crate::printing::validate(printing)?;
+        }
         let active = self
             .active
             .as_mut()
@@ -144,7 +228,7 @@ impl WorkbookWriter {
         } else {
             features.comments.append(&mut active.comments);
         }
-        let result = self.prepare_interleaved_features(id, &features);
+        let result = self.prepare_interleaved_features(id, &features, printing, merges);
         if result.is_err() {
             features.comments.drain(..explicit);
             let active = self
@@ -258,6 +342,8 @@ impl WorkbookWriter {
         &mut self,
         id: usize,
         features: &crabxl_core::SheetFeatures,
+        printing: Option<&crabxl_core::PrintSettings>,
+        merges: &[crabxl_core::CellRange],
     ) -> Result<()> {
         let active = self
             .active
@@ -292,16 +378,64 @@ impl WorkbookWriter {
         )
         .map_err(|error| io_error("Cannot encode streamed drawings", error))?;
         let mut footer = b"</sheetData>".to_vec();
-        crate::features::sheet::write_ranks(
-            &mut footer,
-            features,
-            &output.refs,
-            0,
-            usize::MAX,
-            None,
-        )
-        .map_err(|error| io_error("Cannot encode streamed drawing footer", error))?;
-        footer.extend_from_slice(b"</worksheet>");
+        (|| -> io::Result<()> {
+            use crate::features::sheet::{after_printing_rank, rank, write_ranks};
+            let refs = &output.refs;
+            let merge_rank = rank(b"mergeCells");
+            write_ranks(&mut footer, features, refs, 0, merge_rank, None)?;
+            if !merges.is_empty() {
+                write!(footer, "<mergeCells count=\"{}\">", merges.len())?;
+                for range in merges {
+                    write!(footer, "<mergeCell ref=\"{range}\"/>")?;
+                }
+                footer.write_all(b"</mergeCells>")?;
+            }
+            // Streamed hyperlinks are inserted later before the first element ranked after them.
+            write_ranks(
+                &mut footer,
+                features,
+                refs,
+                merge_rank + 1,
+                rank(b"hyperlinks"),
+                None,
+            )?;
+            if let Some(printing) = printing {
+                crate::printing::write_page(&mut footer, printing, None)?;
+            }
+            let header_footer = rank(b"headerFooter");
+            write_ranks(
+                &mut footer,
+                features,
+                refs,
+                header_footer,
+                header_footer + 1,
+                None,
+            )?;
+            if let Some(printing) = printing {
+                crate::printing::write_breaks(
+                    &mut footer,
+                    "rowBreaks",
+                    &printing.row_breaks,
+                    None,
+                )?;
+                crate::printing::write_breaks(
+                    &mut footer,
+                    "colBreaks",
+                    &printing.column_breaks,
+                    None,
+                )?;
+            }
+            write_ranks(
+                &mut footer,
+                features,
+                refs,
+                after_printing_rank(),
+                usize::MAX,
+                None,
+            )?;
+            footer.write_all(b"</worksheet>")
+        })()
+        .map_err(|error| io_error("Cannot encode streamed worksheet footer", error))?;
         let mut relationships = b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">".to_vec();
         relationships.extend_from_slice(&output.extra_relationships);
         for relationship in &output.relationships {

@@ -107,6 +107,18 @@ impl WorkbookWriter {
             .derive_component_with_limit(base, component, allowance)
             .map_err(writer_style_error)
     }
+    /// Register a conditional-format style and return its `dxfId`.
+    pub fn register_differential_style(
+        &mut self,
+        style: crabxl_core::DifferentialStyle,
+    ) -> Result<u32> {
+        self.ensure_open()?;
+        self.styles
+            .as_mut()
+            .ok_or_else(|| state("Writer style catalog is released"))?
+            .register_differential(style)
+            .map_err(writer_style_error)
+    }
     /// Register a literal code against imported declarations and built-in overrides.
     pub fn register_number_format(&mut self, code: Box<str>) -> Result<u32> {
         self.ensure_open()?;

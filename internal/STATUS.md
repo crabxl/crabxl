@@ -1,18 +1,24 @@
 # Status
 
-Last update: 2026-11-01.
+Last update: 2026-11-09.
 
 ## Current release
 
 - Published Rust release: `0.1.0-alpha.11`.
-- The combined A12 implementation pass (former A12-A15, W14-W26) is committed with
-  a subsequent Rust regression and interoperability fix checkpoint. It is not a release.
-- This pass changes Rust only. Python integration remains a separate task.
+- A12 (former A12–A15, W14–W28, full openpyxl 3.1.5 capability) is implemented
+  in Rust and integrated in the Python package. It is not committed or
+  released.
+- A13 is performance and memory optimization only (W27).
 
 ## Implemented Rust scope
 
-- Existing cells, styles, tables, filters, sorting, rules, validation, notes,
-  printing, protection, names and document properties remain integrated.
+- Cells, styles (including `quotePrefix` and `pivotButton` components),
+  tables, filters, sorting, rules, validation, notes, printing, protection,
+  names and document properties.
+- Sheet properties (`sheetPr` with tab color and outline settings) and sheet
+  format properties (`sheetFormatPr`) on every read, write and edit path.
+  `PrintSettings::properties = None` keeps the source `sheetPr`.
+- Scenarios are read, written, edited and kept on structural edits.
 - Images, one/two-cell and absolute anchors, shapes, connectors, grouped objects,
   drawing dependencies and picture/frame hyperlinks.
 - All 16 baseline chart-family variants, series and editable chart properties,
@@ -26,32 +32,27 @@ Last update: 2026-11-01.
   Graph removal keeps parts with surviving consumers. Notes follow cell edits.
   Resolved shared formulas can be structurally edited using expanded expressions.
 - Data-only model edits and saves project source formulas to cached scalar values.
-- Printer payloads and relationships participate in new and copied packages.
-- Streamed snapshot and live-group hyperlinks merge with prebuilt feature
-  footers, point declarations and relationship parts without a second worksheet
-  or relationship envelope.
+- The interleaved (write-only) writer accepts views and printing before the
+  first row (`set_interleaved_header`) and features, printing and merged cells
+  after the last row (`set_interleaved_tail`), in schema order.
+- New sheets in loaded workbooks keep their views, sheet properties, format and
+  printing on save.
 - Binary payloads can remain on disk. Loaded feature snapshots count toward the
   retained-data allowance. Metadata replacement validates existing cell indices.
 
 Detailed native coverage is in `internal/features.json`; port origins and notices
 are in `third_party/ports.json`.
 
-## Validation and next stage
+## Validation
 
-Windows validation passes: 335 Rust tests across 26 workspace test/doc-test
-targets, including seven new complex-feature integration tests. Formatting and
-Clippy for all workspace targets pass. Openpyxl 3.1.5 independently loads six
-produced workbooks without warnings, checking charts, images, pivot records,
-external links, templates and streamed hyperlinks.
+Windows: 346 Rust tests pass. Formatting and Clippy pass for all workspace
+targets. The Python acceptance (see the crabxl-python status) passes: 1,032
+package tests, 1,548 corpus round-trip checks and the openpyxl 3.1.5 suite
+with 2,115 passes and 329 tracked failures of openpyxl internals and
+deliberate differences.
 
-Regression fixes cover drawing serialization, relationship capture and copying,
-picture/frame dependencies, printer identities, metadata error context and
-atomic rejected edits. The integration fixtures include independently generated
-DrawingML and chartsheet printer dependencies.
-
-Full release readiness, Excel desktop/cross-platform validation, performance/RAM
-claims and Python acceptance remain pending. This checkpoint does not establish
-complete baseline-module parity or M4/M5/M6 completion.
+Excel desktop and cross-platform validation and the performance and memory
+benchmarks are A13 work.
 
 ## Deliberate boundaries
 

@@ -22,9 +22,104 @@ fn unsupported() -> Error {
     )
 }
 
+const SHEET_PROPERTIES: &[&str] = &[
+    "syncHorizontal",
+    "syncVertical",
+    "syncRef",
+    "transitionEvaluation",
+    "transitionEntry",
+    "published",
+    "codeName",
+    "filterMode",
+    "enableFormatConditionsCalculation",
+];
+const TAB_COLOR: &[&str] = &["auto", "indexed", "rgb", "theme", "tint"];
+const OUTLINE: &[&str] = &[
+    "applyStyles",
+    "summaryBelow",
+    "summaryRight",
+    "showOutlineSymbols",
+];
+const SHEET_FORMAT: &[&str] = &[
+    "baseColWidth",
+    "defaultColWidth",
+    "defaultRowHeight",
+    "customHeight",
+    "zeroHeight",
+    "thickTop",
+    "thickBottom",
+    "outlineLevelRow",
+    "outlineLevelCol",
+];
+
 pub(crate) fn validate(settings: &PrintSettings) -> Result<()> {
     settings.validate()?;
+    let properties = settings.properties.as_ref();
+    for (attributes, allowed) in [
+        (properties.map(|p| &p.attributes), SHEET_PROPERTIES),
+        (properties.and_then(|p| p.tab_color.as_ref()), TAB_COLOR),
+        (properties.and_then(|p| p.outline.as_ref()), OUTLINE),
+        (settings.format.as_ref(), SHEET_FORMAT),
+    ] {
+        for (name, value) in attributes.into_iter().flatten() {
+            if !allowed.contains(&name.as_ref()) {
+                return Err(invalid("Unknown sheet property attribute"));
+            }
+            validate_xml_text(value)?;
+        }
+    }
     validate_setup(&settings.setup)
+}
+
+/// Keep the schema attributes of one element; other unprefixed names are unsupported.
+// shortcut: prefixed extension attributes such as x14ac:dyDescent (a rendering hint) are dropped, keep them if an extension needs them.
+fn schema_attributes(
+    e: &quick_xml::events::BytesStart<'_>,
+    allowed: &[&str],
+) -> Result<crabxl_core::ElementAttributes> {
+    let mut result = Vec::new();
+    attributes(e, |name, value| {
+        if name.contains(&b':') {
+            return Ok(());
+        }
+        let name = std::str::from_utf8(name).map_err(|_| invalid("Invalid attribute name"))?;
+        if !allowed.contains(&name) {
+            return Err(unsupported());
+        }
+        result.push((name.into(), value.into()));
+        Ok(())
+    })?;
+    Ok(result)
+}
+
+fn write_element(
+    output: &mut impl Write,
+    name: &str,
+    attributes: &crabxl_core::ElementAttributes,
+    uri: Option<&str>,
+) -> io::Result<()> {
+    write!(output, "<{name}")?;
+    namespace(output, uri)?;
+    for (name, value) in attributes {
+        write_attribute(output, name, value)?;
+    }
+    output.write_all(b"/>")
+}
+
+/// Write `<sheetFormatPr>`, using the default row height when it is not modeled.
+pub(crate) fn write_format(
+    output: &mut impl Write,
+    settings: Option<&PrintSettings>,
+    uri: Option<&str>,
+) -> io::Result<()> {
+    match settings.and_then(|settings| settings.format.as_ref()) {
+        Some(attributes) => write_element(output, "sheetFormatPr", attributes, uri),
+        None => {
+            output.write_all(b"<sheetFormatPr")?;
+            namespace(output, uri)?;
+            output.write_all(b" baseColWidth=\"8\" defaultRowHeight=\"15\"/>")
+        }
+    }
 }
 pub(crate) fn validate_change(change: &crabxl_core::PrintSettingsChange) -> Result<()> {
     change.validate()?;
@@ -48,19 +143,41 @@ pub(crate) fn namespace(output: &mut impl Write, uri: Option<&str>) -> io::Resul
     }
     Ok(())
 }
+/// Write the complete `<sheetPr>` element, or nothing when it has no content.
 pub(crate) fn write_properties(
     output: &mut impl Write,
     settings: &PrintSettings,
     uri: Option<&str>,
-    wrap: bool,
+) -> io::Result<()> {
+    let page = settings.auto_page_breaks.is_some() || settings.fit_to_page.is_some();
+    let properties = settings.properties.as_ref().filter(|p| !p.is_empty());
+    if !page && properties.is_none() {
+        return Ok(());
+    }
+    output.write_all(b"<sheetPr")?;
+    namespace(output, uri)?;
+    for (name, value) in properties.iter().flat_map(|p| &p.attributes) {
+        write_attribute(output, name, value)?;
+    }
+    output.write_all(b">")?;
+    if let Some(attributes) = properties.and_then(|p| p.tab_color.as_ref()) {
+        write_element(output, "tabColor", attributes, uri)?;
+    }
+    if let Some(attributes) = properties.and_then(|p| p.outline.as_ref()) {
+        write_element(output, "outlinePr", attributes, uri)?;
+    }
+    write_page_properties(output, settings, uri)?;
+    output.write_all(b"</sheetPr>")
+}
+
+/// Write only the `<pageSetUpPr>` child of `<sheetPr>`.
+fn write_page_properties(
+    output: &mut impl Write,
+    settings: &PrintSettings,
+    uri: Option<&str>,
 ) -> io::Result<()> {
     if settings.auto_page_breaks.is_none() && settings.fit_to_page.is_none() {
         return Ok(());
-    }
-    if wrap {
-        output.write_all(b"<sheetPr")?;
-        namespace(output, uri)?;
-        output.write_all(b">")?;
     }
     output.write_all(b"<pageSetUpPr")?;
     namespace(output, uri)?;
@@ -72,11 +189,7 @@ pub(crate) fn write_properties(
             write_attribute(output, name, if value { "1" } else { "0" })?;
         }
     }
-    output.write_all(b"/>")?;
-    if wrap {
-        output.write_all(b"</sheetPr>")?;
-    }
-    Ok(())
+    output.write_all(b"/>")
 }
 pub(crate) fn write_page(
     output: &mut impl Write,
@@ -228,6 +341,7 @@ pub(crate) fn read<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result
 }
 fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<PrintSettings> {
     let mut settings = PrintSettings::default();
+    let mut properties = crabxl_core::SheetProperties::default();
     let mut seen = [false; 6];
     let mut leaf_depth = None;
     let mut break_container = None;
@@ -250,12 +364,45 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
                     && frame.depth == 2
                     && e.local_name().as_ref().as_bytes() == b"sheetPr" =>
             {
-                sheet_pr = true
+                sheet_pr = true;
+                properties.attributes = schema_attributes(&e, SHEET_PROPERTIES)?;
             }
             Event::End(e)
                 if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"sheetPr" =>
             {
                 sheet_pr = false
+            }
+            Event::Start(e)
+                if frame.scope == Scope::Spreadsheet
+                    && sheet_pr
+                    && frame.depth == 3
+                    && matches!(
+                        e.local_name().as_ref().as_bytes(),
+                        b"tabColor" | b"outlinePr"
+                    ) =>
+            {
+                if e.local_name().as_ref().as_bytes() == b"tabColor" {
+                    properties.tab_color = Some(schema_attributes(&e, TAB_COLOR)?);
+                } else {
+                    properties.outline = Some(schema_attributes(&e, OUTLINE)?);
+                }
+                leaf_depth = Some(frame.depth);
+            }
+            Event::Start(e)
+                if frame.scope == Scope::Spreadsheet
+                    && frame.depth == 2
+                    && e.local_name().as_ref().as_bytes() == b"sheetFormatPr" =>
+            {
+                let format = schema_attributes(&e, SHEET_FORMAT)?;
+                // The default format is the writers' output, so it stays unmodeled.
+                let default = [("baseColWidth", "8"), ("defaultRowHeight", "15")];
+                let is_default = format.len() == default.len()
+                    && format
+                        .iter()
+                        .zip(default)
+                        .all(|((name, value), (n, v))| name.as_ref() == n && value.as_ref() == v);
+                settings.format = (!is_default).then_some(format);
+                leaf_depth = Some(frame.depth);
             }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
@@ -473,6 +620,7 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
             ));
         }
     }
+    settings.properties = (!properties.is_empty()).then_some(properties);
     settings.validate()?;
     if settings.memory_bytes() > maximum {
         return Err(Error::new(
@@ -492,6 +640,7 @@ pub(crate) struct Rewrite<'a> {
     sheet_pr_seen: bool,
     in_sheet_pr: bool,
     properties_written: bool,
+    format_written: bool,
     page_written: bool,
     rows_written: bool,
     columns_written: bool,
@@ -513,6 +662,7 @@ impl<'a> Rewrite<'a> {
             sheet_pr_seen: false,
             in_sheet_pr: false,
             properties_written: false,
+            format_written: false,
             page_written: false,
             rows_written: false,
             columns_written: false,
@@ -565,16 +715,22 @@ impl<'a> Rewrite<'a> {
             return self.header_footer_only(output, name, depth, uri);
         };
         if depth == 2 && name == b"sheetPr" {
+            if settings.properties.is_some() {
+                // Modeled properties hold every sheetPr child, so the source element is replaced.
+                write_properties(output, settings, uri)?;
+                self.properties_written = true;
+                return Ok(true);
+            }
             self.sheet_pr_seen = true;
             self.in_sheet_pr = true;
             return Ok(false);
         }
         if depth == 2 && !self.sheet_pr_seen && !self.properties_written {
-            write_properties(output, settings, uri, true)?;
+            write_properties(output, settings, uri)?;
             self.properties_written = true;
         }
         if depth == 3 && self.in_sheet_pr && name == b"pageSetUpPr" {
-            write_properties(output, settings, uri, false)?;
+            write_page_properties(output, settings, uri)?;
             self.properties_written = true;
             return Ok(true);
         }
@@ -614,6 +770,31 @@ impl<'a> Rewrite<'a> {
             b"printOptions" | b"pageMargins" | b"pageSetup" | b"rowBreaks" | b"colBreaks"
         ))
     }
+    /// Replace or insert `<sheetFormatPr>`. Callers run this after worksheet views
+    /// are written, so the schema order sheetViews, sheetFormatPr, cols holds.
+    pub(crate) fn format(
+        &mut self,
+        output: &mut impl Write,
+        name: &[u8],
+        depth: usize,
+        uri: Option<&str>,
+    ) -> io::Result<bool> {
+        let Some(settings) = self.settings else {
+            return Ok(false);
+        };
+        if depth != 2
+            || self.format_written
+            || !matches!(name, b"sheetFormatPr" | b"cols" | b"sheetData")
+        {
+            return Ok(false);
+        }
+        self.format_written = true;
+        if settings.format.is_none() {
+            return Ok(false);
+        }
+        write_format(output, Some(settings), uri)?;
+        Ok(name == b"sheetFormatPr")
+    }
     fn header_footer_only(
         &mut self,
         output: &mut impl Write,
@@ -647,7 +828,7 @@ impl<'a> Rewrite<'a> {
             if !self.properties_written
                 && let Some(settings) = self.settings
             {
-                write_properties(output, settings, uri, false)?;
+                write_page_properties(output, settings, uri)?;
                 self.properties_written = true;
             }
             self.in_sheet_pr = false;

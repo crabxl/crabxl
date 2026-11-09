@@ -36,6 +36,7 @@ pub(crate) fn owns(name: &[u8]) -> bool {
     matches!(
         name,
         b"sheetProtection"
+            | b"scenarios"
             | b"autoFilter"
             | b"sortState"
             | b"conditionalFormatting"
@@ -63,6 +64,23 @@ fn relationship_id(e: &BytesStart<'_>) -> Result<Option<String>> {
     attribute(e, b"id")
 }
 
+/// Drop namespace prefixes and declarations; every scenario element is in the
+/// worksheet namespace, which the writer declares on the root.
+fn local_names(mut element: crabxl_core::XmlElement) -> crabxl_core::XmlElement {
+    if let Some((_, local)) = element.name.split_once(':') {
+        element.name = local.into();
+    }
+    element
+        .attributes
+        .retain(|(key, _)| key.as_ref() != "xmlns" && !key.starts_with("xmlns:"));
+    for child in &mut element.children {
+        if let crabxl_core::XmlContent::Element(child) = child {
+            *child = local_names(std::mem::replace(child, crabxl_core::XmlElement::new("")));
+        }
+    }
+    element
+}
+
 /// Read one owned element whose `Start` was just consumed at `depth` (2).
 pub(crate) fn read_element<B: BufRead>(
     xml: &mut XmlStream<B>,
@@ -74,6 +92,9 @@ pub(crate) fn read_element<B: BufRead>(
     match start.local_name().as_ref().as_bytes() {
         b"sheetProtection" => {
             features.protection = Some(protection::read_sheet(xml, start, depth)?);
+        }
+        b"scenarios" => {
+            features.scenarios = Some(local_names(crate::drawing_xml::read(xml, start, depth)?));
         }
         b"autoFilter" => {
             features.auto_filter = Some(auto_filter::read_auto_filter(xml, start, depth)?);
@@ -183,6 +204,15 @@ pub(crate) fn write_rank(
         Some(b"sheetProtection") => {
             if let Some(value) = &features.protection {
                 protection::write_sheet(out, value, uri)?;
+            }
+        }
+        Some(b"scenarios") => {
+            if let Some(value) = &features.scenarios {
+                let mut value = value.clone();
+                if let Some(uri) = uri {
+                    value.attributes.push(("xmlns".into(), uri.into()));
+                }
+                crate::drawing_xml::write(out, &value, 0)?;
             }
         }
         Some(b"autoFilter") => {

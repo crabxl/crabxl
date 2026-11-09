@@ -300,11 +300,15 @@ enum ComponentChange {
     Border(u32),
     Alignment(Option<Box<crate::Alignment>>),
     Protection(Option<crate::Protection>),
+    QuotePrefix(Option<bool>),
+    PivotButton(Option<bool>),
 }
 impl ComponentChange {
     pub(super) fn key<'a>(&'a self, source: &'a CellFormat) -> FormatKey<'a> {
         let mut key = format_key(source, source.alignment.as_deref());
         match self {
+            Self::QuotePrefix(value) => key.quote_prefix = *value,
+            Self::PivotButton(value) => key.pivot_button = *value,
             Self::Font(id) => {
                 key.font_id = *id;
                 key.apply_font = Some(true);
@@ -330,6 +334,8 @@ impl ComponentChange {
     }
     pub(super) fn apply(self, format: &mut CellFormat) {
         match self {
+            Self::QuotePrefix(value) => format.quote_prefix = value,
+            Self::PivotButton(value) => format.pivot_button = value,
             Self::Font(id) => {
                 format.font_id = id;
                 format.apply_font = Some(true);

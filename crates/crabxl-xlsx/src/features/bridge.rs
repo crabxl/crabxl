@@ -177,7 +177,10 @@ pub fn print_settings_from_xml(bytes: &[u8]) -> Result<crabxl_core::PrintSetting
 pub fn print_settings_to_xml(settings: &crabxl_core::PrintSettings) -> Result<Vec<u8>> {
     crate::printing::validate(settings)?;
     let mut output = format!("<worksheet xmlns=\"{MAIN}\">").into_bytes();
-    crate::printing::write_properties(&mut output, settings, None, true).map_err(io_error)?;
+    crate::printing::write_properties(&mut output, settings, None).map_err(io_error)?;
+    if settings.format.is_some() {
+        crate::printing::write_format(&mut output, Some(settings), None).map_err(io_error)?;
+    }
     output.extend_from_slice(b"<sheetData/>");
     crate::printing::write_page(&mut output, settings, None).map_err(io_error)?;
     crate::printing::write_breaks(&mut output, "rowBreaks", &settings.row_breaks, None)

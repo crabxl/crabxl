@@ -204,6 +204,8 @@ Evaluate pinned Rust upstream code for concrete gaps, including additional proje
 
 ## M7: Stabilization and performance release gates
 
+Compatibility, platform, docs, license and packaging gates close in A12 (W28). Benchmark comparison and tuning gates belong to A13 (W27).
+
 - Complete the behavioral matrix, regression fixtures, public docs/examples, feature flags, typed errors, MSRV/version policy and supported-platform evidence.
 - Test streaming, materialized and editable modes independently. Include corrupted input, partial reads, limits, atomic failures, repeated saves and resource cleanup.
 - Validate licenses, notices, inventory/provenance and packaging. Run formatting, Clippy, tests and warning-free API documentation with the pinned toolchain.
