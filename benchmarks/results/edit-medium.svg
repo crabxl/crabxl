@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="890" height="130" viewBox="0 0 890 130" font-family="system-ui, sans-serif" font-size="13">
+<style>text{fill:#334}.t{font-weight:600}.crabxl{fill:#e8590c}.other{fill:#8a94a6}@media (prefers-color-scheme: dark){text{fill:#dde}.other{fill:#6b7385}}</style>
+<text class="t" x="230" y="20">Time (s, lower is better)</text>
+<text x="220" y="50" text-anchor="end">crabxl</text>
+<rect class="crabxl" x="230" y="34" width="50.4" height="22" rx="3"/>
+<text x="286.4" y="50">3.15</text>
+<text x="220" y="80" text-anchor="end">oxlsx</text>
+<rect class="other" x="230" y="64" width="230.0" height="22" rx="3"/>
+<text x="466.0" y="80">14.37</text>
+<text x="220" y="110" text-anchor="end">umya</text>
+<rect class="other" x="230" y="94" width="74.2" height="22" rx="3"/>
+<text x="310.2" y="110">4.63</text>
+<text class="t" x="560" y="20">Peak memory (MiB, lower is better)</text>
+<rect class="crabxl" x="560" y="34" width="11.0" height="22" rx="3"/>
+<text x="577.0" y="50">60</text>
+<rect class="other" x="560" y="64" width="230.0" height="22" rx="3"/>
+<text x="796.0" y="80">1250</text>
+<rect class="other" x="560" y="94" width="76.3" height="22" rx="3"/>
+<text x="642.3" y="110">415</text>
+</svg>

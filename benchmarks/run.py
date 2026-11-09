@@ -40,6 +40,18 @@ def slow(previous, scenario, library):
     return record is not None and ("timeout" in record or record.get("seconds", 0) * 10 > TIMEOUT)
 
 
+def check(record):
+    """Mark a case that did not handle every expected cell as incomplete."""
+    rows = record["rows"]
+    expected = {"read": rows * 10, "write": rows * 10, "edit": -(-rows // 100) + 1000}
+    want = expected[record["scenario"]]
+    if "cells" in record and record["cells"] != want:
+        record["error"] = f"incomplete: handled {record['cells']:,} of {want:,} cells"
+        for key in ("seconds", "peak_mib"):
+            record.pop(key, None)
+    return record
+
+
 def peak_memory(process):
     """Peak resident memory of a finished child, in bytes."""
     if os.name == "nt":
@@ -99,7 +111,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sizes", nargs="+", choices=SIZES, default=list(SIZES))
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument(
+        "--report-only", action="store_true", help="rewrite results.md from results.json"
+    )
     args = parser.parse_args()
+    if args.report_only:
+        report = json.loads((RESULTS / "results.json").read_text())
+        report["results"] = [check(record) for record in report["results"]]
+        (RESULTS / "results.json").write_text(json.dumps(report, indent=1) + "\n")
+        write_report(report, "Rust")
+        return
 
     subprocess.run(
         ["cargo", "build", "--release", "--quiet", "--manifest-path", DRIVER / "Cargo.toml"],
@@ -143,7 +164,7 @@ def main():
             record["seconds"] = statistics.median(r[0] for r in runs)
             record["peak_mib"] = statistics.median(r[1] for r in runs) / 2**20
             record["cells"] = int(runs[0][2])
-        results.append(record)
+        results.append(check(record))
         previous[(scenario, library)] = record
         print(json.dumps(record), flush=True)
         output.unlink(missing_ok=True)

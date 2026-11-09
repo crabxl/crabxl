@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="890" height="220" viewBox="0 0 890 220" font-family="system-ui, sans-serif" font-size="13">
+<style>text{fill:#334}.t{font-weight:600}.crabxl{fill:#e8590c}.other{fill:#8a94a6}@media (prefers-color-scheme: dark){text{fill:#dde}.other{fill:#6b7385}}</style>
+<text class="t" x="230" y="20">Time (s, lower is better)</text>
+<text x="220" y="50" text-anchor="end">crabxl</text>
+<rect class="crabxl" x="230" y="34" width="24.7" height="22" rx="3"/>
+<text x="260.7" y="50">0.28</text>
+<text x="220" y="80" text-anchor="end">calamine-stream</text>
+<rect class="other" x="230" y="64" width="28.6" height="22" rx="3"/>
+<text x="264.6" y="80">0.32</text>
+<text x="220" y="110" text-anchor="end">oxlsx</text>
+<rect class="other" x="230" y="94" width="55.8" height="22" rx="3"/>
+<text x="291.8" y="110">0.63</text>
+<text x="220" y="140" text-anchor="end">crabxl-model</text>
+<rect class="crabxl" x="230" y="124" width="30.1" height="22" rx="3"/>
+<text x="266.1" y="140">0.34</text>
+<text x="220" y="170" text-anchor="end">calamine</text>
+<rect class="other" x="230" y="154" width="33.4" height="22" rx="3"/>
+<text x="269.4" y="170">0.38</text>
+<text x="220" y="200" text-anchor="end">umya</text>
+<rect class="other" x="230" y="184" width="230.0" height="22" rx="3"/>
+<text x="466.0" y="200">2.60</text>
+<text class="t" x="560" y="20">Peak memory (MiB, lower is better)</text>
+<rect class="crabxl" x="560" y="34" width="8.7" height="22" rx="3"/>
+<text x="574.7" y="50">14</text>
+<rect class="other" x="560" y="64" width="8.7" height="22" rx="3"/>
+<text x="574.7" y="80">14</text>
+<rect class="other" x="560" y="94" width="48.0" height="22" rx="3"/>
+<text x="614.0" y="110">78</text>
+<rect class="crabxl" x="560" y="124" width="35.7" height="22" rx="3"/>
+<text x="601.7" y="140">58</text>
+<rect class="other" x="560" y="154" width="50.9" height="22" rx="3"/>
+<text x="616.9" y="170">83</text>
+<rect class="other" x="560" y="184" width="230.0" height="22" rx="3"/>
+<text x="796.0" y="200">375</text>
+</svg>
