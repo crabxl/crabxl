@@ -1,5 +1,0 @@
-{
-  "version": "0.1.0",
-  "usable_feature": true,
-  "feature_notes": "First release. Reads, writes and edits XLSX files: cells, styles, formulas, merged cells, tables, filters, conditional formatting, data validation, comments, images, charts, pivot tables and VBA projects. Streaming reads and writes keep memory low; edits stream appended rows and compress large worksheets on several threads. 350 Rust tests pass on Rust 1.88 and later."
-}
