@@ -115,17 +115,9 @@ update [internal/architecture.md](internal/architecture.md).
 
 ## Documentation style
 
-User documentation follows the principles of ASD-STE100 (Simplified Technical
-English):
-
-- Write short sentences: 20 words or fewer in an instruction, 25 or fewer in a
-  description.
-- Give one instruction in each sentence.
-- Use the active voice.
-- Use one word for one meaning. Use the terms in the project glossary in
-  [crabxl-docs](https://github.com/crabxl/crabxl-docs).
-
-The page format is defined in crabxl-docs. CI checks the style with Vale.
+Follow the [writing rules](https://github.com/crabxl/crabxl-docs/blob/main/WRITING.md)
+and the [page format](https://github.com/crabxl/crabxl-docs/blob/main/CONTENT-SPEC.md).
+CI checks them with Vale.
 
 ## Commits and pull requests
 
