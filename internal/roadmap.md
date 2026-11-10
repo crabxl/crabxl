@@ -38,8 +38,8 @@ because crabxl's compression threads each keep a deflate state.
 
 These are not needed for 0.1.0:
 
-1. Rerun the full suite (`benchmarks/README.md`) on an idle computer and commit
-   the results. Other programs changed the numbers of the last attempt.
+1. Run both suites in crabxl-benchmarks on an idle computer and commit the
+   results there. Other programs changed the numbers of the last attempt.
 2. Validate produced files in Excel desktop on macOS. Windows Excel opens the
    written and edited 1,000,000-row files with the right rows and date formats.
 

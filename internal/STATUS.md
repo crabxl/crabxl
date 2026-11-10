@@ -50,8 +50,8 @@ with 2,115 passes and 329 tracked failures of openpyxl internals and
 deliberate differences.
 
 Windows Excel opens written and edited 1,000,000-row files with the right rows
-and date formats. A full benchmark rerun and macOS Excel validation are
-optional (see the roadmap).
+and date formats. The benchmark suites are in crabxl-benchmarks. A full
+rerun and macOS Excel validation are optional (see the roadmap).
 
 ## Deliberate boundaries
 

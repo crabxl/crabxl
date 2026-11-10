@@ -1,6 +1,4 @@
 /target/
-/benchmarks/driver/target/
-/benchmarks/data/
 __pycache__/
 
 .pytest_cache/

@@ -108,7 +108,6 @@ parts.
 ## Documentation
 
 - [API reference](https://docs.rs/crabxl)
-- [Benchmarks](benchmarks/results/results.md)
 - [Project status](internal/STATUS.md)
 - [Changelog](CHANGELOG.md)
 

@@ -8,7 +8,7 @@ Status: cloned and inspected in part; selected calamine numeric/package parsing 
 | umya-spreadsheet | https://github.com/MathNya/umya-spreadsheet | `1bcf4d0be5b666e5b9788244f14b55ce72fa4f3f` | 3.1.1 | MIT |
 | rust_xlsxwriter | https://github.com/jmcnamara/rust_xlsxwriter | `902609b2e0fbc3cfa20fec5b464328479e29dbef` | 0.99.1 | MIT OR Apache-2.0 |
 
-A package version does not prove the checkout equals the crates.io release. Reproduce source with commit IDs. The existing benchmark uses crates.io calamine 0.36.1 rather than an assumed equivalent clone.
+A package version does not prove the checkout equals the crates.io release. Reproduce source with commit IDs. crabxl-benchmarks uses crates.io calamine 0.36.1 rather than an assumed equivalent clone.
 
 ```sh
  git clone https://github.com/tafia/calamine.git calamine
@@ -28,7 +28,7 @@ For each port record project URL, commit, source file/symbols, destination modul
 - umya-spreadsheet is the selected primary source for remaining editable,
   package and M5/M6 ports. Existing rich/style ports retain their original
   `1bcf4d0` provenance. New source assessment pins stable 3.1.0 tag commit
-  `aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b`; benchmarks use exact crates.io
+  `aa6a80f66ff0f6ae629b2a3439d8d1e71bdbcd5b`; crabxl-benchmarks uses exact crates.io
   `=3.1.0`, whose MSRV is 1.88. The current development checkout inspected at
   `baca6c37361975315d4424fab8160b4e04453770` declares 3.1.1 and MSRV 1.89;
   it is not an assumed stable release. Record each new port's actual revision.

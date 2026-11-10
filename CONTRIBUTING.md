@@ -27,7 +27,6 @@ Do not report security problems in public issues. Read [SECURITY.md](SECURITY.md
 | `crates/crabxl/examples` | Usage examples. Start with [`quickstart.rs`](crates/crabxl/examples/quickstart.rs). |
 | `docs/` | Public user documentation. |
 | `internal/` | Maintainer records: [status](internal/STATUS.md), roadmap, architecture and the release process. |
-| `benchmarks/` | The benchmark suite. The latest results are in `results/`. |
 | `third_party/` | Provenance and licenses of code ported from other projects. |
 | `tools/` | Release scripts. |
 
@@ -92,13 +91,13 @@ cargo +1.88.0 test -p crabxl -p crabxl-xlsx --no-default-features --features def
 - Put unit tests next to the code. Put integration tests in `crates/*/tests`.
 - Use small, generated fixtures. Give each committed fixture a source or a
   generation instruction.
-- Do not put timing limits in tests. Measure performance in `benchmarks/`.
+- Do not put timing limits in tests. Measure performance with [crabxl-benchmarks](https://github.com/crabxl/crabxl-benchmarks).
 
 ### Performance changes
 
 Speed and low memory are the main goals of CrabXL. If you claim a speed or
 memory improvement, include the time and peak memory of a release build and
-the commands that you used. [benchmarks/README.md](benchmarks/README.md)
+the commands that you used. [crabxl-benchmarks](https://github.com/crabxl/crabxl-benchmarks)
 describes the method.
 
 ### Code from other projects

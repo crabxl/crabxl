@@ -39,7 +39,6 @@ First release.
   strings can move to disk when memory is low.
 - ZIP compression levels 0–9 with zlib-rs or native zlib. Worksheets of 4 MiB
   or more are compressed on up to four threads.
-- The `quickstart` example and one benchmark suite (`benchmarks/run.py`) that
-  compares crabxl with calamine, rust_xlsxwriter and umya-spreadsheet.
+- The `quickstart` example.
 
 [0.1.0]: https://github.com/crabxl/crabxl/releases/tag/0.1.0
