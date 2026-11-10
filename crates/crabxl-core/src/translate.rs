@@ -256,10 +256,9 @@ pub fn translate_expression(
                 output.add(error)?;
                 at += error.len();
             } else {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Dynamic spill or unknown formula error syntax is not supported by translation",
-                ));
+                // A spill operator or unknown error text is kept as written.
+                output.add("#")?;
+                at += 1;
             }
         } else {
             at += 1;

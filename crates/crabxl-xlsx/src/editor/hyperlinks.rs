@@ -34,21 +34,15 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     }
 
     pub(crate) fn prepare_hyperlink_patch(&self, index: usize, base_bytes: usize) -> Result<usize> {
-        if self.signed {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing signed hyperlinks requires an explicit signature policy",
-            ));
-        }
         if self
             .book
             .sheets()
             .get(index)
-            .is_none_or(|sheet| sheet.kind() != SheetKind::Worksheet)
+            .is_none_or(|sheet| sheet.kind() == SheetKind::ChartSheet)
         {
             return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Only worksheet hyperlink edits are implemented",
+                ErrorKind::InvalidData,
+                "Chartsheets have no cell hyperlinks",
             ));
         }
         let bytes = base_bytes.saturating_add(

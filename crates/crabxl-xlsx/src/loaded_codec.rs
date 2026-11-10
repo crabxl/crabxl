@@ -11,11 +11,14 @@ use crabxl_core::{
 use quick_xml::events::Event;
 use std::io::{BufRead, Write};
 
+const UNGUARDED: &str = "Worksheet content outside the structural model";
 fn unsupported() -> Error {
-    Error::new(
-        ErrorKind::Unsupported,
-        "Structural editing of affected worksheet feature graphs remains unimplemented",
-    )
+    Error::new(ErrorKind::Unsupported, UNGUARDED)
+}
+/// Content the structural model does not cover. As in openpyxl, the edit goes
+/// ahead: such content is kept untranslated or, inside rewritten rows, dropped.
+pub(crate) fn is_unguarded(error: &Error) -> bool {
+    error.kind() == ErrorKind::Unsupported && error.message() == UNGUARDED
 }
 /// Validate the entire original worksheet before mutating its canonical cells.
 /// Unaffected package parts remain on the source; affected unmodeled graphs must
@@ -365,11 +368,10 @@ pub(crate) fn validate_model(sheet: &Worksheet, catalog: Option<&StyleCatalog>) 
             if matches!(formula.formula_type(), crabxl_core::FormulaType::Shared { .. })
                 && formula.expression().is_empty())
         {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Cannot structurally edit an unresolved shared formula",
-            )
-            .with_cell(cell.address));
+            return Err(
+                Error::new(ErrorKind::InvalidData, "Shared formula has no template")
+                    .with_cell(cell.address),
+            );
         }
         if let Some(date) = cell.value.temporal_value() {
             styles

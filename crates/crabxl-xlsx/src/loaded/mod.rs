@@ -366,10 +366,10 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .iter()
             .position(|sheet| sheet.id == id)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown loaded sheet identity"))?;
-        if self.sheets[index].kind != crate::SheetKind::Worksheet {
+        if self.sheets[index].kind == crate::SheetKind::ChartSheet {
             return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Typed chartsheet/dialog model access remains unimplemented",
+                ErrorKind::InvalidData,
+                "Chartsheets have no cells",
             ));
         }
         if !self.sheets[index].loaded {

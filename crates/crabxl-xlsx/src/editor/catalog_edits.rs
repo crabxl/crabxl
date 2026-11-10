@@ -210,11 +210,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     if frame.scope != Scope::Spreadsheet
                         || e.local_name().as_ref().as_bytes() != b"sheet"
                     {
-                        return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Sheet catalog extensions require typed reorder handling",
-                        )
-                        .with_part(&part));
+                        // Unknown catalog content is dropped, as in openpyxl.
+                        let depth = frame.depth;
+                        crate::style_codec::skip(&mut xml, depth)?;
+                        continue;
                     }
                     charged = charged
                         .saturating_add(e.as_ref().len())
@@ -246,32 +245,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     sheet_open = true;
                 }
                 Event::Start(_) if sheet_open => {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Nested sheet catalog content requires typed reorder handling",
-                    )
-                    .with_part(&part));
+                    let depth = frame.depth;
+                    crate::style_codec::skip(&mut xml, depth)?;
                 }
                 Event::End(_) if sheet_open && frame.depth == 2 => sheet_open = false,
-                Event::Text(text)
-                    if sheet_open
-                        && !text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) =>
-                {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Nested sheet catalog content requires typed reorder handling",
-                    )
-                    .with_part(&part));
-                }
-                Event::CData(_) | Event::GeneralRef(_) | Event::Comment(_) | Event::PI(_)
-                    if sheet_open =>
-                {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Nested sheet catalog content requires typed reorder handling",
-                    )
-                    .with_part(&part));
-                }
                 Event::Start(e)
                     if names_open
                         && frame.scope == Scope::Spreadsheet
@@ -281,8 +258,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         && attribute(e, b"localSheetId")?.is_some() =>
                 {
                     return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Local defined-name graph reordering remains unimplemented",
+                        ErrorKind::InvalidState,
+                        "Raw editor reorders need local names remapped; use LoadedWorkbook",
                     )
                     .with_part(&part));
                 }
@@ -479,12 +456,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             return Err(Error::new(
                 ErrorKind::SheetNotFound,
                 "Active sheet does not exist",
-            ));
-        }
-        if self.signed {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing signed packages is unsupported",
             ));
         }
         if require_visible && self.visibility_at(index) != crabxl_core::SheetVisibility::Visible {

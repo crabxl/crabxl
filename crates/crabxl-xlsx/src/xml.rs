@@ -685,8 +685,8 @@ pub(crate) fn check_declaration(event: &Event<'_>) -> Result<()> {
         })?;
         if !encoding.eq_ignore_ascii_case("UTF-8") {
             return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Rewriting non-UTF-8 XML is not supported",
+                ErrorKind::InvalidData,
+                "XML parts must be UTF-8 to be rewritten",
             ));
         }
     }

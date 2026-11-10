@@ -86,12 +86,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     /// Replace viewport metadata while preserving cell values, caches and unrelated
     /// package parts. Unknown source view extensions reject replacement explicitly.
     pub fn set_sheet_views(&mut self, sheet: &str, views: crabxl_core::SheetViews) -> Result<()> {
-        if self.signed {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing signed worksheet views requires an explicit signature policy",
-            ));
-        }
         crate::worksheet_view::validate(&views)?;
         let info = self
             .book
@@ -152,12 +146,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         sheet: &str,
         settings: crabxl_core::PrintSettings,
     ) -> Result<()> {
-        if self.signed {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing signed printing settings requires an explicit signature policy",
-            ));
-        }
         crate::printing::validate(&settings)?;
         let info = self
             .book
@@ -227,12 +215,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         sheet: &str,
         change: crabxl_core::PrintSettingsChange,
     ) -> Result<()> {
-        if self.signed {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing signed printing settings requires an explicit signature policy",
-            ));
-        }
         crate::printing::validate_change(&change)?;
         let info = self
             .book

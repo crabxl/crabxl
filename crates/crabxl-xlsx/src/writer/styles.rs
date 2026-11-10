@@ -136,12 +136,6 @@ impl WorkbookWriter {
     /// Register a source format using existing components, retaining its explicit flags.
     pub fn register_format(&mut self, format: crabxl_core::CellFormat) -> Result<StyleId> {
         self.ensure_open()?;
-        if format.unmodeled_extensions {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Unmodeled style extensions require original-package preservation",
-            ));
-        }
         let allowance = self
             .options
             .max_metadata_bytes

@@ -33,19 +33,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         Ok(())
     }
     pub(super) fn editable_sheet(&self, sheet: &str) -> Result<usize> {
-        if self.signed {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing a digitally signed package requires an explicit signature policy",
-            ));
-        }
-        if !self.chain_safe
-            || (!self.calc_chain_parts.is_empty()
-                && self.options.calculation_chain == CalculationChainPolicy::RejectEdits)
+        if !self.calc_chain_parts.is_empty()
+            && self.options.calculation_chain == CalculationChainPolicy::RejectEdits
         {
             return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Calculation-chain edits are rejected by policy or unsupported incoming relationships",
+                ErrorKind::InvalidState,
+                "Calculation-chain edits are rejected by policy",
             ));
         }
         let sheet = self
@@ -55,10 +48,10 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .position(|info| info.name() == sheet)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet does not exist"))?;
         let info = &self.book.sheets()[sheet];
-        if info.kind() != SheetKind::Worksheet {
+        if info.kind() == SheetKind::ChartSheet {
             return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Selected sheet is not a cell worksheet",
+                ErrorKind::InvalidData,
+                "Chartsheets have no cells",
             ));
         }
         Ok(sheet)
@@ -67,12 +60,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         &self,
         catalog: Option<&crabxl_core::StyleCatalog>,
     ) -> Result<()> {
-        if self.signed {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Signed style editing remains unimplemented",
-            ));
-        }
         if self.styles_dirty {
             Ok(())
         } else if let Some(catalog) = catalog {
@@ -82,12 +69,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
     }
     pub(crate) fn validate_theme_edit(&self) -> Result<()> {
-        if self.signed {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Signed theme editing remains unimplemented",
-            ));
-        }
         Ok(())
     }
     pub(crate) fn theme_is_dirty(&self) -> bool {
@@ -143,12 +124,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 limits.max_part_bytes,
                 limits,
             );
-            let shared_strings = crate::loaded_codec::guard(
+            let shared_strings = match crate::loaded_codec::guard(
                 &mut xml,
                 self.structural_inline_rich_text,
                 limits.max_cell_bytes,
-            )
-            .map_err(|error| error.with_part(&part))?;
+            ) {
+                Err(error) if crate::loaded_codec::is_unguarded(&error) => true,
+                result => result.map_err(|error| error.with_part(&part))?,
+            };
             drop(xml);
             if shared_strings && !self.structural_plain_strings {
                 if let Some(part) = self.book.source_strings_part().map(str::to_owned) {
@@ -161,12 +144,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         limits.max_part_bytes,
                         limits,
                     );
-                    crate::loaded_codec::guard_strings(
+                    match crate::loaded_codec::guard_strings(
                         &mut xml,
                         self.structural_rich_text,
                         limits.max_cell_bytes,
-                    )
-                    .map_err(|error| error.with_part(&part))?;
+                    ) {
+                        Err(error) if crate::loaded_codec::is_unguarded(&error) => {}
+                        result => result.map_err(|error| error.with_part(&part))?,
+                    }
                 }
                 self.structural_plain_strings = true;
             }
@@ -200,22 +185,18 @@ impl<R: Read + Seek> WorkbookEditor<R> {
     ) -> Result<()> {
         if !dates && contains_date(value) {
             return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing dates requires an existing style/date catalog",
+                ErrorKind::InvalidState,
+                "Raw editor dates need a date style; use LoadedWorkbook",
             )
             .with_cell(address));
         }
         if let CellValue::RichText(value) = value.unannotated()
             && let Some(properties) = &value.phonetic_properties
         {
-            let fonts = self.model_font_count.ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Unsupported,
-                    "Editing phonetic font references requires the imported font catalog",
-                )
-                .with_cell(address)
-            })?;
-            if properties.font_id as usize >= fonts {
+            // Without the imported font catalog the font reference is kept unchecked.
+            if let Some(fonts) = self.model_font_count
+                && properties.font_id as usize >= fonts
+            {
                 return Err(
                     Error::new(ErrorKind::InvalidData, "Unknown phonetic font identity")
                         .with_cell(address),
@@ -234,14 +215,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         address: CellAddress,
         value: &CellValue,
     ) -> Result<()> {
-        if self.signed
-            || !self.chain_safe
-            || !self.calc_chain_parts.is_empty()
-                && self.options.calculation_chain == CalculationChainPolicy::RejectEdits
+        if !self.calc_chain_parts.is_empty()
+            && self.options.calculation_chain == CalculationChainPolicy::RejectEdits
         {
             return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Created value edits are rejected by signature/calculation policy",
+                ErrorKind::InvalidState,
+                "Created value edits are rejected by calculation policy",
             ));
         }
         self.validate_cell_value(address, value)

@@ -3687,7 +3687,7 @@ fn formula_annotation_references_are_owned_bounded_and_separate_from_values() {
     let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
     writer.start_sheet("Sheet").unwrap();
     let error = writer.write_row(&row).unwrap_err();
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert_eq!(error.kind(), ErrorKind::InvalidData);
     assert_eq!(error.cell().unwrap().to_string(), "A1");
     assert_eq!(writer.stats().rows, 0);
     let mut ordinary = row.clone();

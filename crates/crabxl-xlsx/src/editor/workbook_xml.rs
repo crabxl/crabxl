@@ -44,15 +44,26 @@ pub(super) fn preserve_absolute_path<R: std::io::BufRead>(
     depth: usize,
     scope: Scope,
     mut preserve: impl FnMut(Event<'_>) -> Result<()>,
-) -> Result<()> {
-    let unsupported_alternative = || {
-        Error::new(
-            ErrorKind::Unsupported,
-            "Editing markup-compatibility alternatives requires typed branch handling",
-        )
+) -> Result<bool> {
+    // Only Excel's absolute-path alternative is kept. Any other block is
+    // dropped whole, as openpyxl does.
+    let outer = depth;
+    let drop_rest = |xml: &mut XmlStream<R>, done: bool| -> Result<bool> {
+        let mut done = done;
+        while !done {
+            let frame = xml.next()?;
+            done = match &frame.event {
+                Event::End(e) => {
+                    frame.depth + 1 == outer && e.local_name().as_ref() == "AlternateContent"
+                }
+                Event::Eof => return Err(invalid("Unexpected end of alternative content")),
+                _ => false,
+            };
+        }
+        Ok(false)
     };
     if depth != 2 || scope != Scope::MarkupCompatibility {
-        return Err(unsupported_alternative());
+        return drop_rest(xml, false);
     }
     for (depth, scope, name, start) in [
         (3, Scope::MarkupCompatibility, "Choice", true),
@@ -75,13 +86,15 @@ pub(super) fn preserve_absolute_path<R: std::io::BufRead>(
                 _ => false,
             };
             if !matches || frame.depth != depth || frame.scope != scope {
-                return Err(unsupported_alternative());
+                let done = matches!(&frame.event, Event::End(e)
+                    if frame.depth + 1 == outer && e.local_name().as_ref() == "AlternateContent");
+                return drop_rest(xml, done);
             }
             preserve(frame.event)?;
             break;
         }
     }
-    Ok(())
+    Ok(true)
 }
 pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
     input: zip::read::ZipFile<'_, R>,
@@ -129,8 +142,15 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
         if matches!(&frame.event, Event::Start(e) if e.local_name().as_ref() == "AlternateContent")
         {
             let (depth, scope) = (frame.depth, frame.scope);
-            emit(&mut writer, frame.event)?;
-            preserve_absolute_path(&mut xml, depth, scope, |event| emit(&mut writer, event))?;
+            let mut events = vec![frame.event.into_owned()];
+            if preserve_absolute_path(&mut xml, depth, scope, |event| {
+                events.push(event.into_owned());
+                Ok(())
+            })? {
+                for event in events {
+                    emit(&mut writer, event)?;
+                }
+            }
             continue;
         }
         if skipped_sheet {
@@ -138,12 +158,8 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
                 Event::End(_) if frame.depth == 2 => skipped_sheet = false,
                 Event::Text(text)
                     if text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Nested sheet catalog content requires typed reorder handling",
-                    ));
-                }
+                // Unknown catalog content is dropped, as in openpyxl.
+                _ => {}
             }
             continue;
         }

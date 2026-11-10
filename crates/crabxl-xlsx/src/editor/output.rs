@@ -11,8 +11,8 @@ pub(super) fn check_printer_identity(
         && replacement.printer_relationship.as_deref() != authorized
     {
         return Err(Error::new(
-            ErrorKind::Unsupported,
-            "Changing printer identities requires an owned printer feature graph",
+            ErrorKind::InvalidData,
+            "Printer relationship does not belong to this sheet",
         ));
     }
     if let Some(id) = &replacement.printer_relationship {

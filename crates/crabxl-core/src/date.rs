@@ -321,8 +321,8 @@ impl ExcelDateTime {
             }
             DateKind::Duration => {
                 return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Elapsed durations use numeric XLSX storage",
+                    ErrorKind::InvalidData,
+                    "Elapsed durations have no ISO 8601 cell form",
                 ));
             }
         };

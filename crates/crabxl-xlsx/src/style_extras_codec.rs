@@ -272,12 +272,6 @@ pub(crate) fn write(
             catalog.differential_styles.len()
         )?;
         for value in &catalog.differential_styles {
-            if value.unmodeled_extensions {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Unsupported,
-                    "Unmodeled differential extensions",
-                ));
-            }
             output.write_all(b"<dxf>")?;
             if let Some(font) = &value.font {
                 crate::formatting::write_font(output, font, crate::formatting::FontContext::Cell)?;

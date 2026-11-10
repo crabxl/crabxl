@@ -342,6 +342,13 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
     let mut skipped_views = false;
     let mut formula = false;
     let mut seen_v = false;
+    // Shared groups whose master cell was replaced. As in openpyxl, their
+    // followers are written as ordinary formulas translated from the master.
+    let mut orphans: std::collections::HashMap<
+        crabxl_core::SharedFormulaIndex,
+        (String, CellAddress),
+    > = std::collections::HashMap::new();
+    let mut current_cell: Option<CellAddress> = None;
     let mut buffer = RowBuffer {
         data: Vec::new(),
         maximum: limits.max_row_bytes,
@@ -411,37 +418,42 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                 && hyperlinks.is_none()
             {
                 let alternative_depth = frame.depth;
-                writer
-                    .write_event(frame.event.into_owned())
-                    .map_err(|cause| io_error("Cannot preserve worksheet alternative", cause))?;
+                // Buffer the block: alternatives holding cell data are dropped
+                // whole, as openpyxl does, since the edit cannot reach them.
+                let mut events = vec![frame.event.into_owned()];
+                let mut keep = true;
                 loop {
                     let nested = xml.next()?;
+                    if matches!(nested.event, Event::Eof) {
+                        return Err(invalid("Unexpected end of worksheet alternative"));
+                    }
                     let finished = matches!(nested.event, Event::End(_))
                         && nested.depth + 1 == alternative_depth;
-                    if matches!(nested.event, Event::Eof)
-                        || nested.scope == Scope::Spreadsheet
-                            && matches!(&nested.event, Event::Start(start) if matches!(start.local_name().as_ref().as_bytes(), b"sheetData" | b"row" | b"c" | b"f"))
+                    if nested.scope == Scope::Spreadsheet
+                        && matches!(&nested.event, Event::Start(start) if matches!(start.local_name().as_ref().as_bytes(), b"sheetData" | b"row" | b"c" | b"f"))
                     {
-                        return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Editing alternative cell data requires typed branch handling",
-                        ));
+                        keep = false;
                     }
-                    writer
-                        .write_event(nested.event.into_owned())
-                        .map_err(|cause| {
-                            io_error("Cannot preserve worksheet alternative", cause)
-                        })?;
+                    if keep {
+                        events.push(nested.event.into_owned());
+                    }
                     if finished {
                         break;
                     }
                 }
+                if keep {
+                    for event in events {
+                        writer.write_event(event).map_err(|cause| {
+                            io_error("Cannot preserve worksheet alternative", cause)
+                        })?;
+                    }
+                }
                 continue;
             }
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing markup-compatibility alternatives requires typed branch handling",
-            ));
+            // Other alternatives are dropped, as openpyxl does.
+            let depth = frame.depth;
+            crate::style_codec::skip(&mut xml, depth)?;
+            continue;
         }
         // openpyxl's public copy behavior omits views and header/footer state.
         if copying
@@ -683,8 +695,8 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                 }) {
                     if range.contains(patch.cell.address) && patch.cell.address != start {
                         return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Editing a non-anchor merged cell is not supported",
+                            ErrorKind::InvalidData,
+                            "Merged cells other than the top-left one are read-only",
                         )
                         .with_cell(patch.cell.address));
                     }
@@ -900,7 +912,8 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                                         b"v" | b"is" | b"t" | b"f"
                                     )
                                 {
-                                    return Err(Error::new(ErrorKind::Unsupported,"Replacing unknown or rich cell content requires typed support").with_cell(cell.address));
+                                    // Unknown content of the replaced cell is dropped.
+                                    continue;
                                 }
                                 if child.local_name().as_ref().as_bytes() == b"f" {
                                     let metadata = crate::formula_codec::header(
@@ -909,13 +922,29 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                                         crate::formula_codec::HeaderPolicy::KnownRecords,
                                     )
                                     .map_err(|error| error.with_cell(cell.address))?;
-                                    if !data_only
-                                        && matches!(
-                                            metadata.kind,
-                                            crabxl_core::FormulaType::Shared { .. }
-                                        )
+                                    if let crabxl_core::FormulaType::Shared { index, .. } =
+                                        &metadata.kind
+                                        && !data_only
+                                        && metadata.reference.is_some()
                                     {
-                                        return Err(Error::new(ErrorKind::Unsupported, "Replacing shared formula records requires group normalization").with_cell(cell.address));
+                                        let mut expression = String::new();
+                                        loop {
+                                            let text = xml.next()?;
+                                            match &text.event {
+                                                Event::End(_) => break,
+                                                Event::Eof => {
+                                                    return Err(invalid(
+                                                        "Unexpected end of formula",
+                                                    ));
+                                                }
+                                                event => crate::xml::append_xml_text(
+                                                    &mut expression,
+                                                    event,
+                                                    limits.max_cell_bytes,
+                                                )?,
+                                            }
+                                        }
+                                        orphans.insert(index.clone(), (expression, cell.address));
                                     }
                                 }
                             }
@@ -945,9 +974,17 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                     found += 1;
                 } else if selected_row {
                     let address = CellAddress::new(row, next_column - 1)?;
+                    current_cell = Some(address);
                     let start = positioned_start(&e, &address.to_string(), false)?;
                     emit(&mut writer, Event::Start(start))?;
                 } else {
+                    current_cell = if orphans.is_empty() {
+                        None
+                    } else {
+                        attribute(&e, b"r")?
+                            .map(|value| value.parse::<CellAddress>())
+                            .transpose()?
+                    };
                     emit(&mut writer, Event::Start(e))?;
                 }
             }
@@ -963,6 +1000,26 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                 formula = true;
                 if data_only {
                     crate::style_codec::skip(&mut xml, 5)?;
+                } else if let Some(expression) =
+                    orphan_formula(&e, current_cell, &orphans, limits.max_cell_bytes)?
+                {
+                    let name = e.name().as_ref().to_owned();
+                    let mut start = quick_xml::events::BytesStart::new(name.clone());
+                    for attribute in e.attributes().flatten() {
+                        if !matches!(attribute.key.as_ref(), "t" | "si" | "ref") {
+                            start.push_attribute(attribute);
+                        }
+                    }
+                    crate::style_codec::skip(&mut xml, 5)?;
+                    emit(&mut writer, Event::Start(start))?;
+                    emit(
+                        &mut writer,
+                        Event::Text(quick_xml::events::BytesText::new(&expression)),
+                    )?;
+                    emit(
+                        &mut writer,
+                        Event::End(quick_xml::events::BytesEnd::new(name)),
+                    )?;
                 } else {
                     emit(&mut writer, Event::Start(e))?;
                 }
@@ -1087,4 +1144,31 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         .flush()
         .map_err(|error| io_error("Cannot flush rewritten XML part", error))?;
     Ok(output.bytes)
+}
+
+/// The translated text for a follower whose shared master was replaced.
+fn orphan_formula(
+    e: &quick_xml::events::BytesStart<'_>,
+    address: Option<CellAddress>,
+    orphans: &std::collections::HashMap<crabxl_core::SharedFormulaIndex, (String, CellAddress)>,
+    maximum: usize,
+) -> Result<Option<String>> {
+    let Some(address) = address.filter(|_| !orphans.is_empty()) else {
+        return Ok(None);
+    };
+    let metadata =
+        crate::formula_codec::header(e, maximum, crate::formula_codec::HeaderPolicy::KnownRecords)?;
+    let crabxl_core::FormulaType::Shared { index, .. } = &metadata.kind else {
+        return Ok(None);
+    };
+    let Some((expression, anchor)) = orphans.get(index) else {
+        return Ok(None);
+    };
+    crabxl_core::translate_expression(
+        expression,
+        i64::from(address.row.get()) - i64::from(anchor.row.get()),
+        i64::from(address.column.get()) - i64::from(anchor.column.get()),
+        maximum,
+    )
+    .map(Some)
 }

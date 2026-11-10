@@ -32,13 +32,15 @@ impl Created {
 pub(super) struct Removed {
     part: Box<str>,
     relationships: Option<Box<str>>,
+    /// Other parts still point at the worksheet, so its files stay in the package.
+    kept: bool,
 }
 impl Removed {
     fn bytes(&self) -> usize {
         CREATED_BYTES + self.part.len() + self.relationships.as_ref().map_or(0, |part| part.len())
     }
     fn contains(&self, name: &str) -> bool {
-        self.part.as_ref() == name || self.relationships.as_deref() == Some(name)
+        !self.kept && (self.part.as_ref() == name || self.relationships.as_deref() == Some(name))
     }
 }
 pub(super) struct Membership {
@@ -67,6 +69,7 @@ impl Membership {
     pub(super) fn removed_roots(&self) -> Vec<(String, String)> {
         self.removed
             .iter()
+            .filter(|(_, removed)| !removed.kept)
             .filter_map(|(index, removed)| {
                 self.declarations
                     .get(*index)
@@ -233,11 +236,9 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         && matches!(e.local_name().as_ref().as_bytes(),
                             b"customWorkbookViews" | b"extLst"))
             {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Structural editing of workbook feature graphs remains unimplemented",
-                )
-                .with_part(workbook));
+                let depth = frame.depth;
+                crate::style_codec::skip(&mut xml, depth)?;
+                continue;
             }
             if matches!(frame.event, Event::Eof) {
                 break;
@@ -246,9 +247,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         drop(xml);
         Ok(())
     }
-    pub(crate) fn check_remove_graph(&mut self, index: usize, allowance: usize) -> Result<()> {
+    /// Returns whether the removed worksheet part can leave the package. When
+    /// other parts still point at it, the part is kept as an unlisted part.
+    pub(crate) fn check_remove_graph(&mut self, index: usize, allowance: usize) -> Result<bool> {
         self.validate_workbook_patch(0, self.patch_bytes, false)?;
-        self.prepare_copy_template(index)?;
+        match self.prepare_copy_template(index) {
+            Err(error) if error.kind() == ErrorKind::Unsupported => {}
+            result => result?,
+        }
         let part = self
             .book
             .sheets()
@@ -264,10 +270,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .count()
             != 1
         {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Removing a shared worksheet part remains unimplemented",
-            ));
+            return Ok(false);
         }
         let declarations = if self.membership.is_none() {
             Some(self.read_catalog_entries(allowance)?)
@@ -297,20 +300,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             &mut used,
             super::GraphOwner::Worksheet(rid),
         )?;
-        if !safe {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Removing affected worksheet ownership graphs remains unimplemented",
-            )
-            .with_part(part));
-        }
-        Ok(())
+        Ok(safe)
     }
     pub(crate) fn prepare_remove(
         &mut self,
         id: SheetId,
         originals: Vec<SheetId>,
         original: Option<usize>,
+        drop_part: bool,
         allowance: usize,
     ) -> Result<RemovePlan> {
         let incoming = self.prepare_membership(originals, allowance)?;
@@ -335,6 +332,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         .iter()
                         .any(|p| p.name.as_ref() == rels)
                         .then(|| rels.into_boxed_str()),
+                    kept: !drop_part,
                 },
             ))
         } else {

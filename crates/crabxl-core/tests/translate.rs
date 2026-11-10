@@ -200,10 +200,8 @@ fn invalid_boundaries_syntax_and_output_capacity_do_not_return_partial_results()
         translate_expression("=Z9", 1, 1, 3).unwrap_err().kind(),
         ErrorKind::MemoryBudgetExceeded
     );
-    assert_eq!(
-        translate_expression("=A1#", 1, 1, 4096).unwrap_err().kind(),
-        ErrorKind::Unsupported
-    );
+    // Spill references keep their operator.
+    assert_eq!(translate_expression("=A1#", 1, 1, 4096).unwrap(), "=B2#");
     for source in ["=\"A1", "='Sheet!A1", "=Table[A1"] {
         assert_eq!(
             translate_expression(source, 1, 1, 4096).unwrap_err().kind(),

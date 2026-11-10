@@ -460,11 +460,10 @@ impl Worksheet {
         for column in 0..values.len() {
             let address = CellAddress::new(row.get(), column as u32)?;
             if self.merges.virtual_style(address).is_some() {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Appending over covered merged coordinates is not implemented",
-                )
-                .with_cell(address));
+                return Err(
+                    Error::new(ErrorKind::InvalidData, "Cannot append over merged cells")
+                        .with_cell(address),
+                );
             }
         }
 

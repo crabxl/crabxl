@@ -223,7 +223,6 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     signed: bool,
     calc_chain_parts: HashSet<String>,
     chain_removals: HashSet<String>,
-    chain_safe: bool,
     workbook_relationships: String,
     allowance: MemoryAllowance,
     shared_string_parts: HashSet<String>,
@@ -360,7 +359,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         drop(xml);
         let workbook_relationships = crate::package::relationship_part(&book.workbook_part);
-        let (chain_removals, chain_safe) = catalog_part_removal(
+        let (chain_removals, _) = catalog_part_removal(
             &mut book,
             &parts,
             &calc_chain_parts,
@@ -398,7 +397,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             signed,
             calc_chain_parts,
             chain_removals,
-            chain_safe,
             workbook_relationships,
             allowance,
             shared_string_parts,

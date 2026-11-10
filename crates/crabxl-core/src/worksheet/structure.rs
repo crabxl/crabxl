@@ -171,11 +171,8 @@ impl Worksheet {
                     formula.formula_type(),
                     crate::FormulaType::Array | crate::FormulaType::DataTable
                 ) {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Structured formula graph translation is not implemented",
-                    )
-                    .with_cell(cell.address));
+                    // As in openpyxl, array and data-table formulas keep their text.
+                    continue;
                 }
                 let maximum = self
                     .limits

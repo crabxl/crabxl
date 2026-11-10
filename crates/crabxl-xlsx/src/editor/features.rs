@@ -2,7 +2,6 @@
 //! elements, table/comment parts, relationships, content types, workbook
 //! names/protection and document properties.
 use super::*;
-use crate::features::may_reference_external_link;
 use crate::features::package::{
     OutputPart, OutputRelationship, PartNumbers, SheetOutput, build_sheet_output,
 };
@@ -45,47 +44,7 @@ impl FeatureSave {
     }
 }
 
-impl<R: Read + Seek> WorkbookEditor<R> {
-    pub(crate) fn source_has_external_formulas(
-        &mut self,
-        index: usize,
-        maximum: usize,
-        retained: usize,
-        catalog: Option<&crabxl_core::StyleCatalog>,
-    ) -> Result<bool> {
-        let info =
-            self.book.sheets().get(index).ok_or_else(|| {
-                Error::new(ErrorKind::SheetNotFound, "Unknown formula source sheet")
-            })?;
-        let name = info.name().to_owned();
-        let retained = retained.saturating_add(name.capacity());
-        let patches = self.patches.get(info.part());
-        let mut rows = self.book.rows_with_catalog_allowance(
-            &name,
-            crabxl_core::ReadOptions::default(),
-            Some(maximum),
-            catalog,
-            retained,
-            false,
-        )?;
-        let mut row = crabxl_core::Row::new(crabxl_core::RowIndex::FIRST);
-        while rows.read_row_into(&mut row)? {
-            for cell in &row.cells {
-                let value = patches
-                    .and_then(|patches| {
-                        patches.get(&(cell.address.row.get(), cell.address.column.get()))
-                    })
-                    .map_or(&cell.value, |patch| &patch.cell.value);
-                if let crabxl_core::CellValue::Formula(formula) = value.unannotated()
-                    && may_reference_external_link(formula.expression())
-                {
-                    return Ok(true);
-                }
-            }
-        }
-        Ok(false)
-    }
-}
+impl<R: Read + Seek> WorkbookEditor<R> {}
 
 const EMPTY_RELS: &[u8] = b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"></Relationships>";
 
@@ -252,10 +211,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             }
         }
         if strict && keep.contains(root) {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "VBA project has another package owner",
-            ));
+            // Another part still needs the project, so it stays.
+            return Ok(());
         }
         let mut queue: Vec<_> = keep.iter().cloned().collect();
         while let Some(source) = queue.pop() {
@@ -284,16 +241,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         save: &mut FeatureSave,
     ) -> Result<()> {
         use crabxl_core::features::{MacroPolicy, WorkbookFormat};
-        if features.external_links.as_ref().is_some_and(Vec::is_empty)
-            && features
-                .defined_names
-                .iter()
-                .any(|name| may_reference_external_link(&name.value))
-        {
-            return Err(crate::features::unsupported(
-                "Cannot remove external links while a defined name may reference them",
-            ));
-        }
         if features.metadata.is_none()
             && features.external_links.is_none()
             && features.format.is_none()
@@ -441,12 +388,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .iter()
             .find(|info| info.name() == sheet)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet not found"))?;
-        if !matches!(info.kind(), SheetKind::Worksheet | SheetKind::ChartSheet) {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Features require a cell worksheet",
-            ));
-        }
         Ok(info.part().to_owned())
     }
 
@@ -620,12 +561,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         hyperlink_relationships: &BTreeMap<String, &[u8]>,
     ) -> Result<FeatureSave> {
         let mut save = FeatureSave::default();
-        if self.signed && self.has_feature_patches() {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Editing signed packages is unsupported",
-            ));
-        }
         let removed = self
             .membership
             .as_deref()

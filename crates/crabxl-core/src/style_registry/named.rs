@@ -133,12 +133,6 @@ impl StyleRegistry {
             .catalog
             .cell_format(style)
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown named appearance format"))?;
-        if source.unmodeled_extensions {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Unmodeled named style extensions require source preservation",
-            ));
-        }
         let mut base = source.clone();
         base.base_format_id = None;
         let old_bytes = self
@@ -183,12 +177,6 @@ impl StyleRegistry {
             .catalog
             .cell_format(style)
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown named appearance format"))?;
-        if source.unmodeled_extensions {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Unmodeled named style extensions require source preservation",
-            ));
-        }
         let mut base = source.clone();
         base.base_format_id = None;
         let base_id = self.catalog.base_formats.len() as u32;

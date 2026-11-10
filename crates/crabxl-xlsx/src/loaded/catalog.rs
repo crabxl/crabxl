@@ -67,9 +67,19 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 .ok_or_else(|| {
                     Error::new(ErrorKind::SheetNotFound, "Unknown copied sheet identity")
                 })?;
-            let template = source.original.or_else(|| self.editor.copy_template(id));
+            let mut template = source.original.or_else(|| self.editor.copy_template(id));
             if let Some(index) = template {
-                self.editor.prepare_copy_template(index)?;
+                match self.editor.prepare_copy_template(index) {
+                    // Like openpyxl, copy cells, styles and dimensions from the model
+                    // when the source part holds content the copy cannot carry.
+                    Err(error)
+                        if error.kind() == ErrorKind::Unsupported
+                            && kind == crate::SheetKind::Worksheet =>
+                    {
+                        template = None;
+                    }
+                    result => result?,
+                }
             }
             if kind == crate::SheetKind::Worksheet {
                 self.hyperlinks(id)?;
@@ -213,12 +223,13 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .allowance
             .retained_data_bytes
             .min(self.options.workbook.max_bytes);
-        if let Some(original) = original {
-            self.editor.check_remove_graph(
+        let drop_part = match original {
+            Some(original) => self.editor.check_remove_graph(
                 original,
                 maximum.saturating_sub(self.managed_retained_bytes()),
-            )?;
-        }
+            )?,
+            None => true,
+        };
         if self.sheets[index].kind == crate::SheetKind::Worksheet {
             self.hyperlinks(id)?;
         }
@@ -227,6 +238,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             id,
             originals,
             original,
+            drop_part,
             maximum.saturating_sub(self.managed_retained_bytes()),
         )?;
         self.reserve_workbook_patch(plan.bytes.saturating_add(plan.scratch_bytes))?;

@@ -284,14 +284,7 @@ impl WorkbookWriter {
                 .map(|settings| settings.relationship.as_ref())
         {
             return Err(Error::new(
-                if features
-                    .and_then(|features| features.printer_settings.as_ref())
-                    .is_none()
-                {
-                    ErrorKind::Unsupported
-                } else {
-                    ErrorKind::InvalidData
-                },
+                ErrorKind::InvalidData,
                 "Printer settings must match the page-setup relationship",
             ));
         }

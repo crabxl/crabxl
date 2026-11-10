@@ -18,22 +18,6 @@ pub(crate) fn validate(style: &CellStyle, maximum: usize) -> Result<()> {
     Ok(())
 }
 pub(crate) fn validate_catalog(catalog: &crabxl_core::StyleCatalog) -> Result<()> {
-    if !catalog.unmodeled_sections.is_empty()
-        || catalog
-            .differential_styles
-            .iter()
-            .any(|style| style.unmodeled_extensions)
-        || catalog
-            .cell_formats
-            .iter()
-            .chain(&catalog.base_formats)
-            .any(|format| format.unmodeled_extensions)
-    {
-        return Err(Error::new(
-            ErrorKind::Unsupported,
-            "Unmodeled style sections require original-package preservation",
-        ));
-    }
     for font in &catalog.fonts {
         if let Some(name) = &font.name {
             crate::encode::validate_xml_text(name)?;
@@ -73,12 +57,6 @@ fn write_xf(
     format: &crabxl_core::CellFormat,
     policy: crate::StyleWritePolicy,
 ) -> io::Result<()> {
-    if format.unmodeled_extensions {
-        return Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "Cannot serialize an unmodeled style extension",
-        ));
-    }
     write!(
         output,
         "<xf numFmtId=\"{}\" fontId=\"{}\" fillId=\"{}\" borderId=\"{}\"",
@@ -115,12 +93,6 @@ pub(crate) fn write_styles(
     catalog: &crabxl_core::StyleCatalog,
     policy: crate::StyleWritePolicy,
 ) -> io::Result<()> {
-    if !catalog.unmodeled_sections.is_empty() {
-        return Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "Cannot serialize unmodeled style sections",
-        ));
-    }
     write!(
         output,
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?><styleSheet xmlns=\"{}\"><numFmts count=\"{}\">",

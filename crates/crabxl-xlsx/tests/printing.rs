@@ -245,7 +245,7 @@ fn source_printer_identity_is_preserved_and_mutation_requires_graph_support() {
             .set_print_settings("Sheet", value)
             .unwrap_err()
             .kind(),
-        ErrorKind::Unsupported
+        ErrorKind::InvalidData
     );
     let out = editor
         .save(Cursor::new(Vec::new()), SaveOptions::default())
@@ -275,7 +275,7 @@ fn source_printer_identity_is_preserved_and_mutation_requires_graph_support() {
             .start_sheet_with_settings("Sheet", None, Some(&loaded))
             .unwrap_err()
             .kind(),
-        ErrorKind::Unsupported
+        ErrorKind::InvalidData
     );
     assert_eq!(writer.temporary_bytes(), 0);
 }
@@ -600,7 +600,7 @@ fn printing_component_updates_reuse_source_validation_and_preserve_vector_owners
             }),
         )
         .unwrap_err();
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert_eq!(error.kind(), ErrorKind::InvalidData);
     assert!(
         editor
             .update_print_settings(

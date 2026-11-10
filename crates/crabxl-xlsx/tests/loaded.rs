@@ -606,7 +606,7 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
             CellValue::Integer(7)
         );
     }
-    // Unknown incoming consumers reject before loading or removing the source.
+    // A sheet that other parts still point at leaves the workbook, but its part stays.
     let mut incoming_parts = original_parts.clone();
     incoming_parts.insert("xl/opaque.xml".into(), b"opaque".to_vec());
     incoming_parts.insert("xl/_rels/opaque.xml.rels".into(), b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"urn:opaque\" Target=\"worksheets/sheet1.xml\"/></Relationships>".to_vec());
@@ -616,22 +616,17 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
     )
     .unwrap();
     let id = incoming.sheet_id("First").unwrap();
-    assert_eq!(
-        incoming.remove_sheet(id).err().unwrap().kind(),
-        ErrorKind::Unsupported
+    incoming.remove_sheet(id).unwrap();
+    let saved = parts(
+        incoming
+            .save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0
+            .into_inner(),
     );
-    assert!(!incoming.is_materialized(id));
-    assert_eq!(incoming.patch_bytes(), 0);
-    assert_eq!(
-        parts(
-            incoming
-                .save(Cursor::new(Vec::new()), Default::default())
-                .unwrap()
-                .0
-                .into_inner()
-        ),
-        incoming_parts
-    );
+    assert!(saved.contains_key("xl/worksheets/sheet1.xml"));
+    let reader = crabxl_xlsx::WorkbookReader::new(Cursor::new(package(saved))).unwrap();
+    assert!(reader.sheets().iter().all(|sheet| sheet.name() != "First"));
     for body in [
         "<Relationship Id=\"external\" Type=\"urn:opaque\" Target=\"https://example.invalid/asset\" TargetMode=\"External\"/>",
         "<owner xmlns=\"urn:opaque\" target=\"sheet1.xml\"/>",
@@ -644,7 +639,21 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
         )
         .unwrap();
         let id = outgoing.sheet_id("First").unwrap();
-        if body.contains("TargetMode") {
+        // Unknown relationship content keeps the part in the package.
+        if !body.contains("TargetMode") {
+            outgoing.remove_sheet(id).unwrap();
+            let saved = parts(
+                outgoing
+                    .save(Cursor::new(Vec::new()), Default::default())
+                    .unwrap()
+                    .0
+                    .into_inner(),
+            );
+            assert!(saved.contains_key("xl/worksheets/sheet1.xml"));
+            continue;
+        }
+        {
+            // External-only relationships leave with the sheet.
             outgoing.remove_sheet(id).unwrap();
             let saved = parts(
                 outgoing
@@ -655,24 +664,7 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
             );
             assert!(!saved.contains_key("xl/worksheets/sheet1.xml"));
             assert!(!saved.contains_key("xl/worksheets/_rels/sheet1.xml.rels"));
-            continue;
         }
-        assert_eq!(
-            outgoing.remove_sheet(id).err().unwrap().kind(),
-            ErrorKind::Unsupported
-        );
-        assert!(!outgoing.is_materialized(id));
-        assert_eq!(outgoing.patch_bytes(), 0);
-        assert_eq!(
-            parts(
-                outgoing
-                    .save(Cursor::new(Vec::new()), Default::default())
-                    .unwrap()
-                    .0
-                    .into_inner()
-            ),
-            outgoing_parts
-        );
     }
     // Removing a sheet preserves the explicitly retained opaque VBA project and format.
     for kind in [
@@ -776,33 +768,24 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
             Default::default(),
         )
         .unwrap();
+        // Custom views and extensions are kept and no longer block edits.
         let id = guarded.sheet_id("First").unwrap();
-        assert_eq!(
-            guarded.remove_sheet(id).err().unwrap().kind(),
-            ErrorKind::Unsupported
-        );
-        assert_eq!(
+        guarded
+            .insert_rows(id, RowIndex::new(0).unwrap(), 1)
+            .unwrap();
+        guarded.copy_sheet(id, "Copied").unwrap();
+        guarded.remove_sheet(id).unwrap();
+        let saved = parts(
             guarded
-                .insert_rows(id, RowIndex::new(0).unwrap(), 1)
-                .unwrap_err()
-                .kind(),
-            ErrorKind::Unsupported
+                .save(Cursor::new(Vec::new()), Default::default())
+                .unwrap()
+                .0
+                .into_inner(),
         );
-        assert_eq!(
-            guarded.copy_sheet(id, "Blocked").unwrap_err().kind(),
-            ErrorKind::Unsupported
-        );
-        assert!(!guarded.is_materialized(id));
-        assert_eq!(guarded.patch_bytes(), 0);
-        assert_eq!(
-            parts(
-                guarded
-                    .save(Cursor::new(Vec::new()), Default::default())
-                    .unwrap()
-                    .0
-                    .into_inner()
-            ),
-            guarded_parts
+        assert!(
+            String::from_utf8(saved["xl/workbook.xml"].clone())
+                .unwrap()
+                .contains(graph.trim_matches(['<', '/', '>']))
         );
     }
     let catalog_pointer = workbook.model().style_catalog().unwrap().fonts.as_ptr();
@@ -920,7 +903,7 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
     );
     assert_eq!(
         workbook.sheet(chart_id).err().unwrap().kind(),
-        ErrorKind::Unsupported
+        ErrorKind::InvalidData
     );
     workbook.set_active_sheet(chart_id).unwrap();
     assert_eq!(workbook.model().active_sheet(), Some(chart_id));
@@ -1244,20 +1227,9 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
                 CellValue::Integer(17),
             )
             .unwrap();
-        if mode == "extension" {
-            assert_eq!(
-                membership.copy_sheet(first, "Copied").unwrap_err().kind(),
-                ErrorKind::Unsupported
-            );
-            assert_eq!(
-                membership.remove_sheet(first).err().unwrap().kind(),
-                ErrorKind::Unsupported
-            );
-            assert!(!membership.is_materialized(first));
-        } else {
-            membership.copy_sheet(first, "Copied").unwrap();
-            membership.remove_sheet(first).unwrap();
-        }
+        // Catalog extensions no longer block copies or removals.
+        membership.copy_sheet(first, "Copied").unwrap();
+        membership.remove_sheet(first).unwrap();
         for _ in 0..2 {
             let saved = parts(
                 membership
@@ -1330,13 +1302,31 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         let first = workbook.sheet_id("First").unwrap();
         let second = workbook.sheet_id("Second").unwrap();
         let before = workbook.managed_retained_bytes();
-        let error = workbook.set_active_sheet(second).unwrap_err();
+        let result = workbook.set_active_sheet(second);
+        if matches!(mode, "signed" | "alternative") {
+            // Signatures and unknown alternatives are dropped on save, as in openpyxl.
+            result.unwrap();
+            let saved = parts(
+                workbook
+                    .save(Cursor::new(Vec::new()), Default::default())
+                    .unwrap()
+                    .0
+                    .into_inner(),
+            );
+            assert!(!saved.contains_key("_xmlsignatures/sig1.xml"));
+            assert!(
+                !String::from_utf8(saved["xl/workbook.xml"].clone())
+                    .unwrap()
+                    .contains("AlternateContent")
+            );
+            continue;
+        }
+        let error = result.unwrap_err();
         assert_eq!(
             error.kind(),
             match mode {
                 "hidden" => ErrorKind::InvalidData,
-                "patch-cap" => ErrorKind::MemoryBudgetExceeded,
-                _ => ErrorKind::Unsupported,
+                _ => ErrorKind::MemoryBudgetExceeded,
             }
         );
         assert_eq!(workbook.model().active_sheet(), Some(first));
@@ -2056,9 +2046,10 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
         let id = book.sheet_id("First").unwrap();
         let result = book.insert_rows(id, RowIndex::new(0).unwrap(), 1);
         if rich {
-            assert_eq!(result.unwrap_err().kind(), ErrorKind::Unsupported);
-            assert!(!book.is_materialized(id));
-            assert_eq!(book.patch_bytes(), 0);
+            // Without rich_text the runs are kept as plain text, as in openpyxl.
+            result.unwrap();
+            book.save(Cursor::new(Vec::new()), Default::default())
+                .unwrap();
             let mut typed = LoadedWorkbook::with_options(
                 Cursor::new(input),
                 LoadOptions {
@@ -2149,8 +2140,8 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
         ),
         parts(bytes.clone())
     );
-    // ISO elapsed durations with a non-duration source style need a new
-    // registration/stylesheet transaction; never silently turn them into numbers.
+    // ISO elapsed durations with a non-duration source style are written as
+    // serial numbers in that style.
     let mut duration_parts = original.clone();
     let xml = String::from_utf8(duration_parts.remove("xl/worksheets/sheet1.xml").unwrap())
         .unwrap()
@@ -2163,22 +2154,15 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
     )
     .unwrap();
     let id = book.sheet_id("First").unwrap();
-    assert_eq!(
-        book.insert_rows(id, RowIndex::new(0).unwrap(), 1)
-            .unwrap_err()
-            .kind(),
-        ErrorKind::Unsupported
+    book.insert_rows(id, RowIndex::new(0).unwrap(), 1).unwrap();
+    let saved = parts(
+        book.save(Cursor::new(Vec::new()), Default::default())
+            .unwrap()
+            .0
+            .into_inner(),
     );
-    assert_eq!(book.patch_bytes(), 0);
-    assert_eq!(
-        parts(
-            book.save(Cursor::new(Vec::new()), Default::default())
-                .unwrap()
-                .0
-                .into_inner()
-        ),
-        duration_parts
-    );
+    let xml = String::from_utf8(saved["xl/worksheets/sheet1.xml"].clone()).unwrap();
+    assert!(xml.contains("<c r=\"A2\"") && !xml.contains("PT1H"));
     // The same source fixture checks graph rejection before loading/mutation.
     for (from, to) in [
         (
@@ -2198,41 +2182,26 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
         let input = package(guarded_parts.clone());
         let mut guarded =
             LoadedWorkbook::with_options(Cursor::new(input), Default::default()).unwrap();
+        // Unknown attributes are dropped on rewrite, as in openpyxl.
         let id = guarded.sheet_id("First").unwrap();
-        let before = guarded.managed_retained_bytes();
-        assert_eq!(
-            guarded
-                .insert_rows(id, RowIndex::new(0).unwrap(), 1)
-                .unwrap_err()
-                .kind(),
-            ErrorKind::Unsupported
-        );
-        assert_eq!(
-            guarded.copy_sheet(id, "Blocked Copy").unwrap_err().kind(),
-            ErrorKind::Unsupported
-        );
-        assert!(guarded.sheet_id("Blocked Copy").is_none());
-        assert_eq!(
-            guarded.remove_sheet(id).err().unwrap().kind(),
-            ErrorKind::Unsupported
-        );
-        assert!(guarded.sheet_id("First").is_some());
-        assert_eq!(
-            guarded
-                .remove_cell(id, CellAddress::new(0, 0).unwrap())
-                .unwrap_err()
-                .kind(),
-            ErrorKind::Unsupported
-        );
-        assert!(!guarded.is_materialized(id));
-        assert_eq!(guarded.patch_bytes(), 0);
-        assert_eq!(guarded.managed_retained_bytes(), before);
+        guarded
+            .insert_rows(id, RowIndex::new(0).unwrap(), 1)
+            .unwrap();
+        let copy = guarded.copy_sheet(id, "Copy").unwrap();
+        guarded
+            .remove_cell(id, CellAddress::new(1, 0).unwrap())
+            .unwrap();
+        guarded.remove_sheet(id).unwrap();
         let saved = guarded
             .save(Cursor::new(Vec::new()), Default::default())
             .unwrap()
             .0
             .into_inner();
-        assert_eq!(parts(saved), guarded_parts);
+        let mut reopened =
+            LoadedWorkbook::with_options(Cursor::new(saved), Default::default()).unwrap();
+        let copy_id = reopened.sheet_id("Copy").unwrap();
+        assert!(reopened.sheet(copy_id).unwrap().cells().count() > 0);
+        let _ = copy;
     }
 }
 

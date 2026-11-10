@@ -70,12 +70,6 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         if !style && !theme {
             return Ok(Vec::new());
         }
-        if self.signed {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Signed catalog graph creation remains unimplemented",
-            ));
-        }
         if self
             .book
             .archive
@@ -83,8 +77,8 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .is_none()
         {
             return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Creating a missing workbook relationship root remains unimplemented",
+                ErrorKind::InvalidData,
+                "Workbook relationships part is missing",
             ));
         }
         let maximum = self

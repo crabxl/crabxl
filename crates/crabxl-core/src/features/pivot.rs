@@ -25,7 +25,7 @@ impl PivotCache {
     pub fn validate_worksheet_fields(&self) -> Result<()> {
         if self.definition.child("cacheSource").and_then(|source| source.attribute("type")) == Some("worksheet")
             && self.definition.child("cacheFields").is_some_and(|fields| fields.children.iter().any(|child| matches!(child, crate::XmlContent::Element(field) if field.local_name() == "cacheField" && field.attribute("caption").is_some()))) {
-            return Err(Error::new(ErrorKind::Unsupported, "Worksheet pivot cache field captions are unsupported by Excel; set the pivot field name instead"));
+            return Err(Error::new(ErrorKind::InvalidData, "Worksheet pivot cache field captions are unsupported by Excel; set the pivot field name instead"));
         }
         Ok(())
     }

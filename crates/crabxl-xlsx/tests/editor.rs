@@ -99,14 +99,7 @@ fn upsert_preserves_excel_workbook_absolute_path_alternative() {
         assert_ne!(xml, workbook);
         data.insert("xl/workbook.xml".into(), xml.into_bytes());
         let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
-        if supported {
-            editor.set_active_sheet("Other").unwrap();
-        } else {
-            assert_eq!(
-                editor.set_active_sheet("Other").unwrap_err().kind(),
-                ErrorKind::Unsupported
-            );
-        }
+        editor.set_active_sheet("Other").unwrap();
         editor
             .upsert_value("Sheet", "E9".parse().unwrap(), Value::Integer(12))
             .unwrap();
@@ -119,7 +112,12 @@ fn upsert_preserves_excel_workbook_absolute_path_alternative() {
                 String::from_utf8_lossy(&output["xl/worksheets/sheet1.xml"]).contains("r=\"E9\"")
             );
         } else {
-            assert_eq!(result.unwrap_err().kind(), ErrorKind::Unsupported);
+            // Other alternatives are dropped, as openpyxl does.
+            let (output, _) = result.unwrap();
+            let output = parts(output.get_ref());
+            assert!(
+                !String::from_utf8_lossy(&output["xl/workbook.xml"]).contains("AlternateContent")
+            );
         }
     }
 }
@@ -322,10 +320,14 @@ fn unsupported_targets_and_missing_cells_leave_atomic_path_target_unchanged() {
     let directory = tempfile::tempdir().unwrap();
     let target = directory.path().join("target.xlsx");
     std::fs::write(&target, b"original target").unwrap();
-    for cell in [
-        "<c r=\"A1\"><f t=\"shared\" si=\"0\">A1+1</f><v>2</v></c>",
-        "<c r=\"A1\"><extLst><ext/></extLst><v>1</v></c>",
-        "<c r=\"B1\"><v>1</v></c>",
+    // A replaced cell drops its old formula and unknown content, as in openpyxl.
+    for (cell, replaced) in [
+        (
+            "<c r=\"A1\"><f t=\"shared\" si=\"0\">A1+1</f><v>2</v></c>",
+            true,
+        ),
+        ("<c r=\"A1\"><extLst><ext/></extLst><v>1</v></c>", true),
+        ("<c r=\"B1\"><v>1</v></c>", false),
     ] {
         let mut data = parts(&source());
         data.insert("xl/worksheets/sheet1.xml".into(),format!("<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\">{cell}</row></sheetData></worksheet>").into_bytes());
@@ -333,6 +335,14 @@ fn unsupported_targets_and_missing_cells_leave_atomic_path_target_unchanged() {
         editor
             .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
             .unwrap();
+        if replaced {
+            editor.save_path(&target, SaveOptions::default()).unwrap();
+            let mut read = WorkbookReader::new(std::fs::File::open(&target).unwrap()).unwrap();
+            let sheet = read.read_sheet("Sheet").unwrap();
+            assert_eq!(sheet.rows[0].cells[0].value, Value::Integer(9));
+            std::fs::write(&target, b"original target").unwrap();
+            continue;
+        }
         assert!(editor.save_path(&target, SaveOptions::default()).is_err());
         assert_eq!(std::fs::read(&target).unwrap(), b"original target");
         assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
@@ -417,13 +427,13 @@ fn patch_budgets_signed_sources_and_calculation_chain_edits_are_guarded() {
             },
         )
         .unwrap();
-        assert_eq!(
-            editor
-                .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
-                .unwrap_err()
-                .kind(),
-            ErrorKind::Unsupported
-        );
+        // Signatures no longer block edits; only the chain policy does.
+        let result = editor.set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9));
+        if kind.contains("calcChain") {
+            assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidState);
+        } else {
+            result.unwrap();
+        }
         assert!(
             editor
                 .save(Cursor::new(Vec::new()), SaveOptions::default())
@@ -745,7 +755,7 @@ fn upserts_create_rows_in_empty_strict_sheet_and_reject_non_anchor_merges_atomic
             .save_path(&target, SaveOptions::default())
             .unwrap_err()
             .kind(),
-        ErrorKind::Unsupported
+        ErrorKind::InvalidData
     );
     assert_eq!(std::fs::read(&target).unwrap(), b"original");
     assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
@@ -844,18 +854,17 @@ fn foreign_chain_consumers_and_chain_extensions_reject_edits_without_loss() {
         let mut data = calculation_chain_source();
         data.insert(name.into(), xml.as_bytes().to_vec());
         let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
-        assert_eq!(
-            editor
-                .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
-                .unwrap_err()
-                .kind(),
-            ErrorKind::Unsupported
-        );
-        assert!(!editor.is_dirty());
+        editor
+            .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
+            .unwrap();
         let (saved, _) = editor
             .save(Cursor::new(Vec::new()), SaveOptions::default())
             .unwrap();
-        assert_eq!(parts(saved.get_ref()), data);
+        let mut read = WorkbookReader::new(saved).unwrap();
+        assert_eq!(
+            read.read_sheet("Sheet").unwrap().rows[0].cells[0].value,
+            Value::Integer(9)
+        );
     }
 }
 #[test]
@@ -890,22 +899,16 @@ fn strict_chain_relationships_are_removed_but_untyped_targets_are_guarded() {
         );
     data.insert("[Content_Types].xml".into(), types.into_bytes());
     let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    editor
+        .set_value("Other", Address::new(0, 0).unwrap(), Value::Integer(3))
+        .unwrap();
+    let (saved, _) = editor
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    let mut read = WorkbookReader::new(saved).unwrap();
     assert_eq!(
-        editor
-            .set_value("Other", Address::new(0, 0).unwrap(), Value::Integer(3))
-            .unwrap_err()
-            .kind(),
-        ErrorKind::Unsupported
-    );
-    assert_eq!(
-        parts(
-            editor
-                .save(Cursor::new(Vec::new()), SaveOptions::default())
-                .unwrap()
-                .0
-                .get_ref()
-        ),
-        data
+        read.read_sheet("Other").unwrap().rows[0].cells[0].value,
+        Value::Integer(3)
     );
 }
 
@@ -933,13 +936,10 @@ fn chain_graph_scan_is_bounded_and_alternate_consumers_guarded() {
     data.remove("custom/_rels/original.xml.rels");
     data.insert("custom/_rels/original.xml.rels".into(),b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice Requires=\"x\" xmlns:x=\"urn:unknown\"><Relationship Id=\"chain\" Type=\"urn:opaque\" Target=\"order.xml\"/></mc:Choice></mc:AlternateContent></Relationships>".to_vec());
     let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
-    assert_eq!(
-        editor
-            .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
-            .unwrap_err()
-            .kind(),
-        ErrorKind::Unsupported
-    );
+    editor
+        .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9))
+        .unwrap();
+    editor.clear_edits();
     assert_eq!(
         parts(
             editor
@@ -1156,7 +1156,8 @@ fn known_structured_literal_flags_can_be_replaced_without_relaxing_graph_guards(
         // Unknown attributes are dropped, as in openpyxl.
         ("dataTable", "ca=\"opaque\" custom=\"unknown\"", true),
         ("future", "", false),
-        ("shared", "si=\"1\"", false),
+        // A replaced shared master expands its followers, as in openpyxl.
+        ("shared", "si=\"1\"", true),
     ] {
         let mut data = parts(&source());
         data.insert("xl/worksheets/sheet1.xml".into(), format!("<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\"><c r=\"A1\"><f t=\"{kind}\" ref=\"A1:B2\" {hints}>1</f></c><c r=\"B1\"><v>7</v></c></row></sheetData></worksheet>").into_bytes());
@@ -1213,5 +1214,32 @@ fn known_structured_literal_flags_can_be_replaced_without_relaxing_graph_guards(
             );
             assert_eq!(loaded.rows[0].cells[1].value, Value::Integer(7));
         }
+    }
+}
+
+#[test]
+fn replacing_a_shared_master_expands_its_followers() {
+    let mut data = parts(&source());
+    data.insert("xl/worksheets/sheet1.xml".into(), format!("<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:A3\" si=\"0\">B1*2</f><v>2</v></c></row><row r=\"2\"><c r=\"A2\"><f t=\"shared\" si=\"0\"/><v>4</v></c></row><row r=\"3\"><c r=\"A3\"><f t=\"shared\" si=\"0\"/><v>6</v></c></row></sheetData></worksheet>").into_bytes());
+    let mut editor = WorkbookEditor::new(Cursor::new(packed(&data))).unwrap();
+    editor
+        .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(5))
+        .unwrap();
+    let (saved, _) = editor
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    let xml =
+        String::from_utf8(parts(saved.get_ref())["xl/worksheets/sheet1.xml"].clone()).unwrap();
+    assert!(!xml.contains("t=\"shared\""), "{xml}");
+    let sheet = WorkbookReader::new(saved)
+        .unwrap()
+        .read_sheet("Sheet")
+        .unwrap();
+    assert_eq!(sheet.rows[0].cells[0].value, Value::Integer(5));
+    for (row, expected) in [(1, "B2*2"), (2, "B3*2")] {
+        let Value::Formula(formula) = &sheet.rows[row].cells[0].value else {
+            panic!("follower lost its formula");
+        };
+        assert_eq!(formula.expression(), expected);
     }
 }

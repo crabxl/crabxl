@@ -282,6 +282,24 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .map_err(|error| zip_error("Cannot preserve ZIP archive comment", error))?;
         let mut stats = SaveStats::default();
         let empty_chains = HashSet::new();
+        // openpyxl does not keep digital signatures, so a changed signed package
+        // is saved without them.
+        let drop_signature = self.signed && self.is_dirty();
+        let unsigned_rels = if drop_signature {
+            let maximum = self.options.resources.max_part_bytes;
+            let file = self
+                .book
+                .archive
+                .by_name("_rels/.rels")
+                .map_err(|cause| zip_error("Cannot read package relationships", cause))?;
+            let mut bytes = Vec::new();
+            file.take(maximum)
+                .read_to_end(&mut bytes)
+                .map_err(|cause| io_error("Cannot read package relationships", cause))?;
+            Some(unsigned_relationships(&bytes)?)
+        } else {
+            None
+        };
         let mut total: u128 = self
             .parts
             .iter()
@@ -293,6 +311,26 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .sum();
         for index in 0..self.parts.len() {
             let part = &self.parts[index];
+            if drop_signature && part.name.starts_with("_xmlsignatures/") {
+                stats.removed_parts += 1;
+                total -= u128::from(part.uncompressed_bytes);
+                continue;
+            }
+            if let Some(bytes) = unsigned_rels
+                .as_ref()
+                .filter(|_| part.name.as_ref() == "_rels/.rels")
+            {
+                zip.start_file(
+                    part.name.as_ref(),
+                    crate::writer::compression_options(options.compression_level),
+                )
+                .map_err(|cause| zip_error("Cannot start package relationships", cause))?;
+                zip.write_all(bytes)
+                    .map_err(|cause| io_error("Cannot write package relationships", cause))?;
+                total = total - u128::from(part.uncompressed_bytes) + bytes.len() as u128;
+                stats.rewritten_parts += 1;
+                continue;
+            }
             if (dirty && self.chain_removals.contains(part.name.as_ref()))
                 || membership.is_some_and(|(member, _)| member.removes_part(&part.name))
             {
@@ -915,4 +953,36 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .map_err(|error| io_error("Cannot replace edited workbook target", error))?;
         Ok(stats)
     }
+}
+
+/// Package relationships without the digital signature origin.
+fn unsigned_relationships(bytes: &[u8]) -> Result<Vec<u8>> {
+    let xml = |cause| {
+        Error::caused_by(
+            ErrorKind::Xml,
+            "Cannot rewrite package relationships",
+            cause,
+        )
+    };
+    let mut reader = quick_xml::Reader::from_reader(bytes);
+    let mut writer = Writer::new(Vec::with_capacity(bytes.len()));
+    let mut buffer = Vec::new();
+    loop {
+        let event = reader.read_event_into(&mut buffer).map_err(xml)?;
+        let signature = match &event {
+            Event::Eof => break,
+            Event::Empty(e) => {
+                e.local_name().as_ref() == "Relationship"
+                    && attribute(e, b"Type")?.is_some_and(|kind| kind.contains("digital-signature"))
+            }
+            _ => false,
+        };
+        if !signature {
+            writer
+                .write_event(event)
+                .map_err(|cause| io_error("Cannot write package relationships", cause))?;
+        }
+        buffer.clear();
+    }
+    Ok(writer.into_inner())
 }

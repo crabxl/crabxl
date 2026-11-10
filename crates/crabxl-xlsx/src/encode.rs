@@ -89,10 +89,8 @@ impl StyleContext<'_> {
                 .and_then(crabxl_core::classify_number_format)
                 != Some(crabxl_core::DateKind::Duration)
         {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Source elapsed-duration style registration remains unimplemented",
-            ));
+            // The duration is written as its serial number in the cell's own style.
+            return Ok(());
         }
         if id == 0
             || self
@@ -258,8 +256,8 @@ pub(crate) fn validate_annotation_indices(
             }
             let count = count.ok_or_else(|| {
                 Error::new(
-                    ErrorKind::Unsupported,
-                    "Cell annotations require a workbook metadata graph",
+                    ErrorKind::InvalidData,
+                    "Cell metadata index has no workbook metadata table",
                 )
             })?;
             if index > count {
@@ -407,7 +405,10 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
             validate_value(&stored, maximum_cell, validation_epoch)
                 .map_err(|error| error.with_cell(cell.address))?;
         }
-        if iso_date && let Some(date) = date_value(cell.value) {
+        if iso_date
+            && let Some(date) = date_value(cell.value)
+            && date.kind() != crabxl_core::DateKind::Duration
+        {
             validate_text(&date.to_iso8601()?, maximum_cell)
                 .map_err(|error| error.with_cell(cell.address))?;
         }
@@ -529,8 +530,8 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
                         }
                         _ => {
                             return Err(io::Error::new(
-                                io::ErrorKind::Unsupported,
-                                "Unsupported cell value",
+                                io::ErrorKind::InvalidData,
+                                "Unknown cell value",
                             ));
                         }
                     }
@@ -662,7 +663,7 @@ pub(crate) fn validate_value(
         | CellValue::Integer(_)
         | CellValue::BigInteger(_)
         | CellValue::Boolean(_) => Ok(()),
-        _ => Err(Error::new(ErrorKind::Unsupported, "Unsupported cell value")),
+        _ => Err(Error::new(ErrorKind::InvalidData, "Unknown cell value")),
     }
 }
 

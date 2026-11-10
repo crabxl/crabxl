@@ -1115,7 +1115,7 @@ fn materialized_sparse_model_exports_with_structural_edits_and_empty_extent() {
                 .save(Cursor::new(Vec::new()), Default::default())
                 .unwrap_err()
                 .kind(),
-            crabxl_core::ErrorKind::Unsupported
+            crabxl_core::ErrorKind::InvalidData
         );
         source
             .upsert_value(id, "B2".parse().unwrap(), CellValue::Empty)
@@ -2426,16 +2426,15 @@ fn imported_style_ids_and_zero_date_formats_survive_export_with_derived_auto_ids
 }
 
 #[test]
-fn source_catalog_creation_rejects_unmodeled_sections_and_accepts_large_configured_counts() {
+fn source_catalog_creation_drops_unmodeled_sections_and_accepts_large_configured_counts() {
     use crabxl_core::{StyleLimits, StyleRegistry};
     let mut catalog = StyleRegistry::new(StyleLimits::default())
         .unwrap()
         .catalog()
         .clone();
     catalog.unmodeled_sections.push("dxfs".into());
-    assert!(
-        matches!(WorkbookWriter::from_style_catalog(WriteOptions::default(), catalog), Err(e) if e.kind() == ErrorKind::Unsupported)
-    );
+    // Unmodeled sections are dropped on write, as in openpyxl.
+    assert!(WorkbookWriter::from_style_catalog(WriteOptions::default(), catalog).is_ok());
     let writer = WorkbookWriter::new(WriteOptions {
         max_styles: 100000,
         ..Default::default()
@@ -2607,9 +2606,8 @@ fn typed_differential_table_catalogs_export_with_original_identity_and_count_pro
     assert_eq!(actual.table_styles, expected_tables);
     let mut invalid = actual.clone();
     invalid.differential_styles[0].unmodeled_extensions = true;
-    assert!(
-        matches!(WorkbookWriter::from_style_catalog(WriteOptions::default(), invalid), Err(error) if error.kind() == ErrorKind::Unsupported)
-    );
+    // Unmodeled extensions are dropped on write, as in openpyxl.
+    assert!(WorkbookWriter::from_style_catalog(WriteOptions::default(), invalid).is_ok());
 }
 
 #[test]
