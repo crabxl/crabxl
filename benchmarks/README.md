@@ -62,11 +62,13 @@ libraries.
 - Each case runs two ways. **All CPUs**: the library can use every logical CPU,
   as in normal use. **One CPU**: the process starts suspended, is pinned to the
   same single logical CPU for every library, and only then runs. This shows
-  how fast a library is without extra threads. The tables also show the CPU
-  time (user plus kernel) of the process.
+  how fast a library is without extra threads. crabxl compresses worksheets
+  of 4 MiB or more on up to four threads, so its two modes differ when it
+  writes or saves large files. The tables also show the CPU time (user plus
+  kernel) of the process.
 - Each case runs one time to warm the file cache, then three times (one time
   if the warm-up takes more than 10 seconds). The
-  tables show the median of the three.
+  tables show the median of the measured runs.
 - Safety limits that would reject the large files are raised for every library
   that has them (crabxl memory limit, wolfxl size limits).
 - Run the suite on an idle computer that is connected to power. Do not run

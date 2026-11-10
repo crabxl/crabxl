@@ -1,6 +1,6 @@
 # Status
 
-Last update: 2026-11-09.
+Last update: 2026-11-10.
 
 ## Current release
 
@@ -8,7 +8,9 @@ Last update: 2026-11-09.
 - A12 (former A12–A15, W14–W28, full openpyxl 3.1.5 capability) is implemented
   in Rust and integrated in the Python package. It is not committed or
   released.
-- A13 is performance and memory optimization only (W27).
+- A13 (performance and memory) is done and committed, not released: streamed
+  appends, parallel compression of large worksheets and
+  `LoadOptions::with_memory_limit`. Results are in `internal/roadmap.md`.
 
 ## Implemented Rust scope
 
@@ -44,14 +46,15 @@ Port origins and notices are in `third_party/ports.json`.
 
 ## Validation
 
-Windows: 346 Rust tests pass. Formatting and Clippy pass for all workspace
-targets. The Python acceptance (see the crabxl-python status) passes: 1,032
+Windows: 350 Rust tests pass. Formatting and Clippy pass for all workspace
+targets. The Python acceptance (see the crabxl-python status) passes: 1,054
 package tests, 1,548 corpus round-trip checks and the openpyxl 3.1.5 suite
 with 2,115 passes and 329 tracked failures of openpyxl internals and
 deliberate differences.
 
-Excel desktop and cross-platform validation and the performance and memory
-benchmarks are A13 work.
+Windows Excel opens written and edited 1,000,000-row files with the right rows
+and date formats. A full benchmark rerun and macOS Excel validation are
+optional (see the roadmap).
 
 ## Deliberate boundaries
 

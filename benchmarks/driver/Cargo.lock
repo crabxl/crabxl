@@ -291,7 +291,9 @@ name = "crabxl-xlsx"
 version = "0.1.0-alpha.11"
 dependencies = [
  "crabxl-core",
+ "crc32fast",
  "fast-float2",
+ "flate2",
  "percent-encoding",
  "quick-xml 0.42.0",
  "sysinfo",

@@ -86,14 +86,23 @@ cargo run -p crabxl --example quickstart
 
 ## Resource and compression options
 
+To set one memory limit for a loaded workbook, use
+`LoadOptions::with_memory_limit(bytes)`:
+
+```rust
+let options = crabxl::LoadOptions::with_memory_limit(2 * 1024 * 1024 * 1024);
+let book = crabxl::LoadedWorkbook::with_options(std::fs::File::open("in.xlsx")?, options)?;
+```
+
 `ResourceLimits` bounds input, metadata, cells, rows, and batches.
 `MemoryPolicy` offers explicit budgets or configurable Auto selection;
 `SharedStringOptions` controls RAM/disk placement and decoded caches. Managed
 allowances are not a whole-process RSS cap.
 
 Write and save options accept compression levels **0–9**: 0 stores without
-compression; 1–9 use Deflate; the default is 6. The default backend is pure-Rust
-zlib-rs. Native zlib is available through the `deflate-zlib` feature with default
+compression; 1–9 use Deflate; the default is 6. Worksheets of 4 MiB or more are
+compressed on up to four threads. The default backend is pure-Rust zlib-rs.
+Native zlib is available through the `deflate-zlib` feature with default
 features disabled. Existing-file saves retain compressed bytes for untouched
 parts.
 

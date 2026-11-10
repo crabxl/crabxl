@@ -233,6 +233,8 @@ fn crabxl_write(rows: u32, output: &Path) -> Result<u64> {
 /// files that Excel saves, without holding all rows in memory.
 fn fixture(rows: u32, columns: u32, output: &Path) -> Result<u64> {
     let mut book = rust_xlsxwriter::Workbook::new();
+    // The 1 GB file's sheet XML is over 4 GB, which needs ZIP64.
+    book.use_zip_large_file(true);
     let date = rust_xlsxwriter::Format::new().set_num_format("yyyy-mm-dd");
     let sheet = book.add_worksheet_with_low_memory();
     sheet.set_name(SHEET)?;
