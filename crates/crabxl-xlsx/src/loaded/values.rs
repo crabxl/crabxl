@@ -8,6 +8,10 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     /// allowances before committing either representation. Temporal rows use
     /// the canonical model and register their workbook-local number formats.
     pub fn append(&mut self, id: SheetId, values: Vec<CellValue>) -> Result<RowIndex> {
+        let values = match self.append_streamed(id, values)? {
+            Ok(row) => return Ok(row),
+            Err(values) => values,
+        };
         if values.iter().any(|value| value.temporal_value().is_some()) {
             self.prepare_style_edit()?;
             self.sheet(id)?;
@@ -69,7 +73,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         let scratch_allowance = maximum.saturating_sub(self.managed_retained_bytes());
         let plan = self
             .editor
-            .prepare_row(&source.name, row, &values, scratch_allowance)?;
+            .prepare_row(&source.name, row, &values, scratch_allowance, false)?;
         let package = self
             .package_extra_bytes()
             .saturating_sub(self.editor.patch_bytes())
@@ -106,9 +110,136 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             self.rebalance()?;
             return Err(error);
         }
-        self.editor.commit_row(plan, values);
+        self.editor
+            .commit_row(plan, values, |_| crabxl_core::StyleId::new(0));
         self.rebalance()?;
         Ok(row)
+    }
+    /// Queue a row as inserted cells that save writes after the source rows,
+    /// without loading the sheet model. Gives the values back when the sheet
+    /// is loaded, has a committed model or has merged cells.
+    fn append_streamed(
+        &mut self,
+        id: SheetId,
+        values: Vec<CellValue>,
+    ) -> Result<std::result::Result<RowIndex, Vec<CellValue>>> {
+        let Some(index) = self.sheets.iter().position(|sheet| sheet.id == id) else {
+            return Ok(Err(values));
+        };
+        let source = &self.sheets[index];
+        // An empty row only moves the model's append position, so it needs the model.
+        if values.is_empty()
+            || source.loaded
+            || source.original.is_none()
+            || source.kind != crate::SheetKind::Worksheet
+            || self.editor.model_is_dirty(&source.name)
+        {
+            return Ok(Err(values));
+        }
+        let dates = values.iter().any(|value| value.temporal_value().is_some());
+        if dates {
+            self.prepare_style_edit()?;
+        }
+        let scan = match self.sheets[index].append_scan {
+            Some(scan) => scan,
+            None => {
+                let scan = self.scan_append_row(index)?;
+                self.sheets[index].append_scan = Some(scan);
+                scan
+            }
+        };
+        let Some(extent) = scan else {
+            return Ok(Err(values));
+        };
+        let name = self.sheets[index].name.clone();
+        let row = RowIndex::new(extent.max(self.editor.pending_row_extent(&name)))?;
+        let mut styles: Vec<(crabxl_core::DateKind, crabxl_core::StyleId)> = Vec::new();
+        for value in &values {
+            if let Some(date) = value.temporal_value()
+                && !styles.iter().any(|(kind, _)| *kind == date.kind())
+            {
+                let style = self.bank.temporal_style(date.kind());
+                if style.is_ok() {
+                    self.editor.styles_changed();
+                }
+                styles.push((date.kind(), style?));
+            }
+        }
+        self.editor.model_font_count = self.bank.style_catalog().map(|catalog| catalog.fonts.len());
+        let maximum = self
+            .allowance
+            .retained_data_bytes
+            .min(self.options.workbook.max_bytes);
+        let scratch_allowance = maximum.saturating_sub(self.managed_retained_bytes());
+        let plan = self
+            .editor
+            .prepare_row(&name, row, &values, scratch_allowance, true)?;
+        let package = self
+            .package_extra_bytes()
+            .saturating_sub(self.editor.patch_bytes())
+            .saturating_add(plan.bytes);
+        let retained = self
+            .mapping_bytes()
+            .saturating_add(package)
+            .saturating_add(self.bank.charged_bytes())
+            .saturating_add(plan.scratch_bytes);
+        self.editor
+            .book
+            .rebalance_strings_for_retained(retained, maximum)?;
+        let available = maximum
+            .checked_sub(
+                self.mapping_bytes()
+                    .saturating_add(package)
+                    .saturating_add(self.editor.book.retained_source_bytes())
+                    .saturating_add(plan.scratch_bytes),
+            )
+            .ok_or_else(budget)?;
+        self.bank.set_memory_allowance(available)?;
+        self.editor.commit_row(plan, values, |value| {
+            value
+                .temporal_value()
+                .and_then(|date| styles.iter().find(|(kind, _)| *kind == date.kind()))
+                .map_or(crabxl_core::StyleId::new(0), |(_, style)| *style)
+        });
+        self.sheets[index].append_scan = Some(Some(row.get() + 1));
+        self.rebalance()?;
+        Ok(Ok(row))
+    }
+    /// Read the source rows once to find the append row without keeping cells.
+    /// Returns None for sheets with merged cells, whose appends need the model.
+    fn scan_append_row(&mut self, index: usize) -> Result<Option<u32>> {
+        self.rebalance()?;
+        let maximum = self
+            .allowance
+            .retained_data_bytes
+            .min(self.options.workbook.max_bytes);
+        let retained = self
+            .bank
+            .charged_bytes()
+            .saturating_add(self.mapping_bytes())
+            .saturating_add(self.package_extra_bytes());
+        let name = self.sheets[index].name.clone();
+        let (extent, merged) = {
+            let mut rows = self.editor.book.rows_with_catalog_allowance(
+                &name,
+                self.options.read.clone(),
+                Some(maximum),
+                self.bank.style_catalog(),
+                retained,
+                true,
+            )?;
+            rows.capture_merges();
+            rows.set_aggregate_retained(retained)?;
+            let mut row = Row::new(RowIndex::new(0)?);
+            let mut extent = 0;
+            while rows.read_row_into(&mut row)? {
+                extent = extent.max(row.index.get() + 1);
+                row.cells.clear();
+            }
+            (extent, !rows.take_merge_ranges().is_empty())
+        };
+        self.rebalance()?;
+        Ok((!merged).then_some(extent))
     }
     pub(super) fn edit_value(
         &mut self,

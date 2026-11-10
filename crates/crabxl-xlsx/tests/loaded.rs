@@ -2396,3 +2396,83 @@ fn hyperlink_metadata_edits_preserve_shared_relationships_assets_and_create_miss
         CellValue::text("https://example.org/filled")
     );
 }
+
+#[test]
+fn streamed_appends_keep_the_sheet_unloaded_and_save_like_model_appends() {
+    let bytes = source(5, false);
+    let date = ExcelDateTime::from_serial(
+        45000.25,
+        crabxl_core::DateEpoch::Windows1900,
+        DateKind::DateTime,
+    )
+    .unwrap();
+    let row = vec![
+        CellValue::Integer(7),
+        CellValue::text("x"),
+        CellValue::DateTime(Box::new(date)),
+    ];
+    let mut streamed =
+        LoadedWorkbook::with_options(Cursor::new(bytes.clone()), Default::default()).unwrap();
+    let id = streamed.sheet_id("First").unwrap();
+    assert_eq!(streamed.append(id, row.clone()).unwrap().get(), 6);
+    assert_eq!(streamed.append(id, row.clone()).unwrap().get(), 7);
+    assert!(!streamed.is_materialized(id));
+    let mut model = LoadedWorkbook::with_options(Cursor::new(bytes), Default::default()).unwrap();
+    let model_id = model.sheet_id("First").unwrap();
+    model.sheet(model_id).unwrap();
+    model.append(model_id, row.clone()).unwrap();
+    model.append(model_id, row).unwrap();
+    let saved = |book: &mut LoadedWorkbook<Cursor<Vec<u8>>>| {
+        let mut target = Cursor::new(Vec::new());
+        book.save(&mut target, Default::default()).unwrap();
+        let mut reloaded =
+            LoadedWorkbook::with_options(Cursor::new(target.into_inner()), Default::default())
+                .unwrap();
+        let id = reloaded.sheet_id("First").unwrap();
+        let sheet = reloaded.sheet(id).unwrap();
+        let cells = sheet
+            .cells()
+            .map(|cell| (cell.address, cell.value.clone()))
+            .collect::<Vec<_>>();
+        let style = sheet.get(CellAddress::new(7, 2).unwrap()).unwrap().style;
+        let catalog = reloaded.model().style_catalog().unwrap();
+        let format = catalog.cell_format(style).unwrap().number_format_id;
+        (cells, catalog.number_format(format).map(str::to_owned))
+    };
+    let expected = saved(&mut model);
+    assert_eq!(saved(&mut streamed), expected);
+    assert!(matches!(
+        expected.0.last().unwrap().1,
+        CellValue::DateTime(_)
+    ));
+    // Loading the sheet afterwards keeps the queued rows and the append position.
+    assert_eq!(streamed.sheet(id).unwrap().row_extent(), 8);
+    assert_eq!(
+        streamed
+            .append(id, vec![CellValue::Integer(1)])
+            .unwrap()
+            .get(),
+        8
+    );
+}
+
+#[test]
+fn one_memory_limit_bounds_loading_a_sheet() {
+    let bytes = source(2_000, true);
+    let small = LoadedWorkbook::with_options(
+        Cursor::new(bytes.clone()),
+        LoadOptions::with_memory_limit(64 * 1024),
+    )
+    .and_then(|mut book| {
+        let id = book.sheet_id("First").unwrap();
+        book.sheet(id).map(|_| ())
+    });
+    assert_eq!(small.unwrap_err().kind(), ErrorKind::MemoryBudgetExceeded);
+    let mut book = LoadedWorkbook::with_options(
+        Cursor::new(bytes),
+        LoadOptions::with_memory_limit(256 * 1024 * 1024),
+    )
+    .unwrap();
+    let id = book.sheet_id("First").unwrap();
+    assert_eq!(book.sheet(id).unwrap().len(), 2_000);
+}

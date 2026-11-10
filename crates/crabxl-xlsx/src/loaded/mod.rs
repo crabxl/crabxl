@@ -40,6 +40,29 @@ pub struct LoadOptions {
     /// Defaults to preserving physical source values; normal Python loading enables it.
     pub bind_hyperlink_values: bool,
 }
+impl LoadOptions {
+    /// Options with one memory limit for the whole workbook: the source data,
+    /// loaded sheets and pending edits must fit in `bytes`. The limit covers
+    /// the data CrabXL keeps; it is not a hard limit on process memory.
+    pub fn with_memory_limit(bytes: usize) -> Self {
+        Self {
+            memory_policy: MemoryPolicy::Budget(bytes),
+            resources: ResourceLimits {
+                max_materialized_bytes: bytes,
+                ..Default::default()
+            },
+            workbook: WorkbookLimits {
+                max_bytes: bytes,
+                sheet: EditLimits {
+                    max_bytes: bytes,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+}
 struct SourceSheet {
     id: SheetId,
     name: Box<str>,
@@ -50,6 +73,9 @@ struct SourceSheet {
     hyperlinks_requested: bool,
     hyperlinks_loaded: bool,
     hyperlink_values_dirty: bool,
+    /// Source row extent found by a read-only scan for streamed appends;
+    /// `Some(None)` means the sheet has merges and appends load the model.
+    append_scan: Option<Option<u32>>,
     features: Option<Box<FeatureState<crabxl_core::SheetFeatures>>>,
 }
 /// Source and current features; save writes `current` when it differs.
@@ -171,6 +197,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 hyperlinks_requested: false,
                 hyperlinks_loaded: false,
                 hyperlink_values_dirty: false,
+                append_scan: None,
                 features: None,
             });
         }

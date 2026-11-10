@@ -59,7 +59,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 let mut cell = patch.cell.clone();
                 cell.style = incoming
                     .get(cell.address)
-                    .map_or(StyleId::new(0), |original| original.style);
+                    .map_or(patch.cell.style, |original| original.style);
                 incoming.set(cell)?;
             }
         }

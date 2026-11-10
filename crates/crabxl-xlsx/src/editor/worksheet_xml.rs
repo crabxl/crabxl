@@ -75,7 +75,15 @@ pub(super) fn write_body<W: Write>(
     limits: ResourceLimits,
     formula_attributes: crate::FormulaWritePolicy,
     metadata_counts: Option<(usize, usize)>,
+    epoch: DateEpoch,
 ) -> Result<()> {
+    // The caller writes the style in the cell header; the body does not use it.
+    let unstyled = (cell.style.get() != 0).then(|| Cell {
+        address: cell.address,
+        value: cell.value.clone(),
+        style: crabxl_core::StyleId::new(0),
+    });
+    let cell = unstyled.as_ref().unwrap_or(cell);
     encode_cells(
         buffer,
         cell.address.row,
@@ -85,7 +93,7 @@ pub(super) fn write_body<W: Write>(
         StyleContext::Appearance(&[CellStyle::default()]),
         ValueEncoding {
             metadata_counts,
-            epoch: DateEpoch::Windows1900,
+            epoch,
             iso_dates: false,
             non_finite: crate::NonFiniteWritePolicy::Blank,
             formula_attributes,
@@ -131,6 +139,7 @@ pub(super) fn write_body<W: Write>(
             )
         })
 }
+#[allow(clippy::too_many_arguments)]
 pub(super) fn write_inserted_cell<W: Write>(
     writer: &mut Writer<PartOutput<W>>,
     patch: &Patch,
@@ -139,6 +148,7 @@ pub(super) fn write_inserted_cell<W: Write>(
     limits: ResourceLimits,
     formula_attributes: crate::FormulaWritePolicy,
     metadata_counts: Option<(usize, usize)>,
+    epoch: DateEpoch,
 ) -> Result<()> {
     if !patch.insert_missing {
         return Err(
@@ -149,7 +159,10 @@ pub(super) fn write_inserted_cell<W: Write>(
     let mut base = BytesStart::new("c");
     let reference = patch.cell.address.to_string();
     base.push_attribute(("r", reference.as_str()));
-    let start = patched_start(&base, uri, &patch.cell.value)?;
+    let mut start = patched_start(&base, uri, &patch.cell.value)?;
+    if patch.cell.style.get() != 0 {
+        start.push_attribute(("s", patch.cell.style.get().to_string().as_str()));
+    }
     emit(writer, Event::Start(start))?;
     write_body(
         writer,
@@ -158,6 +171,7 @@ pub(super) fn write_inserted_cell<W: Write>(
         limits,
         formula_attributes,
         metadata_counts,
+        epoch,
     )?;
     emit(writer, Event::End(quick_xml::events::BytesEnd::new("c")))
 }
@@ -731,6 +745,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             limits,
                             formula_attributes,
                             metadata_counts,
+                            epoch,
                         )?;
                         found += 1;
                     }
@@ -775,6 +790,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         limits,
                         formula_attributes,
                         metadata_counts,
+                        epoch,
                     )?;
                     found += 1;
                 }
@@ -819,6 +835,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             limits,
                             formula_attributes,
                             metadata_counts,
+                            epoch,
                         )?;
                         found += 1;
                     }
@@ -904,6 +921,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         limits,
                         formula_attributes,
                         metadata_counts,
+                        epoch,
                     )?;
                     let name = std::str::from_utf8(&name).map_err(|error| {
                         Error::caused_by(ErrorKind::Xml, "Invalid cell name", error)
@@ -991,6 +1009,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         limits,
                         formula_attributes,
                         metadata_counts,
+                        epoch,
                     )?;
                     found += 1;
                 }
@@ -1026,6 +1045,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             limits,
                             formula_attributes,
                             metadata_counts,
+                            epoch,
                         )?;
                         found += 1;
                     }

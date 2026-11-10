@@ -189,7 +189,16 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         address: CellAddress,
         value: &CellValue,
     ) -> Result<()> {
-        if contains_date(value) {
+        self.validate_cell_value_with(address, value, false)
+    }
+    /// `dates` allows temporal values whose caller supplies a date style.
+    fn validate_cell_value_with(
+        &self,
+        address: CellAddress,
+        value: &CellValue,
+        dates: bool,
+    ) -> Result<()> {
+        if !dates && contains_date(value) {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "Editing dates requires an existing style/date catalog",
@@ -247,9 +256,18 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         address: CellAddress,
         value: &CellValue,
     ) -> Result<PatchPlan> {
+        self.prepare_value_with(sheet, address, value, false)
+    }
+    fn prepare_value_with(
+        &self,
+        sheet: &str,
+        address: CellAddress,
+        value: &CellValue,
+        dates: bool,
+    ) -> Result<PatchPlan> {
         let sheet = self.editable_sheet(sheet)?;
         let info = &self.book.sheets()[sheet];
-        self.validate_cell_value(address, value)?;
+        self.validate_cell_value_with(address, value, dates)?;
         if self.model_patches.contains_key(&sheet) {
             return Ok(PatchPlan {
                 sheet,
@@ -293,6 +311,15 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         })
     }
     pub(crate) fn commit_value(&mut self, plan: PatchPlan, value: CellValue, insert_missing: bool) {
+        self.commit_cell(plan, value, StyleId::new(0), insert_missing);
+    }
+    fn commit_cell(
+        &mut self,
+        plan: PatchPlan,
+        value: CellValue,
+        style: StyleId,
+        insert_missing: bool,
+    ) {
         let part = self.book.sheets()[plan.sheet].part();
         let key = (plan.address.row.get(), plan.address.column.get());
         self.patches.entry(part.into()).or_default().insert(
@@ -301,7 +328,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 cell: Cell {
                     address: plan.address,
                     value,
-                    style: StyleId::new(0),
+                    style,
                 },
                 insert_missing,
             },
@@ -310,12 +337,14 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         self.patch_cells = plan.cells;
     }
     /// Validate the entire row and its combined overlay charge before mutation.
+    /// `dates` allows temporal values; the caller then commits their styles.
     pub(crate) fn prepare_row(
         &self,
         sheet: &str,
         row: crabxl_core::RowIndex,
         values: &[CellValue],
         scratch_allowance: usize,
+        dates: bool,
     ) -> Result<RowPatchPlan> {
         if values.len() > crabxl_core::MAX_COLUMNS as usize {
             return Err(Error::new(
@@ -345,7 +374,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         let mut cells = self.patch_cells;
         for (column, value) in values.iter().enumerate() {
             let address = CellAddress::new(row.get(), column as u32)?;
-            let mut plan = self.prepare_value(sheet, address, value)?;
+            let mut plan = self.prepare_value_with(sheet, address, value, dates)?;
             let part = self.book.sheets()[plan.sheet].part();
             let repeated_part = if !plans.is_empty() && !self.patches.contains_key(part) {
                 PATCH_BYTES + part.len()
@@ -378,10 +407,26 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             scratch_bytes,
         })
     }
-    pub(crate) fn commit_row(&mut self, plan: RowPatchPlan, values: Vec<CellValue>) {
+    pub(crate) fn commit_row(
+        &mut self,
+        plan: RowPatchPlan,
+        values: Vec<CellValue>,
+        style: impl Fn(&CellValue) -> StyleId,
+    ) {
         for (patch, value) in plan.plans.into_iter().zip(values) {
-            self.commit_value(patch, value, true);
+            let style = style(&value);
+            self.commit_cell(patch, value, style, true);
         }
+    }
+    /// Row after the last pending inserted cell of a worksheet, or zero.
+    pub(crate) fn pending_row_extent(&self, sheet: &str) -> u32 {
+        self.book
+            .sheets()
+            .iter()
+            .find(|info| info.name() == sheet)
+            .and_then(|info| self.patches.get(info.part()))
+            .and_then(|patches| patches.last_key_value())
+            .map_or(0, |((row, _), _)| row + 1)
     }
     /// Inspect only a pending replacement, without decoding the original cell.
     pub fn pending_value(&self, sheet: &str, address: CellAddress) -> Option<&CellValue> {

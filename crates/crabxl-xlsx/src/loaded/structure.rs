@@ -247,6 +247,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 "Missing structural source identity",
             )
         })?;
+        // A committed model was validated when it was committed, and later edits
+        // go through checked model APIs, so a full pass per edit is not needed.
+        let validated = self.editor.model_is_dirty(&self.sheets[index].name);
         let mut plan = self.editor.prepare_model(&self.sheets[index].name)?;
         self.hyperlinks(id)?;
         let had_hyperlinks = !self.bank.sheet(id)?.hyperlinks().is_empty();
@@ -258,7 +261,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         if let Some(bytes) = hyperlink_bytes {
             plan.bytes = bytes;
         }
-        crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
+        if !validated {
+            crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
+        }
         self.validate_normalized_styles(id)?;
         self.reserve_workbook_patch(
             plan.bytes

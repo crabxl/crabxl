@@ -404,6 +404,15 @@ impl Workbook {
         format.apply_number_format = Some(true);
         self.register_format(format)
     }
+    /// Intern the automatic number format of a temporal kind on the default
+    /// format, as appending that value to a sheet model does.
+    pub fn temporal_style(&mut self, kind: crate::DateKind) -> Result<crate::StyleId> {
+        let maximum = self.style_allowance();
+        self.styles
+            .as_mut()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidState, "Missing canonical styles"))?
+            .register_temporal_format_with_limit(crate::StyleId::new(0), kind, maximum)
+    }
     pub(super) fn style_allowance(&self) -> usize {
         self.limits
             .max_bytes

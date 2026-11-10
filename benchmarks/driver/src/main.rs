@@ -367,22 +367,7 @@ fn umya_write(rows: u32, output: &Path) -> Result<u64> {
 /// Allow up to `budget` bytes, so that the large size fits. CrabXL's default
 /// memory limit is lower and would reject it.
 fn load_options(budget: usize) -> crabxl::LoadOptions {
-    crabxl::LoadOptions {
-        memory_policy: crabxl::MemoryPolicy::Budget(budget),
-        resources: crabxl::ResourceLimits {
-            max_materialized_bytes: budget,
-            ..Default::default()
-        },
-        workbook: crabxl::WorkbookLimits {
-            max_bytes: budget,
-            sheet: crabxl::EditLimits {
-                max_bytes: budget,
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-        ..Default::default()
-    }
+    crabxl::LoadOptions::with_memory_limit(budget)
 }
 
 // ---------------------------------------------------------------- edit

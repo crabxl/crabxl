@@ -17,11 +17,13 @@ Work:
 
 1. Run the benchmark suite (`benchmarks/README.md`) and record the baseline.
 2. Profile the slowest and largest scenarios. Fix the hot paths in the core.
-3. Run the Python suite in crabxl-python against openpyxl, python-calamine and
+3. Stream edits: apply changed and appended cells while the file is saved,
+   without loading the whole sheet into memory.
+4. Run the Python suite in crabxl-python against openpyxl, python-calamine and
    XlsxWriter. Fix binding conversion costs.
-4. Repeat until every scenario meets its target, or record why a target is not
+5. Repeat until every scenario meets its target, or record why a target is not
    reachable.
-5. Validate produced files in Excel desktop on Windows and macOS.
+6. Validate produced files in Excel desktop on Windows and macOS.
 
 Rules:
 

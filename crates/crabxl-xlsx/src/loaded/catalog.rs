@@ -181,6 +181,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             hyperlinks_requested: true,
             hyperlinks_loaded: true,
             hyperlink_values_dirty: false,
+            append_scan: None,
             features: copied_features.map(|current| {
                 Box::new(FeatureState {
                     source: crabxl_core::SheetFeatures::default(),
