@@ -443,19 +443,45 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 let file = self.book.archive.by_index(index).map_err(|error| {
                     zip_error("Cannot read affected XML part", error).with_part(part.name.as_ref())
                 })?;
-                // Rewritten parts use the selected level; copied parts keep their bytes.
-                zip.start_file(
-                    part.name.as_ref(),
-                    crate::writer::compression_options(options.compression_level)
-                        .large_file(self.options.resources.max_part_bytes >= u64::from(u32::MAX)),
-                )
-                .map_err(|error| {
-                    zip_error("Cannot start affected XML part", error).with_part(part.name.as_ref())
-                })?;
+                // Large worksheets compress on several threads.
+                let mut packed = if worksheet && !styles && !theme && !chartsheet {
+                    crate::parallel_deflate::threads(
+                        options.compression_level,
+                        part.uncompressed_bytes,
+                    )
+                    .map(|threads| {
+                        crate::parallel_deflate::ParallelDeflate::new(
+                            options.compression_level,
+                            threads,
+                            None,
+                        )
+                    })
+                    .transpose()
+                    .map_err(|error| io_error("Cannot start parallel compression", error))?
+                } else {
+                    None
+                };
+                if packed.is_none() {
+                    // Rewritten parts use the selected level; copied parts keep their bytes.
+                    zip.start_file(
+                        part.name.as_ref(),
+                        crate::writer::compression_options(options.compression_level).large_file(
+                            self.options.resources.max_part_bytes >= u64::from(u32::MAX),
+                        ),
+                    )
+                    .map_err(|error| {
+                        zip_error("Cannot start affected XML part", error)
+                            .with_part(part.name.as_ref())
+                    })?;
+                }
+                let target: &mut dyn Write = match packed.as_mut() {
+                    Some(packed) => packed,
+                    None => &mut zip,
+                };
                 let budget = PartOutput {
                     // Batch XML event fragments before feeding the compressor.
                     // The fixed buffer fits the operation's 64 KiB work reserve.
-                    inner: BufWriter::with_capacity(64 * 1024, &mut zip),
+                    inner: BufWriter::with_capacity(64 * 1024, target),
                     bytes: 0,
                     maximum: self.options.resources.max_part_bytes,
                 };
@@ -585,6 +611,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     )
                 }
                 .map_err(|error| error.with_part(part.name.as_ref()))?;
+                if let Some(packed) = packed {
+                    packed.finish_into(&mut zip, &part.name).map_err(|error| {
+                        io_error("Cannot write affected XML part", error)
+                            .with_part(part.name.as_ref())
+                    })?;
+                }
                 total = total - u128::from(part.uncompressed_bytes) + u128::from(written);
                 if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
                     return Err(limit("Edited package uncompressed byte limit exceeded"));

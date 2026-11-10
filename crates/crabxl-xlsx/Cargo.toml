@@ -19,6 +19,9 @@ quick-xml.workspace = true
 fast-float2.workspace = true
 percent-encoding.workspace = true
 tempfile.workspace = true
+# Parallel deflate; the backend comes from the zip deflate feature.
+flate2 = { version = "1.1", default-features = false }
+crc32fast = "1.5"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 sysinfo = { version = "0.38.4", default-features = false, features = ["system"] }

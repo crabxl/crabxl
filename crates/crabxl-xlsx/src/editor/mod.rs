@@ -157,13 +157,14 @@ impl Default for EditorOptions {
 pub struct SaveOptions {
     /// ZIP level 0..=9 for rewritten parts; 0 stores without compression.
     /// Copied entries retain their original compressed bytes.
-    /// None retains the backend default (6).
+    /// None retains the backend default (6). Rewritten worksheets of 4 MiB or
+    /// more are compressed on up to 4 threads through a system temporary file.
     pub compression_level: Option<u8>,
     /// Decompress unchanged parts to a bounded sink and validate CRC before raw
     /// copying. False preserves compressed payloads without revalidating them.
     pub verify_unchanged: bool,
 }
-/// Per-save part counts and XML rewrite bytes. No worksheet temp files are used.
+/// Per-save part counts and XML rewrite bytes.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SaveStats {
     /// Entries passed through without decompression/recompression (except validation).

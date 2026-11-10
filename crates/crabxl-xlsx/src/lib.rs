@@ -4,6 +4,7 @@ mod adaptive;
 mod encode;
 mod formula_codec;
 mod package;
+mod parallel_deflate;
 mod reader;
 mod styles;
 mod writer;

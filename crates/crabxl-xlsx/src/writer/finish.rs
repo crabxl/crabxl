@@ -233,11 +233,18 @@ impl WorkbookWriter {
                     io_error("Cannot inspect worksheet temporary file", error).with_part(&part)
                 })?
                 .len();
-            start_part(
-                &mut zip,
-                &part,
-                options.large_file(sheet.live_events.is_some() || size >= u64::from(u32::MAX)),
-            )?;
+            let parallel = if sheet.live_events.is_none() {
+                crate::parallel_deflate::threads(self.options.compression_level, size)
+            } else {
+                None
+            };
+            if parallel.is_none() {
+                start_part(
+                    &mut zip,
+                    &part,
+                    options.large_file(sheet.live_events.is_some() || size >= u64::from(u32::MAX)),
+                )?;
+            }
             sheet.file.rewind().map_err(|error| {
                 io_error("Cannot rewind worksheet temporary file", error).with_part(&part)
             })?;
@@ -268,6 +275,26 @@ impl WorkbookWriter {
                 io::copy(sheet.file.as_file_mut(), &mut zip)
                     .map_err(|cause| io_error("Cannot finish live worksheet footer", cause))?;
                 external
+            } else if let Some(threads) = parallel {
+                let packed = (|| {
+                    let mut packed = crate::parallel_deflate::ParallelDeflate::new(
+                        self.options.compression_level,
+                        threads,
+                        self.options.temp_directory.as_deref(),
+                    )?;
+                    io::copy(
+                        &mut BufReader::with_capacity(
+                            self.options.buffer_bytes,
+                            sheet.file.as_file_mut(),
+                        ),
+                        &mut packed,
+                    )?;
+                    packed.finish_into(&mut zip, &part)
+                })();
+                packed.map_err(|error| {
+                    io_error("Cannot package worksheet temporary file", error).with_part(&part)
+                })?;
+                false
             } else {
                 io::copy(
                     &mut BufReader::with_capacity(

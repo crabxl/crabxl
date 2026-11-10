@@ -67,7 +67,8 @@ pub enum StyleWritePolicy {
 #[derive(Clone, Debug)]
 pub struct WriteOptions {
     /// ZIP level 0..=9: 0 stores without compression; 1..=9 uses Deflate.
-    /// None retains the backend default (6).
+    /// None retains the backend default (6). Worksheets of 4 MiB or more are
+    /// compressed on up to 4 threads.
     pub compression_level: Option<u8>,
     /// Owned temporary files are created here; None uses the system directory.
     pub temp_directory: Option<PathBuf>,
