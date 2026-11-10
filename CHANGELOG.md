@@ -6,6 +6,32 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
+## [0.1.1]
+
+### Changed
+
+- Edits no longer fail on content CrabXL does not model. As in openpyxl, that
+  content is dropped or kept as written:
+  - A changed signed package is saved without its signature.
+  - Replacing a shared formula master writes its other cells as ordinary
+    formulas.
+  - A sheet with unknown content is copied from its cells, styles and
+    dimensions. A removed sheet that other parts still use stays in the
+    package.
+  - Unknown alternatives, sheet catalog content and style extensions are
+    dropped when their part is rewritten.
+  - External links are removed without checking formulas, and a calculation
+    chain no longer blocks edits.
+- Readers ignore unknown XML attributes and elements, and read dialog and macro
+  sheets like worksheets.
+- Invalid input returns `ErrorKind::InvalidData` or `ErrorKind::InvalidState`.
+
+### Added
+
+- Moving and removing sheets of a write-only workbook.
+- Changing the date epoch and ISO date storage of a loaded workbook, and the
+  date epoch of a streaming reader.
+
 ## [0.1.0]
 
 First release.

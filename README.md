@@ -27,7 +27,7 @@ openpyxl while keeping the Rust API idiomatic.
   limits, and ZIP compression.
 
 CrabXL has the capabilities of openpyxl 3.1.5. Before version 1.0, a minor
-version can change the API. Unsupported operations return explicit errors.
+version can change the API. Invalid input returns explicit errors.
 Formula calculation is not provided. See [project status](internal/STATUS.md).
 
 ## Installation
@@ -36,7 +36,7 @@ Requires **Rust 1.88 or newer**.
 
 ```toml
 [dependencies]
-crabxl = "0.1.0"
+crabxl = "0.1.1"
 ```
 
 ## Usage

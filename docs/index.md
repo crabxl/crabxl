@@ -9,7 +9,7 @@ Add the crate to `Cargo.toml`. The minimum Rust version is 1.88.
 
 ```toml
 [dependencies]
-crabxl = "0.1.0"
+crabxl = "0.1.1"
 ```
 
 ## Read rows
@@ -38,6 +38,8 @@ lists all types.
 
 ## Limits
 
-- An unsupported operation returns an error of kind `ErrorKind::Unsupported`.
+- When an edit rewrites a part that holds content CrabXL does not model, that
+  content is dropped, as openpyxl does. Invalid input returns an error of kind
+  `ErrorKind::InvalidData`.
 - CrabXL does not calculate formulas. A formula cell contains the formula and
   the cached result from the file.

@@ -4,8 +4,7 @@ Last update: 2026-11-10.
 
 ## Current release
 
-- Nothing is published yet. The next release is `0.1.0`, the first one.
-- The workspace version is `0.1.0`. The capabilities match openpyxl 3.1.5,
+- `0.1.0` is published. The workspace version is `0.1.1`. The capabilities match openpyxl 3.1.5,
   and the performance and memory work is done (results in
   `internal/roadmap.md`).
 

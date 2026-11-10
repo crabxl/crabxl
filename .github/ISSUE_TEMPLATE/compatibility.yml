@@ -13,7 +13,7 @@ body:
     id: difference
     attributes:
       label: CrabXL behavior
-      description: What does CrabXL do? For example, it returns an Unsupported error or a different value.
+      description: What does CrabXL do? For example, it returns an error or a different value.
     validations:
       required: true
   - type: textarea
