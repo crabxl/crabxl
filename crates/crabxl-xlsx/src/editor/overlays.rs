@@ -222,11 +222,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 );
             }
         }
-        let epoch = if self.book.date_1904() {
-            DateEpoch::Mac1904
-        } else {
-            DateEpoch::Windows1900
-        };
+        let epoch = self.epoch();
         crate::encode::validate_non_finite(value, self.options.non_finite)
             .map_err(|error| error.with_cell(address))?;
         validate_value(value, self.options.resources.max_cell_bytes, epoch)

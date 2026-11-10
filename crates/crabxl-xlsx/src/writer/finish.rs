@@ -37,8 +37,13 @@ impl WorkbookWriter {
         self.ensure_open()?;
         crabxl_core::normalize_active_view(
             self.view_index.unwrap_or(self.options.active_sheet as i64),
-            self.next_sheet,
-            |index| {
+            self.sheet_order.len(),
+            |position| {
+                let index = self
+                    .sheet_order
+                    .get(position)
+                    .copied()
+                    .unwrap_or(usize::MAX);
                 self.sheets
                     .iter()
                     .find(|sheet| sheet.id == index)
@@ -176,7 +181,9 @@ impl WorkbookWriter {
             self.active = Some(active);
             self.close_sheet()?;
         }
-        self.sheets.sort_by_key(|sheet| sheet.id);
+        let order = &self.sheet_order;
+        self.sheets
+            .sort_by_cached_key(|sheet| order.iter().position(|id| *id == sheet.id));
         if self.sheets.is_empty() {
             return Err(state("A workbook requires at least one worksheet"));
         }

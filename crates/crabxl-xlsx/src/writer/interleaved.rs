@@ -472,8 +472,8 @@ impl WorkbookWriter {
     }
 
     /// Start an independently appendable sheet, preserving other live spools.
-    /// The returned ID is stable until finish/abort. Sheets package in creation
-    /// order; buffers, catalogs and temporary bytes remain explicitly bounded.
+    /// The returned ID is stable until finish/abort. Sheets package in tab
+    /// order, which is creation order unless a sheet is moved; buffers, catalogs and temporary bytes remain explicitly bounded.
     pub fn start_interleaved_sheet(&mut self, name: impl Into<String>) -> Result<usize> {
         self.ensure_open()?;
         let previous = self.active.as_ref().map(|sheet| sheet.id);
@@ -758,6 +758,42 @@ impl WorkbookWriter {
     pub fn close_interleaved_sheet(&mut self, id: usize) -> Result<()> {
         self.activate_sheet(id)?;
         self.close_sheet()
+    }
+    /// Move a live or completed sheet to a zero-based tab position.
+    pub fn move_interleaved_sheet(&mut self, id: usize, position: usize) -> Result<()> {
+        self.ensure_open()?;
+        let from = self
+            .sheet_order
+            .iter()
+            .position(|sheet| *sheet == id)
+            .ok_or_else(|| state("Unknown worksheet ID"))?;
+        if position >= self.sheet_order.len() {
+            return Err(state("Sheet position is outside the catalog"));
+        }
+        let id = self.sheet_order.remove(from);
+        self.sheet_order.insert(position, id);
+        Ok(())
+    }
+    /// Remove a live or completed sheet. It is not packaged and its name is free again.
+    pub fn remove_interleaved_sheet(&mut self, id: usize) -> Result<()> {
+        self.ensure_open()?;
+        let position = self
+            .sheet_order
+            .iter()
+            .position(|sheet| *sheet == id)
+            .ok_or_else(|| state("Unknown worksheet ID"))?;
+        // Close a live sheet first so that its buffers and link counts settle.
+        if self.sheets.iter().all(|sheet| sheet.id != id) {
+            self.close_interleaved_sheet(id)?;
+        }
+        let stored = self
+            .sheets
+            .iter()
+            .position(|sheet| sheet.id == id)
+            .ok_or_else(|| state("Unknown worksheet ID"))?;
+        self.sheets.remove(stored);
+        self.sheet_order.remove(position);
+        Ok(())
     }
     /// Change the metadata name of an existing live or completed sheet.
     pub fn rename_interleaved_sheet(&mut self, id: usize, name: impl Into<String>) -> Result<()> {

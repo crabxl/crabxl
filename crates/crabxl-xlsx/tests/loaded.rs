@@ -2476,3 +2476,45 @@ fn one_memory_limit_bounds_loading_a_sheet() {
     let id = book.sheet_id("First").unwrap();
     assert_eq!(book.sheet(id).unwrap().len(), 2_000);
 }
+
+#[test]
+fn date_options_change_the_saved_epoch_and_date_storage() {
+    let date = ExcelDateTime::from_serial(
+        45000.25,
+        crabxl_core::DateEpoch::Windows1900,
+        DateKind::DateTime,
+    )
+    .unwrap();
+    let saved = |epoch, iso| {
+        let mut book =
+            LoadedWorkbook::with_options(Cursor::new(source(5, false)), Default::default())
+                .unwrap();
+        book.set_date_options(epoch, iso).unwrap();
+        let id = book.sheet_id("First").unwrap();
+        book.upsert_value(
+            id,
+            CellAddress::new(9, 0).unwrap(),
+            CellValue::DateTime(Box::new(date)),
+        )
+        .unwrap();
+        let mut target = Cursor::new(Vec::new());
+        book.save(&mut target, Default::default()).unwrap();
+        let parts = parts(target.into_inner());
+        let text = |name: &str| String::from_utf8(parts[name].clone()).unwrap();
+        let sheet = text("xl/worksheets/sheet1.xml");
+        let cell = sheet[sheet.find("r=\"A10\"").unwrap()..].to_owned();
+        (
+            text("xl/workbook.xml"),
+            cell[..cell.find("</c>").unwrap()].to_owned(),
+        )
+    };
+    let (workbook, cell) = saved(crabxl_core::DateEpoch::Mac1904, false);
+    assert!(workbook.contains("date1904=\"1\""), "{workbook}");
+    assert!(cell.contains("<v>43538.25</v>"), "{cell}");
+    let (workbook, cell) = saved(crabxl_core::DateEpoch::Windows1900, true);
+    assert!(!workbook.contains("date1904=\"1\""), "{workbook}");
+    assert!(
+        cell.contains("t=\"d\"") && cell.contains("2023-03-15T06:00:00"),
+        "{cell}"
+    );
+}

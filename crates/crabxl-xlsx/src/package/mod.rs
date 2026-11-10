@@ -295,6 +295,10 @@ impl<R: Read + Seek> WorkbookReader<R> {
     pub fn date_1904(&self) -> bool {
         self.date_1904
     }
+    /// Decode date cells of later reads with the 1904 epoch (true) or the 1900 epoch.
+    pub fn set_date_1904(&mut self, value: bool) {
+        self.date_1904 = value;
+    }
     /// Configure shared-string storage. This releases any prepared table/cache and
     /// owned temporary files; the next row stream rebuilds from the original source.
     pub fn set_shared_string_options(&mut self, options: SharedStringOptions) {

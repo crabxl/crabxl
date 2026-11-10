@@ -410,6 +410,7 @@ pub(crate) fn dimension(sheet: &Worksheet) -> String {
 #[derive(Clone, Copy)]
 pub(crate) struct Encoding {
     pub(crate) epoch: DateEpoch,
+    pub(crate) iso_dates: bool,
     pub(crate) non_finite: crate::NonFiniteWritePolicy,
     pub(crate) formula_attributes: crate::FormulaWritePolicy,
     pub(crate) metadata_counts: Option<(usize, usize)>,
@@ -605,7 +606,7 @@ fn encode_model_row<'a>(
         ValueEncoding {
             metadata_counts: encoding.metadata_counts,
             epoch: encoding.epoch,
-            iso_dates: false,
+            iso_dates: encoding.iso_dates,
             non_finite: encoding.non_finite,
             formula_attributes: encoding.formula_attributes,
             date_styles: TemporalStyleIds {

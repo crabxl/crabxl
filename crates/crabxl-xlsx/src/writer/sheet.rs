@@ -618,6 +618,7 @@ impl WorkbookWriter {
             visibility: crabxl_core::SheetVisibility::Visible,
         });
         self.write_active(header)?;
+        self.sheet_order.push(self.next_sheet);
         self.next_sheet += 1;
         Ok(())
     }

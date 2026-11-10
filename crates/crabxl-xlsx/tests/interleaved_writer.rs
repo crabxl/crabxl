@@ -179,3 +179,45 @@ fn abort_releases_paused_spools_and_sheet_limit_rejection_retains_active() {
     writer.abort().unwrap();
     assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
 }
+
+#[test]
+fn moved_and_removed_sheets_package_in_tab_order() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        temp_directory: Some(directory.path().to_path_buf()),
+        ..Default::default()
+    })
+    .unwrap();
+    let a = writer.start_interleaved_sheet("A").unwrap();
+    writer.write_row(&row(0, 1)).unwrap();
+    let b = writer.start_interleaved_sheet("B").unwrap();
+    writer.write_row(&row(0, 2)).unwrap();
+    let c = writer.start_interleaved_sheet("C").unwrap();
+    writer.write_row(&row(0, 3)).unwrap();
+    writer.close_interleaved_sheet(a).unwrap();
+    writer.move_interleaved_sheet(c, 0).unwrap();
+    assert!(writer.move_interleaved_sheet(c, 3).is_err());
+    // A live sheet and a completed sheet can both be removed.
+    writer.remove_interleaved_sheet(b).unwrap();
+    assert!(writer.remove_interleaved_sheet(b).is_err());
+    let again = writer.start_interleaved_sheet("B").unwrap();
+    writer.write_row(&row(0, 4)).unwrap();
+    writer.move_interleaved_sheet(again, 1).unwrap();
+    writer.set_active_view_index(2).unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    let mut reader = WorkbookReader::new(output).unwrap();
+    let names = reader
+        .sheets()
+        .iter()
+        .map(|sheet| sheet.name().to_owned())
+        .collect::<Vec<_>>();
+    assert_eq!(names, ["C", "B", "A"]);
+    assert_eq!(reader.active_index(), Some(2));
+    for (name, value) in [("C", 3), ("B", 4), ("A", 1)] {
+        assert_eq!(
+            reader.read_sheet(name).unwrap().rows[0].cells[0].value,
+            CellValue::Integer(value)
+        );
+    }
+}

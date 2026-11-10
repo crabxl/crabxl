@@ -578,19 +578,16 @@ fn abort_and_drop_clean_every_owned_file_without_saving() {
 fn name_sheet_row_cell_metadata_and_temp_limits_are_enforced() {
     let directory = tempfile::tempdir().unwrap();
     let mut writer = WorkbookWriter::new(options(&directory)).unwrap();
-    for name in [
-        "",
-        "Bad/Name",
-        "'quoted",
-        "quoted'",
-        "bad\nname",
-        "12345678901234567890123456789012",
-    ] {
+    for name in ["", "Bad/Name", "'quoted", "quoted'", "bad\nname"] {
         assert_eq!(
             writer.start_sheet(name).unwrap_err().kind(),
             ErrorKind::InvalidData
         );
     }
+    // Like openpyxl, names longer than Excel's 31 characters are written.
+    writer
+        .start_sheet("12345678901234567890123456789012")
+        .unwrap();
     writer.start_sheet("Sheet").unwrap();
     assert_eq!(
         writer.start_sheet("SHEET").unwrap_err().kind(),

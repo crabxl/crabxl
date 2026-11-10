@@ -192,6 +192,8 @@ pub struct WorkbookWriter {
     active: Option<ActiveSheet>,
     paused: Vec<ActiveSheet>,
     next_sheet: usize,
+    /// Sheet IDs in tab order. Removed sheets are not listed.
+    sheet_order: Vec<usize>,
     row_buffer: RowBuffer,
     temporary_bytes: u64,
     live_links: Option<live_hyperlinks::Store>,
@@ -352,6 +354,7 @@ impl WorkbookWriter {
             active: None,
             paused: Vec::new(),
             next_sheet: 0,
+            sheet_order: Vec::new(),
             row_buffer,
             temporary_bytes: 0,
             live_links: None,
@@ -425,7 +428,6 @@ impl Drop for WorkbookWriter {
 
 fn validate_sheet_name(name: &str) -> Result<()> {
     if name.is_empty()
-        || name.chars().count() > 31
         || name.starts_with('\'')
         || name.ends_with('\'')
         || name.chars().any(|ch| ch < ' ' || ":\\/?*[]".contains(ch))

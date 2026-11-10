@@ -644,6 +644,29 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         features.format = Some(format);
         self.set_workbook_features(features)
     }
+    /// Change the date epoch and ISO date storage. Date cells written after this
+    /// use the new settings; cells that are not written again keep their serials.
+    pub fn set_date_options(&mut self, epoch: DateEpoch, iso_dates: bool) -> Result<()> {
+        if epoch != self.bank.epoch() {
+            // The epoch is saved as `workbookPr/@date1904`, so the element must exist.
+            let mut features = self.workbook_features()?.clone();
+            features
+                .workbook_properties
+                .get_or_insert_with(|| crabxl_core::XmlElement::new("workbookPr"))
+                .set_attribute(
+                    "date1904",
+                    if epoch == DateEpoch::Mac1904 {
+                        "1"
+                    } else {
+                        "0"
+                    },
+                );
+            self.set_workbook_features(features)?;
+        }
+        self.bank.set_epoch(epoch);
+        self.editor.set_date_options(epoch, iso_dates);
+        Ok(())
+    }
     /// Preserve, remove or replace the original VBA project graph.
     pub fn set_macro_policy(&mut self, policy: crabxl_core::features::MacroPolicy) -> Result<()> {
         let mut features = self.workbook_features()?.clone();

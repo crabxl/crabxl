@@ -68,6 +68,7 @@ pub(super) fn patched_start(
     }
     Ok(start)
 }
+#[allow(clippy::too_many_arguments)]
 pub(super) fn write_body<W: Write>(
     writer: &mut Writer<PartOutput<W>>,
     cell: &Cell,
@@ -76,6 +77,7 @@ pub(super) fn write_body<W: Write>(
     formula_attributes: crate::FormulaWritePolicy,
     metadata_counts: Option<(usize, usize)>,
     epoch: DateEpoch,
+    iso_dates: bool,
 ) -> Result<()> {
     // The caller writes the style in the cell header; the body does not use it.
     let unstyled = (cell.style.get() != 0).then(|| Cell {
@@ -94,7 +96,7 @@ pub(super) fn write_body<W: Write>(
         ValueEncoding {
             metadata_counts,
             epoch,
-            iso_dates: false,
+            iso_dates,
             non_finite: crate::NonFiniteWritePolicy::Blank,
             formula_attributes,
             invalidate_caches: false,
@@ -149,6 +151,7 @@ pub(super) fn write_inserted_cell<W: Write>(
     formula_attributes: crate::FormulaWritePolicy,
     metadata_counts: Option<(usize, usize)>,
     epoch: DateEpoch,
+    iso_dates: bool,
 ) -> Result<()> {
     if !patch.insert_missing {
         return Err(
@@ -172,6 +175,7 @@ pub(super) fn write_inserted_cell<W: Write>(
         formula_attributes,
         metadata_counts,
         epoch,
+        iso_dates,
     )?;
     emit(writer, Event::End(quick_xml::events::BytesEnd::new("c")))
 }
@@ -254,6 +258,7 @@ pub(super) struct WorksheetRewrite<'a> {
     pub(super) model: Option<&'a crabxl_core::Worksheet>,
     pub(super) catalog: Option<&'a crabxl_core::StyleCatalog>,
     pub(super) epoch: DateEpoch,
+    pub(super) iso_dates: bool,
     pub(super) non_finite: crate::NonFiniteWritePolicy,
     pub(super) copying: bool,
     pub(super) data_only: bool,
@@ -277,6 +282,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         model,
         catalog,
         epoch,
+        iso_dates,
         non_finite,
         copying,
         data_only,
@@ -617,6 +623,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         crate::loaded_codec::Encoding {
                             metadata_counts,
                             epoch,
+                            iso_dates,
                             non_finite,
                             formula_attributes,
                         },
@@ -746,6 +753,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             formula_attributes,
                             metadata_counts,
                             epoch,
+                            iso_dates,
                         )?;
                         found += 1;
                     }
@@ -791,6 +799,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         formula_attributes,
                         metadata_counts,
                         epoch,
+                        iso_dates,
                     )?;
                     found += 1;
                 }
@@ -836,6 +845,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             formula_attributes,
                             metadata_counts,
                             epoch,
+                            iso_dates,
                         )?;
                         found += 1;
                     }
@@ -922,6 +932,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         formula_attributes,
                         metadata_counts,
                         epoch,
+                        iso_dates,
                     )?;
                     let name = std::str::from_utf8(&name).map_err(|error| {
                         Error::caused_by(ErrorKind::Xml, "Invalid cell name", error)
@@ -1010,6 +1021,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         formula_attributes,
                         metadata_counts,
                         epoch,
+                        iso_dates,
                     )?;
                     found += 1;
                 }
@@ -1046,6 +1058,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             formula_attributes,
                             metadata_counts,
                             epoch,
+                            iso_dates,
                         )?;
                         found += 1;
                     }

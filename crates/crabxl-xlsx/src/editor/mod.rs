@@ -227,6 +227,21 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     workbook_relationships: String,
     allowance: MemoryAllowance,
     shared_string_parts: HashSet<String>,
+    /// Date epoch override and ISO date storage for cells written on save.
+    dates: (Option<DateEpoch>, bool),
+}
+impl<R: Read + Seek> WorkbookEditor<R> {
+    /// Use this epoch and ISO date storage for cells written on save and for `date1904`.
+    pub fn set_date_options(&mut self, epoch: DateEpoch, iso_dates: bool) {
+        self.dates = (Some(epoch), iso_dates);
+    }
+    pub(crate) fn epoch(&self) -> DateEpoch {
+        self.dates.0.unwrap_or(if self.book.date_1904() {
+            DateEpoch::Mac1904
+        } else {
+            DateEpoch::Windows1900
+        })
+    }
 }
 impl WorkbookEditor<File> {
     /// Open a source without loading worksheet cells, images or shared strings.
@@ -387,6 +402,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             workbook_relationships,
             allowance,
             shared_string_parts,
+            dates: (None, false),
         })
     }
     /// Original sheet catalog; opaque preservation does not imply typed reading.

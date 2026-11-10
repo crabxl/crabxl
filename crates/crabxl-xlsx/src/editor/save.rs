@@ -242,11 +242,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         } else {
             self.active_for_save()?
         };
-        let epoch = if self.book.date_1904() {
-            DateEpoch::Mac1904
-        } else {
-            DateEpoch::Windows1900
-        };
+        let epoch = self.epoch();
         let dirty = data_only
             || self.patch_cells != 0
             || !self.model_patches.is_empty()
@@ -566,6 +562,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             model,
                             catalog: bank.and_then(crabxl_core::Workbook::style_catalog),
                             epoch,
+                            iso_dates: self.dates.1,
                             non_finite: self.options.non_finite,
                             copying: false,
                         },
@@ -842,6 +839,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             model: Some(sheet),
                             catalog: bank.style_catalog(),
                             epoch,
+                            iso_dates: self.dates.1,
                             non_finite: self.options.non_finite,
                             copying: true,
                         },
@@ -855,6 +853,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         crate::loaded_codec::Encoding {
                             metadata_counts,
                             epoch,
+                            iso_dates: self.dates.1,
                             non_finite: self.options.non_finite,
                             formula_attributes: self.options.formula_attributes,
                         },
