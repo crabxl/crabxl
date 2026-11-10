@@ -1,7 +1,6 @@
 //! `<dataValidations>` codec.
 use super::conditional::{
-    flag, number, parse_sqref, parse_u32, read_text, unknown_attribute, unknown_element,
-    write_sqref,
+    flag, number, parse_sqref, parse_u32, read_text, unknown_attribute, write_sqref,
 };
 use crate::encode::{write_attribute, write_text};
 use crate::metadata::{attributes, boolean};
@@ -16,7 +15,7 @@ use quick_xml::events::{BytesStart, Event};
 use std::io::{self, BufRead, Write};
 
 fn parse_enum<T>(value: &str, parse: fn(&str) -> Option<T>) -> Result<T> {
-    parse(value).ok_or_else(|| super::unsupported("Unsupported enumerated attribute value"))
+    parse(value).ok_or_else(|| super::invalid("Invalid enumerated attribute value"))
 }
 
 fn read_one<B: BufRead>(
@@ -50,14 +49,12 @@ fn read_one<B: BufRead>(
         match frame.event {
             Event::End(_) if d + 1 == depth => return Ok(v),
             Event::Start(e) => {
-                if scope != Scope::Spreadsheet {
-                    return Err(unknown_element());
-                }
                 let name = e.local_name().as_ref().as_bytes().to_vec();
                 match name.as_slice() {
+                    _ if scope != Scope::Spreadsheet => crate::style_codec::skip(xml, d)?,
                     b"formula1" => v.formula1 = Some(read_text(xml, d)?.into()),
                     b"formula2" => v.formula2 = Some(read_text(xml, d)?.into()),
-                    _ => return Err(unknown_element()),
+                    _ => crate::style_codec::skip(xml, d)?,
                 }
             }
             Event::Eof => return Err(super::invalid("Incomplete XML element")),
@@ -96,7 +93,8 @@ pub(crate) fn read<B: BufRead>(
                 if scope != Scope::Spreadsheet
                     || e.local_name().as_ref().as_bytes() != b"dataValidation"
                 {
-                    return Err(unknown_element());
+                    crate::style_codec::skip(xml, d)?;
+                    continue;
                 }
                 let e = e.into_owned();
                 dv.validations.push(read_one(xml, &e, d)?);
@@ -266,17 +264,19 @@ mod tests {
         );
     }
     #[test]
-    fn unknown_items_are_unsupported() {
+    fn unknown_items_are_ignored() {
         for body in [
             "<dataValidations><bogus/></dataValidations>",
             "<dataValidations bad=\"1\"/>",
             "<dataValidations><dataValidation sqref=\"A1\" bad=\"1\"/></dataValidations>",
             "<dataValidations><dataValidation sqref=\"A1\"><formula3/></dataValidation></dataValidations>",
-            "<dataValidations><dataValidation sqref=\"A1\" type=\"nope\"/></dataValidations>",
         ] {
-            let error = parse(&wrap(body, MAIN_URI)).unwrap_err();
-            assert_eq!(error.kind(), crabxl_core::ErrorKind::Unsupported, "{body}");
+            assert!(parse(&wrap(body, MAIN_URI)).is_ok(), "{body}");
         }
+        let body =
+            "<dataValidations><dataValidation sqref=\"A1\" type=\"nope\"/></dataValidations>";
+        let error = parse(&wrap(body, MAIN_URI)).unwrap_err();
+        assert_eq!(error.kind(), crabxl_core::ErrorKind::InvalidData);
     }
     #[test]
     fn empty_writes_nothing() {

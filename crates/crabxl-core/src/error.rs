@@ -86,6 +86,10 @@ impl Error {
     pub fn kind(&self) -> ErrorKind {
         self.details.kind
     }
+    /// Return the message, without the part or cell.
+    pub fn message(&self) -> &str {
+        &self.details.message
+    }
     /// Return the affected archive part, when known.
     pub fn part(&self) -> Option<&str> {
         self.details.part.as_deref()

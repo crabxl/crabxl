@@ -326,14 +326,21 @@ fn nonfinite_xml_and_overlay_limits_fail_without_committing() {
     assert!(!editor.is_dirty());
 }
 #[test]
-fn source_extensions_and_unknown_relationship_namespaces_reject_replacement() {
+fn unknown_attributes_are_dropped_and_wrong_relationship_namespaces_reject() {
     let bytes = fixture(Some(&settings()));
     let source = part(&bytes, "xl/worksheets/sheet1.xml");
-    for xml in [
-        source.replace("<pageSetup ", "<pageSetup unknown=\"true\" "),
-        source.replace(
-            "<pageSetup ",
-            "<pageSetup xmlns:p=\"urn:wrong\" p:id=\"printer\" ",
+    for (xml, accepted) in [
+        // Unknown attributes are dropped, as in openpyxl.
+        (
+            source.replace("<pageSetup ", "<pageSetup unknown=\"true\" "),
+            true,
+        ),
+        (
+            source.replace(
+                "<pageSetup ",
+                "<pageSetup xmlns:p=\"urn:wrong\" p:id=\"printer\" ",
+            ),
+            false,
         ),
     ] {
         let mut editor = WorkbookEditor::new(Cursor::new(replace(
@@ -342,8 +349,11 @@ fn source_extensions_and_unknown_relationship_namespaces_reject_replacement() {
             &xml,
         )))
         .unwrap();
-        assert!(editor.set_print_settings("Sheet", settings()).is_err());
-        assert!(!editor.is_dirty());
+        assert_eq!(
+            editor.set_print_settings("Sheet", settings()).is_ok(),
+            accepted
+        );
+        assert_eq!(editor.is_dirty(), accepted);
     }
 }
 

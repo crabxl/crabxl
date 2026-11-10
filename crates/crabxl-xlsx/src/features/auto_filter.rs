@@ -3,21 +3,16 @@ use crate::encode::write_attribute;
 use crate::metadata::{attributes, boolean};
 use crate::printing::namespace;
 use crate::xml::{Scope, XmlStream};
+use crabxl_core::Result;
 use crabxl_core::features::{
     AutoFilter, ColorFilter, CustomFilter, CustomFilterOperator, CustomFilters, DateGroupItem,
     DateTimeGrouping, DynamicFilter, DynamicFilterType, FilterCalendarType, FilterColumn,
     FilterIconSet, Filters, IconFilter, SortBy, SortCondition, SortMethod, SortState, Top10,
 };
-use crabxl_core::{Error, Result};
 use quick_xml::events::{BytesStart, Event};
 use std::io::{self, BufRead, Write};
 
-pub(crate) fn unknown_attribute() -> Error {
-    super::unsupported("Unsupported attribute in table or filter element")
-}
-pub(crate) fn unknown_element() -> Error {
-    super::unsupported("Unsupported element in table or filter")
-}
+pub(crate) use super::{unknown_attribute, unknown_element};
 pub(crate) fn uint(value: &str) -> Result<u32> {
     value
         .parse()
@@ -50,12 +45,19 @@ pub(crate) fn children<B: BufRead>(
         let scope = frame.scope;
         match frame.event {
             Event::Start(e) => {
-                if scope != Scope::Spreadsheet {
-                    return Err(unknown_element());
-                }
                 let owned = e.into_owned();
                 let name = owned.local_name();
-                f(xml, name.as_ref().as_bytes(), &owned, frame_depth)?;
+                let result = if scope == Scope::Spreadsheet {
+                    f(xml, name.as_ref().as_bytes(), &owned, frame_depth)
+                } else {
+                    Err(unknown_element())
+                };
+                match result {
+                    Err(error) if super::is_unknown_element(&error) => {
+                        crate::style_codec::skip(xml, frame_depth)?;
+                    }
+                    result => result?,
+                }
             }
             Event::End(_) if frame_depth + 1 == depth => return Ok(()),
             Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
@@ -572,7 +574,7 @@ pub(crate) fn write_sort_state(
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
-    use crabxl_core::{ErrorKind, ResourceLimits};
+    use crabxl_core::ResourceLimits;
     use std::io::Cursor;
 
     const NS: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -760,15 +762,13 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unknown_and_invalid() {
+    fn ignores_unknown_and_rejects_invalid() {
+        // Unknown attributes and elements are ignored, as in openpyxl.
         let un = |inner: &str, attr: &str| {
             let src =
                 format!("<autoFilter xmlns=\"{NS}\" ref=\"A1:B2\"{attr}>{inner}</autoFilter>");
-            assert_eq!(
-                parse_filter(&src).unwrap_err().kind(),
-                ErrorKind::Unsupported,
-                "{src}"
-            );
+            let filter = parse_filter(&src).unwrap();
+            assert_eq!(filter.ref_range.as_deref(), Some("A1:B2"), "{src}");
         };
         un("<extLst/>", "");
         un("", " foo=\"1\"");

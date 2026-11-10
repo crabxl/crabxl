@@ -282,9 +282,8 @@ impl<'a> PivotRecords<'a> {
                     return Ok(Some(record));
                 }
                 Event::Start(_) => {
-                    return Err(crate::features::unsupported(
-                        "Unknown pivot record container",
-                    ));
+                    let depth = frame.depth;
+                    crate::style_codec::skip(&mut self.xml, depth)?;
                 }
                 Event::Eof => {
                     self.done = true;

@@ -177,7 +177,6 @@ enum ScalarKind {
     SharedText,
     IsoDate,
     Error,
-    Unsupported,
 }
 
 enum BufferedValue {
@@ -260,7 +259,8 @@ impl CellHeader {
                         "s" => ScalarKind::SharedText,
                         "e" => ScalarKind::Error,
                         "d" => ScalarKind::IsoDate,
-                        _ => ScalarKind::Unsupported,
+                        // Unknown types keep their text, as in openpyxl.
+                        _ => ScalarKind::Text,
                     };
                 }
                 b"s" => {

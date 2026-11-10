@@ -82,7 +82,7 @@ pub(crate) fn header(
             _ if compatible => FormulaType::Normal,
             _ => {
                 return Err(Error::new(
-                    ErrorKind::Unsupported,
+                    ErrorKind::InvalidData,
                     "Unknown formula encoding type",
                 ));
             }
@@ -183,12 +183,8 @@ pub(crate) fn header(
                 table.input2 = Some(value.into_owned().into_boxed_str());
                 table_seen = true;
             }
-            _ => {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Unknown formula attribute",
-                ));
-            }
+            // Unknown attributes are ignored, as in openpyxl.
+            _ => {}
         }
     }
     if matches!(metadata.kind, FormulaType::Shared { .. }) {

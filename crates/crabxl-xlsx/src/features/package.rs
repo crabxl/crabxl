@@ -116,12 +116,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     "Worksheet not found",
                 )
             })?;
-        if !matches!(
-            info.kind(),
-            crate::SheetKind::Worksheet | crate::SheetKind::ChartSheet
-        ) {
-            return Err(unsupported("Features require a cell worksheet"));
-        }
+        // Dialog sheets are read like worksheets, as in openpyxl.
         Ok(info.part().to_owned())
     }
 
@@ -261,7 +256,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 .get(id)
                 .ok_or_else(|| invalid("Unknown feature relationship id"))?;
             if relationship.external {
-                return Err(unsupported("External feature parts are not supported"));
+                return Err(invalid("Feature part is outside the package"));
             }
             crate::package::resolve_part(&part, &relationship.target)
         };

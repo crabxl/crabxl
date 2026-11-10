@@ -343,12 +343,7 @@ fn read_impl<B: BufRead>(
                                     let heap = style.name.len();
                                     budget.push(&mut result.named_styles, style, heap)?;
                                 }
-                                _ => {
-                                    return Err(Error::new(
-                                        ErrorKind::Unsupported,
-                                        "Unknown style table entry",
-                                    ));
-                                }
+                                _ => crate::style_codec::skip(&mut xml, 3)?,
                             }
                         }
                         Event::End(e)
@@ -400,10 +395,8 @@ fn read_colors<B: BufRead>(
                     b"indexedColors" => true,
                     b"mruColors" => false,
                     _ => {
-                        return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Unknown color palette section",
-                        ));
+                        crate::style_codec::skip(xml, 3)?;
+                        continue;
                     }
                 };
                 let bit = if indexed { 1 } else { 2 };

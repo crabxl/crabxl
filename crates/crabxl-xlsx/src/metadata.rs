@@ -41,7 +41,10 @@ pub(crate) fn attributes(
                     error,
                 )
             })?;
-        apply(name, &value)?;
+        match apply(name, &value) {
+            Err(error) if crate::features::is_unknown_attribute(&error) => {}
+            result => result?,
+        }
     }
     Ok(())
 }

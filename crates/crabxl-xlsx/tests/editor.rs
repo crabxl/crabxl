@@ -1153,7 +1153,8 @@ fn known_structured_literal_flags_can_be_replaced_without_relaxing_graph_guards(
         ("dataTable", "ca=\"opaque\"", true),
         ("dataTable", "ca=\"quoted &amp; value\"", true),
         ("array", "aca=\"opaque\"", true),
-        ("dataTable", "ca=\"opaque\" custom=\"unknown\"", false),
+        // Unknown attributes are dropped, as in openpyxl.
+        ("dataTable", "ca=\"opaque\" custom=\"unknown\"", true),
         ("future", "", false),
         ("shared", "si=\"1\"", false),
     ] {

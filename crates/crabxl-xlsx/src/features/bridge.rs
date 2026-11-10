@@ -277,7 +277,7 @@ pub fn sheet_features_to_xml(features: &SheetFeatures) -> Result<SheetFeaturesXm
         || features.shapes.is_some()
         || features.pivots.is_some()
     {
-        return Err(super::unsupported(
+        return Err(super::invalid(
             "Package-backed features require the workbook writer",
         ));
     }
@@ -414,7 +414,7 @@ pub fn workbook_features_to_xml(features: &WorkbookFeatures) -> Result<WorkbookF
             crabxl_core::features::MacroPolicy::Preserve
         )
     {
-        return Err(super::unsupported(
+        return Err(super::invalid(
             "Workbook package graphs require the workbook writer",
         ));
     }

@@ -169,7 +169,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 | "application/vnd.ms-excel.template.macroEnabled.main+xml"
         ) {
             return Err(Error::new(
-                ErrorKind::Unsupported,
+                ErrorKind::InvalidData,
                 "Package is not an XLSX-family workbook",
             ));
         }
@@ -590,11 +590,8 @@ fn read_workbook<R: Read + Seek>(
                 } else if relationship_is(&relationship.kind, "dialogsheet") {
                     SheetKind::DialogSheet
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Unsupported sheet relationship type",
-                    )
-                    .with_part(part));
+                    // Other sheet types, such as macro sheets, are read like dialog sheets.
+                    SheetKind::DialogSheet
                 };
                 sheets.push(SheetInfo {
                     name,

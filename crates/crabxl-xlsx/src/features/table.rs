@@ -212,7 +212,10 @@ fn read_formula<B: BufRead>(
                 append_xml_text(&mut text, &frame.event, 1 << 20)?
             }
             Event::Comment(_) | Event::PI(_) => {}
-            Event::Start(_) => return Err(unknown_element()),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             _ => return Err(super::invalid("Unexpected content in formula")),
         }
     }
@@ -392,7 +395,7 @@ pub(crate) fn write_part(out: &mut impl Write, t: &Table, id: u32) -> io::Result
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
-    use crabxl_core::{ErrorKind, ResourceLimits};
+    use crabxl_core::ResourceLimits;
     use std::io::Cursor;
 
     fn parse(source: &str) -> Result<Table> {
@@ -491,13 +494,8 @@ mod tests {
 
     #[test]
     fn rejects_unknown_and_incomplete() {
-        let unsupported = |src: String| {
-            assert_eq!(
-                parse(&src).unwrap_err().kind(),
-                ErrorKind::Unsupported,
-                "{src}"
-            )
-        };
+        // Unknown attributes and elements are ignored, as in openpyxl.
+        let unsupported = |src: String| assert!(parse(&src).is_ok(), "{src}");
         unsupported(OPENPYXL.replace("<tableStyleInfo", "<extLst/><tableStyleInfo"));
         unsupported(OPENPYXL.replace("headerRowCount=\"1\"", "bogus=\"1\""));
         unsupported(OPENPYXL.replace(

@@ -84,11 +84,8 @@ pub(crate) fn read_limited<B: BufRead>(
                     .children
                     .push(XmlContent::ProcessingInstruction(value.as_ref().into()));
             }
-            _ => {
-                return Err(crate::features::unsupported(
-                    "Unsupported drawing property event",
-                ));
-            }
+            // Other XML events carry no drawing content.
+            _ => {}
         }
     }
 }

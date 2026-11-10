@@ -30,7 +30,6 @@ fn text(value: &str) -> Box<str> {
 fn each_attribute(
     start: &BytesStart<'_>,
     mut visit: impl FnMut(&str, &str) -> Result<bool>,
-    what: &str,
 ) -> Result<()> {
     for attr in start.attributes().with_checks(false) {
         let attr = attr.map_err(|e| {
@@ -49,24 +48,20 @@ fn each_attribute(
                     e,
                 )
             })?;
-        if !visit(&key, &value)? {
-            return Err(super::unsupported(&format!(
-                "Unsupported {what} attribute {key}"
-            )));
-        }
+        // Unknown attributes are ignored, as in openpyxl.
+        visit(&key, &value)?;
     }
     Ok(())
 }
 
 /// Consume the (childless) element through its matching End.
-fn finish<B: BufRead>(xml: &mut XmlStream<B>, depth: usize, what: &str) -> Result<()> {
+fn finish<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Result<()> {
     loop {
         let frame = xml.next()?;
         match frame.event {
             Event::Start(_) => {
-                return Err(super::unsupported(&format!(
-                    "Unsupported {what} child element"
-                )));
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
             }
             Event::End(_) if frame.depth + 1 == depth => return Ok(()),
             Event::Eof => return Err(super::invalid("Incomplete protection element")),
@@ -81,38 +76,34 @@ pub(crate) fn read_sheet<B: BufRead>(
     depth: usize,
 ) -> Result<SheetProtection> {
     let mut p = SheetProtection::default();
-    each_attribute(
-        start,
-        |key, value| {
-            match key {
-                "sheet" => p.sheet = parse_bool(value)?,
-                "objects" => p.objects = parse_bool(value)?,
-                "scenarios" => p.scenarios = parse_bool(value)?,
-                "formatCells" => p.format_cells = parse_bool(value)?,
-                "formatColumns" => p.format_columns = parse_bool(value)?,
-                "formatRows" => p.format_rows = parse_bool(value)?,
-                "insertColumns" => p.insert_columns = parse_bool(value)?,
-                "insertRows" => p.insert_rows = parse_bool(value)?,
-                "insertHyperlinks" => p.insert_hyperlinks = parse_bool(value)?,
-                "deleteColumns" => p.delete_columns = parse_bool(value)?,
-                "deleteRows" => p.delete_rows = parse_bool(value)?,
-                "selectLockedCells" => p.select_locked_cells = parse_bool(value)?,
-                "selectUnlockedCells" => p.select_unlocked_cells = parse_bool(value)?,
-                "sort" => p.sort = parse_bool(value)?,
-                "autoFilter" => p.auto_filter = parse_bool(value)?,
-                "pivotTables" => p.pivot_tables = parse_bool(value)?,
-                "password" => p.password = Some(text(value)),
-                "algorithmName" => p.algorithm_name = Some(text(value)),
-                "hashValue" => p.hash_value = Some(text(value)),
-                "saltValue" => p.salt_value = Some(text(value)),
-                "spinCount" => p.spin_count = Some(parse_u32(value)?),
-                _ => return Ok(false),
-            }
-            Ok(true)
-        },
-        "sheetProtection",
-    )?;
-    finish(xml, depth, "sheetProtection")?;
+    each_attribute(start, |key, value| {
+        match key {
+            "sheet" => p.sheet = parse_bool(value)?,
+            "objects" => p.objects = parse_bool(value)?,
+            "scenarios" => p.scenarios = parse_bool(value)?,
+            "formatCells" => p.format_cells = parse_bool(value)?,
+            "formatColumns" => p.format_columns = parse_bool(value)?,
+            "formatRows" => p.format_rows = parse_bool(value)?,
+            "insertColumns" => p.insert_columns = parse_bool(value)?,
+            "insertRows" => p.insert_rows = parse_bool(value)?,
+            "insertHyperlinks" => p.insert_hyperlinks = parse_bool(value)?,
+            "deleteColumns" => p.delete_columns = parse_bool(value)?,
+            "deleteRows" => p.delete_rows = parse_bool(value)?,
+            "selectLockedCells" => p.select_locked_cells = parse_bool(value)?,
+            "selectUnlockedCells" => p.select_unlocked_cells = parse_bool(value)?,
+            "sort" => p.sort = parse_bool(value)?,
+            "autoFilter" => p.auto_filter = parse_bool(value)?,
+            "pivotTables" => p.pivot_tables = parse_bool(value)?,
+            "password" => p.password = Some(text(value)),
+            "algorithmName" => p.algorithm_name = Some(text(value)),
+            "hashValue" => p.hash_value = Some(text(value)),
+            "saltValue" => p.salt_value = Some(text(value)),
+            "spinCount" => p.spin_count = Some(parse_u32(value)?),
+            _ => return Ok(false),
+        }
+        Ok(true)
+    })?;
+    finish(xml, depth)?;
     Ok(p)
 }
 
@@ -171,36 +162,32 @@ pub(crate) fn read_workbook<B: BufRead>(
     depth: usize,
 ) -> Result<WorkbookProtection> {
     let mut p = WorkbookProtection::default();
-    each_attribute(
-        start,
-        |key, value| {
-            match key {
-                "workbookPassword" => p.workbook_password = Some(text(value)),
-                "workbookPasswordCharacterSet" => {
-                    p.workbook_password_character_set = Some(text(value));
-                }
-                "revisionsPassword" => p.revisions_password = Some(text(value)),
-                "revisionsPasswordCharacterSet" => {
-                    p.revisions_password_character_set = Some(text(value));
-                }
-                "lockStructure" => p.lock_structure = Some(parse_bool(value)?),
-                "lockWindows" => p.lock_windows = Some(parse_bool(value)?),
-                "lockRevision" => p.lock_revision = Some(parse_bool(value)?),
-                "revisionsAlgorithmName" => p.revisions_algorithm_name = Some(text(value)),
-                "revisionsHashValue" => p.revisions_hash_value = Some(text(value)),
-                "revisionsSaltValue" => p.revisions_salt_value = Some(text(value)),
-                "revisionsSpinCount" => p.revisions_spin_count = Some(parse_u32(value)?),
-                "workbookAlgorithmName" => p.workbook_algorithm_name = Some(text(value)),
-                "workbookHashValue" => p.workbook_hash_value = Some(text(value)),
-                "workbookSaltValue" => p.workbook_salt_value = Some(text(value)),
-                "workbookSpinCount" => p.workbook_spin_count = Some(parse_u32(value)?),
-                _ => return Ok(false),
+    each_attribute(start, |key, value| {
+        match key {
+            "workbookPassword" => p.workbook_password = Some(text(value)),
+            "workbookPasswordCharacterSet" => {
+                p.workbook_password_character_set = Some(text(value));
             }
-            Ok(true)
-        },
-        "workbookProtection",
-    )?;
-    finish(xml, depth, "workbookProtection")?;
+            "revisionsPassword" => p.revisions_password = Some(text(value)),
+            "revisionsPasswordCharacterSet" => {
+                p.revisions_password_character_set = Some(text(value));
+            }
+            "lockStructure" => p.lock_structure = Some(parse_bool(value)?),
+            "lockWindows" => p.lock_windows = Some(parse_bool(value)?),
+            "lockRevision" => p.lock_revision = Some(parse_bool(value)?),
+            "revisionsAlgorithmName" => p.revisions_algorithm_name = Some(text(value)),
+            "revisionsHashValue" => p.revisions_hash_value = Some(text(value)),
+            "revisionsSaltValue" => p.revisions_salt_value = Some(text(value)),
+            "revisionsSpinCount" => p.revisions_spin_count = Some(parse_u32(value)?),
+            "workbookAlgorithmName" => p.workbook_algorithm_name = Some(text(value)),
+            "workbookHashValue" => p.workbook_hash_value = Some(text(value)),
+            "workbookSaltValue" => p.workbook_salt_value = Some(text(value)),
+            "workbookSpinCount" => p.workbook_spin_count = Some(parse_u32(value)?),
+            _ => return Ok(false),
+        }
+        Ok(true)
+    })?;
+    finish(xml, depth)?;
     Ok(p)
 }
 
@@ -312,8 +299,8 @@ mod tests {
         let p = sheet(&format!(
             r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">{SHEET}</worksheet>"#
         ));
-        // Root here is worksheet, so read the child directly instead.
-        assert!(p.is_err());
+        // A worksheet root has no protection attributes; its content is ignored.
+        assert!(!p.unwrap().sheet);
         let p = sheet(&SHEET.replace(
             "<sheetProtection",
             "<sheetProtection xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"",
@@ -351,14 +338,15 @@ mod tests {
         assert_eq!(book(std::str::from_utf8(&out).unwrap()).unwrap(), p);
     }
     #[test]
-    fn rejects_unknown() {
+    fn ignores_unknown_and_rejects_invalid() {
         let ns = "xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"";
-        let e = sheet(&format!("<sheetProtection {ns} bogus=\"1\"/>")).unwrap_err();
-        assert_eq!(e.kind(), ErrorKind::Unsupported);
-        let e = sheet(&format!("<sheetProtection {ns}><x/></sheetProtection>")).unwrap_err();
-        assert_eq!(e.kind(), ErrorKind::Unsupported);
-        let e = book(&format!("<workbookProtection {ns} bogus=\"1\"/>")).unwrap_err();
-        assert_eq!(e.kind(), ErrorKind::Unsupported);
+        assert!(
+            sheet(&format!("<sheetProtection {ns} sheet=\"1\" bogus=\"1\"/>"))
+                .unwrap()
+                .sheet
+        );
+        assert!(sheet(&format!("<sheetProtection {ns}><x/></sheetProtection>")).is_ok());
+        assert!(book(&format!("<workbookProtection {ns} bogus=\"1\"/>")).is_ok());
         let e = book(&format!("<workbookProtection {ns} lockStructure=\"x\"/>")).unwrap_err();
         assert_eq!(e.kind(), ErrorKind::InvalidData);
     }

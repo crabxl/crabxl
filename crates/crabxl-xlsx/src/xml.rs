@@ -454,8 +454,8 @@ impl<B: BufRead> XmlStream<B> {
             }
             Event::DocType(_) => {
                 return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "XML document types are not supported",
+                    ErrorKind::InvalidData,
+                    "XML document types are not allowed",
                 )
                 .with_part(self.part.clone()));
             }

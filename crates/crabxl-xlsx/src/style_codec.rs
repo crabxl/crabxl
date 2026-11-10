@@ -406,7 +406,10 @@ pub(crate) fn read_fill<B: BufRead>(
                         }
                         Fill::Gradient(v)
                     }
-                    _ => return Err(Error::new(ErrorKind::Unsupported, "Unknown fill component")),
+                    _ => {
+                        crate::style_codec::skip(xml, depth + 1)?;
+                        continue;
+                    }
                 });
             }
             Event::End(e)
@@ -459,10 +462,13 @@ pub(crate) fn read_border<B: BufRead>(
         let frame = xml.next()?;
         match frame.event {
             Event::Start(e) if frame.scope == Scope::Spreadsheet && frame.depth == depth + 1 => {
-                let i = keys
+                let Some(i) = keys
                     .iter()
                     .position(|key| *key == e.local_name().as_ref().as_bytes())
-                    .ok_or_else(|| Error::new(ErrorKind::Unsupported, "Unknown border edge"))?;
+                else {
+                    skip(xml, depth + 1)?;
+                    continue;
+                };
                 if border.sides[i].is_some() {
                     return Err(invalid("Duplicate border edge"));
                 }

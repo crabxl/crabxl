@@ -277,7 +277,10 @@ fn read_marker<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Result<Drawi
                     b"colOff" => 1,
                     b"row" => 2,
                     b"rowOff" => 3,
-                    _ => return Err(unsupported("Unknown drawing marker child")),
+                    _ => {
+                        crate::style_codec::skip(xml, depth + 1)?;
+                        continue;
+                    }
                 };
                 if values[index].is_some() {
                     return Err(invalid("Duplicate drawing marker child"));
@@ -285,7 +288,10 @@ fn read_marker<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Result<Drawi
                 values[index] = Some(String::new());
                 active = Some(index);
             }
-            Event::Start(_) => return Err(unsupported("Nested drawing marker content")),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::End(_) if frame.depth + 1 == depth => break,
             Event::End(_) => active = None,
             Event::Eof => return Err(invalid("Truncated drawing marker")),
@@ -326,7 +332,8 @@ pub(crate) struct PictureRef {
     pub client_data: Option<crabxl_core::drawing::XmlElement>,
 }
 
-/// Parse picture-only drawings. Other objects reject rather than disappear on replacement.
+/// Parse the anchors of a drawing. Anchors without a supported object are
+/// skipped, as in openpyxl.
 pub(crate) fn read<B: BufRead>(xml: &mut XmlStream<B>) -> Result<Vec<PictureRef>> {
     let mut pictures = Vec::new();
     let mut root = None;
@@ -343,7 +350,9 @@ pub(crate) fn read<B: BufRead>(xml: &mut XmlStream<B>) -> Result<Vec<PictureRef>
             }
             Event::Start(e) if frame.depth == 2 && frame.scope == Scope::SpreadsheetDrawing => {
                 let e = e.into_owned();
-                let mut picture = read_anchor(xml, &e)?;
+                let Some(mut picture) = read_anchor(xml, &e)? else {
+                    continue;
+                };
                 if let Some(parent) = &root {
                     crate::drawing_xml::inherit(&mut picture.properties, parent);
                     if let Some(client_data) = &mut picture.client_data {
@@ -353,7 +362,10 @@ pub(crate) fn read<B: BufRead>(xml: &mut XmlStream<B>) -> Result<Vec<PictureRef>
                 picture.order = pictures.len();
                 pictures.push(picture);
             }
-            Event::Start(_) => return Err(unsupported("Unknown drawing content")),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::Eof if root.is_some() => return Ok(pictures),
             Event::Eof => return Err(invalid("Missing drawing root")),
             _ => {}
@@ -361,13 +373,17 @@ pub(crate) fn read<B: BufRead>(xml: &mut XmlStream<B>) -> Result<Vec<PictureRef>
     }
 }
 
-fn read_anchor<B: BufRead>(xml: &mut XmlStream<B>, start: &BytesStart<'_>) -> Result<PictureRef> {
+fn read_anchor<B: BufRead>(
+    xml: &mut XmlStream<B>,
+    start: &BytesStart<'_>,
+) -> Result<Option<PictureRef>> {
     let kind = start.local_name().as_ref().to_owned();
     if !matches!(
         kind.as_str(),
         "oneCellAnchor" | "twoCellAnchor" | "absoluteAnchor"
     ) {
-        return Err(unsupported("Unknown drawing anchor"));
+        crate::style_codec::skip(xml, 2)?;
+        return Ok(None);
     }
     let edit_as = attribute(start, b"editAs")?
         .map(|v| v.parse())
@@ -409,10 +425,13 @@ fn read_anchor<B: BufRead>(xml: &mut XmlStream<B>, start: &BytesStart<'_>) -> Re
                         is_shape = true;
                         picture = Some(crate::drawing_xml::read(xml, &e, 3)?);
                     }
-                    _ => return Err(unsupported("Unsupported or duplicate drawing object")),
+                    _ => crate::style_codec::skip(xml, 3)?,
                 }
             }
-            Event::Start(_) => return Err(unsupported("Unsupported drawing anchor content")),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::End(_) if frame.depth == 1 => break,
             Event::Eof => return Err(invalid("Truncated drawing anchor")),
             _ => {}
@@ -438,7 +457,9 @@ fn read_anchor<B: BufRead>(xml: &mut XmlStream<B>, start: &BytesStart<'_>) -> Re
             }
         }
     };
-    let mut properties = picture.ok_or_else(|| invalid("Drawing anchor has no object"))?;
+    let Some(mut properties) = picture else {
+        return Ok(None);
+    };
     let anchor_scope = crate::drawing_xml::element(start)?;
     crate::drawing_xml::inherit(&mut properties, &anchor_scope);
     if let Some(client_data) = &mut client_data {
@@ -465,7 +486,7 @@ fn read_anchor<B: BufRead>(xml: &mut XmlStream<B>, start: &BytesStart<'_>) -> Re
             .child("graphic")
             .and_then(|v| v.child("graphicData"))
             .and_then(|v| v.child("chart"))
-            .ok_or_else(|| unsupported("Graphic frame does not contain a chart"))?;
+            .ok_or_else(|| invalid("Graphic frame does not contain a chart"))?;
         let relationship = reference
             .attributes
             .iter()
@@ -478,9 +499,14 @@ fn read_anchor<B: BufRead>(xml: &mut XmlStream<B>, start: &BytesStart<'_>) -> Re
             nv.attribute("descr").map(Into::into),
         )
     } else {
-        picture_properties(&properties)?
+        // A linked picture has no embedded image; it is skipped, as in openpyxl.
+        match picture_properties(&properties) {
+            Ok(values) => values,
+            Err(error) if error.kind() == crabxl_core::ErrorKind::Unsupported => return Ok(None),
+            Err(error) => return Err(error),
+        }
     };
-    Ok(PictureRef {
+    Ok(Some(PictureRef {
         anchor,
         relationship,
         name,
@@ -490,7 +516,7 @@ fn read_anchor<B: BufRead>(xml: &mut XmlStream<B>, start: &BytesStart<'_>) -> Re
         is_chart,
         is_shape,
         order: 0,
-    })
+    }))
 }
 
 fn picture_properties(
@@ -1064,9 +1090,8 @@ impl<Rd: std::io::Read + std::io::Seek> crate::WorkbookReader<Rd> {
                     Some("worksheet" | "chartsheet" | "officeDocument" | "sharedStrings")
                 )
             {
-                return Err(unsupported(
-                    "Drawing dependency points into a cell workbook",
-                ));
+                // A drawing cannot own cell workbook parts; the link is dropped.
+                continue;
             }
             output.push(crabxl_core::drawing::PartRelationship {
                 id: id.into(),
@@ -1136,7 +1161,7 @@ impl<Rd: std::io::Read + std::io::Seek> crate::WorkbookReader<Rd> {
                                     required_attribute(&e, b"ContentType")?,
                                 );
                             }
-                            _ => return Err(unsupported("Unknown content type declaration")),
+                            _ => {}
                         }
                     }
                     Event::Eof => break,
@@ -1410,11 +1435,14 @@ impl<Rd: std::io::Read + std::io::Seek> crate::WorkbookReader<Rd> {
             let relationship = relationships
                 .get(&picture.relationship)
                 .ok_or_else(|| invalid("Missing image relationship"))?;
+            // Linked pictures and images in unknown formats are skipped, as in openpyxl.
             if relationship.external || relationship.kind.rsplit('/').next() != Some("image") {
-                return Err(unsupported("Picture does not reference an internal image"));
+                continue;
             }
             let target = crate::package::resolve_part(&part, &relationship.target)?;
-            let format = self.image_format(&target)?;
+            let Ok(format) = self.image_format(&target) else {
+                continue;
+            };
             let data = match payloads.get(&target) {
                 Some(data) => data.clone(),
                 None => {

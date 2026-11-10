@@ -147,7 +147,7 @@ impl ImageFormat {
         ]
         .into_iter()
         .find(|format| format.content_type() == value)
-        .ok_or_else(|| Error::new(ErrorKind::Unsupported, "Unsupported image content type"))
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Unknown image content type"))
     }
     /// Resolve a media filename extension.
     pub fn from_extension(extension: &str) -> Result<Self> {
@@ -160,10 +160,7 @@ impl ImageFormat {
             "emf" => Ok(Self::Emf),
             "wmf" => Ok(Self::Wmf),
             "svg" => Ok(Self::Svg),
-            _ => Err(Error::new(
-                ErrorKind::Unsupported,
-                "Unsupported image format",
-            )),
+            _ => Err(Error::new(ErrorKind::InvalidData, "Unknown image format")),
         }
     }
 }

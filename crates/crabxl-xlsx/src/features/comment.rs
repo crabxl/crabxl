@@ -25,7 +25,10 @@ fn read_author<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Result<Box<s
                 append_xml_text(&mut text, &frame.event, MAX_TEXT_BYTES)?;
             }
             Event::End(_) if frame.depth + 1 == depth => return Ok(text.into()),
-            Event::Start(_) => return Err(super::unsupported("Unknown element in author")),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::Eof => return Err(super::invalid("Incomplete author element")),
             _ => {}
         }
@@ -73,7 +76,7 @@ fn read_comment<B: BufRead>(
                         .map_err(|_| super::invalid("Invalid comment authorId"))?,
                 );
             }
-            _ => return Err(super::unsupported("Unsupported comment attribute")),
+            _ => {}
         }
     }
     let reference = reference.ok_or_else(|| super::invalid("Missing comment ref"))?;
@@ -89,7 +92,9 @@ fn read_comment<B: BufRead>(
         match &frame.event {
             Event::Start(e) if frame.scope == Scope::Spreadsheet && frame.depth == depth + 1 => {
                 if name_of(e) != "text" || seen_text {
-                    return Err(super::unsupported("Unsupported comment child element"));
+                    let depth = frame.depth;
+                    crate::style_codec::skip(xml, depth)?;
+                    continue;
                 }
                 seen_text = true;
                 let parsed = crate::rich_text::read_container(
@@ -107,7 +112,10 @@ fn read_comment<B: BufRead>(
                     }
                 }
             }
-            Event::Start(_) => return Err(super::unsupported("Unsupported comment child element")),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::End(_) if frame.depth + 1 == depth => break,
             Event::Eof => return Err(super::invalid("Incomplete comment element")),
             _ => {}
@@ -145,7 +153,7 @@ pub(crate) fn read_part<B: BufRead>(xml: &mut XmlStream<B>) -> Result<Vec<Commen
                         let e = e.to_owned();
                         raws.push(read_comment(xml, &e, depth)?);
                     }
-                    _ => return Err(super::unsupported("Unsupported comments element")),
+                    _ => crate::style_codec::skip(xml, depth)?,
                 }
             }
             Event::End(_) if frame.depth == 1 => {
@@ -477,12 +485,15 @@ mod tests {
         assert_eq!(text.matches("<author>").count(), 1);
     }
     #[test]
-    fn rejects_unknown_and_bad_input() {
+    fn ignores_unknown_and_rejects_bad_input() {
         let ns = "xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"";
-        let e = read(&format!("<comments {ns}><bogus/></comments>")).unwrap_err();
-        assert_eq!(e.kind(), ErrorKind::Unsupported);
-        let e = read(&format!("<comments {ns}><authors><author>A</author></authors><commentList><comment ref=\"A1\" authorId=\"0\" x=\"1\"><text><t>t</t></text></comment></commentList></comments>")).unwrap_err();
-        assert_eq!(e.kind(), ErrorKind::Unsupported);
+        assert!(
+            read(&format!("<comments {ns}><bogus/></comments>"))
+                .unwrap()
+                .is_empty()
+        );
+        let comments = read(&format!("<comments {ns}><authors><author>A</author></authors><commentList><comment ref=\"A1\" authorId=\"0\" x=\"1\"><text><t>t</t></text><extra/></comment></commentList></comments>")).unwrap();
+        assert_eq!(comments[0].text.as_ref(), "t");
         let e = read(&format!("<comments {ns}><authors/><commentList><comment ref=\"A1\" authorId=\"3\"><text><t>t</t></text></comment></commentList></comments>")).unwrap_err();
         assert_eq!(e.kind(), ErrorKind::InvalidData);
     }

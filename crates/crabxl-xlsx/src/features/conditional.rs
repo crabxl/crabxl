@@ -50,12 +50,7 @@ pub(crate) fn number(
     }
     Ok(())
 }
-pub(crate) fn unknown_attribute() -> crabxl_core::Error {
-    super::unsupported("Unsupported attribute on a feature element")
-}
-pub(crate) fn unknown_element() -> crabxl_core::Error {
-    super::unsupported("Unsupported element inside a feature element")
-}
+pub(crate) use super::{unknown_attribute, unknown_element};
 /// Read the text content of an element whose `Start` (at `depth`) was consumed.
 pub(crate) fn read_text<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Result<String> {
     let mut text = String::new();
@@ -63,7 +58,10 @@ pub(crate) fn read_text<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Res
         let frame = xml.next()?;
         match frame.event {
             Event::End(_) if frame.depth + 1 == depth => return Ok(text),
-            Event::Start(_) => return Err(unknown_element()),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::Eof => return Err(super::invalid("Incomplete XML element")),
             Event::Comment(_) | Event::PI(_) => {}
             ref e => append_xml_text(&mut text, e, MAX_TEXT)?,
@@ -71,7 +69,7 @@ pub(crate) fn read_text<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Res
     }
 }
 fn parse_enum<T>(value: &str, parse: fn(&str) -> Option<T>) -> Result<T> {
-    parse(value).ok_or_else(|| super::unsupported("Unsupported enumerated attribute value"))
+    parse(value).ok_or_else(|| super::invalid("Invalid enumerated attribute value"))
 }
 
 fn read_cfvo<B: BufRead>(
@@ -98,7 +96,10 @@ fn skip_empty<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Result<()> {
         let frame = xml.next()?;
         match frame.event {
             Event::End(_) if frame.depth + 1 == depth => return Ok(()),
-            Event::Start(_) => return Err(unknown_element()),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::Eof => return Err(super::invalid("Incomplete XML element")),
             _ => {}
         }
@@ -122,14 +123,18 @@ fn read_children<B: BufRead>(
         match frame.event {
             Event::End(_) if d + 1 == depth => return Ok(()),
             Event::Start(e) => {
-                if scope != Scope::Spreadsheet {
-                    return Err(unknown_element());
-                }
                 let e = e.into_owned();
-                match e.local_name().as_ref().as_bytes() {
-                    b"cfvo" => each(xml, Child::Cfvo(e, d))?,
-                    b"color" => each(xml, Child::Color(e, d))?,
-                    _ => return Err(unknown_element()),
+                let result = match e.local_name().as_ref().as_bytes() {
+                    _ if scope != Scope::Spreadsheet => Err(unknown_element()),
+                    b"cfvo" => each(xml, Child::Cfvo(e, d)),
+                    b"color" => each(xml, Child::Color(e, d)),
+                    _ => Err(unknown_element()),
+                };
+                match result {
+                    Err(error) if super::is_unknown_element(&error) => {
+                        crate::style_codec::skip(xml, d)?;
+                    }
+                    result => result?,
                 }
             }
             Event::Eof => return Err(super::invalid("Incomplete XML element")),
@@ -185,7 +190,8 @@ fn read_rule<B: BufRead>(
             Event::End(_) if d + 1 == depth => return Ok(r),
             Event::Start(e) => {
                 if scope != Scope::Spreadsheet {
-                    return Err(unknown_element());
+                    crate::style_codec::skip(xml, d)?;
+                    continue;
                 }
                 let e = e.into_owned();
                 match e.local_name().as_ref().as_bytes() {
@@ -253,7 +259,7 @@ fn read_rule<B: BufRead>(
                     b"extLst" if r.ext_list.is_none() => {
                         r.ext_list = Some(super::read_raw(xml, &e, d)?);
                     }
-                    _ => return Err(unknown_element()),
+                    _ => crate::style_codec::skip(xml, d)?,
                 }
             }
             Event::Eof => return Err(super::invalid("Incomplete XML element")),
@@ -289,7 +295,8 @@ pub(crate) fn read<B: BufRead>(
             Event::End(_) if d + 1 == depth => return Ok(cf),
             Event::Start(e) => {
                 if scope != Scope::Spreadsheet || e.local_name().as_ref().as_bytes() != b"cfRule" {
-                    return Err(unknown_element());
+                    crate::style_codec::skip(xml, d)?;
+                    continue;
                 }
                 let e = e.into_owned();
                 cf.rules.push(read_rule(xml, &e, d)?);
@@ -510,17 +517,19 @@ mod tests {
         assert_eq!(parsed, again);
     }
     #[test]
-    fn unknown_items_are_unsupported() {
+    fn unknown_items_are_ignored() {
         for body in [
             "<conditionalFormatting sqref=\"A1\"><bogus/></conditionalFormatting>",
             "<conditionalFormatting sqref=\"A1\" x=\"1\"/>",
             "<conditionalFormatting sqref=\"A1\"><cfRule type=\"expression\" zz=\"1\"/></conditionalFormatting>",
             "<conditionalFormatting sqref=\"A1\"><cfRule type=\"dataBar\"><dataBar><cfvo type=\"min\"/><cfvo type=\"max\"/><extLst/></dataBar></cfRule></conditionalFormatting>",
-            "<conditionalFormatting sqref=\"A1\"><cfRule type=\"nope\"/></conditionalFormatting>",
         ] {
-            let error = parse_all(&wrap(body, MAIN_URI)).unwrap_err();
-            assert_eq!(error.kind(), crabxl_core::ErrorKind::Unsupported, "{body}");
+            assert!(parse_all(&wrap(body, MAIN_URI)).is_ok(), "{body}");
         }
+        let body =
+            "<conditionalFormatting sqref=\"A1\"><cfRule type=\"nope\"/></conditionalFormatting>";
+        let error = parse_all(&wrap(body, MAIN_URI)).unwrap_err();
+        assert_eq!(error.kind(), crabxl_core::ErrorKind::InvalidData);
     }
     #[test]
     fn malformed_input_is_an_error() {

@@ -505,10 +505,6 @@ fn prefixes_and_strict_spreadsheet_namespaces_work() {
             ErrorKind::InvalidData,
         ),
         ("<c xmlns=\"\"><v>1</v></c>", ErrorKind::InvalidData),
-        (
-            "<c><v xmlns=\"urn:other\">1</v></c>",
-            ErrorKind::Unsupported,
-        ),
         ("<c xmlns:xml=\"urn:bad\"><v>1</v></c>", ErrorKind::Xml),
         ("<c xmlns:xmlns=\"urn:bad\"><v>1</v></c>", ErrorKind::Xml),
     ] {
@@ -517,6 +513,10 @@ fn prefixes_and_strict_spreadsheet_namespaces_work() {
         assert_eq!(error.kind(), kind, "{cell}: {error}");
         assert_eq!(error.part(), Some("data/values.xml"));
     }
+    // Foreign content in a cell is ignored, as in openpyxl.
+    let mut book = open("<row><c><v xmlns=\"urn:other\">1</v></c></row>");
+    let row = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+    assert_eq!(row.cells[0].value, CellValue::Empty);
 }
 #[test]
 fn ignores_nested_extension_sheet_lookalikes_in_metadata() {
@@ -549,7 +549,7 @@ fn selected_unsupported_features_fail_with_cell_context() {
         )
         .unwrap();
     let error = rows.next_row().unwrap_err();
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert_eq!(error.kind(), ErrorKind::InvalidData);
     assert_eq!(error.cell().unwrap().to_string(), "A1");
     assert_eq!(error.part(), Some("data/values.xml"));
     assert!(rows.next().is_none());
@@ -842,7 +842,7 @@ fn rejects_doctype_even_without_entity_use() {
         Ok(_) => panic!("DTD unexpectedly accepted"),
         Err(e) => e,
     };
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert_eq!(error.kind(), ErrorKind::InvalidData);
 }
 #[test]
 fn normalized_uri_paths_and_package_escape_rejection() {
@@ -1736,7 +1736,8 @@ fn rich_unknown_properties_are_projectable_but_typed_access_is_explicit() {
                 .value,
             CellValue::text("plain")
         );
-        let error = book
+        // Unknown run properties are ignored, as in openpyxl.
+        let row = book
             .rows_with_options(
                 "A & B",
                 ReadOptions {
@@ -1746,9 +1747,9 @@ fn rich_unknown_properties_are_projectable_but_typed_access_is_explicit() {
             )
             .unwrap()
             .next_row()
-            .unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::Unsupported);
-        assert_eq!(error.cell().unwrap().to_string(), "A1");
+            .unwrap()
+            .unwrap();
+        assert_ne!(row.cells[0].value, CellValue::Empty);
     }
 }
 
@@ -2213,14 +2214,11 @@ fn style_catalog_actual_counts_bytes_bad_components_and_duplicate_ids_are_guarde
         assert_eq!(error.part(), Some("meta/styles.xml"));
         assert_eq!(book.style_memory_bytes(), 0);
     }
+    // Unknown attributes are ignored, as in openpyxl.
     let unknown = valid.replace("<font>", "<font unsupported=\"1\">");
     let mut book =
         WorkbookReader::new(Cursor::new(with_styles("<row/>", &unknown, false))).unwrap();
-    assert_eq!(
-        book.style_catalog().unwrap_err().kind(),
-        ErrorKind::Unsupported
-    );
-    assert_eq!(book.style_memory_bytes(), 0);
+    assert!(book.style_catalog().is_ok());
 }
 
 #[test]
@@ -2662,7 +2660,7 @@ fn dynamic_array_and_opaque_metadata_project_visible_values_or_explicitly_reject
         )
         .unwrap();
     let error = reject.next_row().unwrap_err();
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert_eq!(error.kind(), ErrorKind::InvalidData);
     assert_eq!(error.cell().unwrap().to_string(), "A1");
     drop(reject);
     let mut excluded = book
@@ -3164,12 +3162,16 @@ fn color_identities_use_public_priority_and_validate_all_xml_attributes() {
             expected
         );
     }
-    for attributes in ["rgb=\"&unknown;\" theme=\"1\"", "theme=\"1\" unknown=\"1\""] {
+    // Unknown attributes are ignored, as in openpyxl; malformed XML still fails.
+    for (attributes, valid) in [
+        ("rgb=\"&unknown;\" theme=\"1\"", false),
+        ("theme=\"1\" unknown=\"1\"", true),
+    ] {
         let styles =
             basic_styles("<xf/>").replace("</font>", &format!("<color {attributes}/></font>"));
         let mut book =
             WorkbookReader::new(Cursor::new(with_styles("<row/>", &styles, false))).unwrap();
-        assert!(book.style_catalog().is_err());
+        assert_eq!(book.style_catalog().is_ok(), valid, "{attributes}");
     }
 }
 
@@ -3324,7 +3326,7 @@ fn compatible_normal_and_shared_headers_ignore_unused_semantics_after_xml_checks
         assert_eq!(formula.expression(), "A1+1");
         assert_eq!(formula.cached(), Some(&CellValue::Integer(2)));
         let mut strict = open(&content);
-        assert!(
+        assert_eq!(
             strict
                 .rows_with_options(
                     "A & B",
@@ -3335,7 +3337,9 @@ fn compatible_normal_and_shared_headers_ignore_unused_semantics_after_xml_checks
                 )
                 .unwrap()
                 .next_row()
-                .is_err()
+                .is_ok(),
+            // Unknown attributes are ignored, as in openpyxl.
+            attributes.starts_with("unknown=")
         );
     }
     for attributes in ["unknown=\"&invalid;\"", "t=\"future\" ca=\"&invalid;\""] {
@@ -3722,9 +3726,9 @@ fn formula_annotation_requests_reject_incompatible_modes_and_respect_projection(
             },
         )
         .unwrap();
-    let error = scalar.next_row().unwrap_err();
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
-    assert_eq!(error.cell().unwrap().to_string(), "B1");
+    // Scalar cm/vm metadata is dropped and the value is kept, as in openpyxl.
+    let row = scalar.next_row().unwrap().unwrap();
+    assert_eq!(row.cells[0].value, CellValue::Integer(42));
     drop(scalar);
     // Build through the existing fixture generator, preserving all package parts.
     let parts = entries(&format!(

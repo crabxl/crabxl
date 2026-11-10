@@ -12,9 +12,6 @@ pub(crate) struct Capture {
 fn invalid(message: &str) -> Error {
     Error::new(ErrorKind::InvalidData, message)
 }
-fn unsupported(message: &str) -> Error {
-    Error::new(ErrorKind::Unsupported, message)
-}
 impl Capture {
     pub(crate) fn observe(
         &mut self,
@@ -45,9 +42,8 @@ impl Capture {
                 self.active = true;
                 for a in e.attributes() {
                     let a = a.map_err(|_| invalid("Invalid hyperlink container attribute"))?;
-                    if a.key.as_namespace_binding().is_none() {
-                        return Err(unsupported("Unknown hyperlink container attributes"));
-                    }
+                    // Unknown attributes are ignored, as in openpyxl.
+                    let _ = a;
                 }
             }
             Event::Start(e) if self.active => {
@@ -55,7 +51,8 @@ impl Capture {
                     || frame.scope != Scope::Spreadsheet
                     || e.local_name().as_ref().as_bytes() != b"hyperlink"
                 {
-                    return Err(unsupported("Unknown hyperlink content"));
+                    // Other content is ignored, as in openpyxl.
+                    return Ok(());
                 }
                 for (index, a) in e.attributes().enumerate() {
                     let a = a.map_err(|_| invalid("Invalid hyperlink attribute"))?;
@@ -72,7 +69,7 @@ impl Capture {
                             b"ref" | b"location" | b"display" | b"tooltip"
                         )
                     {
-                        return Err(unsupported("Unknown hyperlink attributes"));
+                        continue;
                     }
                 }
                 let range: CellRange = required_attribute(e, b"ref")?.parse()?;
@@ -100,16 +97,6 @@ impl Capture {
                 if frame.depth == 1 && e.local_name().as_ref().as_bytes() == b"hyperlinks" =>
             {
                 self.active = false
-            }
-            Event::Text(t)
-                if self.active && !t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) =>
-            {
-                return Err(invalid("Unexpected hyperlink text"));
-            }
-            Event::CData(_) | Event::GeneralRef(_) | Event::Comment(_) | Event::PI(_)
-                if self.active =>
-            {
-                return Err(unsupported("Unknown hyperlink payload"));
             }
             _ => {}
         }

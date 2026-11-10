@@ -119,14 +119,13 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         })?;
                         continue;
                     }
-                    if matches!(header.kind, ScalarKind::Unsupported)
-                        || (header.metadata
-                            && self.options.cell_metadata_policy
-                                == crabxl_core::CellMetadataReadPolicy::Reject)
+                    if header.metadata
+                        && self.options.cell_metadata_policy
+                            == crabxl_core::CellMetadataReadPolicy::Reject
                     {
                         return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Selected cell type, style, or metadata is not supported yet",
+                            ErrorKind::InvalidData,
+                            "Selected cell type, style, or metadata is rejected by policy",
                         )
                         .with_part(self.xml.part())
                         .with_cell(header.address));
@@ -428,11 +427,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     formula = Some((expression, metadata));
                 }
                 Event::Start(_) => {
-                    return Err(Error::new(
-                        ErrorKind::Unsupported,
-                        "Other cell content is not supported yet",
-                    )
-                    .with_part(self.xml.part()));
+                    // Other cell content is ignored, as in openpyxl.
+                    let depth = frame.depth;
+                    crate::style_codec::skip(&mut self.xml, depth)?;
                 }
                 Event::End(e)
                     if frame.scope == Scope::Spreadsheet
@@ -491,10 +488,8 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                         {
                             return Ok(value.with_annotations(*annotations));
                         }
-                        return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Retaining scalar cm/vm metadata is not implemented",
-                        ));
+                        // Other policies drop scalar metadata, as openpyxl does.
+                        return Ok(value);
                     }
                     return Ok(value);
                 }

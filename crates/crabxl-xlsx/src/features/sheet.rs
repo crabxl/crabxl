@@ -131,7 +131,9 @@ pub(crate) fn read_element<B: BufRead>(
                             b"tablePart".as_slice()
                         }
                     {
-                        return Err(unsupported("Unknown tableParts child"));
+                        let depth = frame.depth;
+                        crate::style_codec::skip(xml, depth)?;
+                        continue;
                     }
                     let id = relationship_id(&e)?
                         .ok_or_else(|| invalid("tablePart has no relationship id"))?;
@@ -146,7 +148,7 @@ pub(crate) fn read_element<B: BufRead>(
                 _ => {}
             }
         },
-        _ => return Err(unsupported("Unknown worksheet feature element")),
+        _ => crate::style_codec::skip(xml, depth)?,
     }
     Ok(())
 }

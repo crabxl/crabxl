@@ -58,10 +58,9 @@ pub(crate) fn read_font<B: BufRead>(
                     b"scheme" => 13,
                     b"color" => 14,
                     _ => {
-                        return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Unknown run font property",
-                        ));
+                        // Unknown font properties are ignored, as in openpyxl.
+                        crate::style_codec::skip(xml, depth + 1)?;
+                        continue;
                     }
                 };
                 if seen & (1 << number) != 0 {
@@ -153,10 +152,8 @@ pub(crate) fn read_font<B: BufRead>(
                 return Ok(font);
             }
             Event::Start(_) => {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Unknown rich-text namespace or subtree",
-                ));
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
             }
             Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
@@ -170,10 +167,8 @@ pub(crate) fn consume_property<B: BufRead>(xml: &mut XmlStream<B>, depth: usize)
         match f.event {
             Event::End(_) if f.depth + 1 == depth => return Ok(()),
             Event::Start(_) => {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Unknown rich-text namespace or subtree",
-                ));
+                let depth = f.depth;
+                crate::style_codec::skip(xml, depth)?;
             }
             Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
@@ -300,10 +295,8 @@ pub(crate) fn check_attributes(e: &BytesStart<'_>, allowed: &[&[u8]]) -> Result<
             continue;
         }
         if !allowed.contains(&key) {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                "Unknown formatting property attribute",
-            ));
+            // Unknown attributes are ignored, as in openpyxl.
+            continue;
         }
     }
     Ok(())

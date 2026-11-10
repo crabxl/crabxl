@@ -15,11 +15,9 @@ use std::io::{self, BufRead, Write};
 fn invalid(message: &str) -> Error {
     Error::new(ErrorKind::InvalidData, message)
 }
+/// Unknown attributes are ignored by `attributes`, as in openpyxl.
 fn unsupported() -> Error {
-    Error::new(
-        ErrorKind::Unsupported,
-        "Printing extension requires typed support; unchanged original-package preservation remains available",
-    )
+    crate::features::unknown_attribute()
 }
 
 const SHEET_PROPERTIES: &[&str] = &[
@@ -358,7 +356,10 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
                 }
                 root = true;
             }
-            Event::Start(_) if leaf_depth.is_some() => return Err(unsupported()),
+            Event::Start(_) if leaf_depth.is_some() => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::Start(e)
                 if frame.scope == Scope::Spreadsheet
                     && frame.depth == 2
@@ -544,7 +545,9 @@ fn read_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Result<Prin
                     || frame.depth != 3
                     || e.local_name().as_ref().as_bytes() != b"brk"
                 {
-                    return Err(unsupported());
+                    let depth = frame.depth;
+                    crate::style_codec::skip(xml, depth)?;
+                    continue;
                 }
                 let mut entry = PageBreak::default();
                 attributes(&e, |name, value| {

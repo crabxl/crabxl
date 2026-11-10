@@ -127,12 +127,7 @@ pub(crate) fn read_container<B: BufRead>(
                         value.phonetic_properties = Some(Box::new(properties));
                         crate::formatting::consume_property(xml, depth + 1)?;
                     }
-                    _ => {
-                        return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Unknown rich-text element",
-                        ));
-                    }
+                    _ => skip_subtree(xml, depth + 1)?,
                 }
                 if formatted
                     && size_of::<RichText>()
@@ -170,10 +165,9 @@ pub(crate) fn read_container<B: BufRead>(
                 };
             }
             Event::Start(_) => {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Unknown rich-text namespace or subtree",
-                ));
+                // Unknown content is ignored, as in openpyxl.
+                let depth = frame.depth;
+                skip_subtree(xml, depth)?;
             }
             Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
@@ -258,10 +252,9 @@ fn read_run<B: BufRead>(
                 });
             }
             Event::Start(_) => {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Unknown rich-text namespace or subtree",
-                ));
+                // Unknown content is ignored, as in openpyxl.
+                let depth = frame.depth;
+                skip_subtree(xml, depth)?;
             }
             Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
@@ -296,10 +289,9 @@ fn read_phonetic<B: BufRead>(
                 return Ok(text.unwrap_or_default());
             }
             Event::Start(_) => {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Unknown rich-text namespace or subtree",
-                ));
+                // Unknown content is ignored, as in openpyxl.
+                let depth = frame.depth;
+                skip_subtree(xml, depth)?;
             }
             Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
@@ -432,12 +424,7 @@ fn read_plain_container<B: BufRead>(
                         append_plain_run(xml, depth + 1, &mut text, maximum)?;
                     }
                     b"rPh" | b"phoneticPr" => skip_subtree(xml, depth + 1)?,
-                    _ => {
-                        return Err(Error::new(
-                            ErrorKind::Unsupported,
-                            "Unknown rich-text element",
-                        ));
-                    }
+                    _ => skip_subtree(xml, depth + 1)?,
                 }
             }
             Event::End(e)
@@ -449,10 +436,9 @@ fn read_plain_container<B: BufRead>(
                 return Ok(ParsedText::Plain(text.into_boxed_str()));
             }
             Event::Start(_) => {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Unknown rich-text namespace or subtree",
-                ));
+                // Unknown content is ignored, as in openpyxl.
+                let depth = frame.depth;
+                skip_subtree(xml, depth)?;
             }
             Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}
@@ -498,10 +484,9 @@ fn append_plain_run<B: BufRead>(
                 return Ok(());
             }
             Event::Start(_) => {
-                return Err(Error::new(
-                    ErrorKind::Unsupported,
-                    "Unknown rich-text namespace or subtree",
-                ));
+                // Unknown content is ignored, as in openpyxl.
+                let depth = frame.depth;
+                skip_subtree(xml, depth)?;
             }
             Event::Text(t) if t.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
             Event::Comment(_) | Event::PI(_) => {}

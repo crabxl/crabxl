@@ -1,5 +1,5 @@
 //! Workbook `<definedNames>` codec.
-use super::{invalid, unsupported};
+use super::invalid;
 use crate::encode::{write_attribute, write_text};
 use crate::xml::{Scope, XmlStream, append_xml_text};
 use crabxl_core::Result;
@@ -63,7 +63,7 @@ fn read_name(start: &BytesStart<'_>) -> Result<DefinedName> {
             b"shortcutKey" => name.shortcut_key = Some(text),
             b"publishToServer" => name.publish_to_server = Some(boolean(&text)?),
             b"workbookParameter" => name.workbook_parameter = Some(boolean(&text)?),
-            _ => return Err(unsupported("Unknown definedName attribute")),
+            _ => {}
         }
     }
     if !has_name {
@@ -86,14 +86,19 @@ pub(crate) fn read<B: BufRead>(
                 if frame.scope != Scope::Spreadsheet
                     || e.local_name().as_ref().as_bytes() != b"definedName"
                 {
-                    return Err(unsupported("Unknown definedNames child"));
+                    let depth = frame.depth;
+                    crate::style_codec::skip(xml, depth)?;
+                    continue;
                 }
                 let mut name = read_name(&e)?;
                 let mut value = String::new();
                 loop {
                     let inner = xml.next()?;
                     match &inner.event {
-                        Event::Start(_) => return Err(unsupported("Unknown definedName child")),
+                        Event::Start(_) => {
+                            let depth = inner.depth;
+                            crate::style_codec::skip(xml, depth)?;
+                        }
                         Event::End(_) if inner.depth + 1 == depth + 1 => break,
                         Event::Text(_) | Event::CData(_) | Event::GeneralRef(_) => {
                             append_xml_text(&mut value, &inner.event, MAX_VALUE)?
@@ -105,7 +110,10 @@ pub(crate) fn read<B: BufRead>(
                 name.value = value.into();
                 names.push(name);
             }
-            Event::Start(_) => return Err(unsupported("Unknown definedNames child")),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::End(_) if frame.depth + 1 == depth => return Ok(names),
             Event::Eof => return Err(invalid("Incomplete definedNames")),
             _ => {}
@@ -177,7 +185,7 @@ pub(crate) fn write(
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
-    use crabxl_core::{ErrorKind, ResourceLimits};
+    use crabxl_core::ResourceLimits;
     use std::io::Cursor;
 
     fn parse(xml: &str) -> Result<Vec<DefinedName>> {
@@ -255,15 +263,19 @@ mod tests {
     }
 
     #[test]
-    fn unknown_items_are_rejected() {
-        let e = parse("<definedNames><x/></definedNames>").unwrap_err();
-        assert_eq!(e.kind(), ErrorKind::Unsupported);
-        let e =
+    fn unknown_items_are_ignored() {
+        assert!(
+            parse("<definedNames><x/></definedNames>")
+                .unwrap()
+                .is_empty()
+        );
+        let names =
             parse(r#"<definedNames><definedName name="a" foo="1">x</definedName></definedNames>"#)
-                .unwrap_err();
-        assert_eq!(e.kind(), ErrorKind::Unsupported);
-        let e = parse(r#"<definedNames><definedName name="a"><b/></definedName></definedNames>"#)
-            .unwrap_err();
-        assert_eq!(e.kind(), ErrorKind::Unsupported);
+                .unwrap();
+        assert_eq!(names[0].value.as_ref(), "x");
+        let names =
+            parse(r#"<definedNames><definedName name="a">x<b/></definedName></definedNames>"#)
+                .unwrap();
+        assert_eq!(names[0].value.as_ref(), "x");
     }
 }

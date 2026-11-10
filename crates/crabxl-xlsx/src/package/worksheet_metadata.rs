@@ -15,9 +15,9 @@ impl<R: Read + Seek> WorkbookReader<R> {
             .iter()
             .find(|sheet| sheet.name == name)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet not found"))?;
-        if sheet.kind != SheetKind::Worksheet {
+        if sheet.kind == SheetKind::ChartSheet {
             return Err(Error::new(
-                ErrorKind::Unsupported,
+                ErrorKind::InvalidData,
                 "Only worksheets have cell dimensions",
             ));
         }
@@ -71,9 +71,9 @@ impl<R: Read + Seek> WorkbookReader<R> {
             .ok_or_else(|| {
                 Error::new(ErrorKind::SheetNotFound, "Worksheet view source not found")
             })?;
-        if info.kind() != SheetKind::Worksheet {
+        if info.kind() == SheetKind::ChartSheet {
             return Err(Error::new(
-                ErrorKind::Unsupported,
+                ErrorKind::InvalidData,
                 "Worksheet views require a cell worksheet",
             ));
         }
@@ -118,9 +118,9 @@ impl<R: Read + Seek> WorkbookReader<R> {
             .ok_or_else(|| {
                 Error::new(ErrorKind::SheetNotFound, "Worksheet view source not found")
             })?;
-        if info.kind() != SheetKind::Worksheet {
+        if info.kind() == SheetKind::ChartSheet {
             return Err(Error::new(
-                ErrorKind::Unsupported,
+                ErrorKind::InvalidData,
                 "Worksheet views require a cell worksheet",
             ));
         }
@@ -168,9 +168,9 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     "Printing worksheet source not found",
                 )
             })?;
-        if info.kind() != SheetKind::Worksheet {
+        if info.kind() == SheetKind::ChartSheet {
             return Err(Error::new(
-                ErrorKind::Unsupported,
+                ErrorKind::InvalidData,
                 "Printing metadata requires a cell worksheet",
             ));
         }

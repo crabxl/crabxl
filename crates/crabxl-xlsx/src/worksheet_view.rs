@@ -129,11 +129,9 @@ fn position(value: &str) -> Result<PanePosition> {
         _ => Err(invalid("Invalid worksheet pane position")),
     }
 }
+/// Unknown attributes are ignored by `attributes`, as in openpyxl.
 fn unsupported() -> Error {
-    Error::new(
-        ErrorKind::Unsupported,
-        "Worksheet view extension requires typed support; original package preservation remains available",
-    )
+    crate::features::unknown_attribute()
 }
 
 // Header scanning deliberately stops before sheetData and does not validate the
@@ -152,7 +150,12 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
     let mut selections_seen = false;
     let mut pane_seen = false;
     let mut root_seen = false;
+    let mut unknown = None;
     loop {
+        if let Some(depth) = unknown.take() {
+            // An element crabxl does not model, ignored as in openpyxl.
+            crate::style_codec::skip(xml, depth)?;
+        }
         let frame = xml.next()?;
         match frame.event {
             Event::Start(e) if frame.depth == 1 => {
@@ -183,7 +186,8 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
             }
             Event::Start(e) if in_views => {
                 if frame.scope != Scope::Spreadsheet {
-                    return Err(unsupported());
+                    unknown = Some(frame.depth);
+                    continue;
                 }
                 match (frame.depth, e.local_name().as_ref().as_bytes()) {
                     (3, b"sheetView") => {
@@ -334,7 +338,7 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
                         }
                         view.selections.push(selection);
                     }
-                    _ => return Err(unsupported()),
+                    _ => unknown = Some(frame.depth),
                 }
             }
             Event::End(e)

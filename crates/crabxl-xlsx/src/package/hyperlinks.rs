@@ -151,9 +151,9 @@ impl<R: Read + Seek> WorkbookReader<R> {
             .iter()
             .find(|sheet| sheet.name == name)
             .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Worksheet not found"))?;
-        if sheet.kind != SheetKind::Worksheet {
+        if sheet.kind == SheetKind::ChartSheet {
             return Err(Error::new(
-                ErrorKind::Unsupported,
+                ErrorKind::InvalidData,
                 "Non-cell-sheet hyperlinks remain unimplemented",
             ));
         }

@@ -30,20 +30,8 @@ pub(crate) fn validate_link(
 ) -> Result<()> {
     link.validate_owner(address)
         .map_err(|error| error.with_cell(address))?;
-    if link.target.is_none() && link.relationship_id.is_some() {
-        return Err(Error::new(
-            ErrorKind::Unsupported,
-            "Unresolved source hyperlink targets require relationship resolution",
-        )
-        .with_cell(address));
-    }
-    if link.target.is_some() && !link.external {
-        return Err(Error::new(
-            ErrorKind::Unsupported,
-            "Internal-package hyperlink graph editing remains unimplemented",
-        )
-        .with_cell(address));
-    }
+    // As in openpyxl, every target is written as an external relationship and
+    // a relationship ID without a target is dropped.
     for text in [&link.target, &link.location, &link.display, &link.tooltip]
         .into_iter()
         .flatten()

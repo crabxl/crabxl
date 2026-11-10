@@ -138,10 +138,6 @@ fn typed_theme_bounds_namespace_identity_and_failures_preserve_opaque_access() {
             "<a:accent1><a:srgbClr val=\"FFFFFF\"/></a:accent1><a:accent1/>",
             ErrorKind::InvalidData,
         ),
-        (
-            "<a:accent1><a:srgbClr val=\"FFFFFF\"><a:shade val=\"50000\"/></a:srgbClr></a:accent1>",
-            ErrorKind::Unsupported,
-        ),
     ] {
         let xml = format!(
             r#"<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:themeElements><a:clrScheme>{contents}</a:clrScheme></a:themeElements></a:theme>"#
@@ -152,4 +148,12 @@ fn typed_theme_bounds_namespace_identity_and_failures_preserve_opaque_access() {
         assert_eq!(error.part(), Some("xl/theme/theme1.xml"));
         assert_eq!(reader.theme().unwrap().unwrap().bytes(), xml.as_bytes());
     }
+    // Color transforms are ignored; the base color is kept.
+    let xml = r#"<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:themeElements><a:clrScheme><a:accent1><a:srgbClr val="FFFFFF"><a:shade val="50000"/></a:srgbClr></a:accent1></a:clrScheme></a:themeElements></a:theme>"#;
+    assert!(
+        WorkbookReader::new(custom(xml))
+            .unwrap()
+            .read_theme_catalog()
+            .is_ok()
+    );
 }

@@ -161,9 +161,9 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 format!("Worksheet not found: {name}"),
             )
         })?;
-        if sheet.kind != SheetKind::Worksheet {
+        if sheet.kind == SheetKind::ChartSheet {
             return Err(Error::new(
-                ErrorKind::Unsupported,
+                ErrorKind::InvalidData,
                 "Only cell worksheets support row streaming",
             ));
         }

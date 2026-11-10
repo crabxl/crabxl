@@ -1,5 +1,5 @@
 //! `<headerFooter>` codec.
-use super::{invalid, unsupported};
+use super::invalid;
 use crate::encode::{write_attribute, write_text};
 use crate::xml::{Scope, XmlStream, append_xml_text};
 use crabxl_core::features::HeaderFooter;
@@ -58,7 +58,7 @@ pub(crate) fn read<B: BufRead>(
             b"differentFirst" => &mut value.different_first,
             b"scaleWithDoc" => &mut value.scale_with_doc,
             b"alignWithMargins" => &mut value.align_with_margins,
-            _ => return Err(unsupported("Unknown headerFooter attribute")),
+            _ => continue,
         };
         *flag = Some(boolean(&text)?);
     }
@@ -71,13 +71,18 @@ pub(crate) fn read<B: BufRead>(
                     .iter()
                     .position(|name| name.as_bytes() == local.as_ref().as_bytes());
                 let Some(index) = index.filter(|_| frame.scope == Scope::Spreadsheet) else {
-                    return Err(unsupported("Unknown headerFooter child"));
+                    let depth = frame.depth;
+                    crate::style_codec::skip(xml, depth)?;
+                    continue;
                 };
                 let mut text = String::new();
                 loop {
                     let inner = xml.next()?;
                     match &inner.event {
-                        Event::Start(_) => return Err(unsupported("Unknown headerFooter content")),
+                        Event::Start(_) => {
+                            let depth = inner.depth;
+                            crate::style_codec::skip(xml, depth)?;
+                        }
                         Event::End(_) if inner.depth == depth => break,
                         Event::Text(_) | Event::CData(_) | Event::GeneralRef(_) => {
                             append_xml_text(&mut text, &inner.event, MAX_TEXT)?
@@ -88,7 +93,10 @@ pub(crate) fn read<B: BufRead>(
                 }
                 *field(&mut value, index) = Some(text.into());
             }
-            Event::Start(_) => return Err(unsupported("Unknown headerFooter child")),
+            Event::Start(_) => {
+                let depth = frame.depth;
+                crate::style_codec::skip(xml, depth)?;
+            }
             Event::End(_) if frame.depth + 1 == depth => return Ok(value),
             Event::Eof => return Err(invalid("Incomplete headerFooter")),
             _ => {}
@@ -208,13 +216,13 @@ mod tests {
     }
 
     #[test]
-    fn unknown_items_are_rejected() {
+    fn unknown_items_are_ignored() {
         for xml in [
             "<headerFooter><foo/></headerFooter>",
             "<headerFooter bar=\"1\"></headerFooter>",
             "<headerFooter><oddHeader><b/></oddHeader></headerFooter>",
         ] {
-            assert_eq!(parse(xml).unwrap_err().kind(), ErrorKind::Unsupported);
+            assert!(parse(xml).is_ok(), "{xml}");
         }
     }
 }

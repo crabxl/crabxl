@@ -283,14 +283,9 @@ fn strict_prefixed_namespaces_and_unknown_extension_guard() {
         EditorOptions::default(),
     )
     .unwrap();
-    assert_eq!(
-        editor
-            .set_sheet_views("Sheet", custom())
-            .unwrap_err()
-            .kind(),
-        ErrorKind::Unsupported
-    );
-    assert!(!editor.is_dirty());
+    // Unknown view content is dropped when the views are replaced, as in openpyxl.
+    editor.set_sheet_views("Sheet", custom()).unwrap();
+    assert!(editor.is_dirty());
 }
 #[test]
 fn metadata_limits_bound_retained_selections_independently_of_sheet_size() {

@@ -96,6 +96,23 @@ use crabxl_core::{Error, ErrorKind};
 pub(crate) fn unsupported(message: &str) -> Error {
     Error::new(ErrorKind::Unsupported, message)
 }
+const UNKNOWN_ATTRIBUTE: &str = "Unknown attribute";
+const UNKNOWN_ELEMENT: &str = "Unknown element";
+/// An attribute that crabxl does not model. `attributes` ignores it, as openpyxl does.
+pub(crate) fn unknown_attribute() -> Error {
+    unsupported(UNKNOWN_ATTRIBUTE)
+}
+/// An element that crabxl does not model, returned before it is read.
+/// `children` skips it, as openpyxl does.
+pub(crate) fn unknown_element() -> Error {
+    unsupported(UNKNOWN_ELEMENT)
+}
+pub(crate) fn is_unknown_attribute(error: &Error) -> bool {
+    error.kind() == ErrorKind::Unsupported && error.message() == UNKNOWN_ATTRIBUTE
+}
+pub(crate) fn is_unknown_element(error: &Error) -> bool {
+    error.kind() == ErrorKind::Unsupported && error.message() == UNKNOWN_ELEMENT
+}
 pub(crate) fn invalid(message: &str) -> Error {
     Error::new(ErrorKind::InvalidData, message)
 }

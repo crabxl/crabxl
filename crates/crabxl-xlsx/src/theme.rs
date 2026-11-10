@@ -294,12 +294,8 @@ pub(crate) fn catalog(
                                 });
                                 node = ThemeNode::ColorValue;
                             }
-                            (ThemeNode::Color(_), _) | (ThemeNode::ColorValue, _) => {
-                                return Err(Error::new(
-                                    ErrorKind::Unsupported,
-                                    "Theme color choice or transform is not implemented",
-                                ));
-                            }
+                            // Other color choices and color transforms are ignored.
+                            (ThemeNode::Color(_), _) | (ThemeNode::ColorValue, _) => {}
                             (ThemeNode::Major | ThemeNode::Minor, _) => {
                                 let collection = if parent == ThemeNode::Major {
                                     &mut result.major_fonts
