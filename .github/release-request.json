@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0-alpha.11",
+  "version": "0.1.0",
   "usable_feature": true,
-  "feature_notes": "Integrates live mutable merged declarations, atomic bulk replacement and sparse structural edits with named styles, themes, dimensions/grouping, rich values and hyperlink ownership. Stable merged handles and detached aliases retain their observed semantics; write-only close freezes worksheet metadata and preserves relationship identities. Native 262 tests/doctests, Rust 1.88 cross-platform CI and Python 575 tests pass (two Windows platform skips). Measured owned, loaded and write-only workloads are faster and use lower peak working sets than openpyxl at both measured sizes; write-only temporary disk use remains higher at 2000 records. Full M4-M7 and deferred feature graphs remain open."
+  "feature_notes": "First release. Reads, writes and edits XLSX files: cells, styles, formulas, merged cells, tables, filters, conditional formatting, data validation, comments, images, charts, pivot tables and VBA projects. Streaming reads and writes keep memory low; edits stream appended rows and compress large worksheets on several threads. 350 Rust tests pass on Rust 1.88 and later."
 }

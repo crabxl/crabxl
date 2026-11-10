@@ -144,7 +144,7 @@ The page format is defined in crabxl-docs. CI checks the style with Vale.
 
 ## Releases
 
-Maintainers make releases with the **Release Rust alpha** workflow. You do not
+Maintainers make releases with the **Release Rust** workflow. You do not
 need to change version numbers. [internal/releases.md](internal/releases.md)
 describes the process.
 

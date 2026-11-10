@@ -4,7 +4,7 @@
 
 **Read, write, and edit XLSX files in Rust.**
 
-[![Crates.io](https://img.shields.io/crates/v/crabxl?include_prereleases)](https://crates.io/crates/crabxl)
+[![Crates.io](https://img.shields.io/crates/v/crabxl)](https://crates.io/crates/crabxl)
 [![Rust](https://img.shields.io/badge/Rust-1.88%2B-orange?logo=rust)](https://doc.rust-lang.org/cargo/reference/rust-version.html)
 [![CI](https://github.com/crabxl/crabxl/actions/workflows/rust.yml/badge.svg)](https://github.com/crabxl/crabxl/actions/workflows/rust.yml)
 [![License](https://img.shields.io/github/license/crabxl/crabxl)](LICENSE)
@@ -26,10 +26,9 @@ openpyxl while keeping the Rust API idiomatic.
 - Configure memory allowances, shared-string RAM/disk storage, caches, resource
   limits, and ZIP compression.
 
-**Currently alpha.** CrabXL has the capabilities of openpyxl 3.1.5. The next
-stage optimizes speed and memory before the beta. Unsupported operations return
-explicit errors. Formula calculation is not provided. See
-[project status](internal/STATUS.md).
+CrabXL has the capabilities of openpyxl 3.1.5. Before version 1.0, a minor
+version can change the API. Unsupported operations return explicit errors.
+Formula calculation is not provided. See [project status](internal/STATUS.md).
 
 ## Installation
 
@@ -37,7 +36,7 @@ Requires **Rust 1.88 or newer**.
 
 ```toml
 [dependencies]
-crabxl = "0.1.0-alpha.11"
+crabxl = "0.1.0"
 ```
 
 ## Usage

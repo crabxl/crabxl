@@ -4,13 +4,10 @@ Last update: 2026-11-10.
 
 ## Current release
 
-- Published Rust release: `0.1.0-alpha.11`.
-- A12 (former A12–A15, W14–W28, full openpyxl 3.1.5 capability) is implemented
-  in Rust and integrated in the Python package. It is not committed or
-  released.
-- A13 (performance and memory) is done and committed, not released: streamed
-  appends, parallel compression of large worksheets and
-  `LoadOptions::with_memory_limit`. Results are in `internal/roadmap.md`.
+- Nothing is published yet. The next release is `0.1.0`, the first one.
+- The workspace version is `0.1.0`. The capabilities match openpyxl 3.1.5,
+  and the performance and memory work is done (results in
+  `internal/roadmap.md`).
 
 ## Implemented Rust scope
 

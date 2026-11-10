@@ -5,9 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "A Rust spreadsheet library with bounded streaming XLSX reads"
+homepage.workspace = true
+description = "Fast, low-memory Rust library for reading, writing and editing Excel XLSX files."
 readme = "../../README.md"
-keywords = ["xlsx", "excel", "spreadsheet", "openpyxl"]
+keywords = ["xlsx", "excel", "spreadsheet"]
 categories = ["parser-implementations", "encoding"]
 
 [features]

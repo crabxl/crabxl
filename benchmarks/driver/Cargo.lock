@@ -260,7 +260,7 @@ dependencies = [
 
 [[package]]
 name = "crabxl"
-version = "0.1.0-alpha.11"
+version = "0.1.0"
 dependencies = [
  "crabxl-core",
  "crabxl-xlsx",
@@ -281,14 +281,14 @@ dependencies = [
 
 [[package]]
 name = "crabxl-core"
-version = "0.1.0-alpha.11"
+version = "0.1.0"
 dependencies = [
  "chrono",
 ]
 
 [[package]]
 name = "crabxl-xlsx"
-version = "0.1.0-alpha.11"
+version = "0.1.0"
 dependencies = [
  "crabxl-core",
  "crc32fast",

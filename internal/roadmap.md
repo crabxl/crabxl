@@ -1,6 +1,6 @@
 # Roadmap
 
-A12 completed openpyxl 3.1.5 capability. A13 is done. The beta is next.
+A12 completed openpyxl 3.1.5 capability. A13 is done. Release 0.1.0 is next.
 
 ## A13: performance and memory (done)
 
@@ -36,13 +36,13 @@ because crabxl's compression threads each keep a deflate state.
 
 ## Optional: benchmark results
 
-These are not needed for the beta:
+These are not needed for 0.1.0:
 
 1. Rerun the full suite (`benchmarks/README.md`) on an idle computer and commit
    the results. Other programs changed the numbers of the last attempt.
 2. Validate produced files in Excel desktop on macOS. Windows Excel opens the
    written and edited 1,000,000-row files with the right rows and date formats.
 
-## Beta
+## 0.1.0
 
-Release `0.1.0-beta.1` of the core and the Python package.
+Release `0.1.0` of the core and the Python package. See `internal/releases.md`.

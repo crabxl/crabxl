@@ -1,4 +1,4 @@
-name: Release Rust alpha
+name: Release Rust
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Committed version, e.g. 0.1.0-alpha.1
+        description: Committed version, e.g. 0.1.0
         required: true
         type: string
       feature_notes:
@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: rust-alpha-release
+  group: rust-release
   cancel-in-progress: false
 
 jobs:
@@ -88,7 +88,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_API_TOKEN }}
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
         run: python tools/publish_crates.py "$RELEASE_VERSION"
-      - name: Create tag and prerelease after successful publication
+      - name: Create tag and release after successful publication
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -100,6 +100,6 @@ jobs:
             gh release upload "$RELEASE_VERSION" target/package/*.crate --clobber
           else
             gh release create "$RELEASE_VERSION" target/package/*.crate \
-              --target "$GITHUB_SHA" --title "$RELEASE_VERSION" --prerelease \
+              --target "$GITHUB_SHA" --title "$RELEASE_VERSION" \
               --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
