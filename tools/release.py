@@ -48,9 +48,39 @@ def validate(version, history=True):
     return version
 
 
+def name_changelog_section(version):
+    """Rename the Unreleased section of CHANGELOG.md to this version."""
+    path = ROOT / "CHANGELOG.md"
+    text = path.read_text(encoding="utf-8")
+    if re.search(rf"^## \[{re.escape(version)}\]", text, re.M):
+        return
+    match = re.search(r"^## \[Unreleased\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.S | re.M)
+    if not match or not match[1].strip():
+        raise ValueError("Describe the changes under ## [Unreleased] in CHANGELOG.md")
+    path.write_text(text[: match.start()] + f"## [{version}]\n" + text[match.start(1) :],
+                    encoding="utf-8")
+
+
+def replace_versions(version):
+    """Install snippets and the bug report placeholder show the new version."""
+    for name, pattern, replacement in (
+        ("README.md", r'(?m)^crabxl = "[^"]+"$', f'crabxl = "{version}"'),
+        ("docs/index.md", r'(?m)^crabxl = "[^"]+"$', f'crabxl = "{version}"'),
+        (".github/ISSUE_TEMPLATE/bug_report.yml",
+         r"(?m)^(\s+placeholder: )[0-9]+\.[0-9]+\.[0-9]+$", rf"\g<1>{version}"),
+    ):
+        path = ROOT / name
+        text, count = re.subn(pattern, replacement, path.read_text(encoding="utf-8"), count=1)
+        if count != 1:
+            raise ValueError(f"Expected a version in {name}")
+        path.write_text(text, encoding="utf-8")
+
+
 def prepare(version):
     if not PATTERN.fullmatch(version):
         raise ValueError("Expected X.Y.Z without leading zeros")
+    name_changelog_section(version)
+    replace_versions(version)
     path = ROOT / "Cargo.toml"
     text = path.read_text()
     text, count = re.subn(r'(?m)^version = "[^"]+"$', f'version = "{version}"', text)

@@ -4,9 +4,8 @@ Last update: 2026-11-11.
 
 ## Current release
 
-- `0.1.2` is published. The capabilities match openpyxl 3.1.5,
-  and the performance and memory work is done (results in
-  `internal/roadmap.md`).
+- Releases and their changes are in `CHANGELOG.md`. The capabilities match
+  openpyxl 3.1.5.
 
 ## Implemented Rust scope
 

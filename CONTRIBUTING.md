@@ -31,8 +31,8 @@ Do not report security problems in public issues. Read [SECURITY.md](SECURITY.md
 | `tools/` | Release scripts. |
 
 The Python package is in a separate repository,
-[crabxl-python](https://github.com/crabxl/crabxl-python). It uses a pinned
-revision of this repository.
+[crabxl-python](https://github.com/crabxl/crabxl-python). It uses the
+`crabxl` crate from crates.io.
 
 ## Development setup
 

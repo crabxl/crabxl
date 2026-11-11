@@ -1,17 +1,8 @@
 # Roadmap
 
-CrabXL 0.1.2 is the current release. It has the capabilities of openpyxl 3.1.5.
-The Python package has its own
+CrabXL has the capabilities of openpyxl 3.1.5. Each release and its changes
+are in the [changelog](../CHANGELOG.md). The Python package has its own
 [roadmap](https://github.com/crabxl/crabxl-python/blob/main/internal/roadmap.md).
-
-## Released
-
-- 0.1.0: reads, writes and edits of XLSX, XLSM, XLTX and XLTM files, with
-  memory limits.
-- 0.1.1: edits no longer fail on content that CrabXL does not model. As in
-  openpyxl, that content is dropped or kept as written. See the
-  [changelog](../CHANGELOG.md).
-- 0.1.2: faster reads of large sheets.
 
 ## Next
 

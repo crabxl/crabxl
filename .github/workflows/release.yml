@@ -1,10 +1,12 @@
 name: Release Rust
 
-# Push a version tag, for example 0.1.0, to release that commit.
+# A push to main whose workspace version has no tag yet releases that
+# commit. The tag and the GitHub release are created after publishing.
+# Run the workflow manually to resume an interrupted release.
 on:
   push:
-    tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,9 +16,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
+  version:
     runs-on: ubuntu-latest
     outputs:
+      release: ${{ steps.request.outputs.release }}
       version: ${{ steps.request.outputs.version }}
       notes: ${{ steps.request.outputs.notes }}
     steps:
@@ -26,14 +29,21 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
-      - uses: dtolnay/rust-toolchain@1.99.0
-        with:
-          components: rustfmt, clippy
-      - name: Validate the tag, the committed version and the changelog
+      - name: Check the committed version and its changelog section
         id: request
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: python tools/release_tag.py
+
+  verify:
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: rustfmt, clippy
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
@@ -54,7 +64,7 @@ jobs:
         run: cargo test -p crabxl -p crabxl-xlsx --no-default-features --features deflate-zlib --locked
 
   publish:
-    needs: [verify, msrv]
+    needs: [version, verify, msrv]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -69,19 +79,19 @@ jobs:
       - name: Publish and verify all three crates
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_API_TOKEN }}
-          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: python tools/publish_crates.py "$RELEASE_VERSION"
       - name: Create the GitHub release after successful publication
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
-          RELEASE_NOTES: ${{ needs.verify.outputs.notes }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          RELEASE_NOTES: ${{ needs.version.outputs.notes }}
         run: |
           printf '%s\n' "$RELEASE_NOTES" > "$RUNNER_TEMP/release-notes.md"
           if gh release view "$RELEASE_VERSION" > /dev/null 2>&1; then
             gh release upload "$RELEASE_VERSION" target/package/*.crate --clobber
           else
-            gh release create "$RELEASE_VERSION" target/package/*.crate --verify-tag \
+            gh release create "$RELEASE_VERSION" target/package/*.crate --target "$GITHUB_SHA" \
               --title "$RELEASE_VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
