@@ -94,7 +94,10 @@ let options = crabxl::LoadOptions::with_memory_limit(2 * 1024 * 1024 * 1024);
 let book = crabxl::LoadedWorkbook::with_options(std::fs::File::open("in.xlsx")?, options)?;
 ```
 
-`ResourceLimits` bounds input, metadata, cells, rows, and batches.
+`ResourceLimits` guards against hostile input files: ZIP bombs, deep XML and
+huge XML tokens. The default opens every file Excel writes;
+`ResourceLimits::strict()` suits untrusted uploads and
+`ResourceLimits::unlimited()` turns the guards off for trusted files.
 `MemoryPolicy` offers explicit budgets or configurable Auto selection;
 `SharedStringOptions` controls RAM/disk placement and decoded caches. Managed
 allowances are not a whole-process RSS cap.

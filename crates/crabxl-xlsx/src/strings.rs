@@ -51,8 +51,8 @@ impl Default for SharedStringOptions {
             storage: SharedStringStorage::Auto,
             memory_policy: MemoryPolicy::default(),
             cache_bytes: 8 * 1024 * 1024,
-            max_temp_bytes: 4 * 1024 * 1024 * 1024,
-            max_entries: 100_000_000,
+            max_temp_bytes: u64::MAX,
+            max_entries: u64::MAX,
             temp_directory: None,
         }
     }

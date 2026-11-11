@@ -175,7 +175,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
                 catalog,
                 StyleLimits {
                     max_bytes: options.resources.max_style_bytes,
-                    max_records: options.resources.max_style_records,
+                    max_records: options.resources.max_style_records.min(u32::MAX as usize),
                 },
             )?;
         }

@@ -32,7 +32,7 @@ pub struct EditLimits {
 impl Default for EditLimits {
     fn default() -> Self {
         Self {
-            max_bytes: 256 * 1024 * 1024,
+            max_bytes: usize::MAX,
             max_cells: (MAX_ROWS as usize).saturating_mul(MAX_COLUMNS as usize),
         }
     }

@@ -6,6 +6,34 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
+## [Unreleased]
+
+### Changed
+
+- `ResourceLimits` now guards only against hostile files, and its defaults open
+  every file Excel writes. The old defaults stopped real workbooks: more than
+  16,384 archive entries or 1,024 sheets, 16 MiB of styles, names or other
+  metadata, cells over 64 KiB (a 32,767-character text in Chinese or Japanese
+  is about 96 KiB), more than 100,000 styles or shared formulas, XML nested
+  deeper than 64, and loaded workbooks over 256 MiB. The documented fields
+  are `max_expansion_ratio`, `max_total_uncompressed_bytes`, `max_part_bytes`,
+  `max_archive_entries`, `max_xml_depth` and `max_xml_event_bytes`; the others
+  are hidden tuning fields.
+- Workbooks, sheets, styles, edits, shared strings and the writer no longer
+  have size caps by default. The writer allows 64,000 styles, as Excel does,
+  instead of 8,192. Memory is governed by `MemoryPolicy`.
+
+### Added
+
+- `max_expansion_ratio` stops ZIP bombs: an entry larger than 1 MiB may expand
+  at most 100 times, as in Apache POI. Archives are checked from their
+  declared sizes when they open, before anything is decompressed.
+- `ResourceLimits::strict()` for uploads from strangers, with the old memory
+  caps and tighter guards, and `ResourceLimits::unlimited()` for files you
+  trust.
+- Errors from the archive guards name the field, the value found and the
+  limit.
+
 ## [0.2.0]
 
 ### Added

@@ -24,8 +24,8 @@ pub struct StyleLimits {
 impl Default for StyleLimits {
     fn default() -> Self {
         Self {
-            max_bytes: 16 * 1024 * 1024,
-            max_records: 100_000,
+            max_bytes: usize::MAX,
+            max_records: u32::MAX as usize,
         }
     }
 }

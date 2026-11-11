@@ -1035,7 +1035,11 @@ fn assigned_temporal_values_derive_nondate_formats_and_preserve_any_existing_dat
             })
         );
     }
-    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    let options = WriteOptions {
+        max_metadata_bytes: 64 * 1024,
+        ..WriteOptions::default()
+    };
+    let mut writer = WorkbookWriter::new(options.clone()).unwrap();
     let style = CellStyle {
         number_format: "x".repeat(256).into(),
         ..CellStyle::default()
@@ -1045,9 +1049,7 @@ fn assigned_temporal_values_derive_nondate_formats_and_preserve_any_existing_dat
     assert_eq!(
         writer
             .register_style(CellStyle {
-                number_format: "x"
-                    .repeat(WriteOptions::default().max_metadata_bytes + 1)
-                    .into(),
+                number_format: "x".repeat(options.max_metadata_bytes + 1).into(),
                 ..Default::default()
             })
             .unwrap_err()
@@ -1992,7 +1994,14 @@ fn registered_font_attributes_stream_escaped_payloads_and_recover_original_text(
     input.cells[0].style = id;
     writer.write_row(&input).unwrap();
     let output = writer.finish(Cursor::new(Vec::new())).unwrap();
-    let mut bounded = WorkbookReader::new(output.clone()).unwrap();
+    let mut bounded = WorkbookReader::with_limits(
+        output.clone(),
+        crabxl_core::ResourceLimits {
+            max_xml_event_bytes: 64 * 1024,
+            ..Default::default()
+        },
+    )
+    .unwrap();
     assert_eq!(
         bounded.style_catalog().unwrap_err().kind(),
         ErrorKind::LimitExceeded

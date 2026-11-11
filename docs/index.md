@@ -72,6 +72,34 @@ uses at most the CPUs the process may run on. To use fewer, set the
 `CRABXL_MAX_THREADS` environment variable or call `crabxl::set_max_threads`,
 counting the calling thread. `1` keeps all work on the calling thread.
 
+## Untrusted files
+
+`ResourceLimits` guards against files built to exhaust memory or CPU. It
+applies when reading and editing, never to data you write. The default opens
+every file Excel writes and stops:
+
+| Field | Default | `strict()` |
+|---|---|---|
+| `max_expansion_ratio` (entries over 1 MiB) | 100 | 100 |
+| `max_total_uncompressed_bytes` | 16 GiB | 1 GiB |
+| `max_part_bytes` | 4 GiB | 256 MiB |
+| `max_archive_entries` | 1,000,000 | 10,000 |
+| `max_xml_depth` | 256 | 256 |
+| `max_xml_event_bytes` | 10 MiB | 1 MiB |
+
+XML document types are always rejected. A file that exceeds a guard returns an
+error of kind `ErrorKind::LimitExceeded` that names the field. Use
+`ResourceLimits::strict()` for uploads from strangers; it also caps memory.
+Use `ResourceLimits::unlimited()` for files you trust:
+
+```rust
+let options = crabxl::LoadOptions {
+    resources: crabxl::ResourceLimits::unlimited(),
+    ..Default::default()
+};
+let book = crabxl::LoadedWorkbook::with_options(std::fs::File::open("in.xlsx")?, options)?;
+```
+
 ## Limits
 
 - When an edit rewrites a part that holds content CrabXL does not model, that

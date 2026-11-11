@@ -220,11 +220,14 @@ pub fn memory_allowance(
             (budget, Some(available), source)
         }
     };
+    // Reserve typical buffer sizes; unlimited guards would reserve everything.
+    // The budget is not a hard RSS cap, so a rare larger buffer is acceptable.
+    const KIB: usize = 1024;
     let working = limits
         .input_buffer_bytes
-        .checked_add(limits.max_xml_event_bytes.saturating_mul(2))
-        .and_then(|bytes| bytes.checked_add(limits.max_cell_bytes))
-        .and_then(|bytes| bytes.checked_add(limits.max_row_bytes))
+        .checked_add(limits.max_xml_event_bytes.min(64 * KIB).saturating_mul(2))
+        .and_then(|bytes| bytes.checked_add(limits.max_cell_bytes.min(64 * KIB)))
+        .and_then(|bytes| bytes.checked_add(limits.max_row_bytes.min(1024 * KIB)))
         .and_then(|bytes| bytes.checked_add(64 * 1024))
         .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Working reserve overflows"))?;
     let retained = budget

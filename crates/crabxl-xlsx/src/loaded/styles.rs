@@ -8,7 +8,11 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             self.rebalance()?;
             self.bank.initialize_style_catalog(StyleLimits {
                 max_bytes: self.options.resources.max_style_bytes,
-                max_records: self.options.resources.max_style_records,
+                max_records: self
+                    .options
+                    .resources
+                    .max_style_records
+                    .min(u32::MAX as usize),
             })?;
             self.rebalance()?;
         }

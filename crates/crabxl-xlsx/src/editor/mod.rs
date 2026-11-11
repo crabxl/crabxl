@@ -145,7 +145,7 @@ impl Default for EditorOptions {
             resources: ResourceLimits::default(),
             max_patch_bytes: usize::MAX,
             memory_policy: MemoryPolicy::default(),
-            max_patch_cells: 10_000_000,
+            max_patch_cells: usize::MAX,
             calculation_chain: CalculationChainPolicy::default(),
             non_finite: crate::NonFiniteWritePolicy::default(),
             formula_attributes: crate::FormulaWritePolicy::default(),

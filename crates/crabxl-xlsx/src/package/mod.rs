@@ -125,9 +125,16 @@ impl<R: Read + Seek> WorkbookReader<R> {
         let mut archive = ZipArchive::new(source)
             .map_err(|e| Error::caused_by(ErrorKind::Archive, "Cannot read ZIP archive", e))?;
         if archive.len() > limits.max_archive_entries {
-            return Err(limit("Archive entry count limit exceeded"));
+            return Err(limit(format!(
+                "Archive has {} entries, more than max_archive_entries={}",
+                archive.len(),
+                limits.max_archive_entries
+            )));
         }
-        if limits.max_total_uncompressed_bytes != u64::MAX {
+        if limits.max_total_uncompressed_bytes != u64::MAX
+            || limits.max_part_bytes != u64::MAX
+            || limits.max_expansion_ratio != u64::MAX
+        {
             // ZIP's aggregate helper returns None for valid data-descriptor entries.
             // Read their central-directory sizes without decompressing any payload.
             let mut declared = 0u128;
@@ -135,6 +142,12 @@ impl<R: Read + Seek> WorkbookReader<R> {
                 let entry = archive.by_index_raw(index).map_err(|error| {
                     Error::caused_by(ErrorKind::Archive, "Cannot inspect ZIP entry size", error)
                 })?;
+                check_entry(
+                    &entry.name().unwrap_or_default(),
+                    entry.size(),
+                    entry.compressed_size(),
+                    limits,
+                )?;
                 declared += u128::from(entry.size());
             }
             if declared > u128::from(limits.max_total_uncompressed_bytes) {
@@ -313,6 +326,30 @@ impl<R: Read + Seek> WorkbookReader<R> {
     pub fn into_inner(self) -> R {
         self.archive.into_inner()
     }
+}
+
+/// Entries up to this size may expand without limit; small XML compresses well.
+const RATIO_FLOOR: u64 = 1024 * 1024;
+
+/// Reject one entry by its declared sizes, before decompressing anything.
+/// Readers stop at the declared size, so a lying header gains nothing.
+fn check_entry(name: &str, size: u64, compressed: u64, limits: ResourceLimits) -> Result<()> {
+    if size > limits.max_part_bytes {
+        return Err(limit(format!(
+            "Entry expands to {size} bytes, more than max_part_bytes={}",
+            limits.max_part_bytes
+        ))
+        .with_part(name));
+    }
+    if size > RATIO_FLOOR && size / compressed.max(1) > limits.max_expansion_ratio {
+        return Err(limit(format!(
+            "Entry expands {} times ({compressed} to {size} bytes), more than max_expansion_ratio={}",
+            size / compressed.max(1),
+            limits.max_expansion_ratio
+        ))
+        .with_part(name));
+    }
+    Ok(())
 }
 
 fn validate_limits(l: ResourceLimits) -> Result<()> {
@@ -716,4 +753,29 @@ fn relationship_target_projection_uses_canonical_uri_validation() {
         .is_err()
     );
     assert!(resolve_relationship_targets("workbook.xml", &[]).is_err());
+}
+
+#[cfg(test)]
+#[test]
+fn entry_checks_follow_the_limit_presets() {
+    let bomb = (100 * 1024 * 1024, 100 * 1024);
+    for (limits, allowed) in [
+        (ResourceLimits::default(), false),
+        (ResourceLimits::strict(), false),
+        (ResourceLimits::unlimited(), true),
+    ] {
+        let result = check_entry("xl/bomb.xml", bomb.0, bomb.1, limits);
+        assert_eq!(result.is_ok(), allowed);
+    }
+    let Err(error) = check_entry("xl/bomb.xml", bomb.0, bomb.1, ResourceLimits::default()) else {
+        panic!("A 1000x entry is a bomb");
+    };
+    assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+    assert!(error.to_string().contains("max_expansion_ratio=100"));
+    // Small entries and ordinary compression pass.
+    assert!(check_entry("a.xml", 1024 * 1024, 1, ResourceLimits::default()).is_ok());
+    assert!(check_entry("a.xml", 50 << 20, 1 << 20, ResourceLimits::default()).is_ok());
+    // A large but ordinarily compressed part passes the default, not strict.
+    assert!(check_entry("a.xml", 512 << 20, 64 << 20, ResourceLimits::default()).is_ok());
+    assert!(check_entry("a.xml", 512 << 20, 64 << 20, ResourceLimits::strict()).is_err());
 }

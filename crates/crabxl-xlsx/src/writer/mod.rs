@@ -111,13 +111,13 @@ impl Default for WriteOptions {
             compression_level: None,
             temp_directory: None,
             buffer_bytes: 32768,
-            max_sheets: 1024,
-            max_metadata_bytes: 16 * 1024 * 1024,
-            max_row_bytes: 1024 * 1024,
-            max_cell_bytes: 64 * 1024,
+            max_sheets: usize::MAX,
+            max_metadata_bytes: usize::MAX,
+            max_row_bytes: isize::MAX as usize,
+            max_cell_bytes: usize::MAX,
             max_row_cells: MAX_COLUMNS as usize,
-            max_temp_bytes: 4 * 1024 * 1024 * 1024,
-            max_sheet_bytes: 2 * 1024 * 1024 * 1024,
+            max_temp_bytes: u64::MAX,
+            max_sheet_bytes: u64::MAX,
             date_1904: false,
             iso_dates: false,
             non_finite: NonFiniteWritePolicy::default(),
@@ -125,7 +125,7 @@ impl Default for WriteOptions {
             style_attributes: StyleWritePolicy::default(),
             theme: crate::ThemeWritePolicy::default(),
             active_sheet: 0,
-            max_styles: 8192,
+            max_styles: 64_000,
         }
     }
 }

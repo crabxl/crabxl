@@ -716,8 +716,8 @@ fn event_cell_row_depth_and_metadata_limits_are_enforced() {
 fn compressed_archive_and_entry_count_limits_are_checked() {
     let defaults = ResourceLimits::default();
     assert_eq!(defaults.max_archive_bytes, u64::MAX);
-    assert_eq!(defaults.max_total_uncompressed_bytes, u64::MAX);
-    assert_eq!(defaults.max_part_bytes, u64::MAX);
+    assert_eq!(defaults.max_total_uncompressed_bytes, 16 << 30);
+    assert_eq!(defaults.max_part_bytes, 4 << 30);
     let parts = entries(&format!(
         "<worksheet xmlns=\"{MAIN}\"><sheetData/></worksheet>"
     ));

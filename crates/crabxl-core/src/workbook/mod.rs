@@ -49,7 +49,7 @@ pub struct WorkbookLimits {
 impl Default for WorkbookLimits {
     fn default() -> Self {
         Self {
-            max_bytes: 256 * 1024 * 1024,
+            max_bytes: usize::MAX,
             max_cells: usize::MAX,
             max_sheets: usize::MAX,
             sheet: EditLimits::default(),
