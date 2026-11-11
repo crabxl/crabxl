@@ -1,6 +1,6 @@
 # Roadmap
 
-CrabXL 0.1.1 is the current release. It has the capabilities of openpyxl 3.1.5.
+CrabXL 0.1.2 is the current release. It has the capabilities of openpyxl 3.1.5.
 The Python package has its own
 [roadmap](https://github.com/crabxl/crabxl-python/blob/main/internal/roadmap.md).
 
@@ -11,13 +11,11 @@ The Python package has its own
 - 0.1.1: edits no longer fail on content that CrabXL does not model. As in
   openpyxl, that content is dropped or kept as written. See the
   [changelog](../CHANGELOG.md).
+- 0.1.2: faster reads of large sheets.
 
 ## Next
 
-1. Publish benchmark results. Run both suites in crabxl-benchmarks on an idle
-   computer and commit the results there. Background programs changed the
-   numbers of the last attempt.
-2. Open written and edited files in Excel for macOS. Windows Excel already opens
+1. Open written and edited files in Excel for macOS. Windows Excel already opens
    written and edited 1,000,000-row files with the right rows and date formats.
 
 ## Not provided
