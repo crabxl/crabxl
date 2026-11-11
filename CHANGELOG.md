@@ -22,6 +22,12 @@ The Python package has its own
   work falls behind. Set `CRABXL_MAX_THREADS` or call `set_max_threads` to use
   fewer; 1 keeps all work on the calling thread.
 
+### Security
+
+- Update zip to 9. Earlier versions accept archives whose local file headers
+  disagree with the central directory (GHSA-m665-v7pm-7grj), so CrabXL could
+  read different part content than other programs.
+
 ## [0.1.2]
 
 ### Changed
