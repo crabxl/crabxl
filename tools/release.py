@@ -76,6 +76,7 @@ def replace_versions(version):
     for name, pattern, replacement in (
         ("README.md", r'(?m)^crabxl = "[^"]+"$', f'crabxl = "{version}"'),
         ("docs/index.md", r'(?m)^crabxl = "[^"]+"$', f'crabxl = "{version}"'),
+        ("docs/index.md", r'(?m)^(crabxl = \{ version = ")[^"]+(")', rf'\g<1>{version}\2'),
         (".github/ISSUE_TEMPLATE/bug_report.yml",
          r"(?m)^(\s+placeholder: )[0-9]+\.[0-9]+\.[0-9]+$", rf"\g<1>{version}"),
     ):

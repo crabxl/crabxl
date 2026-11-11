@@ -6,7 +6,7 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
-## [Unreleased]
+## [0.2.1]
 
 ### Changed
 
@@ -141,6 +141,7 @@ First release.
   or more are compressed on up to four threads.
 - The `quickstart` example.
 
+[0.2.1]: https://github.com/crabxl/crabxl/releases/tag/0.2.1
 [0.2.0]: https://github.com/crabxl/crabxl/releases/tag/0.2.0
 [0.1.3]: https://github.com/crabxl/crabxl/releases/tag/0.1.3
 [0.1.2]: https://github.com/crabxl/crabxl/releases/tag/0.1.2

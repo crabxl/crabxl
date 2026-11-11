@@ -3,7 +3,7 @@ members = ["crates/crabxl", "crates/crabxl-calc", "crates/crabxl-core", "crates/
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
@@ -11,9 +11,9 @@ repository = "https://github.com/crabxl/crabxl"
 homepage = "https://crabxl.com"
 
 [workspace.dependencies]
-crabxl-core = { path = "crates/crabxl-core", version = "=0.2.0" }
-crabxl-calc = { path = "crates/crabxl-calc", version = "=0.2.0" }
-crabxl-xlsx = { path = "crates/crabxl-xlsx", version = "=0.2.0", default-features = false }
+crabxl-core = { path = "crates/crabxl-core", version = "=0.2.1" }
+crabxl-calc = { path = "crates/crabxl-calc", version = "=0.2.1" }
+crabxl-xlsx = { path = "crates/crabxl-xlsx", version = "=0.2.1", default-features = false }
 zip = { version = "9.3", default-features = false }
 quick-xml = "0.42.0"
 fast-float2 = "0.2"

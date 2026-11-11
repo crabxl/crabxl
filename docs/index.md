@@ -9,7 +9,7 @@ Add the crate to `Cargo.toml`. The minimum Rust version is 1.88.
 
 ```toml
 [dependencies]
-crabxl = "0.2.0"
+crabxl = "0.2.1"
 ```
 
 ## Read rows
@@ -43,7 +43,7 @@ Turn on the `calc` feature to calculate formulas with the
 
 ```toml
 [dependencies]
-crabxl = { version = "0.2.0", features = ["calc"] }
+crabxl = { version = "0.2.1", features = ["calc"] }
 ```
 
 `calculate` stores each result as the formula's cached value, so programs that
