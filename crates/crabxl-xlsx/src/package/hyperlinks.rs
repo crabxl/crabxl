@@ -71,7 +71,11 @@ impl<R: Read + Seek> WorkbookReader<R> {
         let mut remaining =
             available.min(limits.max_metadata_bytes.min(usize::MAX as u64) as usize) as u64;
         let initial = remaining;
-        let relationships = if self.archive.file_names().any(|name| name == relation_part) {
+        let relationships = if self
+            .archive
+            .file_names()
+            .any(|name| name.is_ok_and(|name| name == relation_part))
+        {
             read_relationships(&mut self.archive, &relation_part, limits, &mut remaining)?
         } else {
             HashMap::new()

@@ -289,24 +289,27 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                 .archive
                 .by_index(index)
                 .map_err(|error| zip_error("Cannot catalog original part", error))?;
+            let name = file
+                .name()
+                .map_err(|error| zip_error("Cannot catalog original part", error))?;
             if file.size() > options.resources.max_part_bytes {
-                return Err(limit("Original part byte limit exceeded").with_part(file.name()));
+                return Err(limit("Original part byte limit exceeded").with_part(name));
             }
             bytes = bytes
-                .saturating_add(file.name().len().saturating_mul(2))
+                .saturating_add(name.len().saturating_mul(2))
                 .saturating_add(128);
             if bytes as u128 > u128::from(options.resources.max_metadata_bytes) {
                 return Err(limit("Original part inventory budget exceeded"));
             }
-            if !names.insert(file.name().to_owned()) {
+            if !names.insert(name.to_string()) {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
                     "Duplicate original ZIP part name",
                 ));
             }
-            signed |= file.name().starts_with("_xmlsignatures/");
+            signed |= name.starts_with("_xmlsignatures/");
             parts.push(PartInfo {
-                name: file.name().into(),
+                name: name.as_ref().into(),
                 compressed_bytes: file.compressed_size(),
                 uncompressed_bytes: file.size(),
                 crc32: file.crc32(),

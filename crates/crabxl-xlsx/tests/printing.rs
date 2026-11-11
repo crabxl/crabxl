@@ -97,7 +97,7 @@ fn replace(bytes: &[u8], name: &str, body: &str) -> Vec<u8> {
     let mut found = false;
     for index in 0..input.len() {
         let file = input.by_index(index).unwrap();
-        if file.name() == name {
+        if file.name().unwrap() == name {
             found = true;
             output
                 .start_file(name, zip::write::SimpleFileOptions::default())

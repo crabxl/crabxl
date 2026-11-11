@@ -84,7 +84,7 @@ fn parts(bytes: &[u8]) -> HashMap<String, Vec<u8>> {
     (0..zip.len())
         .map(|index| {
             let mut file = zip.by_index(index).unwrap();
-            let name = file.name().to_owned();
+            let name = file.name().unwrap().into_owned();
             let mut bytes = Vec::new();
             file.read_to_end(&mut bytes).unwrap();
             (name, bytes)
