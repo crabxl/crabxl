@@ -11,7 +11,7 @@ use crabxl_core::{
 };
 use formualizer_common::{DateSystem, ExcelError, ExcelErrorKind, LiteralValue};
 use formualizer_eval::engine::{
-    TemporalEgress,
+    FormulaParsePolicy, TemporalEgress,
     named_range::{NameScope, NamedDefinition},
 };
 use formualizer_workbook::{Workbook as Engine, WorkbookConfig};
@@ -118,6 +118,8 @@ impl Calculation {
         config.eval.enable_parallel = threads > 1;
         config.eval.max_threads = Some(threads.max(1));
         config.eval.temporal_egress = TemporalEgress::Serial;
+        // A malformed formula becomes an error value instead of failing all.
+        config.eval.formula_parse_policy = FormulaParsePolicy::CoerceToError;
         config.eval.date_system = match epoch {
             DateEpoch::Mac1904 => DateSystem::Excel1904,
             _ => DateSystem::Excel1900,
@@ -237,23 +239,32 @@ impl Calculation {
                 .engine_mut()
                 .define_name(&defined.name, definition, scope);
         }
-        for formula in &self.formulas {
-            let (row, column) = position(formula.address);
-            self.engine
-                .set_formula(
-                    &self.sheets[formula.sheet],
-                    row,
-                    column,
-                    &format!("={}", formula.expression),
-                )
-                .map_err(failure)?;
-        }
+        // A formula the engine rejects, such as one that refers to itself or
+        // to another workbook, gets no result; the others still calculate.
+        let accepted: Vec<bool> = self
+            .formulas
+            .iter()
+            .map(|formula| {
+                let (row, column) = position(formula.address);
+                self.engine
+                    .set_formula(
+                        &self.sheets[formula.sheet],
+                        row,
+                        column,
+                        &format!("={}", formula.expression),
+                    )
+                    .is_ok()
+            })
+            .collect();
         self.engine.evaluate_all().map_err(failure)?;
-        for formula in &self.formulas {
+        for (formula, accepted) in self.formulas.iter().zip(accepted) {
             let (row, column) = position(formula.address);
-            let value = self
-                .engine
-                .get_value(&self.sheets[formula.sheet], row, column)
+            let value = accepted
+                .then(|| {
+                    self.engine
+                        .get_value(&self.sheets[formula.sheet], row, column)
+                })
+                .flatten()
                 .and_then(cached);
             result(formula.sheet, formula.address, value)?;
         }
