@@ -23,6 +23,8 @@
 //! # }
 //! ```
 
+#[cfg(feature = "calc")]
+pub use crabxl_calc::{CalcStats, calculate};
 pub use crabxl_core::{
     AccessPattern, AutoMemory, DecisionReason, MemoryPolicy, MemorySource, ReadDecision, ReadMode,
 };

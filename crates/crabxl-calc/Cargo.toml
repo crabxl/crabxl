@@ -7,8 +7,6 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Formula calculation for CrabXL workbooks."
-publish = false
-
 [dependencies]
 crabxl-core.workspace = true
 formualizer-workbook = { version = "0.14", default-features = false }
@@ -17,7 +15,9 @@ formualizer-parse = "4.2"
 formualizer-common = "4.2"
 
 [dev-dependencies]
-crabxl-xlsx = { workspace = true, features = ["deflate-zlib-rs"] }
+# Without a version, so publishing does not wait for crabxl-xlsx, which
+# depends on this crate.
+crabxl-xlsx = { path = "../crabxl-xlsx", features = ["deflate-zlib-rs"] }
 
 [lints]
 workspace = true

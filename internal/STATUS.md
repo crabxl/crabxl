@@ -53,8 +53,9 @@ rerun and macOS Excel validation are optional (see the roadmap).
 
 ## Deliberate boundaries
 
-- CrabXL does not calculate formulas, chart caches or pivot results, execute VBA,
-  or refresh external sources.
+- CrabXL calculates formulas only through the optional `calc` feature, and not
+  array or data-table formulas. It does not calculate chart caches or pivot
+  results, execute VBA, or refresh external sources.
 - Reference ranges, chart series and drawing anchors retain their explicit-edit
   policies during row/column edits. Notes move with their cells.
 - As in openpyxl, an edit drops unknown markup from the parts it rewrites, and a

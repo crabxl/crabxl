@@ -215,6 +215,9 @@ pub struct WorkbookEditor<R: Read + Seek = File> {
     pub(crate) structural_inline_rich_text: bool,
     pub(crate) model_font_count: Option<usize>,
     styles_dirty: bool,
+    /// Keep formula caches of rewritten models for the next save, because
+    /// they were just calculated.
+    pub(crate) keep_model_caches: bool,
     theme_dirty: bool,
     membership: Option<Box<catalog::Membership>>,
     options: EditorOptions,
@@ -388,6 +391,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             model_patches: BTreeMap::new(),
             hyperlink_patches: BTreeMap::new(),
             styles_dirty: false,
+            keep_model_caches: false,
             theme_dirty: false,
             structural_plain_strings: false,
             structural_rich_text: false,

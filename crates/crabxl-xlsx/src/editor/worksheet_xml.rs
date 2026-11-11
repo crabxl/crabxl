@@ -255,6 +255,7 @@ pub(super) struct WorksheetRewrite<'a> {
         &'a crate::hyperlinks::source::Plan,
     )>,
     pub(super) invalidate_caches: bool,
+    pub(super) keep_model_caches: bool,
     pub(super) model: Option<&'a crabxl_core::Worksheet>,
     pub(super) catalog: Option<&'a crabxl_core::StyleCatalog>,
     pub(super) epoch: DateEpoch,
@@ -279,6 +280,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         features,
         hyperlinks,
         invalidate_caches,
+        keep_model_caches,
         model,
         catalog,
         epoch,
@@ -711,6 +713,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                             iso_dates,
                             non_finite,
                             formula_attributes,
+                            keep_caches: keep_model_caches,
                         },
                         frame
                             .spreadsheet_uri

@@ -6,6 +6,20 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
+## [Unreleased]
+
+### Added
+
+- Formula calculation with the [Formualizer](https://github.com/psu3d0/formualizer)
+  engine, behind the `calc` feature of `crabxl-xlsx` and `crabxl`.
+  `crabxl::calculate` calculates a `Workbook` model and
+  `LoadedWorkbook::calculate` an opened file; each formula result is stored
+  as the formula's cached value, so programs that do not calculate formulas
+  see current results. Tables and defined names take part. Array and
+  data-table formulas are not calculated, and they and formulas without a
+  result that XLSX can store lose their old cached values. Excel still
+  recalculates the workbook when it opens it.
+
 ## [0.1.3]
 
 ### Changed

@@ -28,7 +28,8 @@ openpyxl while keeping the Rust API idiomatic.
 
 CrabXL has the capabilities of openpyxl 3.1.5. Before version 1.0, a minor
 version can change the API. Invalid input returns explicit errors.
-Formula calculation is not provided. See [project status](internal/STATUS.md).
+The optional `calc` feature calculates formulas with the Formualizer engine and
+stores the results as cached values. See [project status](internal/STATUS.md).
 
 ## Installation
 

@@ -78,9 +78,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         calculation.add_name(name);
     }
 
-    let (mut formulas, mut with_cache, mut matched) = (0usize, 0usize, 0usize);
-    let skipped = calculation.run(|sheet, address, got| {
+    let (mut formulas, mut with_cache, mut matched, mut skipped) = (0usize, 0, 0, 0);
+    calculation.run(|sheet, address, got| {
         formulas += 1;
+        skipped += usize::from(got.is_none());
         let Some(expected) = cached
             .get(&(sheet, address))
             .filter(|value| **value != CellValue::Empty)

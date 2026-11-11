@@ -416,6 +416,7 @@ pub(crate) struct Encoding {
     pub(crate) non_finite: crate::NonFiniteWritePolicy,
     pub(crate) formula_attributes: crate::FormulaWritePolicy,
     pub(crate) metadata_counts: Option<(usize, usize)>,
+    pub(crate) keep_caches: bool,
 }
 /// Reuse the same checked encoder as sequential and owned-model writers. Only
 /// one byte-bounded row buffer is resident; cell/style payloads stay borrowed.
@@ -617,7 +618,7 @@ fn encode_model_row<'a>(
                 duration: StyleId::new(0),
                 date: StyleId::new(0),
             },
-            invalidate_caches: true,
+            invalidate_caches: !encoding.keep_caches,
         },
     )
 }

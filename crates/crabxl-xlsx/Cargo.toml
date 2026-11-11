@@ -12,9 +12,12 @@ description = "Bounded streaming XLSX processing for crabxl"
 default = ["deflate-zlib-rs"]
 deflate-zlib-rs = ["zip/deflate-flate2-zlib-rs"]
 deflate-zlib = ["zip/deflate-flate2-zlib"]
+# Formula calculation with Formualizer.
+calc = ["dep:crabxl-calc"]
 
 [dependencies]
 crabxl-core.workspace = true
+crabxl-calc = { workspace = true, optional = true }
 zip.workspace = true
 quick-xml.workspace = true
 fast-float2.workspace = true

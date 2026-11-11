@@ -15,10 +15,13 @@ categories = ["parser-implementations", "encoding"]
 default = ["deflate-zlib-rs"]
 deflate-zlib-rs = ["crabxl-xlsx/deflate-zlib-rs"]
 deflate-zlib = ["crabxl-xlsx/deflate-zlib"]
+# Formula calculation with Formualizer.
+calc = ["crabxl-xlsx/calc", "dep:crabxl-calc"]
 
 [dependencies]
 crabxl-core.workspace = true
 crabxl-xlsx.workspace = true
+crabxl-calc = { workspace = true, optional = true }
 
 [lints]
 workspace = true

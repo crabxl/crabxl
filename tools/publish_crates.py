@@ -29,7 +29,7 @@ def main(version):
     validate(version)
     if not os.environ.get("CARGO_REGISTRY_TOKEN"):
         raise ValueError("Configure the CARGO_API_TOKEN GitHub Actions secret")
-    for name in ("crabxl-core", "crabxl-xlsx", "crabxl"):
+    for name in ("crabxl-core", "crabxl-calc", "crabxl-xlsx", "crabxl"):
         # Registry propagation may lag behind the preceding dependency upload.
         for attempt in range(12):
             result = subprocess.run(["cargo", "package", "-p", name, "--locked"], cwd=ROOT)

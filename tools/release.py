@@ -40,7 +40,7 @@ def validate(version, history=True):
     workspace = manifest["workspace"]
     if workspace["package"]["version"] != version:
         raise ValueError("Commit the requested workspace version before releasing")
-    for name in ("crabxl-core", "crabxl-xlsx"):
+    for name in ("crabxl-core", "crabxl-calc", "crabxl-xlsx"):
         if workspace["dependencies"][name]["version"] != "=" + version:
             raise ValueError(f"{name} must require exactly ={version}")
     if history:
@@ -96,7 +96,7 @@ def prepare(version):
     text, count = re.subn(r'(?m)^version = "[^"]+"$', f'version = "{version}"', text)
     if count != 1:
         raise ValueError("Expected one workspace package version")
-    for name in ("crabxl-core", "crabxl-xlsx"):
+    for name in ("crabxl-core", "crabxl-calc", "crabxl-xlsx"):
         text, count = re.subn(rf'(?m)^({name} = \{{[^\n]*?\bversion = ")[^"]+(")',
                              rf'\g<1>={version}\2', text)
         if count != 1:

@@ -14,15 +14,16 @@ use formualizer_eval::engine::{
     FormulaParsePolicy, TemporalEgress,
     named_range::{NameScope, NamedDefinition},
 };
-use formualizer_workbook::{Workbook as Engine, WorkbookConfig};
+use formualizer_workbook::{Workbook as Engine, WorkbookConfig, traits::CellData};
+use std::collections::BTreeMap;
 
 /// What [`calculate`] did.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CalcStats {
     /// Formulas whose cached value was replaced.
     pub calculated: usize,
-    /// Formulas left unchanged: array and data-table formulas, and results
-    /// with no XLSX representation.
+    /// Formulas with no result, whose cached value was removed: array and
+    /// data-table formulas, rejected formulas and results XLSX cannot store.
     pub skipped: usize,
 }
 
@@ -93,11 +94,12 @@ fn cached(value: LiteralValue) -> Option<CellValue> {
     })
 }
 
-/// A formula to calculate: its sheet position, address and expression.
+/// A formula cell: its sheet position, address and, unless it is not
+/// calculated, its expression.
 struct Pending {
     sheet: usize,
     address: CellAddress,
-    expression: Box<str>,
+    expression: Option<Box<str>>,
 }
 
 /// One calculation. Add sheets, then their cells, tables and names, then
@@ -105,9 +107,10 @@ struct Pending {
 pub struct Calculation {
     engine: Engine,
     sheets: Vec<String>,
+    /// Values of each sheet, loaded in one batch: one at a time is slow.
+    values: Vec<BTreeMap<(u32, u32), CellData>>,
     names: Vec<DefinedName>,
     formulas: Vec<Pending>,
-    skipped: usize,
 }
 
 impl Calculation {
@@ -127,9 +130,9 @@ impl Calculation {
         Self {
             engine: Engine::new_with_config(config),
             sheets: Vec::new(),
+            values: Vec::new(),
             names: Vec::new(),
             formulas: Vec::new(),
-            skipped: 0,
         }
     }
 
@@ -138,35 +141,40 @@ impl Calculation {
     pub fn add_sheet(&mut self, name: &str) -> Result<usize> {
         self.engine.add_sheet(name).map_err(failure)?;
         self.sheets.push(name.to_owned());
+        self.values.push(BTreeMap::new());
         Ok(self.sheets.len() - 1)
     }
 
     /// Add one stored cell of a sheet. Array and data-table formulas are not
-    /// calculated; their cells take part with no value.
+    /// calculated; their cells take part with no value and get no result.
     pub fn add_cell(&mut self, sheet: usize, cell: &Cell) -> Result<()> {
-        let name = self.sheet_name(sheet)?;
+        let values = self
+            .values
+            .get_mut(sheet)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "Unknown calculation sheet"))?;
         let value = match &cell.value {
             CellValue::Annotated(annotated) => annotated.value.unannotated(),
             value => value,
         };
         if let CellValue::Formula(formula) = value {
-            if matches!(
+            let calculated = !matches!(
                 formula.formula_type(),
                 FormulaType::Array | FormulaType::DataTable
-            ) {
-                self.skipped += 1;
-            } else {
-                self.formulas.push(Pending {
-                    sheet,
-                    address: cell.address,
-                    expression: formula.expression().into(),
-                });
-            }
+            );
+            self.formulas.push(Pending {
+                sheet,
+                address: cell.address,
+                expression: calculated.then(|| formula.expression().into()),
+            });
         } else if let Some(value) = literal(value)? {
-            let (row, column) = position(cell.address);
-            self.engine
-                .set_value(&name, row, column, value)
-                .map_err(failure)?;
+            values.insert(
+                position(cell.address),
+                CellData {
+                    value: Some(value),
+                    formula: None,
+                    style: None,
+                },
+            );
         }
         Ok(())
     }
@@ -208,11 +216,28 @@ impl Calculation {
     }
 
     /// Calculate. Calls `result` with each formula's sheet position, address
-    /// and cached value; None means XLSX cannot store the result.
+    /// and cached value; None means the formula has no result XLSX can store.
     pub fn run(
         mut self,
         mut result: impl FnMut(usize, CellAddress, Option<CellValue>) -> Result<()>,
-    ) -> Result<usize> {
+    ) -> Result<()> {
+        if self
+            .formulas
+            .iter()
+            .all(|formula| formula.expression.is_none())
+        {
+            for formula in &self.formulas {
+                result(formula.sheet, formula.address, None)?;
+            }
+            return Ok(());
+        }
+        for (name, values) in self.sheets.iter().zip(std::mem::take(&mut self.values)) {
+            if !values.is_empty() {
+                self.engine
+                    .write_range(name, (1, 1), values)
+                    .map_err(failure)?;
+            }
+        }
         for defined in &self.names {
             let Ok(ast) = formualizer_parse::parse(format!("={}", defined.value)) else {
                 continue;
@@ -246,14 +271,16 @@ impl Calculation {
             .iter()
             .map(|formula| {
                 let (row, column) = position(formula.address);
-                self.engine
-                    .set_formula(
-                        &self.sheets[formula.sheet],
-                        row,
-                        column,
-                        &format!("={}", formula.expression),
-                    )
-                    .is_ok()
+                formula.expression.as_ref().is_some_and(|expression| {
+                    self.engine
+                        .set_formula(
+                            &self.sheets[formula.sheet],
+                            row,
+                            column,
+                            &format!("={expression}"),
+                        )
+                        .is_ok()
+                })
             })
             .collect();
         self.engine.evaluate_all().map_err(failure)?;
@@ -268,7 +295,7 @@ impl Calculation {
                 .and_then(cached);
             result(formula.sheet, formula.address, value)?;
         }
-        Ok(self.skipped)
+        Ok(())
     }
 }
 
@@ -278,8 +305,8 @@ fn position(address: CellAddress) -> (u32, u32) {
 }
 
 /// Calculate every formula of `book` and store each result as the formula's
-/// cached value. `threads` limits the engine's threads; 1 calculates on the
-/// calling thread.
+/// cached value; a formula without a result loses its old cached value.
+/// `threads` limits the engine's threads; 1 calculates on the calling thread.
 pub fn calculate(book: &mut Workbook, threads: usize) -> Result<CalcStats> {
     let mut calculation = Calculation::new(book.epoch(), threads);
     let ids: Vec<SheetId> = book.sheets().map(|(id, _)| id).collect();
@@ -303,21 +330,13 @@ pub fn calculate(book: &mut Workbook, threads: usize) -> Result<CalcStats> {
         calculation.add_name(name);
     }
     let mut results = Vec::new();
-    let skipped = calculation.run(|sheet, address, value| {
+    calculation.run(|sheet, address, value| {
         results.push((sheet, address, value));
         Ok(())
     })?;
-    let mut stats = CalcStats {
-        calculated: 0,
-        skipped,
-    };
+    let mut stats = CalcStats::default();
     for (position, address, value) in results {
-        let Some(value) = value else {
-            stats.skipped += 1;
-            continue;
-        };
-        let sheet = book.sheet(ids[position])?;
-        let Some(mut cell) = sheet.cells().find(|cell| cell.address == address).cloned() else {
+        let Some(mut cell) = book.sheet(ids[position])?.get(address).cloned() else {
             continue;
         };
         let formula = match &mut cell.value {
@@ -328,9 +347,13 @@ pub fn calculate(book: &mut Workbook, threads: usize) -> Result<CalcStats> {
             },
             _ => continue,
         };
-        formula.set_cached(Some(value))?;
+        if value.is_some() {
+            stats.calculated += 1;
+        } else {
+            stats.skipped += 1;
+        }
+        formula.set_cached(value)?;
         book.sheet_mut(ids[position])?.set(cell)?;
-        stats.calculated += 1;
     }
     Ok(stats)
 }

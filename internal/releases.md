@@ -21,7 +21,7 @@ manual.
 The **Release Rust** workflow runs on every push to `main`. When the committed
 version has no tag yet, it checks the changelog section and the version
 history, runs formatting, Clippy, the tests on the current and minimum Rust,
-the documentation build and package verification, publishes the three crates,
+the documentation build and package verification, publishes the four crates,
 and then creates the tag and the GitHub release on that commit. The changelog
 section becomes the release notes. Pushes whose version already has a tag stop
 after the version check.
@@ -43,7 +43,7 @@ core and XLSX crate archives.
 
 ## Failed or interrupted runs
 
-crates.io uploads cannot be atomic across three crates. Rerun the failed jobs
+crates.io uploads cannot be atomic across four crates. Rerun the failed jobs
 of the same run, or run the workflow manually on `main`. Packages that are
 already uploaded are accepted only when their checksum matches the new archive
 and they are not yanked; different content fails. Do not move a tag or

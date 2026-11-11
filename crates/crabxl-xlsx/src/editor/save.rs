@@ -597,6 +597,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                                 .map(|plan| (&*plan.features, &plan.output.refs)),
                             hyperlinks: hyperlink,
                             invalidate_caches: dirty,
+                            keep_model_caches: self.keep_model_caches,
                             model,
                             catalog: bank.and_then(crabxl_core::Workbook::style_catalog),
                             epoch,
@@ -874,6 +875,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                                 .get(created.part.as_str())
                                 .map(|(_, plan)| (sheet.hyperlinks(), plan)),
                             invalidate_caches: true,
+                            keep_model_caches: self.keep_model_caches,
                             model: Some(sheet),
                             catalog: bank.style_catalog(),
                             epoch,
@@ -894,6 +896,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             iso_dates: self.dates.1,
                             non_finite: self.options.non_finite,
                             formula_attributes: self.options.formula_attributes,
+                            keep_caches: self.keep_model_caches,
                         },
                         membership.namespace(),
                         hyperlink_plans

@@ -1,4 +1,6 @@
 //! Lazy materialization into the canonical owned bank, with joint source accounting.
+#[cfg(feature = "calc")]
+mod calc;
 mod catalog;
 mod dimensions;
 mod features;
@@ -634,7 +636,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             Some(&self.bank),
             self.mapping_bytes(),
             self.options.read.data_only,
-        )?;
+        );
+        self.editor.keep_model_caches = false;
+        let result = result?;
         self.bank
             .set_active_view_index(self.editor.active_view_index());
         Ok(result)
