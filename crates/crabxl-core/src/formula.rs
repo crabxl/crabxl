@@ -172,6 +172,20 @@ impl Formula {
     pub fn cached(&self) -> Option<&CellValue> {
         self.cached.as_deref()
     }
+    /// Replace the cached result. A formula, rich text or annotated value is
+    /// rejected, as in the constructors.
+    pub fn set_cached(&mut self, cached: Option<CellValue>) -> Result<()> {
+        if cached.as_ref().is_some_and(|value| {
+            matches!(
+                value,
+                CellValue::Formula(_) | CellValue::RichText(_) | CellValue::Annotated(_)
+            )
+        }) {
+            return Err(Error::new(ErrorKind::InvalidData, "Invalid nested cache"));
+        }
+        self.cached = cached.map(Box::new);
+        Ok(())
+    }
     /// Owned payload bytes, excluding allocator overhead.
     pub fn memory_bytes(&self) -> usize {
         size_of::<Self>()
