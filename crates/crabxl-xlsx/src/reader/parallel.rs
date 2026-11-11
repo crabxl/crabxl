@@ -22,7 +22,7 @@ use std::{
 };
 
 /// Target block size. Blocks end at the last `</row>` after this many bytes.
-const BLOCK: usize = 1 << 20;
+const BLOCK: usize = 512 << 10;
 /// A block without `</row>` after this many bytes goes to the event reader.
 const MAX_BLOCK: usize = 64 << 20;
 const MAX_WORKERS: usize = 8;
@@ -337,7 +337,7 @@ impl Pipeline {
                 })
             })
             .collect::<Vec<_>>();
-        let in_flight = workers.len() as u64 * 2;
+        let in_flight = workers.len() as u64 + 1;
         Self {
             context,
             jobs: Some(jobs),
