@@ -1,48 +1,40 @@
 # Roadmap
 
-A12 completed openpyxl 3.1.5 capability. A13 is done. Release 0.1.0 is next.
+CrabXL 0.1.1 is the current release. It has the capabilities of openpyxl 3.1.5.
+The Python package has its own
+[roadmap](https://github.com/crabxl/crabxl-python/blob/main/internal/roadmap.md).
 
-## A13: performance and memory (done)
+## Released
 
-Goal: on every benchmark scenario, be faster and use less peak memory than
-the libraries in this table.
+- 0.1.0: reads, writes and edits of XLSX, XLSM, XLTX and XLTM files, with
+  memory limits.
+- 0.1.1: edits no longer fail on content that CrabXL does not model. As in
+  openpyxl, that content is dropped or kept as written. See the
+  [changelog](../CHANGELOG.md).
 
-| Scenario | Faster than | Lower peak memory than |
-|---|---|---|
-| Read | openpyxl, calamine | openpyxl, calamine |
-| Write | openpyxl, rust_xlsxwriter | openpyxl, rust_xlsxwriter |
-| Edit (load, change, save) | openpyxl, umya-spreadsheet | openpyxl, umya-spreadsheet |
+## Next
 
-Changes:
-
-- Edits stream: appended rows of a sheet that is not loaded are written after
-  the source rows on save, without loading the sheet into memory.
-- A whole-sheet model is checked once, not on every structural edit.
-- Worksheets of 4 MiB or more are compressed on up to four threads when they
-  are written or saved.
-- `LoadOptions::with_memory_limit(bytes)` sets the memory limit in one call.
-
-Measured on one Windows computer, 1,000,000 rows x 10 columns:
-
-| Scenario | Before | After | Reference |
-|---|---|---|---|
-| Read (streaming) | 2.6 s, 56 MiB | unchanged | calamine 3.8 s, 750 MiB |
-| Write | 8.4 s, 10 MiB | 5.5 s, 11 MiB | rust_xlsxwriter 9.1 s, 1,354 MiB; constant-memory mode 8.1 s, 9 MiB |
-| Edit | 32.1 s, 497 MiB | 10.0 s, 75 MiB | umya-spreadsheet 49.8 s, 3,859 MiB |
-
-Every target is met against rust_xlsxwriter's default mode. Its
-constant-memory mode uses about 2 MiB less peak memory than crabxl's write,
-because crabxl's compression threads each keep a deflate state.
-
-## Optional: benchmark results
-
-These are not needed for 0.1.0:
-
-1. Run both suites in crabxl-benchmarks on an idle computer and commit the
-   results there. Other programs changed the numbers of the last attempt.
-2. Validate produced files in Excel desktop on macOS. Windows Excel opens the
+1. Publish benchmark results. Run both suites in crabxl-benchmarks on an idle
+   computer and commit the results there. Background programs changed the
+   numbers of the last attempt.
+2. Open written and edited files in Excel for macOS. Windows Excel already opens
    written and edited 1,000,000-row files with the right rows and date formats.
 
-## 0.1.0
+## Not provided
 
-Release `0.1.0` of the core and the Python package. See `internal/releases.md`.
+- Formula calculation. CrabXL keeps the cached results that Excel saved.
+- Legacy `.xls` and binary `.xlsb` files.
+
+## Performance measurements
+
+Measured before 0.1.0 on one Windows computer, 1,000,000 rows x 10 columns.
+These are development measurements, not published benchmarks.
+
+| Scenario | CrabXL | Reference |
+|---|---|---|
+| Read (streaming) | 2.6 s, 56 MiB | calamine 3.8 s, 750 MiB |
+| Write | 5.5 s, 11 MiB | rust_xlsxwriter 9.1 s, 1,354 MiB; constant-memory mode 8.1 s, 9 MiB |
+| Edit (load, change, save) | 10.0 s, 75 MiB | umya-spreadsheet 49.8 s, 3,859 MiB |
+
+rust_xlsxwriter's constant-memory mode uses about 2 MiB less peak memory than
+CrabXL's write, because CrabXL's compression threads each keep a deflate state.

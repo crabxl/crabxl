@@ -1,10 +1,10 @@
 # Status
 
-Last update: 2026-11-10.
+Last update: 2026-11-11.
 
 ## Current release
 
-- `0.1.0` is published. The workspace version is `0.1.1`. The capabilities match openpyxl 3.1.5,
+- `0.1.1` is published. The capabilities match openpyxl 3.1.5,
   and the performance and memory work is done (results in
   `internal/roadmap.md`).
 
@@ -42,10 +42,10 @@ Port origins and notices are in `third_party/ports.json`.
 
 ## Validation
 
-Windows: 350 Rust tests pass. Formatting and Clippy pass for all workspace
-targets. The Python acceptance (see the crabxl-python status) passes: 1,054
-package tests, 1,548 corpus round-trip checks and the openpyxl 3.1.5 suite
-with 2,115 passes and 329 tracked failures of openpyxl internals and
+Windows: 352 Rust tests pass. Formatting and Clippy pass for all workspace
+targets. The Python validation (see the crabxl-python status) passes: 1,066
+package tests, 1,560 corpus round-trip checks and the openpyxl 3.1.5 suite
+with 2,114 passes and 330 tracked failures of openpyxl internals and
 deliberate differences.
 
 Windows Excel opens written and edited 1,000,000-row files with the right rows
@@ -58,5 +58,6 @@ rerun and macOS Excel validation are optional (see the roadmap).
   or refresh external sources.
 - Reference ranges, chart series and drawing anchors retain their explicit-edit
   policies during row/column edits. Notes move with their cells.
-- Unknown affected markup and digitally signed edits return errors rather than
-  dropping data. Untouched source parts retain their compressed payloads.
+- As in openpyxl, an edit drops unknown markup from the parts it rewrites, and a
+  changed signed package is saved without its signature. Untouched source parts
+  retain their compressed payloads.
