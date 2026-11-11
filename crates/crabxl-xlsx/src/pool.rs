@@ -82,15 +82,20 @@ pub(crate) fn spawn(task: impl FnOnce() + Send + 'static) {
     let Ok(mut state) = pool.state.lock() else {
         return;
     };
-    state.tasks.push_back(Box::new(task));
     if state.idle == 0 && state.threads < workers().max(1) {
         let started = thread::Builder::new()
             .name("crabxl-worker".into())
             .spawn(|| run(pool));
         if started.is_ok() {
             state.threads += 1;
+        } else if state.threads == 0 {
+            // No thread could start and none exists: run here, or nothing would.
+            drop(state);
+            let _ = catch_unwind(AssertUnwindSafe(task));
+            return;
         }
     }
+    state.tasks.push_back(Box::new(task));
     drop(state);
     pool.wake.notify_one();
 }
