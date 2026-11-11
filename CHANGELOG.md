@@ -6,7 +6,7 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
-## [Unreleased]
+## [0.2.0]
 
 ### Added
 
@@ -19,6 +19,9 @@ The Python package has its own
   data-table formulas are not calculated, and they and formulas without a
   result that XLSX can store lose their old cached values. Excel still
   recalculates the workbook when it opens it.
+- The `crabxl-calc` crate, which `calc` uses. Its `Calculation` takes cells,
+  tables and names one by one, for workbooks that are not a `Workbook` model.
+- `Formula::set_cached` replaces a formula's cached value.
 
 ## [0.1.3]
 
@@ -110,6 +113,7 @@ First release.
   or more are compressed on up to four threads.
 - The `quickstart` example.
 
+[0.2.0]: https://github.com/crabxl/crabxl/releases/tag/0.2.0
 [0.1.3]: https://github.com/crabxl/crabxl/releases/tag/0.1.3
 [0.1.2]: https://github.com/crabxl/crabxl/releases/tag/0.1.2
 [0.1.1]: https://github.com/crabxl/crabxl/releases/tag/0.1.1
