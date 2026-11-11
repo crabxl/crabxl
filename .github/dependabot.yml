@@ -1,0 +1,25 @@
+# Weekly dependency updates, grouped into one pull request per ecosystem.
+# New versions wait 7 days before Dependabot proposes them; security updates
+# do not wait.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies]
+    groups:
+      cargo:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, ci]
+    groups:
+      actions:
+        patterns: ["*"]
