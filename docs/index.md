@@ -36,6 +36,13 @@ The [quickstart example](https://github.com/crabxl/crabxl/blob/main/crates/crabx
 also creates and edits a workbook. The [API reference](https://docs.rs/crabxl)
 lists all types.
 
+## Threads
+
+Large worksheets are read, saved and compressed on several threads. CrabXL
+uses at most the CPUs the process may run on. To use fewer, set the
+`CRABXL_MAX_THREADS` environment variable or call `crabxl::set_max_threads`,
+counting the calling thread. `1` keeps all work on the calling thread.
+
 ## Limits
 
 - When an edit rewrites a part that holds content CrabXL does not model, that

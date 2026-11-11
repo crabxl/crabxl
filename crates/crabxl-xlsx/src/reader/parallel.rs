@@ -16,16 +16,14 @@ use std::{
     collections::{BTreeMap, VecDeque},
     sync::{
         Arc, Mutex,
-        mpsc::{Receiver, SyncSender, channel, sync_channel},
+        mpsc::{Receiver, Sender, channel},
     },
-    thread::{self, JoinHandle},
 };
 
 /// Target block size. Blocks end at the last `</row>` after this many bytes.
 const BLOCK: usize = 512 << 10;
 /// A block without `</row>` after this many bytes goes to the event reader.
 const MAX_BLOCK: usize = 64 << 20;
-const MAX_WORKERS: usize = 8;
 /// Smaller parts are read on one thread.
 pub(crate) const MIN_PART_BYTES: u64 = 4 << 20;
 
@@ -73,12 +71,9 @@ impl Context {
     }
 }
 
-/// Worker threads to start, or None when only one CPU is available.
+/// Worker threads CrabXL may use, or None for none.
 fn worker_count() -> Option<usize> {
-    let workers = thread::available_parallelism()
-        .map_or(1, std::num::NonZero::get)
-        .saturating_sub(1)
-        .min(MAX_WORKERS);
+    let workers = crate::pool::workers();
     (workers > 0).then_some(workers)
 }
 
@@ -249,14 +244,31 @@ pub(super) enum Next {
     Fallback(Vec<u8>),
 }
 
-type Job = (u64, Arc<Vec<u8>>);
 type Done = (u64, Option<Vec<ParsedRow>>);
+
+/// Sends a block's result once; a task that panics sends a rejection.
+struct Reply {
+    index: u64,
+    done: Sender<Done>,
+    rows: Option<Vec<ParsedRow>>,
+}
+impl Reply {
+    fn send(mut self, rows: Option<Vec<ParsedRow>>) {
+        self.rows = rows;
+    }
+}
+impl Drop for Reply {
+    fn drop(&mut self) {
+        let _ = self.done.send((self.index, self.rows.take()));
+    }
+}
 
 pub(crate) struct Pipeline {
     context: Arc<Context>,
-    jobs: Option<SyncSender<Job>>,
+    done: Sender<Done>,
     results: Receiver<Done>,
-    workers: Vec<JoinHandle<()>>,
+    /// Blocks in flight at most; grows while the reading thread waits.
+    max_in_flight: u64,
     /// Blocks sent and not yet consumed, by sequence number.
     blocks: BTreeMap<u64, Arc<Vec<u8>>>,
     finished: BTreeMap<u64, Option<Vec<ParsedRow>>>,
@@ -270,7 +282,7 @@ pub(crate) struct Pipeline {
 }
 
 impl Pipeline {
-    /// Start workers, or None when only one CPU is available.
+    /// Start, or None when CrabXL may use only one thread.
     pub(super) fn start(
         options: &ReadOptions,
         capture_dimensions: bool,
@@ -279,9 +291,8 @@ impl Pipeline {
         epoch: DateEpoch,
         strings: Option<StringTable>,
     ) -> Option<Self> {
-        let workers = worker_count()?;
         Some(Self::spawn(
-            workers,
+            worker_count()?,
             Context {
                 options: options.clone(),
                 capture_dimensions,
@@ -295,8 +306,8 @@ impl Pipeline {
         ))
     }
 
-    /// Start workers that only check that rows are plain, or None when only
-    /// one CPU is available.
+    /// Start a pipeline that only checks that rows are plain, or None when
+    /// CrabXL may use only one thread.
     pub(crate) fn validator(limits: &crabxl_core::ResourceLimits) -> Option<Self> {
         Some(Self::spawn(
             worker_count()?,
@@ -314,35 +325,12 @@ impl Pipeline {
     }
 
     fn spawn(workers: usize, context: Context) -> Self {
-        let context = Arc::new(context);
-        let (jobs, queue) = sync_channel::<Job>(workers);
-        let queue = Arc::new(Mutex::new(queue));
         let (done, results) = channel::<Done>();
-        let workers = (0..workers)
-            .map(|_| {
-                let queue = Arc::clone(&queue);
-                let done = done.clone();
-                let context = Arc::clone(&context);
-                thread::spawn(move || {
-                    loop {
-                        let job = match queue.lock() {
-                            Ok(queue) => queue.recv(),
-                            Err(_) => return,
-                        };
-                        let Ok((index, block)) = job else { return };
-                        if done.send((index, parse_block(&block, &context))).is_err() {
-                            return;
-                        }
-                    }
-                })
-            })
-            .collect::<Vec<_>>();
-        let in_flight = workers.len() as u64 + 1;
         Self {
-            context,
-            jobs: Some(jobs),
+            context: Arc::new(context),
+            done,
             results,
-            workers,
+            max_in_flight: workers as u64 + 1,
             blocks: BTreeMap::new(),
             finished: BTreeMap::new(),
             ready: VecDeque::new(),
@@ -350,7 +338,8 @@ impl Pipeline {
             sent: 0,
             consumed: 0,
             input_done: false,
-            in_flight,
+            // One block at first; more only while parsing falls behind.
+            in_flight: 1,
         }
     }
 
@@ -392,8 +381,9 @@ impl Pipeline {
             if let Some(rows) = self.finished.remove(&self.consumed) {
                 break rows;
             }
+            // Waiting means the workers are behind: allow one more block.
+            self.in_flight = (self.in_flight + 1).min(self.max_in_flight);
             let Ok((index, rows)) = self.results.recv() else {
-                // A worker stopped: the caller reads this block itself.
                 break None;
             };
             self.finished.insert(index, rows);
@@ -445,14 +435,13 @@ impl Pipeline {
         let rest = self.carry.split_off(end + b"</row>".len());
         let block = Arc::new(std::mem::replace(&mut self.carry, rest));
         self.blocks.insert(self.sent, Arc::clone(&block));
-        let sent = self
-            .jobs
-            .as_ref()
-            .is_some_and(|jobs| jobs.send((self.sent, block)).is_ok());
-        if !sent {
-            // A worker stopped; the result wait reports it as a fallback.
-            self.jobs = None;
-        }
+        let context = Arc::clone(&self.context);
+        let reply = Reply {
+            index: self.sent,
+            done: self.done.clone(),
+            rows: None,
+        };
+        crate::pool::spawn(move || reply.send(parse_block(&block, &context)));
         self.sent += 1;
         true
     }
@@ -482,15 +471,6 @@ impl Pipeline {
         self.blocks.clear();
         self.carry.clear();
         bytes
-    }
-}
-
-impl Drop for Pipeline {
-    fn drop(&mut self) {
-        self.jobs = None;
-        for worker in self.workers.drain(..) {
-            let _ = worker.join();
-        }
     }
 }
 

@@ -25,6 +25,10 @@ flate2 = { version = "1.1", default-features = false }
 crc32fast = "1.5"
 memchr = "2.8"
 
+# The process CPU affinity mask, which the standard library ignores on Windows.
+[target.'cfg(windows)'.dependencies]
+core_affinity = "0.8.3"
+
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 sysinfo = { version = "0.38.4", default-features = false, features = ["system"] }
 

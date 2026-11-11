@@ -7,17 +7,12 @@ use std::{
     collections::BTreeMap,
     fs::File,
     io::{self, BufReader, BufWriter, Seek, SeekFrom, Write},
-    sync::{
-        Arc, Mutex,
-        mpsc::{Receiver, SyncSender, channel, sync_channel},
-    },
-    thread::{self, JoinHandle},
+    sync::mpsc::{Receiver, Sender, channel},
 };
 use zip::{ZipArchive, ZipWriter};
 
 const CHUNK: usize = 128 * 1024;
 const WINDOW: usize = 32 * 1024;
-const MAX_THREADS: usize = 8;
 /// Smaller parts compress on the calling thread through the ZIP writer.
 pub(crate) const MIN_BYTES: u64 = 4 * 1024 * 1024;
 
@@ -26,14 +21,32 @@ pub(crate) fn threads(level: Option<u8>, size: u64) -> Option<usize> {
     if level == Some(0) || size < MIN_BYTES {
         return None;
     }
-    let threads = thread::available_parallelism()
-        .map_or(1, std::num::NonZero::get)
-        .min(MAX_THREADS);
-    (threads > 1).then_some(threads)
+    let workers = crate::pool::workers();
+    (workers > 0).then_some(workers)
 }
 
-type Job = (u64, Vec<u8>, Vec<u8>, bool);
 type Done = (u64, io::Result<Vec<u8>>);
+
+/// Sends a chunk's result once; a task that panics sends an error.
+struct Reply {
+    index: u64,
+    done: Sender<Done>,
+    result: Option<io::Result<Vec<u8>>>,
+}
+impl Reply {
+    fn send(mut self, result: io::Result<Vec<u8>>) {
+        self.result = Some(result);
+    }
+}
+impl Drop for Reply {
+    fn drop(&mut self) {
+        let result = self
+            .result
+            .take()
+            .unwrap_or_else(|| Err(io::Error::other("Parallel deflate worker stopped")));
+        let _ = self.done.send((self.index, result));
+    }
+}
 
 /// A writer that deflates on worker threads into a one-entry temporary ZIP.
 pub(crate) struct ParallelDeflate {
@@ -43,9 +56,9 @@ pub(crate) struct ParallelDeflate {
     crc: crc32fast::Hasher,
     size: u64,
     compressed: u64,
-    jobs: Option<SyncSender<Job>>,
+    level: u32,
+    done: Sender<Done>,
     results: Receiver<Done>,
-    workers: Vec<JoinHandle<()>>,
     sent: u64,
     written: u64,
     pending: BTreeMap<u64, Vec<u8>>,
@@ -66,31 +79,8 @@ impl ParallelDeflate {
         // Room for the local header, written once the sizes are known.
         let header = local_header(0, 0, 0).len() as u64;
         output.write_all(&vec![0; header as usize])?;
-        let (jobs, queue) = sync_channel::<Job>(threads);
-        let queue = Arc::new(Mutex::new(queue));
         let (done, results) = channel::<Done>();
         let level = u32::from(level.unwrap_or(6));
-        let workers = (0..threads)
-            .map(|_| {
-                let queue = Arc::clone(&queue);
-                let done = done.clone();
-                thread::spawn(move || {
-                    loop {
-                        let job = match queue.lock() {
-                            Ok(queue) => queue.recv(),
-                            Err(_) => return,
-                        };
-                        let Ok((index, dictionary, data, last)) = job else {
-                            return;
-                        };
-                        let result = deflate(level, &dictionary, &data, last);
-                        if done.send((index, result)).is_err() {
-                            return;
-                        }
-                    }
-                })
-            })
-            .collect();
         Ok(Self {
             output,
             buffer: Vec::with_capacity(CHUNK),
@@ -98,9 +88,9 @@ impl ParallelDeflate {
             crc: crc32fast::Hasher::new(),
             size: 0,
             compressed: 0,
-            jobs: Some(jobs),
+            level,
+            done,
             results,
-            workers,
             sent: 0,
             written: 0,
             pending: BTreeMap::new(),
@@ -115,11 +105,13 @@ impl ParallelDeflate {
         let data = std::mem::replace(&mut self.buffer, Vec::with_capacity(CHUNK));
         let next = data[data.len().saturating_sub(WINDOW)..].to_vec();
         let dictionary = std::mem::replace(&mut self.dictionary, next);
-        self.jobs
-            .as_ref()
-            .ok_or_else(|| io::Error::other("Parallel deflate is finished"))?
-            .send((self.sent, dictionary, data, last))
-            .map_err(|_| io::Error::other("Parallel deflate worker stopped"))?;
+        let reply = Reply {
+            index: self.sent,
+            done: self.done.clone(),
+            result: None,
+        };
+        let level = self.level;
+        crate::pool::spawn(move || reply.send(deflate(level, &dictionary, &data, last)));
         self.sent += 1;
         Ok(())
     }
@@ -146,7 +138,6 @@ impl ParallelDeflate {
         while self.written < self.sent {
             self.receive()?;
         }
-        self.stop();
         let crc = self.crc.clone().finalize();
         let central = central_directory(crc, self.compressed, self.size, self.header);
         self.output.write_all(&central)?;
@@ -159,12 +150,6 @@ impl ParallelDeflate {
         let entry = archive.by_index_raw(0).map_err(io::Error::other)?;
         zip.raw_copy_file_rename(entry, name)
             .map_err(io::Error::other)
-    }
-    fn stop(&mut self) {
-        self.jobs = None;
-        for worker in self.workers.drain(..) {
-            let _ = worker.join();
-        }
     }
 }
 impl Write for ParallelDeflate {
@@ -184,11 +169,6 @@ impl Write for ParallelDeflate {
     }
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
-    }
-}
-impl Drop for ParallelDeflate {
-    fn drop(&mut self) {
-        self.stop();
     }
 }
 /// Raw-deflate one chunk; non-final chunks end byte-aligned with a sync flush.

@@ -36,6 +36,7 @@ pub use crabxl_core::{
 pub use crabxl_xlsx::{AdaptiveRead, ReadData};
 pub use crabxl_xlsx::{LoadOptions, LoadedWorkbook};
 pub use crabxl_xlsx::{Rows, SheetInfo, SheetKind, WorkbookReader};
+pub use crabxl_xlsx::{max_threads, set_max_threads};
 
 pub use crabxl_xlsx::{
     FormulaWritePolicy, NonFiniteWritePolicy, StyleWritePolicy, WorkbookWriter, WriteOptions,

@@ -5,6 +5,8 @@ mod encode;
 mod formula_codec;
 mod package;
 mod parallel_deflate;
+mod pool;
+pub use pool::{max_threads, set_max_threads};
 mod reader;
 mod styles;
 mod writer;

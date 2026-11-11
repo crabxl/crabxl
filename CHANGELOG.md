@@ -17,7 +17,10 @@ The Python package has its own
 - Saving an edited large worksheet copies its unedited rows as they are.
   Worker threads check that those rows are plain; edited rows and other
   content are rewritten as before.
-- Large parts compress on up to 8 threads instead of 4.
+- All parallel work shares one pool of threads. It uses at most the CPUs the
+  process may run on, including on Windows, and starts threads only while the
+  work falls behind. Set `CRABXL_MAX_THREADS` or call `set_max_threads` to use
+  fewer; 1 keeps all work on the calling thread.
 
 ## [0.1.2]
 
