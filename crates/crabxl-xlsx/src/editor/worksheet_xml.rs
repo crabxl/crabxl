@@ -288,6 +288,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         data_only,
         metadata_counts,
     } = rewrite;
+    let part_size = input.size();
     let mut xml = XmlStream::new(
         BufReader::with_capacity(limits.input_buffer_bytes, input),
         part.into(),
@@ -295,6 +296,15 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         limits,
     );
     let mut writer = Writer::new(output);
+    // Large sheets check rows on worker threads; blocks of plain rows that no
+    // edit touches are copied as they are.
+    let mut plain_rows: Option<crate::reader::parallel::Pipeline> = None;
+    let mut plain_checked = false;
+    let mut plain_block: Option<(
+        std::sync::Arc<Vec<u8>>,
+        std::vec::IntoIter<crate::reader::parallel::ParsedRow>,
+        usize,
+    )> = None;
     let mut print_rewrite = match (printing, features) {
         (printing, Some((features, _))) => Some(crate::printing::Rewrite::with_header_footer(
             printing,
@@ -354,6 +364,69 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
         maximum: limits.max_row_bytes,
     };
     loop {
+        if in_data && !in_row && !xml.replaying() {
+            if !plain_checked {
+                plain_checked = true;
+                if part_size >= crate::reader::parallel::MIN_PART_BYTES
+                    && model.is_none()
+                    && xml.at_spreadsheet_depth(2)
+                {
+                    plain_rows = crate::reader::parallel::Pipeline::validator(&limits);
+                }
+            }
+            use crate::reader::parallel::Block;
+            loop {
+                // Copy the untouched rows of the current block; an edited or
+                // unordered row goes to the event path, then copying resumes.
+                if let Some((bytes, rows, offset)) = plain_block.as_mut() {
+                    let start = *offset;
+                    let mut end = start;
+                    let mut handoff = None;
+                    for row in rows.by_ref() {
+                        let index = row.index.get();
+                        let ordered = last_row.is_none_or(|last| index > last);
+                        let untouched = pending
+                            .peek()
+                            .is_none_or(|patch| patch.cell.address.row.get() > index);
+                        if !(ordered && untouched) {
+                            handoff = Some(end + row.bytes);
+                            break;
+                        }
+                        last_row = Some(index);
+                        next_row = index + 1;
+                        end += row.bytes;
+                    }
+                    writer
+                        .get_mut()
+                        .write_all(&bytes[start..end])
+                        .map_err(|error| io_error("Cannot copy worksheet rows", error))?;
+                    if let Some(after) = handoff {
+                        *offset = after;
+                        xml.unread(bytes[end..after].to_vec());
+                        break;
+                    }
+                    plain_block = None;
+                }
+                let Some(pipeline) = plain_rows.as_mut() else {
+                    break;
+                };
+                match pipeline.next_block(|output| xml.read_raw(output))? {
+                    Block::Parsed(bytes, rows) => plain_block = Some((bytes, rows.into_iter(), 0)),
+                    Block::Rejected(bytes) => {
+                        let mut rest = bytes.to_vec();
+                        rest.extend(pipeline.take_rest());
+                        plain_rows = None;
+                        xml.unread(rest);
+                        break;
+                    }
+                    Block::End(rest) => {
+                        plain_rows = None;
+                        xml.unread(rest);
+                        break;
+                    }
+                }
+            }
+        }
         let frame = xml.next()?;
         check_declaration(&frame.event)?;
         if let Some(rewrite) = &mut early_features

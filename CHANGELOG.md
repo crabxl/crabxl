@@ -14,6 +14,10 @@ The Python package has its own
   plain rows, look up shared strings and convert dates while one thread
   decompresses the part. Rows with formulas, inline strings or other content
   are read as before, so values and errors do not change.
+- Saving an edited large worksheet copies its unedited rows as they are.
+  Worker threads check that those rows are plain; edited rows and other
+  content are rewritten as before.
+- Large parts compress on up to 8 threads instead of 4.
 
 ## [0.1.2]
 

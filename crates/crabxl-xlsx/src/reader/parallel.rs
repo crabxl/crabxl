@@ -27,7 +27,7 @@ const BLOCK: usize = 1 << 20;
 const MAX_BLOCK: usize = 64 << 20;
 const MAX_WORKERS: usize = 8;
 /// Smaller parts are read on one thread.
-pub(super) const MIN_PART_BYTES: u64 = 4 << 20;
+pub(crate) const MIN_PART_BYTES: u64 = 4 << 20;
 
 /// A cell whose value is final, or a shared-string ID that the reading
 /// thread resolves when the workers have no string table.
@@ -36,8 +36,8 @@ pub(super) struct ParsedCell {
     pub(super) style: StyleId,
     pub(super) value: BufferedValue,
 }
-pub(super) struct ParsedRow {
-    pub(super) index: RowIndex,
+pub(crate) struct ParsedRow {
+    pub(crate) index: RowIndex,
     pub(super) cells: Vec<ParsedCell>,
     /// The row tag without brackets, kept when the reader captures row
     /// formatting and the row has formatting attributes.
@@ -45,7 +45,7 @@ pub(super) struct ParsedRow {
     /// The first cell whose shared string a worker resolved.
     pub(super) first_text: Option<CellAddress>,
     /// Input bytes of the row, including whitespace before it.
-    bytes: usize,
+    pub(crate) bytes: usize,
 }
 
 struct Context {
@@ -58,6 +58,8 @@ struct Context {
     epoch: DateEpoch,
     /// Taken away when the table moves to disk during the read.
     strings: Mutex<Option<StringTable>>,
+    /// Check that rows are plain without decoding their cells.
+    validate_only: bool,
 }
 impl Context {
     /// The date kind of a style, as `StyleRead::kind` gives it, or None when
@@ -69,6 +71,15 @@ impl Context {
             None => (style.get() == 0).then_some(None),
         }
     }
+}
+
+/// Worker threads to start, or None when only one CPU is available.
+fn worker_count() -> Option<usize> {
+    let workers = thread::available_parallelism()
+        .map_or(1, std::num::NonZero::get)
+        .saturating_sub(1)
+        .min(MAX_WORKERS);
+    (workers > 0).then_some(workers)
 }
 
 /// Parse a block of whole rows. None means the block needs the event reader.
@@ -121,7 +132,7 @@ fn parse_block(mut bytes: &[u8], context: &Context) -> Option<Vec<ParsedRow>> {
                     return None;
                 }
                 next_column = address.column.get() + 1;
-                if !context.options.includes(address) {
+                if context.validate_only || !context.options.includes(address) {
                     continue;
                 }
                 let kind = context.date_kind(header.style)?;
@@ -219,6 +230,16 @@ fn row_index(mut rest: &[u8]) -> Option<(RowIndex, bool)> {
     }
 }
 
+/// The next block in document order.
+pub(crate) enum Block {
+    /// The block's bytes and its plain rows.
+    Parsed(Arc<Vec<u8>>, Vec<ParsedRow>),
+    /// A block the workers did not accept.
+    Rejected(Arc<Vec<u8>>),
+    /// All blocks were returned. These bytes follow the last one.
+    End(Vec<u8>),
+}
+
 /// What the reading thread gets next from the pipeline.
 pub(super) enum Next {
     Row(ParsedRow),
@@ -231,7 +252,7 @@ pub(super) enum Next {
 type Job = (u64, Arc<Vec<u8>>);
 type Done = (u64, Option<Vec<ParsedRow>>);
 
-pub(super) struct Pipeline {
+pub(crate) struct Pipeline {
     context: Arc<Context>,
     jobs: Option<SyncSender<Job>>,
     results: Receiver<Done>,
@@ -258,22 +279,42 @@ impl Pipeline {
         epoch: DateEpoch,
         strings: Option<StringTable>,
     ) -> Option<Self> {
-        let workers = thread::available_parallelism()
-            .map_or(1, std::num::NonZero::get)
-            .saturating_sub(1)
-            .min(MAX_WORKERS);
-        if workers == 0 {
-            return None;
-        }
-        let context = Arc::new(Context {
-            options: options.clone(),
-            capture_dimensions,
-            max_event_bytes: limits.max_xml_event_bytes,
-            max_cell_bytes: limits.max_cell_bytes,
-            date_kinds,
-            epoch,
-            strings: Mutex::new(strings),
-        });
+        let workers = worker_count()?;
+        Some(Self::spawn(
+            workers,
+            Context {
+                options: options.clone(),
+                capture_dimensions,
+                max_event_bytes: limits.max_xml_event_bytes,
+                max_cell_bytes: limits.max_cell_bytes,
+                date_kinds,
+                epoch,
+                strings: Mutex::new(strings),
+                validate_only: false,
+            },
+        ))
+    }
+
+    /// Start workers that only check that rows are plain, or None when only
+    /// one CPU is available.
+    pub(crate) fn validator(limits: &crabxl_core::ResourceLimits) -> Option<Self> {
+        Some(Self::spawn(
+            worker_count()?,
+            Context {
+                options: ReadOptions::default(),
+                capture_dimensions: false,
+                max_event_bytes: limits.max_xml_event_bytes,
+                max_cell_bytes: limits.max_cell_bytes,
+                date_kinds: None,
+                epoch: DateEpoch::Windows1900,
+                strings: Mutex::new(None),
+                validate_only: true,
+            },
+        ))
+    }
+
+    fn spawn(workers: usize, context: Context) -> Self {
+        let context = Arc::new(context);
         let (jobs, queue) = sync_channel::<Job>(workers);
         let queue = Arc::new(Mutex::new(queue));
         let (done, results) = channel::<Done>();
@@ -297,7 +338,7 @@ impl Pipeline {
             })
             .collect::<Vec<_>>();
         let in_flight = workers.len() as u64 * 2;
-        Some(Self {
+        Self {
             context,
             jobs: Some(jobs),
             results,
@@ -310,7 +351,7 @@ impl Pipeline {
             consumed: 0,
             input_done: false,
             in_flight,
-        })
+        }
     }
 
     /// The next row in document order. `read` appends raw input and returns
@@ -323,28 +364,46 @@ impl Pipeline {
             if let Some(row) = self.ready.pop_front() {
                 return Ok(Next::Row(row));
             }
-            while !self.input_done && self.sent - self.consumed < self.in_flight {
-                self.fill(&mut read)?;
-            }
-            if self.consumed == self.sent {
-                return Ok(Next::End(std::mem::take(&mut self.carry)));
-            }
-            let rows = loop {
-                if let Some(rows) = self.finished.remove(&self.consumed) {
-                    break rows;
+            match self.next_block(&mut read)? {
+                Block::Parsed(_, rows) => self.ready.extend(rows),
+                Block::Rejected(block) => {
+                    let mut bytes = block.to_vec();
+                    bytes.extend(self.take_rest());
+                    return Ok(Next::Fallback(bytes));
                 }
-                let Ok((index, rows)) = self.results.recv() else {
-                    return Ok(Next::Fallback(self.take_from(self.consumed)));
-                };
-                self.finished.insert(index, rows);
-            };
-            let Some(rows) = rows else {
-                return Ok(Next::Fallback(self.take_from(self.consumed)));
-            };
-            self.blocks.remove(&self.consumed);
-            self.consumed += 1;
-            self.ready.extend(rows);
+                Block::End(rest) => return Ok(Next::End(rest)),
+            }
         }
+    }
+
+    /// The next block in document order. `read` appends raw input and
+    /// returns false at its end.
+    pub(crate) fn next_block(
+        &mut self,
+        mut read: impl FnMut(&mut Vec<u8>) -> crabxl_core::Result<bool>,
+    ) -> crabxl_core::Result<Block> {
+        while !self.input_done && self.sent - self.consumed < self.in_flight {
+            self.fill(&mut read)?;
+        }
+        if self.consumed == self.sent {
+            return Ok(Block::End(std::mem::take(&mut self.carry)));
+        }
+        let rows = loop {
+            if let Some(rows) = self.finished.remove(&self.consumed) {
+                break rows;
+            }
+            let Ok((index, rows)) = self.results.recv() else {
+                // A worker stopped: the caller reads this block itself.
+                break None;
+            };
+            self.finished.insert(index, rows);
+        };
+        let block = self.blocks.remove(&self.consumed).unwrap_or_default();
+        self.consumed += 1;
+        Ok(match rows {
+            Some(rows) => Block::Parsed(block, rows),
+            None => Block::Rejected(block),
+        })
     }
 
     /// Read input until one more block is sent or the input ends.
@@ -412,10 +471,11 @@ impl Pipeline {
         (blocks + rows + self.carry.len()) as u64
     }
 
-    /// All unconsumed input from block `first` on, in order.
-    fn take_from(&mut self, first: u64) -> Vec<u8> {
+    /// All input after the blocks returned so far, in order. The pipeline
+    /// returns no more blocks.
+    pub(crate) fn take_rest(&mut self) -> Vec<u8> {
         let mut bytes = Vec::new();
-        for (_, block) in self.blocks.range(first..) {
+        for block in self.blocks.values() {
             bytes.extend_from_slice(block);
         }
         bytes.extend_from_slice(&self.carry);
@@ -448,6 +508,7 @@ mod tests {
             date_kinds: Some(vec![None, None]),
             epoch: DateEpoch::Windows1900,
             strings: Mutex::new(None),
+            validate_only: false,
         }
     }
     fn rows(xml: &str, capture: bool) -> Option<Vec<(u32, usize)>> {

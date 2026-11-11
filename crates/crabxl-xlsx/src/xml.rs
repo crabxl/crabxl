@@ -409,6 +409,12 @@ impl<B: BufRead> XmlStream<B> {
         Ok(count > 0)
     }
 
+    /// True while bytes handed back with `unread` remain.
+    pub(crate) fn replaying(&self) -> bool {
+        let input = self.reader.get_ref();
+        input.replayed < input.replay.len()
+    }
+
     /// Hand back raw bytes taken with `read_raw`, to be read before the rest.
     pub(crate) fn unread(&mut self, mut bytes: Vec<u8>) {
         let input = self.reader.get_mut();

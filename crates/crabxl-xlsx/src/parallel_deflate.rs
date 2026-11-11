@@ -17,7 +17,7 @@ use zip::{ZipArchive, ZipWriter};
 
 const CHUNK: usize = 128 * 1024;
 const WINDOW: usize = 32 * 1024;
-const MAX_THREADS: usize = 4;
+const MAX_THREADS: usize = 8;
 /// Smaller parts compress on the calling thread through the ZIP writer.
 pub(crate) const MIN_BYTES: u64 = 4 * 1024 * 1024;
 

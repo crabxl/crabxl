@@ -5,7 +5,7 @@
 mod budget;
 mod cells;
 mod metadata;
-mod parallel;
+pub(crate) mod parallel;
 mod rows;
 mod values;
 

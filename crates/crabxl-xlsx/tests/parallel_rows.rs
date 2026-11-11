@@ -1,8 +1,9 @@
 //! Worksheets large enough to be parsed on worker threads read exactly like
 //! small ones, including when a block falls back to the event reader.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
+use crabxl_core::CellAddress;
 use crabxl_core::{CellValue, ReadOptions, RowIndex};
-use crabxl_xlsx::WorkbookReader;
+use crabxl_xlsx::{WorkbookEditor, WorkbookReader};
 use std::io::{Cursor, Write};
 use zip::{ZipWriter, write::SimpleFileOptions};
 
@@ -17,6 +18,11 @@ fn book(sheet_data: &str) -> WorkbookReader<Cursor<Vec<u8>>> {
 
 /// A workbook with extra parts, each also listed in the workbook relationships.
 fn book_with(sheet_data: &str, extra: &[(&str, &str, String)]) -> WorkbookReader<Cursor<Vec<u8>>> {
+    WorkbookReader::new(Cursor::new(package(sheet_data, extra))).unwrap()
+}
+
+/// The bytes of a workbook with one sheet and the given extra parts.
+fn package(sheet_data: &str, extra: &[(&str, &str, String)]) -> Vec<u8> {
     let links: String = extra
         .iter()
         .enumerate()
@@ -44,7 +50,7 @@ fn book_with(sheet_data: &str, extra: &[(&str, &str, String)]) -> WorkbookReader
         zip.start_file(name, options).unwrap();
         zip.write_all(content.as_bytes()).unwrap();
     }
-    WorkbookReader::new(Cursor::new(zip.finish().unwrap().into_inner())).unwrap()
+    zip.finish().unwrap().into_inner()
 }
 
 /// Rows 1..=ROWS with three plain cells each, row `n` replaced by `special(n)`.
@@ -220,4 +226,58 @@ fn shared_strings_and_dates_resolve_on_workers() {
         assert_eq!(date.to_date().unwrap().to_string(), "2023-03-15");
         assert_eq!(row.cells[2].value, CellValue::Integer(i64::from(n)));
     }
+}
+
+/// Edit cells at the start, middle and end and past the last row, save, and
+/// read the result back.
+fn edited(sheet_data: &str) -> Vec<crabxl_core::Row> {
+    let mut editor = WorkbookEditor::new(Cursor::new(package(sheet_data, &[]))).unwrap();
+    for (address, value) in [
+        ("A1", 100),
+        ("B30000", 200),
+        ("C59999", 300),
+        ("D60005", 400),
+    ] {
+        editor
+            .upsert_value(
+                "S",
+                address.parse::<CellAddress>().unwrap(),
+                CellValue::Integer(value),
+            )
+            .unwrap();
+    }
+    let (saved, _) = editor
+        .save(Cursor::new(Vec::new()), Default::default())
+        .unwrap();
+    let mut reader = WorkbookReader::new(Cursor::new(saved.into_inner())).unwrap();
+    read(&mut reader, ReadOptions::default()).unwrap()
+}
+
+fn assert_edited(rows: &[crabxl_core::Row], special: impl Fn(&crabxl_core::Row) -> bool) {
+    assert_eq!(rows.len(), ROWS as usize + 1);
+    for row in rows {
+        let n = row.index.get() + 1;
+        let values: Vec<_> = row.cells.iter().map(|cell| cell.value.clone()).collect();
+        match n {
+            1 => assert_eq!(values[0], CellValue::Integer(100)),
+            30_000 => assert_eq!(values[1], CellValue::Integer(200)),
+            59_999 => assert_eq!(values[2], CellValue::Integer(300)),
+            60_005 => assert_eq!(values, [CellValue::Integer(400)]),
+            _ if special(row) => {}
+            _ => assert_plain(row),
+        }
+    }
+}
+
+#[test]
+fn edits_copy_untouched_rows_and_rewrite_edited_ones() {
+    assert_edited(&edited(&sheet(|_| None)), |_| false);
+    // A formula midway sends the rest of the sheet through the event writer.
+    let middle = ROWS / 2 + 7;
+    let xml = sheet(|n| {
+        (n == middle).then(|| format!("<row r=\"{n}\"><c r=\"A{n}\"><f>1+1</f><v>2</v></c></row>"))
+    });
+    assert_edited(&edited(&xml), |row| {
+        row.index.get() + 1 == middle && matches!(row.cells[0].value, CellValue::Formula(_))
+    });
 }
