@@ -6,6 +6,13 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
+## [Unreleased]
+
+### Changed
+
+- Reading is faster on large sheets. Plain cell tags are read directly instead
+  of through the general XML attribute parser.
+
 ## [0.1.1]
 
 ### Changed

@@ -202,28 +202,51 @@ impl CellHeader {
             column,
         )
     }
-    fn buffered(e: &BytesStart<'_>, row: RowIndex, column: u32) -> Result<Option<Self>> {
-        // Three distinct supported fields need no duplicate-check allocation.
-        // Unknown, malformed and duplicate attributes retain the event path.
-        let mut fields = [None, None, None];
-        let mut seen = 0u8;
-        for (count, attribute) in e.attributes().with_checks(false).enumerate() {
-            let Ok(attribute) = attribute else {
-                return Ok(None);
+    /// Read a plain `c r="A1" s="1" t="s"` tag, without its brackets, as the
+    /// event path would. Anything else (other attributes or types, duplicates,
+    /// entities, invalid values) returns None and retains the event path.
+    fn buffered(tag: &[u8], row: RowIndex, column: u32) -> Option<Self> {
+        let mut rest = tag.strip_prefix(b"c")?;
+        let (mut address, mut kind, mut style) = (None, None, None);
+        loop {
+            let spaced = rest.first().is_some_and(u8::is_ascii_whitespace);
+            rest = rest.trim_ascii_start();
+            let [name, b'=', quote @ (b'"' | b'\''), tail @ ..] = rest else {
+                if !rest.is_empty() {
+                    return None;
+                }
+                return Some(Self {
+                    address: match address {
+                        Some(address) => address,
+                        None => CellAddress::new(row.get(), column).ok()?,
+                    },
+                    kind: kind.unwrap_or(ScalarKind::Numeric),
+                    style: style.unwrap_or(crabxl_core::StyleId::new(0)),
+                    metadata: false,
+                });
             };
-            let bit = match attribute.key.as_ref().as_bytes() {
-                b"r" => 1,
-                b"s" => 2,
-                b"t" => 4,
-                _ => return Ok(None),
-            };
-            if seen & bit != 0 {
-                return Ok(None);
+            let end = tail.iter().position(|byte| byte == quote)?;
+            let value = std::str::from_utf8(&tail[..end]).ok()?;
+            if !spaced || value.contains(['&', '\t', '\n', '\r']) {
+                return None;
             }
-            seen |= bit;
-            fields[count] = Some(attribute);
+            match name {
+                b'r' if address.is_none() => address = Some(value.parse().ok()?),
+                b's' if style.is_none() => {
+                    style = Some(crabxl_core::StyleId::new(value.parse().ok()?));
+                }
+                b't' if kind.is_none() => {
+                    kind = Some(match value {
+                        "n" => ScalarKind::Numeric,
+                        "b" => ScalarKind::Boolean,
+                        "s" => ScalarKind::SharedText,
+                        _ => return None,
+                    });
+                }
+                _ => return None,
+            }
+            rest = &tail[end + 1..];
         }
-        Self::read_attributes(fields.into_iter().flatten().map(Ok), row, column).map(Some)
     }
     fn read_attributes<'a>(
         attributes: impl Iterator<Item = Result<quick_xml::events::attributes::Attribute<'a>>>,
@@ -324,4 +347,47 @@ fn boolean_value(value: &str) -> Result<CellValue> {
         ));
     }
     Ok(CellValue::Boolean(digits.bytes().any(|byte| byte != b'0')))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn header(tag: &str) -> Option<(String, u32, &'static str)> {
+        let header = CellHeader::buffered(tag.as_bytes(), RowIndex::new(1).ok()?, 2)?;
+        let kind = match header.kind {
+            ScalarKind::Numeric => "n",
+            ScalarKind::Boolean => "b",
+            ScalarKind::SharedText => "s",
+            _ => "other",
+        };
+        Some((header.address.to_string(), header.style.get(), kind))
+    }
+
+    #[test]
+    fn buffered_headers_match_plain_cells_only() {
+        let some = |address: &str, style, kind| Some((address.to_owned(), style, kind));
+        assert_eq!(header(r#"c r="B2""#), some("B2", 0, "n"));
+        assert_eq!(header(r#"c r="AO2" s="3" t="s""#), some("AO2", 3, "s"));
+        assert_eq!(header("c t='b'  r='D2'"), some("D2", 0, "b"));
+        assert_eq!(header("c r=\"B2\"\tt=\"s\""), some("B2", 0, "s"));
+        // Without a reference, the cell takes the next column of its row.
+        assert_eq!(header("c"), some("C2", 0, "n"));
+        // Everything else is left to the event reader.
+        for tag in [
+            r#"c r="B2" t="str""#,
+            r#"c r="B2" cm="1""#,
+            r#"c r="B2" r="C2""#,
+            r#"c r="B2"s="1""#,
+            r#"c r = "B2""#,
+            r#"c r="B&#50;""#,
+            "c r=\"B\t2\"",
+            r#"c r="B2" s="x""#,
+            r#"c r="2B""#,
+            r#"c r="B2"#,
+            r#"cell r="B2""#,
+        ] {
+            assert_eq!(header(tag), None, "{tag}");
+        }
+    }
 }

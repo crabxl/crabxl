@@ -229,8 +229,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         let parsed = self
             .xml
             .buffered_scalar(|content, value| {
-                let start = BytesStart::from_content(content, 1);
-                let Some(header) = CellHeader::buffered(&start, row, column)? else {
+                let Some(header) = CellHeader::buffered(content.as_bytes(), row, column) else {
                     return Ok(None);
                 };
                 if !matches!(
