@@ -45,7 +45,7 @@ fn parts(bytes: &[u8]) -> BTreeMap<String, Vec<u8>> {
     (0..zip.len())
         .map(|index| {
             let mut file = zip.by_index(index).unwrap();
-            let name = file.name().into();
+            let name = file.name().unwrap().into();
             let mut bytes = Vec::new();
             file.read_to_end(&mut bytes).unwrap();
             (name, bytes)

@@ -13,6 +13,10 @@ updates:
     groups:
       cargo:
         patterns: ["*"]
+    ignore:
+      # 0.39 and later need a newer Rust than the minimum supported 1.88.
+      - dependency-name: sysinfo
+        versions: [">= 0.39"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -23,3 +27,6 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+    ignore:
+      # Its tag selects the Rust version, which the workflows pin on purpose.
+      - dependency-name: dtolnay/rust-toolchain

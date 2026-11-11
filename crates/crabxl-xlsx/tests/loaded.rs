@@ -21,7 +21,7 @@ fn parts(bytes: Vec<u8>) -> BTreeMap<String, Vec<u8>> {
             let mut file = archive.by_index(index).unwrap();
             let mut data = Vec::new();
             file.read_to_end(&mut data).unwrap();
-            (file.name().to_owned(), data)
+            (file.name().unwrap().into_owned(), data)
         })
         .collect()
 }
@@ -88,7 +88,7 @@ fn source(count: u32, sst: bool) -> Vec<u8> {
     let mut parts = BTreeMap::new();
     for index in 0..original.len() {
         let mut file = original.by_index(index).unwrap();
-        let name = file.name().to_owned();
+        let name = file.name().unwrap().into_owned();
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes).unwrap();
         parts.insert(name, bytes);
@@ -869,7 +869,7 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
     let chart = b"<chartsheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetViews><sheetView workbookViewId=\"0\"/></sheetViews></chartsheet>";
     for index in 0..input.len() {
         let mut file = input.by_index(index).unwrap();
-        let name = file.name().to_owned();
+        let name = file.name().unwrap().into_owned();
         let mut data = Vec::new();
         file.read_to_end(&mut data).unwrap();
         if name == "xl/_rels/workbook.xml.rels" {

@@ -33,7 +33,7 @@ fn replace_part(bytes: &[u8], part: &str, body: &str) -> Vec<u8> {
     let mut found = false;
     for index in 0..input.len() {
         let file = input.by_index(index).unwrap();
-        if file.name() == part {
+        if file.name().unwrap() == part {
             found = true;
             output
                 .start_file(part, zip::write::SimpleFileOptions::default())

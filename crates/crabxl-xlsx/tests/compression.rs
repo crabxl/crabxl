@@ -73,7 +73,7 @@ fn compression_levels_preserve_creation_edits_and_unchanged_entries() {
         for index in 0..source_zip.len() {
             let mut original = source_zip.by_index_raw(index).unwrap();
             let mut copy = saved_zip.by_index_raw(index).unwrap();
-            assert_eq!(original.name(), copy.name());
+            assert_eq!(original.name().unwrap(), copy.name().unwrap());
             let mut a = Vec::new();
             let mut b = Vec::new();
             original.read_to_end(&mut a).unwrap();

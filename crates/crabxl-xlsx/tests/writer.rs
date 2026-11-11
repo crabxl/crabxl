@@ -2209,7 +2209,7 @@ fn theme_and_styles_share_metadata_input_allowance_in_either_order() {
     let total: u64 = (0..archive.len())
         .map(|index| {
             let file = archive.by_index(index).unwrap();
-            if file.name().starts_with("xl/worksheets/") {
+            if file.name().unwrap().starts_with("xl/worksheets/") {
                 0
             } else {
                 file.size()
