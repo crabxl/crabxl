@@ -62,6 +62,7 @@ dependencies = [
  "crc32fast",
  "fast-float2",
  "flate2",
+ "memchr",
  "percent-encoding",
  "quick-xml",
  "sysinfo",

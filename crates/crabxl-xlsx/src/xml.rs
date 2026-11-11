@@ -278,9 +278,20 @@ struct BudgetInput<B> {
     inner: B,
     event_remaining: usize,
     part_remaining: u64,
+    /// Bytes handed back by the parallel row reader. They are read again
+    /// before `inner` and were already charged to the part budget.
+    replay: Vec<u8>,
+    replayed: usize,
 }
 impl<B: BufRead> BufRead for BudgetInput<B> {
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
+        if self.replayed < self.replay.len() {
+            if self.event_remaining == 0 {
+                return Err(io::Error::other(BudgetExceeded("XML event byte limit")));
+            }
+            let bytes = &self.replay[self.replayed..];
+            return Ok(&bytes[..bytes.len().min(self.event_remaining)]);
+        }
         let bytes = self.inner.fill_buf()?;
         if bytes.is_empty() {
             return Ok(bytes);
@@ -299,6 +310,14 @@ impl<B: BufRead> BufRead for BudgetInput<B> {
     }
     fn consume(&mut self, amount: usize) {
         self.event_remaining -= amount;
+        if self.replayed < self.replay.len() {
+            self.replayed += amount;
+            if self.replayed == self.replay.len() {
+                self.replay = Vec::new();
+                self.replayed = 0;
+            }
+            return;
+        }
         self.part_remaining -= amount as u64;
         self.inner.consume(amount);
     }
@@ -329,6 +348,8 @@ impl<B: BufRead> XmlStream<B> {
             inner: input,
             event_remaining: limits.max_xml_event_bytes,
             part_remaining: byte_limit,
+            replay: Vec::new(),
+            replayed: 0,
         });
         reader.config_mut().expand_empty_elements = true;
         // Keep end-name and comment validation enabled; text whitespace is data.
@@ -347,6 +368,53 @@ impl<B: BufRead> XmlStream<B> {
 
     pub fn part(&self) -> &str {
         &self.part
+    }
+
+    /// The namespace declarations in scope.
+    pub(crate) fn namespaces(&self) -> &NamespaceResolver {
+        &self.namespaces.resolver
+    }
+
+    /// True between events at `depth` in the spreadsheet namespace, where raw
+    /// bytes can be read without the event reader.
+    pub(crate) fn at_spreadsheet_depth(&self, depth: usize) -> bool {
+        self.depth == depth
+            && self.namespaces.default.scope() == Scope::Spreadsheet
+            && !self.buffer.ends_with(b"/>")
+    }
+
+    /// Append the next raw input bytes to `output`. Returns false at the end.
+    pub(crate) fn read_raw(&mut self, output: &mut Vec<u8>) -> Result<bool> {
+        self.namespaces.before_event();
+        let input = self.reader.get_mut();
+        input.event_remaining = usize::MAX;
+        let bytes = input.fill_buf().map_err(|cause| {
+            let limited = cause
+                .get_ref()
+                .is_some_and(|source| source.is::<BudgetExceeded>());
+            Error::caused_by(
+                if limited {
+                    ErrorKind::LimitExceeded
+                } else {
+                    ErrorKind::Xml
+                },
+                "Cannot read XML",
+                cause,
+            )
+            .with_part(self.part.clone())
+        })?;
+        let count = bytes.len();
+        output.extend_from_slice(bytes);
+        input.consume(count);
+        Ok(count > 0)
+    }
+
+    /// Hand back raw bytes taken with `read_raw`, to be read before the rest.
+    pub(crate) fn unread(&mut self, mut bytes: Vec<u8>) {
+        let input = self.reader.get_mut();
+        bytes.extend_from_slice(&input.replay[input.replayed..]);
+        input.replay = bytes;
+        input.replayed = 0;
     }
     pub(crate) fn bytes_consumed(&self) -> u64 {
         self.byte_limit - self.reader.get_ref().part_remaining
@@ -560,7 +628,7 @@ fn plain_shared_text_token(
     Some(("", std::str::from_utf8(value).ok()?, 7 + length + 9))
 }
 
-fn scalar_value_token(
+pub(crate) fn scalar_value_token(
     bytes: &[u8],
     maximum: usize,
     cell_maximum: usize,

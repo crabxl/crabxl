@@ -6,6 +6,15 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
+## [Unreleased]
+
+### Changed
+
+- Large worksheets read on several threads. Worker threads parse blocks of
+  plain rows, look up shared strings and convert dates while one thread
+  decompresses the part. Rows with formulas, inline strings or other content
+  are read as before, so values and errors do not change.
+
 ## [0.1.2]
 
 ### Changed

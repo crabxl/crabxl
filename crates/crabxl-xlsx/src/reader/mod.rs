@@ -5,6 +5,7 @@
 mod budget;
 mod cells;
 mod metadata;
+mod parallel;
 mod rows;
 mod values;
 
@@ -48,6 +49,9 @@ pub struct Rows<'a, R: Read + Seek> {
     shared_formulas: crate::formula_codec::SharedFormulas,
     aggregate: Option<crate::aggregate::ReadPool>,
     shared_string_policy: Option<&'a crate::SharedStringOptions>,
+    part_size: u64,
+    parallel: Option<parallel::Pipeline>,
+    parallel_checked: bool,
 }
 impl<'a, R: Read + Seek> Rows<'a, R> {
     pub(crate) fn new(
@@ -69,6 +73,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             )
             .with_part(part));
         }
+        let part_size = input.get_ref().size();
         let mut xml = XmlStream::new(input, part, limits.max_part_bytes, limits);
         loop {
             let frame = xml.next()?;
@@ -118,6 +123,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             projected_metadata_cells: 0,
             aggregate: None,
             shared_string_policy: None,
+            part_size,
+            parallel: None,
+            parallel_checked: false,
             row_payload_bytes: 0,
             shared_strings,
             styles,
@@ -149,7 +157,11 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         self.shared_formulas.stats()
     }
     pub(crate) fn bytes_consumed(&self) -> u64 {
-        self.xml.bytes_consumed()
+        let ahead = self
+            .parallel
+            .as_ref()
+            .map_or(0, parallel::Pipeline::unread_bytes);
+        self.xml.bytes_consumed().saturating_sub(ahead)
     }
 
     pub(super) fn invalid(&self, message: &str) -> Error {

@@ -7,6 +7,27 @@ use super::*;
 
 impl<'a, R: Read + Seek> Rows<'a, R> {
     pub(super) fn read_row_impl(&mut self, row: &mut Row) -> Result<bool> {
+        if !self.parallel_checked {
+            self.parallel_checked = true;
+            if self.part_size >= super::parallel::MIN_PART_BYTES && self.xml.at_spreadsheet_depth(2)
+            {
+                self.parallel = super::parallel::Pipeline::start(
+                    &self.options,
+                    self.capture_dimensions,
+                    &self.limits,
+                    self.styles.map(|styles| styles.imported.date_kinds.clone()),
+                    self.epoch,
+                    self.shared_strings
+                        .as_ref()
+                        .and_then(|strings| strings.table()),
+                );
+            }
+        }
+        if self.parallel.is_some()
+            && let Some(present) = self.read_parallel_row(row)?
+        {
+            return Ok(present);
+        }
         loop {
             let frame = self.xml.next()?;
             match frame.event {
@@ -87,6 +108,90 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 Event::Eof => return Err(self.invalid("Unexpected end of worksheet")),
                 _ => {}
             }
+        }
+    }
+
+    /// The next row from the worker threads, or None once the event reader
+    /// takes over.
+    fn read_parallel_row(&mut self, row: &mut Row) -> Result<Option<bool>> {
+        loop {
+            let Some(pipeline) = self.parallel.as_mut() else {
+                return Ok(None);
+            };
+            let xml = &mut self.xml;
+            let parsed = match pipeline.next(|output| xml.read_raw(output))? {
+                super::parallel::Next::Row(parsed) => parsed,
+                super::parallel::Next::End(rest) | super::parallel::Next::Fallback(rest) => {
+                    self.parallel = None;
+                    self.xml.unread(rest);
+                    return Ok(None);
+                }
+            };
+            let index = parsed.index;
+            if self.capture_dimensions {
+                self.row_dimension = match &parsed.tag {
+                    Some(tag) => crate::dimension_codec::read_row(
+                        &BytesStart::from_content(&**tag, 3),
+                        index,
+                        self.xml.namespaces(),
+                    )?,
+                    None => None,
+                };
+            }
+            if self.last_row.is_some_and(|last| index <= last) {
+                return Err(self.invalid("Rows must be in strictly increasing order"));
+            }
+            if self.options.stop_after_last_row
+                && self
+                    .options
+                    .rows
+                    .as_ref()
+                    .is_some_and(|range| index > *range.end())
+            {
+                self.parallel = None;
+                self.exhausted = true;
+                return Ok(Some(false));
+            }
+            row.index = index;
+            self.next_row_index = index.get() + 1;
+            self.last_row = Some(index);
+            // Workers resolved shared strings from the table; keep checking
+            // the memory budget, which may move the table to disk.
+            if let Some(address) = parsed.first_text {
+                self.limit_string_cache()
+                    .map_err(|error| error.with_part(self.xml.part()).with_cell(address))?;
+                if self
+                    .shared_strings
+                    .as_ref()
+                    .is_some_and(|strings| strings.table().is_none())
+                    && let Some(pipeline) = &self.parallel
+                {
+                    pipeline.withdraw_strings();
+                }
+            }
+            for cell in parsed.cells {
+                self.decoded_cells += 1;
+                let value = match cell.value {
+                    BufferedValue::Direct(value) => value,
+                    BufferedValue::SharedText(id) => {
+                        self.shared_string_value(id).map_err(|error| {
+                            error.with_part(self.xml.part()).with_cell(cell.address)
+                        })?
+                    }
+                };
+                self.push_cell(
+                    row,
+                    Cell {
+                        address: cell.address,
+                        value,
+                        style: cell.style,
+                    },
+                )?;
+            }
+            if self.options.includes_row(index) {
+                return Ok(Some(true));
+            }
+            row.cells.clear();
         }
     }
 

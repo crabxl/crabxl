@@ -69,41 +69,13 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         value: CellValue,
         kind: Option<crabxl_core::DateKind>,
     ) -> Result<CellValue> {
-        use crabxl_core::{DateKind, DateReadPolicy, ExcelDateTime};
-        let Some(mut kind) = kind else {
-            return Ok(value);
-        };
-        let serial = match &value {
-            CellValue::Integer(v) => *v as f64,
-            CellValue::Number(v) => *v,
-            CellValue::BigInteger(v) => v
-                .as_str()
-                .parse::<f64>()
-                .map_err(|_| self.invalid("Invalid numeric date serial"))?,
-            _ => return Ok(value),
-        };
-        if !serial.is_finite() {
-            return if self.options.date_policy == DateReadPolicy::Compatible {
-                Ok(CellValue::error("#VALUE!"))
-            } else {
-                Err(self.invalid("Non-finite date serial"))
-            };
-        }
-        let raw = ExcelDateTime::from_serial(serial, self.epoch, kind)?;
-        if kind == DateKind::DateTime
-            && (0.0..1.0).contains(&serial)
-            && raw.fraction_milliseconds() < 86_400_000
-        {
-            kind = DateKind::Time;
-        }
-        let date = ExcelDateTime::from_serial(serial, self.epoch, kind)?;
-        if self.options.date_policy == DateReadPolicy::Compatible {
-            let valid = date.is_reference_representable();
-            if !valid {
-                return Ok(CellValue::error("#VALUE!"));
-            }
-        }
-        Ok(CellValue::DateTime(Box::new(date)))
+        date_value(
+            value,
+            kind,
+            self.epoch,
+            self.options.date_policy,
+            |message| self.invalid(message),
+        )
     }
     pub(super) fn read_inline_text(&mut self) -> Result<CellValue> {
         let preserve = self
@@ -329,4 +301,50 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             }
         }
     }
+}
+
+/// A number in a date format as a date, as the reader returns it. Other
+/// values are returned unchanged.
+pub(super) fn date_value(
+    value: CellValue,
+    kind: Option<crabxl_core::DateKind>,
+    epoch: crabxl_core::DateEpoch,
+    policy: crabxl_core::DateReadPolicy,
+    invalid: impl Fn(&str) -> Error,
+) -> Result<CellValue> {
+    use crabxl_core::{DateKind, DateReadPolicy, ExcelDateTime};
+    let Some(mut kind) = kind else {
+        return Ok(value);
+    };
+    let serial = match &value {
+        CellValue::Integer(v) => *v as f64,
+        CellValue::Number(v) => *v,
+        CellValue::BigInteger(v) => v
+            .as_str()
+            .parse::<f64>()
+            .map_err(|_| invalid("Invalid numeric date serial"))?,
+        _ => return Ok(value),
+    };
+    if !serial.is_finite() {
+        return if policy == DateReadPolicy::Compatible {
+            Ok(CellValue::error("#VALUE!"))
+        } else {
+            Err(invalid("Non-finite date serial"))
+        };
+    }
+    let raw = ExcelDateTime::from_serial(serial, epoch, kind)?;
+    if kind == DateKind::DateTime
+        && (0.0..1.0).contains(&serial)
+        && raw.fraction_milliseconds() < 86_400_000
+    {
+        kind = DateKind::Time;
+    }
+    let date = ExcelDateTime::from_serial(serial, epoch, kind)?;
+    if policy == DateReadPolicy::Compatible {
+        let valid = date.is_reference_representable();
+        if !valid {
+            return Ok(CellValue::error("#VALUE!"));
+        }
+    }
+    Ok(CellValue::DateTime(Box::new(date)))
 }

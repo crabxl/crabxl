@@ -231,8 +231,9 @@ struct CacheEntry {
 }
 pub(crate) struct SharedStrings {
     memory: Vec<Entry>,
-    plain_memory: Vec<Option<Box<str>>>,
-    shared_memory: Vec<Option<Arc<str>>>,
+    // Arc so that parallel row readers can share the finished table.
+    plain_memory: Arc<Vec<Option<Box<str>>>>,
+    shared_memory: Arc<Vec<Option<Arc<str>>>>,
     share_values: bool,
     disk: Option<Disk>,
     cache: Vec<Option<CacheEntry>>,
@@ -274,8 +275,8 @@ impl SharedStrings {
         let mut table = Self {
             limits,
             memory: Vec::new(),
-            plain_memory: Vec::new(),
-            shared_memory: Vec::new(),
+            plain_memory: Arc::default(),
+            shared_memory: Arc::default(),
             share_values,
             disk: None,
             cache: Vec::new(),
@@ -417,7 +418,7 @@ impl SharedStrings {
                         disk.push(old.view(), options.max_temp_bytes)?;
                     }
                 } else if self.share_values {
-                    for old in &self.shared_memory {
+                    for old in self.shared_memory.iter() {
                         disk.push(
                             old.as_deref()
                                 .map_or(EntryView::Unsupported, EntryView::Text),
@@ -425,7 +426,7 @@ impl SharedStrings {
                         )?;
                     }
                 } else {
-                    for old in &self.plain_memory {
+                    for old in self.plain_memory.iter() {
                         disk.push(
                             old.as_deref()
                                 .map_or(EntryView::Unsupported, EntryView::Text),
@@ -434,17 +435,17 @@ impl SharedStrings {
                     }
                 }
                 self.memory = Vec::new();
-                self.plain_memory = Vec::new();
-                self.shared_memory = Vec::new();
+                self.plain_memory = Arc::default();
+                self.shared_memory = Arc::default();
                 self.disk = Some(disk);
                 self.stats.managed_bytes = 0;
             } else {
                 let result = if rich {
                     self.memory.try_reserve_exact(wanted - len)
                 } else if self.share_values {
-                    self.shared_memory.try_reserve_exact(wanted - len)
+                    Arc::make_mut(&mut self.shared_memory).try_reserve_exact(wanted - len)
                 } else {
-                    self.plain_memory.try_reserve_exact(wanted - len)
+                    Arc::make_mut(&mut self.plain_memory).try_reserve_exact(wanted - len)
                 };
                 result.map_err(|e| {
                     Error::caused_by(
@@ -478,13 +479,13 @@ impl SharedStrings {
         } else if self.stats.rich_text_preserved {
             self.memory.push(entry);
         } else if self.share_values {
-            self.shared_memory.push(match entry {
+            Arc::make_mut(&mut self.shared_memory).push(match entry {
                 Entry::SharedText(value) => Some(value),
                 Entry::Unsupported => None,
                 _ => return Err(invalid("Shared plain table received incompatible data")),
             });
         } else {
-            self.plain_memory.push(match entry {
+            Arc::make_mut(&mut self.plain_memory).push(match entry {
                 Entry::Text(v) => Some(v),
                 Entry::Unsupported => None,
                 Entry::Rich(_) | Entry::SharedText(_) => {
@@ -665,7 +666,7 @@ impl SharedStrings {
                 disk.push(entry.view(), options.max_temp_bytes)?;
             }
         } else if self.share_values {
-            for entry in &self.shared_memory {
+            for entry in self.shared_memory.iter() {
                 disk.push(
                     entry
                         .as_deref()
@@ -674,7 +675,7 @@ impl SharedStrings {
                 )?;
             }
         } else {
-            for entry in &self.plain_memory {
+            for entry in self.plain_memory.iter() {
                 disk.push(
                     entry
                         .as_deref()
@@ -688,8 +689,8 @@ impl SharedStrings {
         self.stats.temp_bytes = disk.bytes;
         self.disk = Some(disk);
         self.memory = Vec::new();
-        self.plain_memory = Vec::new();
-        self.shared_memory = Vec::new();
+        self.plain_memory = Arc::default();
+        self.shared_memory = Arc::default();
         self.cache = Vec::new();
         self.cache_payload = 0;
         self.cache_policy_maximum = options.cache_bytes.min(maximum);
@@ -748,6 +749,35 @@ impl SharedStrings {
     }
     pub(crate) fn shares_values(&self) -> bool {
         self.share_values
+    }
+    /// The in-memory table of plain text, for reading on other threads.
+    /// None when it is on disk or keeps rich text.
+    pub(crate) fn table(&self) -> Option<StringTable> {
+        if self.disk.is_some() || self.stats.rich_text_preserved {
+            None
+        } else if self.share_values {
+            Some(StringTable::Shared(Arc::clone(&self.shared_memory)))
+        } else {
+            Some(StringTable::Plain(Arc::clone(&self.plain_memory)))
+        }
+    }
+}
+
+/// A shared view of an in-memory table of plain text.
+#[derive(Clone)]
+pub(crate) enum StringTable {
+    Plain(Arc<Vec<Option<Box<str>>>>),
+    Shared(Arc<Vec<Option<Arc<str>>>>),
+}
+impl StringTable {
+    /// The value of entry `id`, as `SharedStrings::get` returns it, or None
+    /// when that would be an error.
+    pub(crate) fn get(&self, id: u64) -> Option<CellValue> {
+        let id = usize::try_from(id).ok()?;
+        match self {
+            Self::Plain(table) => table.get(id)?.as_deref().map(CellValue::text),
+            Self::Shared(table) => table.get(id)?.clone().map(CellValue::shared_text),
+        }
     }
 }
 
