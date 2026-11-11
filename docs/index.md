@@ -9,7 +9,7 @@ Add the crate to `Cargo.toml`. The minimum Rust version is 1.88.
 
 ```toml
 [dependencies]
-crabxl = "0.1.2"
+crabxl = "0.1.3"
 ```
 
 ## Read rows
