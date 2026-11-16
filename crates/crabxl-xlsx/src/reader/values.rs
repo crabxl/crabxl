@@ -89,6 +89,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             self.limits.max_cell_bytes,
             preserve,
         )?;
+        // The plain path decodes escapes itself; typed runs are decoded here.
         if preserve {
             parsed.unprotect();
         }

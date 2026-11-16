@@ -33,12 +33,13 @@ impl Hyperlinks {
                             .adjusted(column_offset, row_offset, column_offset, row_offset)?
                             .to_string(),
                     )
-                } else if let Some(reference) = &link.reference {
-                    Some(reference.to_string())
-                } else if moved.start != address {
-                    Some(address.to_string())
                 } else {
-                    None
+                    // A point link follows its cell; a stale ref shows the link on
+                    // the wrong cell in Excel (openpyxl #2320).
+                    link.reference
+                        .as_deref()
+                        .filter(|reference| *reference != address.to_string())
+                        .map(str::to_string)
                 };
                 let bytes = POINT_BYTES
                     .saturating_add(link.heap_bytes())

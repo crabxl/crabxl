@@ -494,7 +494,7 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
                 None | Some(CellValue::Empty) => {}
                 Some(CellValue::Text(value)) if formula.is_none() && !formula_string => {
                     buffer.write_all(b"<is><t xml:space=\"preserve\">")?;
-                    write_text(buffer, value.as_str())?;
+                    crate::encode::write_xstring(buffer, value.as_str())?;
                     buffer.write_all(b"</t></is>")?;
                 }
                 Some(CellValue::RichText(value)) if formula.is_none() => {
@@ -512,7 +512,7 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
                         }
                         CellValue::Number(_) => {}
                         CellValue::Boolean(value) => write!(buffer, "{}", u8::from(*value))?,
-                        CellValue::Text(value) => write_text(buffer, value.as_str())?,
+                        CellValue::Text(value) => write_xstring(buffer, value.as_str())?,
                         CellValue::Error(value) => write_text(buffer, value.as_str())?,
                         CellValue::DateTime(value) => {
                             if iso_dates && value.kind() != crabxl_core::DateKind::Duration {
@@ -674,6 +674,76 @@ pub(crate) fn write_attribute(output: &mut impl Write, name: &str, value: &str) 
 }
 pub(crate) fn write_text(output: &mut impl Write, text: &str) -> io::Result<()> {
     write_xml(output, text, false)
+}
+
+/// The UTF-16 unit of an `_xHHHH_` escape at the start of `bytes`.
+fn xstring_unit(bytes: &[u8]) -> Option<u16> {
+    let escape = bytes.get(..7)?;
+    if escape[0] != b'_' || escape[1] != b'x' || escape[6] != b'_' {
+        return None;
+    }
+    u16::from_str_radix(std::str::from_utf8(&escape[2..6]).ok()?, 16).ok()
+}
+
+/// Write cell text (ST_Xstring). Excel decodes `_xHHHH_`, so a literal one is
+/// written with its underscore escaped as `_x005F_`.
+pub(crate) fn write_xstring(output: &mut impl Write, text: &str) -> io::Result<()> {
+    let bytes = text.as_bytes();
+    let mut start = 0;
+    for offset in 0..bytes.len() {
+        if xstring_unit(&bytes[offset..]).is_some() {
+            write_text(output, &text[start..offset])?;
+            output.write_all(b"_x005F")?;
+            start = offset;
+        }
+    }
+    write_text(output, &text[start..])
+}
+
+/// Decode the `_xHHHH_` escapes of cell text (ST_Xstring), as Excel does.
+/// Returns `None` when the text has none. A lone surrogate stays literal.
+pub(crate) fn decode_xstring(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    if !text.contains("_x") {
+        return None;
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut start = 0;
+    let mut offset = 0;
+    let mut changed = false;
+    while offset < bytes.len() {
+        let Some(unit) = xstring_unit(&bytes[offset..]) else {
+            offset += 1;
+            continue;
+        };
+        let (decoded, used) = if (0xD800..0xDC00).contains(&unit) {
+            match xstring_unit(bytes.get(offset + 7..).unwrap_or_default()) {
+                Some(low) if (0xDC00..0xE000).contains(&low) => (
+                    char::decode_utf16([unit, low])
+                        .next()
+                        .and_then(|decoded| decoded.ok()),
+                    14,
+                ),
+                _ => (None, 7),
+            }
+        } else {
+            (char::from_u32(u32::from(unit)), 7)
+        };
+        match decoded {
+            Some(character) => {
+                out.push_str(&text[start..offset]);
+                out.push(character);
+                offset += used;
+                start = offset;
+                changed = true;
+            }
+            None => offset += used,
+        }
+    }
+    changed.then(|| {
+        out.push_str(&text[start..]);
+        out
+    })
 }
 fn write_xml(output: &mut impl Write, text: &str, attribute: bool) -> io::Result<()> {
     let mut start = 0;

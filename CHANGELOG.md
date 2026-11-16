@@ -6,6 +6,20 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
+## [Unreleased]
+
+### Fixed
+
+- Text such as `_x0041_` was written as is, and Excel showed it as "A". The
+  writer now escapes it as `_x005F_x0041_` in cell text, rich text runs and
+  comments.
+- Reading decodes every `_xHHHH_` escape in cell text, so a line break Excel
+  stored as `_x000D_` reads as `\r`. Only `_x005F_` was decoded before.
+- After inserting or deleting rows or columns, a hyperlink kept its old
+  reference and Excel showed it on the wrong cell. A reference equal to the
+  link's own cell now moves with it.
+- The tokenizer accepts spill references such as `A1#` and `Sheet1!$B$2#`.
+
 ## [0.2.1]
 
 ### Changed

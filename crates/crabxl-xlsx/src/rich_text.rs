@@ -24,11 +24,11 @@ impl ParsedText {
     }
 }
 
-/// The public reference removes protection in rich mode within each display run.
+/// Decode the `_xHHHH_` escapes Excel writes in cell text, such as `_x000D_`.
 #[inline]
 pub fn unprotect(text: &mut Box<str>) {
-    if text.contains("x005F_") {
-        *text = text.replace("x005F_", "").into_boxed_str();
+    if let Some(decoded) = crate::encode::decode_xstring(text) {
+        *text = decoded.into_boxed_str();
     }
 }
 impl ParsedText {
@@ -361,7 +361,7 @@ fn write_contents(output: &mut impl Write, value: &RichText) -> io::Result<()> {
             crate::formatting::write_font(output, font, crate::formatting::FontContext::Run)?;
         }
         output.write_all(b"<t xml:space=\"preserve\">")?;
-        crate::encode::write_text(output, &run.text)?;
+        crate::encode::write_xstring(output, &run.text)?;
         output.write_all(b"</t></r>")?;
     }
     for run in &value.phonetic_runs {
@@ -370,7 +370,7 @@ fn write_contents(output: &mut impl Write, value: &RichText) -> io::Result<()> {
             "<rPh sb=\"{}\" eb=\"{}\"><t xml:space=\"preserve\">",
             run.start, run.end
         )?;
-        crate::encode::write_text(output, &run.text)?;
+        crate::encode::write_xstring(output, &run.text)?;
         output.write_all(b"</t></rPh>")?;
     }
     if let Some(p) = &value.phonetic_properties {
@@ -415,13 +415,16 @@ fn read_plain_container<B: BufRead>(
                         }
                         plain = true;
                         append_text_element(xml, depth + 1, &mut text, maximum)?;
+                        decode_tail(&mut text, 0);
                     }
                     b"r" => {
                         if plain {
                             return Err(invalid("Mixed plain and run content"));
                         }
                         runs = true;
+                        let start = text.len();
                         append_plain_run(xml, depth + 1, &mut text, maximum)?;
+                        decode_tail(&mut text, start);
                     }
                     b"rPh" | b"phoneticPr" => skip_subtree(xml, depth + 1)?,
                     _ => skip_subtree(xml, depth + 1)?,
@@ -444,6 +447,14 @@ fn read_plain_container<B: BufRead>(
             Event::Comment(_) | Event::PI(_) => {}
             _ => return Err(invalid("Invalid rich-text container content")),
         }
+    }
+}
+/// Decode the `_xHHHH_` escapes of one text element appended at `start`.
+/// Each run is decoded alone, as the typed rich-text path does.
+fn decode_tail(text: &mut String, start: usize) {
+    if let Some(decoded) = crate::encode::decode_xstring(&text[start..]) {
+        text.truncate(start);
+        text.push_str(&decoded);
     }
 }
 fn append_plain_run<B: BufRead>(

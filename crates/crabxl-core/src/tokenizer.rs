@@ -350,7 +350,14 @@ pub fn tokenize_formula(source: &str, maximum: usize) -> Result<Vec<FormulaToken
                             index += error.len();
                             break;
                         }
-                        b'#' => return Err(invalid("Error literal follows an unfinished operand")),
+                        b'#' if error_literal(&source[index..]).is_some() => {
+                            return Err(invalid("Error literal follows an unfinished operand"));
+                        }
+                        // Spill reference such as A1# or Sheet1!$B$2# (openpyxl #2309).
+                        b'#' => {
+                            index += 1;
+                            break;
+                        }
                         b'+' | b'-'
                             if index > start + 1
                                 && matches!(bytes[index - 1], b'e' | b'E')

@@ -1355,6 +1355,8 @@ fn shared_text_modes_preserve_ids_entities_whitespace_and_owned_lifetimes() {
         ("line\r\nbreak", "line\nbreak"),
         ("a &amp; b", "a & b"),
         ("_x005F_x0041_", "_x0041_"),
+        ("CR _x000D_ here", "CR \r here"),
+        ("_xD83E__xDD80_ _xD83E_", "🦀 _xD83E_"),
     ] {
         for input_buffer_bytes in [1, 64 * 1024] {
             let bytes = with_strings(
@@ -1658,7 +1660,7 @@ fn shared_rich_metadata_upgrade_disk_cache_and_protected_run_boundaries() {
             ..SharedStringOptions::default()
         });
         let plain = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
-        assert_eq!(plain.cells[0].value, CellValue::text("_x0041_"));
+        assert_eq!(plain.cells[0].value, CellValue::text("_x005FA"));
         assert!(!book.shared_string_stats().unwrap().rich_text_preserved);
         let typed = book
             .rows_with_options(
@@ -1675,7 +1677,8 @@ fn shared_rich_metadata_upgrade_disk_cache_and_protected_run_boundaries() {
         let CellValue::RichText(value) = &typed.cells[0].value else {
             panic!("Expected rich text")
         };
-        assert_eq!(value.plain_text().unwrap().as_ref(), "_x005F_x0041_");
+        // Each run is ST_Xstring, so the escape in the second run decodes alone.
+        assert_eq!(value.plain_text().unwrap().as_ref(), "_x005FA");
         assert_eq!(value.runs[0].font.as_ref().unwrap().bold, Some(true));
         assert_eq!(value.runs[0].font.as_ref().unwrap().italic, Some(false));
         assert_eq!(value.phonetic_runs[0].text.as_ref(), "annotation");
@@ -1692,7 +1695,7 @@ fn shared_rich_metadata_upgrade_disk_cache_and_protected_run_boundaries() {
         assert_eq!(again, plain);
         drop(book);
         assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
-        assert_eq!(value.runs[1].text.as_ref(), "_x0041_");
+        assert_eq!(value.runs[1].text.as_ref(), "A");
     }
 }
 
@@ -1878,17 +1881,18 @@ fn rich_metadata_budget_spill_cache_bypass_and_failure_cleanup() {
 #[test]
 fn typed_inline_protection_matches_public_reference_per_run() {
     for (content, plain, typed) in [
-        ("<t>_x005F_x0041_</t>", "_x005F_x0041_", "_x0041_"),
-        ("<r><t>_x005F_x0041_</t></r>", "_x005F_x0041_", "_x0041_"),
+        // Inline text decodes _xHHHH_ as Excel does; rich runs decode one by one.
+        ("<t>_x005F_x0041_</t>", "_x0041_", "_x0041_"),
+        ("<r><t>_x005F_x0041_</t></r>", "_x0041_", "_x0041_"),
         (
             "<r><rPr><b/></rPr><t>_x005F_x0041_</t></r>",
-            "_x005F_x0041_",
+            "_x0041_",
             "_x0041_",
         ),
         (
             "<r><t>_x005F</t></r><r><t>_x0041_</t></r>",
-            "_x005F_x0041_",
-            "_x005F_x0041_",
+            "_x005FA",
+            "_x005FA",
         ),
     ] {
         let mut book = open(&format!(

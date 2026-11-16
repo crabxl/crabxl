@@ -39,3 +39,16 @@ fn fragment_validation_rejects_bad_offsets_context_and_joint_budget() -> crabxl_
     assert_eq!(consumed, 1);
     Ok(())
 }
+
+#[test]
+fn spill_references_are_operands_and_unfinished_errors_still_fail() -> crabxl_core::Result<()> {
+    let tokens = crabxl_core::tokenize_formula("=SUM(A1#)+Sheet1!$B$2#", 4096)?;
+    let operands: Vec<_> = tokens
+        .iter()
+        .filter(|token| token.kind == TokenKind::Operand)
+        .map(|token| token.value.as_ref())
+        .collect();
+    assert_eq!(operands, ["A1#", "Sheet1!$B$2#"]);
+    assert!(crabxl_core::tokenize_formula("=A1#REF!", 4096).is_err());
+    Ok(())
+}

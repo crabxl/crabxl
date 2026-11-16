@@ -109,21 +109,9 @@ impl Entry {
         match self {
             Self::Text(s) => Ok(CellValue::text(s.as_ref())),
             Self::SharedText(s) => Ok(CellValue::shared_text(Arc::clone(s))),
-            Self::Rich(v) if preserve => {
-                let mut value = (**v).clone();
-                for run in &mut value.runs {
-                    crate::rich_text::unprotect(&mut run.text);
-                }
-                Ok(CellValue::RichText(Box::new(value)))
-            }
-            Self::Rich(v) => {
-                let text = v.plain_text()?;
-                Ok(CellValue::text(if text.contains("x005F_") {
-                    text.replace("x005F_", "").into_boxed_str()
-                } else {
-                    text
-                }))
-            }
+            // Runs were decoded when the entry was parsed.
+            Self::Rich(v) if preserve => Ok(CellValue::RichText(v.clone())),
+            Self::Rich(v) => Ok(CellValue::text(v.plain_text()?)),
             Self::Unsupported => Err(unsupported()),
         }
     }
@@ -301,8 +289,8 @@ impl SharedStrings {
                     return Err(limit("Shared-string entry limit exceeded"));
                 }
                 crate::encode::validate_xml_text(text)?;
-                let entry = if text.contains("x005F_") {
-                    Entry::plain(text.replace("x005F_", "").into_boxed_str(), share_values)
+                let entry = if let Some(decoded) = crate::encode::decode_xstring(text) {
+                    Entry::plain(decoded.into_boxed_str(), share_values)
                 } else if share_values {
                     // Build canonical shared ownership once, without an
                     // intermediate owned text allocation and second copy.
@@ -564,13 +552,15 @@ impl SharedStrings {
                 XmlStream::new(input, "<shared-string-store>".into(), length, self.limits);
             xml.next()?;
             xml.next()?;
-            let value = crate::rich_text::read_container(
+            // The store writes runs with Excel escaping, so decode them again.
+            let mut value = crate::rich_text::read_container(
                 &mut xml,
                 2,
                 b"is",
                 self.limits.max_cell_bytes,
                 true,
             )?;
+            value.unprotect();
             while !matches!(xml.next()?.event, Event::Eof) {}
             match value {
                 crate::rich_text::ParsedText::Rich(v) => Entry::Rich(v),
@@ -787,15 +777,15 @@ fn parse_entry<B: BufRead>(
     preserve_rich: bool,
     share_values: bool,
 ) -> Result<Entry> {
-    match crate::rich_text::read_container(xml, 2, b"si", maximum, preserve_rich) {
-        Ok(crate::rich_text::ParsedText::Plain(text)) => Ok(Entry::plain(
-            if text.contains("x005F_") {
-                text.replace("x005F_", "").into_boxed_str()
-            } else {
-                text
-            },
-            share_values,
-        )),
+    let parsed = crate::rich_text::read_container(xml, 2, b"si", maximum, preserve_rich);
+    // The plain path decodes escapes itself; typed runs are decoded here.
+    match parsed.map(|mut parsed| {
+        if preserve_rich {
+            parsed.unprotect();
+        }
+        parsed
+    }) {
+        Ok(crate::rich_text::ParsedText::Plain(text)) => Ok(Entry::plain(text, share_values)),
         Ok(crate::rich_text::ParsedText::Rich(v)) => Ok(Entry::Rich(v)),
         Err(error) if error.kind() == ErrorKind::Unsupported => {
             // Retain the ID of unsupported extension entries while validating XML.

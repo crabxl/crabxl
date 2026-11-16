@@ -97,13 +97,14 @@ fn read_comment<B: BufRead>(
                     continue;
                 }
                 seen_text = true;
-                let parsed = crate::rich_text::read_container(
+                let mut parsed = crate::rich_text::read_container(
                     xml,
                     depth + 1,
                     b"text",
                     MAX_TEXT_BYTES,
                     true,
                 )?;
+                parsed.unprotect();
                 match parsed {
                     crate::rich_text::ParsedText::Plain(text) => comment.text = text,
                     crate::rich_text::ParsedText::Rich(rich) => {
@@ -333,7 +334,7 @@ pub(crate) fn write_part(out: &mut impl Write, comments: &[Comment]) -> io::Resu
             } else {
                 out.write_all(b"<t xml:space=\"preserve\">")?;
             }
-            write_text(out, &c.text)?;
+            crate::encode::write_xstring(out, &c.text)?;
             out.write_all(b"</t>")?;
         }
         out.write_all(b"</text></comment>")?;

@@ -54,9 +54,10 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
         .unwrap();
     let b1 = "B1".parse().unwrap();
     assert!(moved.hyperlinks().get(a1).is_none());
+    // The link follows its cell instead of keeping a stale A1 ref.
     assert_eq!(
         moved.hyperlinks().get(b1).unwrap().reference.as_deref(),
-        Some("A1")
+        None
     );
     assert_eq!(moved.get(b1).unwrap().value, sheet.get(a1).unwrap().value);
     let charged = sheet.charged_bytes();
@@ -264,16 +265,26 @@ fn canonical_hyperlinks_round_trip_and_reject_budget_growth_atomically() {
             .unwrap()
             .reference
             .as_deref(),
-        Some("B2")
+        None,
+        "a ref equal to the owner follows the moved cell"
     );
     let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
     writer.write_worksheet(&sheet).unwrap();
     let mut reader = WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
     let declarations = reader.hyperlinks("Links").unwrap();
-    assert_eq!(declarations.len(), 1);
+    assert_eq!(declarations.len(), 2);
     assert!(declarations.get(a1).is_none());
+    // A ref that differs from its owner is kept as written.
     assert_eq!(
         declarations.get(b2).unwrap().target.as_deref(),
+        Some("https://first.example/")
+    );
+    assert_eq!(
+        declarations
+            .get("B3".parse().unwrap())
+            .unwrap()
+            .target
+            .as_deref(),
         Some("https://last.example/")
     );
 }
@@ -1305,11 +1316,8 @@ fn typed_rich_runs_fonts_colors_phonetics_and_empty_style_round_trip() {
         .next_row()
         .unwrap()
         .unwrap();
-    let mut normalized = expected.cells.clone();
-    if let CellValue::RichText(value) = &mut normalized[0].value {
-        value.runs[0].text = value.runs[0].text.replace("x005F_", "").into_boxed_str();
-    }
-    assert_eq!(typed.cells, normalized);
+    // Escape-looking run text survives the round trip unchanged.
+    assert_eq!(typed.cells, expected.cells);
     let CellValue::RichText(value) = &expected.cells[0].value else {
         panic!("Expected rich text")
     };
@@ -2969,4 +2977,23 @@ fn unresolved_literal_shared_ids_escape_and_validate_before_spooling() {
         matches!(value.formula_type(), FormulaType::Shared { index, .. } if index.literal() == Some("quoted & value"))
     );
     assert_eq!(value.expression(), "");
+}
+
+#[test]
+fn escape_looking_text_is_protected_for_excel_and_excel_escapes_decode() {
+    let mut writer = WorkbookWriter::new(WriteOptions::default()).unwrap();
+    writer.start_sheet("Sheet").unwrap();
+    writer
+        .write_row(&row(0, vec![CellValue::text("a_x0041_b")]))
+        .unwrap();
+    let bytes = writer.finish(Cursor::new(Vec::new())).unwrap().into_inner();
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+    let mut xml = String::new();
+    std::io::Read::read_to_string(
+        &mut archive.by_name("xl/worksheets/sheet1.xml").unwrap(),
+        &mut xml,
+    )
+    .unwrap();
+    // Excel shows a bare _x0041_ as "A", so the underscore is escaped.
+    assert!(xml.contains("a_x005F_x0041_b"), "{xml}");
 }

@@ -167,7 +167,6 @@ fn invalid_boundaries_syntax_and_output_capacity_do_not_return_partial_results()
         "=1)",
         "={1)",
         "=#SPILL!",
-        "=A1#",
     ] {
         assert_eq!(
             crabxl_core::tokenize_formula(source, 4096)
