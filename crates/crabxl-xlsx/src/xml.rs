@@ -432,7 +432,7 @@ impl<B: BufRead> XmlStream<B> {
         &mut self,
         decode: impl FnOnce(&str, &str) -> Result<Option<T>>,
     ) -> Result<Option<T>> {
-        self.buffered_element(3, 5, scalar_value_token, decode)
+        self.buffered_element(3, 6, cell_token, decode)
     }
 
     pub(crate) fn buffered_plain_shared_text<T>(
@@ -632,6 +632,55 @@ fn plain_shared_text_token(
         return None;
     }
     Some(("", std::str::from_utf8(value).ok()?, 7 + length + 9))
+}
+
+/// A complete `<c>` with a `<v>` scalar, or a plain inline string.
+fn cell_token(bytes: &[u8], maximum: usize, cell_maximum: usize) -> Option<(&str, &str, usize)> {
+    // An inline header over <v> must not reach the inline decoder: the event path rejects it.
+    inline_text_token(bytes, maximum, cell_maximum).or_else(|| {
+        scalar_value_token(bytes, maximum, cell_maximum)
+            .filter(|(header, _, _)| !header.contains("inlineStr"))
+    })
+}
+
+/// `<c t="inlineStr"><is><t>text</t></is></c>` with no entity or carriage
+/// return in the text. Anything else keeps the event path.
+fn inline_text_token(
+    bytes: &[u8],
+    maximum: usize,
+    cell_maximum: usize,
+) -> Option<(&str, &str, usize)> {
+    if maximum < 4 || !bytes.starts_with(b"<c ") {
+        return None;
+    }
+    let end = bytes.iter().position(|byte| *byte == b'>')?;
+    let header = bytes.get(1..end)?;
+    let rest = bytes.get(end + 1..)?;
+    let open = [
+        b"<is><t>".as_slice(),
+        b"<is><t xml:space=\"preserve\">".as_slice(),
+    ]
+    .into_iter()
+    .find(|open| rest.starts_with(open))?
+    .len();
+    let start = end + 1 + open;
+    let length = bytes.get(start..)?.iter().position(|byte| *byte == b'<')?;
+    let value = bytes.get(start..start + length)?;
+    if end + 1 > maximum
+        || length.saturating_add(1) > maximum
+        || length > cell_maximum
+        || !bytes.get(start + length..)?.starts_with(b"</t></is></c>")
+        || !header.is_ascii()
+        || !header.windows(14).any(|part| part == b" t=\"inlineStr\"")
+        || value.iter().any(|byte| matches!(byte, b'&' | b'\r'))
+    {
+        return None;
+    }
+    Some((
+        std::str::from_utf8(header).ok()?,
+        std::str::from_utf8(value).ok()?,
+        start + length + 13,
+    ))
 }
 
 pub(crate) fn scalar_value_token(

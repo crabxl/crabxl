@@ -20,6 +20,11 @@ The Python package has its own
   link's own cell now moves with it.
 - The tokenizer accepts spill references such as `A1#` and `Sheet1!$B$2#`.
 
+### Changed
+
+- Reading plain inline text cells is about three times faster.
+- Writing is faster: dates by about 40%, integers and mixed rows by about 20%.
+
 ## [0.2.1]
 
 ### Changed

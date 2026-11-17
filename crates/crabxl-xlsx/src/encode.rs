@@ -445,7 +445,9 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
             let style = styles
                 .resolved_style(cell, date_styles)
                 .map_err(io::Error::other)?;
-            write!(buffer, "<c r=\"{}\"", cell.address)?;
+            buffer.write_all(b"<c r=\"")?;
+            write_address(buffer, cell.address)?;
+            buffer.write_all(b"\"")?;
             if style != 0 {
                 write!(buffer, " s=\"{style}\"")?;
             }
@@ -503,7 +505,7 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
                 Some(value) => {
                     buffer.write_all(b"<v>")?;
                     match value {
-                        CellValue::Integer(value) => write!(buffer, "{value}")?,
+                        CellValue::Integer(value) => write_integer(buffer, *value)?,
                         CellValue::BigInteger(value) => {
                             buffer.write_all(value.as_str().as_bytes())?
                         }
@@ -521,7 +523,10 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
                                 )?;
                             } else {
                                 let serial = value.serial_in(epoch).map_err(io::Error::other)?;
-                                if serial.fract() == 0.0 {
+                                // Exact-mode float formatting is slow; whole serials print as integers.
+                                if serial.fract() == 0.0 && serial.abs() < 9_007_199_254_740_992.0 {
+                                    write_integer(buffer, serial as i64)?;
+                                } else if serial.fract() == 0.0 {
                                     write!(buffer, "{serial:.0}")?;
                                 } else {
                                     write!(buffer, "{serial:?}")?;
@@ -672,6 +677,36 @@ pub(crate) fn write_attribute(output: &mut impl Write, name: &str, value: &str) 
     write_xml(output, value, true)?;
     output.write_all(b"\"")
 }
+// The cell loop's hot writes: fmt machinery costs more than the digits.
+fn write_integer(output: &mut impl Write, value: i64) -> io::Result<()> {
+    let mut bytes = [0u8; 20];
+    let mut start = bytes.len();
+    let mut rest = value.unsigned_abs();
+    loop {
+        start -= 1;
+        bytes[start] = b'0' + (rest % 10) as u8;
+        rest /= 10;
+        if rest == 0 {
+            break;
+        }
+    }
+    if value < 0 {
+        output.write_all(b"-")?;
+    }
+    output.write_all(&bytes[start..])
+}
+fn write_address(output: &mut impl Write, address: crabxl_core::CellAddress) -> io::Result<()> {
+    let mut bytes = [0u8; 16];
+    let mut start = 3;
+    let mut column = address.column.get() + 1;
+    while column > 0 {
+        start -= 1;
+        bytes[start] = b'A' + ((column - 1) % 26) as u8;
+        column = (column - 1) / 26;
+    }
+    output.write_all(&bytes[start..3])?;
+    write_integer(output, i64::from(address.row.get()) + 1)
+}
 pub(crate) fn write_text(output: &mut impl Write, text: &str) -> io::Result<()> {
     write_xml(output, text, false)
 }
@@ -766,4 +801,30 @@ fn write_xml(output: &mut impl Write, text: &str, attribute: bool) -> io::Result
         start = offset + 1;
     }
     output.write_all(&text.as_bytes()[start..])
+}
+
+#[cfg(test)]
+mod fast_digit_tests {
+    #[test]
+    fn integers_and_addresses_match_display() -> Result<(), Box<dyn std::error::Error>> {
+        for value in [0, 7, -7, 10, 1_048_576, i64::MAX, i64::MIN] {
+            let mut output = Vec::new();
+            super::write_integer(&mut output, value)?;
+            assert_eq!(output, value.to_string().into_bytes());
+        }
+        for (row, column) in [
+            (0, 0),
+            (9, 25),
+            (99, 26),
+            (1_048_575, 16_383),
+            (0, 701),
+            (0, 702),
+        ] {
+            let address = crabxl_core::CellAddress::new(row, column)?;
+            let mut output = Vec::new();
+            super::write_address(&mut output, address)?;
+            assert_eq!(output, address.to_string().into_bytes());
+        }
+        Ok(())
+    }
 }

@@ -252,6 +252,7 @@ impl CellHeader {
                         "n" => ScalarKind::Numeric,
                         "b" => ScalarKind::Boolean,
                         "s" => ScalarKind::SharedText,
+                        "inlineStr" => ScalarKind::InlineText,
                         _ => return None,
                     });
                 }

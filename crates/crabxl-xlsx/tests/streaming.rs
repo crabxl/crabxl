@@ -3777,3 +3777,20 @@ fn formula_annotation_requests_reject_incompatible_modes_and_respect_projection(
     assert!(excluded.next_row().unwrap().unwrap().cells.is_empty());
     assert_eq!(excluded.decoded_cells(), 0);
 }
+#[test]
+fn plain_inline_text_cells_decode_escapes_and_keep_spaces() {
+    let mut book = open(
+        "<row><c r=\"A1\" t=\"inlineStr\"><is><t>a_x0042_c</t></is></c><c r=\"B1\" t=\"inlineStr\"><is><t xml:space=\"preserve\"> two  spaces </t></is></c><c r=\"C1\" t=\"inlineStr\"><is><t>_x005F_x0041_</t></is></c></row>",
+    );
+    let mut rows = book.rows("A & B").unwrap();
+    let row = rows.next_row().unwrap().unwrap();
+    let values: Vec<_> = row.cells.iter().map(|cell| cell.value.clone()).collect();
+    assert_eq!(
+        values,
+        [
+            CellValue::text("aBc"),
+            CellValue::text(" two  spaces "),
+            CellValue::text("_x0041_"),
+        ]
+    );
+}

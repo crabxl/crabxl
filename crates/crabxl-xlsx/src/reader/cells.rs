@@ -339,8 +339,14 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 };
                 if !matches!(
                     header.kind,
-                    ScalarKind::Numeric | ScalarKind::Boolean | ScalarKind::SharedText
+                    ScalarKind::Numeric
+                        | ScalarKind::Boolean
+                        | ScalarKind::SharedText
+                        | ScalarKind::InlineText
                 ) || !options.includes(header.address)
+                    // Text that XML forbids fails on the event path, with its error.
+                    || (matches!(header.kind, ScalarKind::InlineText)
+                        && crate::encode::validate_xml_text(value).is_err())
                 {
                     return Ok(None);
                 }
@@ -372,6 +378,9 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     ScalarKind::SharedText => {
                         shared_string_id(value.trim_ascii()).map(BufferedValue::SharedText)
                     }
+                    ScalarKind::InlineText => Ok(BufferedValue::Direct(CellValue::text(
+                        crate::encode::decode_xstring(value).unwrap_or_else(|| value.to_owned()),
+                    ))),
                     _ => return Ok(None),
                 }
                 .map_err(|error| error.with_cell(address))?;
