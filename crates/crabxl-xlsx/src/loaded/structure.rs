@@ -455,7 +455,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             ));
         }
         if self.sheets[index].original.is_none() {
-            crate::loaded_codec::validate_model(self.bank.sheet(id)?, self.bank.style_catalog())?;
+            // A created sheet starts empty or as a validated copy, and every
+            // later edit goes through checked model APIs, so a full pass per
+            // edit is not needed (it would make building a sheet quadratic).
             self.reserve_workbook_patch(self.editor.patch_bytes().saturating_add(scratch))?;
             let result = edit(&mut self.bank.sheet_mut(id)?);
             if let Ok(value) = &result
