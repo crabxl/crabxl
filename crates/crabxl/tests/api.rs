@@ -259,6 +259,77 @@ fn objects_round_trip() {
 }
 
 #[test]
+fn table_and_rule_settings_read_back_as_written() {
+    use crabxl::features::{ConditionalKind, ValidationKind};
+    let mut book = Workbook::new().unwrap();
+    let mut sheet = book.add_worksheet("S").unwrap();
+    sheet.append_row(("Item", "Amount")).unwrap();
+    sheet
+        .append_rows([("a", 1), ("b", 2), ("Total", 3)])
+        .unwrap();
+    assert!(
+        sheet
+            .add_table(Table::new("Short", "D1:E2").unwrap().with_totals_row(true))
+            .is_err()
+    );
+    let table = Table::new("T", "A1:B4")
+        .unwrap()
+        .with_style(None)
+        .with_banded_rows(false)
+        .with_totals_row(true);
+    // Excel rejects a plain number in a totals row.
+    assert!(sheet.add_table(table.clone()).is_err());
+    sheet.set_formula("B4", "SUBTOTAL(109,B2:B3)").unwrap();
+    sheet.add_table(table).unwrap();
+    sheet
+        .add_data_validation(
+            DataValidation::whole_number(Comparison::Between, 1, Some(9))
+                .unwrap()
+                .with_allow_blank(false)
+                .with_prompt("Amount", "1 to 9")
+                .with_error("Wrong", "Out of range")
+                .with_range("B2:B3")
+                .unwrap()
+                .with_range("D2")
+                .unwrap(),
+        )
+        .unwrap();
+    let red = PartialStyle::new().with_fill(Fill::solid(Color::rgb(255, 199, 206)));
+    sheet
+        .add_conditional_format(
+            ConditionalFormat::cell("B2:B3", Comparison::Between, 1, Some("5"), red.clone())
+                .unwrap()
+                .with_range("D2:D3")
+                .unwrap()
+                .with_stop_if_true(true),
+        )
+        .unwrap();
+
+    let mut book = reopen(&mut book);
+    let mut sheet = book.worksheet("S").unwrap();
+    let table = &sheet.tables().unwrap()[0];
+    assert_eq!(
+        (table.style(), table.banded_rows(), table.has_totals_row()),
+        (None, false, true)
+    );
+    let rule = &sheet.data_validations().unwrap()[0];
+    assert_eq!(rule.kind(), ValidationKind::WholeNumber);
+    assert_eq!(rule.comparison(), Some(Comparison::Between));
+    assert_eq!((rule.formula1(), rule.formula2()), (Some("1"), Some("9")));
+    assert!(!rule.allows_blank());
+    assert_eq!(rule.prompt(), Some(("Amount", "1 to 9")));
+    assert_eq!(rule.error(), Some(("Wrong", "Out of range")));
+    assert_eq!(rule.ranges().len(), 2);
+    let format = &sheet.conditional_formats().unwrap()[0];
+    assert_eq!(format.kind(), ConditionalKind::CellValue);
+    assert_eq!(format.comparison(), Some(Comparison::Between));
+    assert_eq!(format.formulas().collect::<Vec<_>>(), ["1", "5"]);
+    assert_eq!(format.ranges().len(), 2);
+    assert!(format.stops_if_true());
+    assert_eq!(format.style(), Some(&red));
+}
+
+#[test]
 fn structural_edits_update_references_across_sheets() {
     let mut book = Workbook::new().unwrap();
     let mut data = book.add_worksheet("Data").unwrap();

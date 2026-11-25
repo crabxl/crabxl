@@ -6,6 +6,21 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
+## [0.3.1]
+
+### Added
+
+- `Table::with_totals_row` adds a table whose last row is a totals row, and
+  `Table::banded_rows` reads the banding back. The totals row cells hold text,
+  a formula or nothing. A table without a style keeps
+  its banding setting after a save.
+- `DataValidation` reads back its kind, comparison, second formula, blank
+  handling, prompt and error message: `kind`, `comparison`, `formula2`,
+  `allows_blank`, `prompt` and `error`.
+- `ConditionalFormat::with_range` applies a rule to another range, and
+  `kind`, `comparison`, `style` and `stops_if_true` read a rule back.
+- `PartialStyle::font`, `fill` and `border`.
+
 ## [0.3.0]
 
 This release redesigns the public API. See the

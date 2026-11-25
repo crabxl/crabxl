@@ -533,6 +533,39 @@ impl<'a> Worksheet<'a> {
             }
             headers.push(text);
         }
+        if table.totals_row && table.range.height() < 3 {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "A table with a totals row needs a header row, a data row and the totals row",
+            ));
+        }
+        let mut core_table = table.to_core(id, headers)?;
+        if table.totals_row {
+            // Excel rejects a totals row whose cells the columns do not declare.
+            let row = table.range.end().row();
+            for (offset, column) in (0u32..).zip(core_table.table_columns.iter_mut()) {
+                let at = CellRef::new(row, table.range.start().column() + offset)?;
+                if let Some(formula) = self.formula(at)? {
+                    column.totals_row_function =
+                        Some(crabxl_core::features::TotalsRowFunction::Custom);
+                    column.totals_row_formula = Some(crabxl_core::features::TableFormula {
+                        array: None,
+                        text: formula.text().into(),
+                    });
+                    continue;
+                }
+                match self.value(at)? {
+                    Value::Blank => {}
+                    Value::Text(text) => column.totals_row_label = Some(text.as_str().into()),
+                    _ => {
+                        return Err(Error::new(
+                            ErrorKind::InvalidData,
+                            format!("Totals row cell {at} needs text, a formula or nothing"),
+                        ));
+                    }
+                }
+            }
+        }
         let mut features = self.features()?;
         if features.tables.iter().any(|other| {
             other
@@ -542,7 +575,7 @@ impl<'a> Worksheet<'a> {
         }) {
             return Err(Error::new(ErrorKind::InvalidData, "Tables cannot overlap"));
         }
-        features.tables.push(table.to_core(id, headers));
+        features.tables.push(core_table);
         self.book.engine.set_sheet_features(self.id, features)
     }
     /// Remove a table by name. Its cells keep their values.
@@ -603,6 +636,7 @@ impl<'a> Worksheet<'a> {
     }
     /// The conditional formats, in priority order.
     pub fn conditional_formats(&mut self) -> Result<Vec<ConditionalFormat>> {
+        let styles = self.book.engine.differential_styles().to_vec();
         let mut output = Vec::new();
         for block in &self
             .book
@@ -614,7 +648,12 @@ impl<'a> Worksheet<'a> {
                 output.push(ConditionalFormat {
                     ranges: block.ranges.iter().copied().map(RangeRef).collect(),
                     rule: rule.clone(),
-                    style: None,
+                    style: rule
+                        .dxf_id
+                        .and_then(|id| styles.get(id as usize))
+                        .map(|inner| crate::style::PartialStyle {
+                            inner: inner.clone(),
+                        }),
                 });
             }
         }

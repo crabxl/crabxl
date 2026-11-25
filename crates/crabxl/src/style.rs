@@ -125,4 +125,16 @@ impl PartialStyle {
         self.inner.border = Some(Box::new(border));
         self
     }
+    /// The font it sets.
+    pub fn font(&self) -> Option<&Font> {
+        self.inner.font.as_deref()
+    }
+    /// The fill it sets.
+    pub fn fill(&self) -> Option<&Fill> {
+        self.inner.fill.as_deref()
+    }
+    /// The border it sets.
+    pub fn border(&self) -> Option<&Border> {
+        self.inner.border.as_deref()
+    }
 }

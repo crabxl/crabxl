@@ -48,6 +48,33 @@ impl Comparison {
             Self::LessThanOrEqual => O::LessThanOrEqual,
         }
     }
+    fn from_validation(operator: core::ValidationOperator) -> Self {
+        use core::ValidationOperator as O;
+        match operator {
+            O::Between => Self::Between,
+            O::NotBetween => Self::NotBetween,
+            O::Equal => Self::Equal,
+            O::NotEqual => Self::NotEqual,
+            O::GreaterThan => Self::GreaterThan,
+            O::GreaterThanOrEqual => Self::GreaterThanOrEqual,
+            O::LessThan => Self::LessThan,
+            O::LessThanOrEqual => Self::LessThanOrEqual,
+        }
+    }
+    fn from_conditional(operator: core::ConditionalOperator) -> Option<Self> {
+        use core::ConditionalOperator as O;
+        Some(match operator {
+            O::Between => Self::Between,
+            O::NotBetween => Self::NotBetween,
+            O::Equal => Self::Equal,
+            O::NotEqual => Self::NotEqual,
+            O::GreaterThan => Self::GreaterThan,
+            O::GreaterThanOrEqual => Self::GreaterThanOrEqual,
+            O::LessThan => Self::LessThan,
+            O::LessThanOrEqual => Self::LessThanOrEqual,
+            _ => return None,
+        })
+    }
     fn conditional(self) -> core::ConditionalOperator {
         use core::ConditionalOperator as O;
         match self {
@@ -123,6 +150,17 @@ impl Table {
         self.banded_rows = banded;
         self
     }
+    /// Make the last row of the range a totals row. The range then needs a
+    /// header row, at least one data row and the totals row, whose cells hold
+    /// text, a formula or nothing.
+    pub fn with_totals_row(mut self, totals: bool) -> Self {
+        self.totals_row = totals;
+        self
+    }
+    /// Whether alternate rows are shaded.
+    pub fn banded_rows(&self) -> bool {
+        self.banded_rows
+    }
     /// The table name.
     pub fn name(&self) -> &str {
         &self.name
@@ -155,14 +193,24 @@ impl Table {
                 .unwrap_or(false),
         })
     }
-    pub(crate) fn to_core(&self, id: u32, headers: Vec<String>) -> core::Table {
-        core::Table {
+    pub(crate) fn to_core(&self, id: u32, headers: Vec<String>) -> Result<core::Table> {
+        // The filter covers the header and data rows, never the totals row.
+        let filtered = if self.totals_row {
+            RangeRef::new(
+                self.range.start(),
+                crate::CellRef::new(self.range.end().row() - 1, self.range.end().column())?,
+            )?
+        } else {
+            self.range
+        };
+        Ok(core::Table {
             id,
             name: Some(self.name.clone().into()),
             display_name: self.name.clone().into(),
             ref_range: self.range.to_string().into(),
+            totals_row_count: self.totals_row.then_some(1),
             auto_filter: Some(core::AutoFilter {
-                ref_range: Some(self.range.to_string().into()),
+                ref_range: Some(filtered.to_string().into()),
                 ..Default::default()
             }),
             table_columns: headers
@@ -174,16 +222,52 @@ impl Table {
                     ..Default::default()
                 })
                 .collect(),
-            table_style_info: self.style.as_ref().map(|style| core::TableStyleInfo {
-                name: Some(style.clone().into()),
+            // Written even without a style name, so banding survives a reload.
+            table_style_info: Some(core::TableStyleInfo {
+                name: self.style.as_ref().map(|style| style.clone().into()),
                 show_first_column: Some(false),
                 show_last_column: Some(false),
                 show_row_stripes: Some(self.banded_rows),
                 show_column_stripes: Some(false),
             }),
             ..Default::default()
-        }
+        })
     }
+}
+
+/// What a data validation rule checks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ValidationKind {
+    /// Any value; the rule only shows its prompt.
+    Any,
+    /// Whole numbers.
+    WholeNumber,
+    /// Decimal numbers.
+    Decimal,
+    /// A drop-down list, of fixed choices or of a range.
+    List,
+    /// Dates. CrabXL reads these rules but does not create them.
+    Date,
+    /// Times. CrabXL reads these rules but does not create them.
+    Time,
+    /// Text length.
+    TextLength,
+    /// A custom formula.
+    Custom,
+}
+
+/// What a conditional format tests.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ConditionalKind {
+    /// The cell value compared with one or two values.
+    CellValue,
+    /// A formula that is true for the cell.
+    Formula,
+    /// Another rule type, such as a color scale or data bar. CrabXL keeps
+    /// these rules but does not create them.
+    Other,
 }
 
 /// A rule that limits what users can type into cells.
@@ -328,6 +412,57 @@ impl DataValidation {
     pub fn formula1(&self) -> Option<&str> {
         self.inner.formula1.as_deref()
     }
+    /// The second formula, for `Between` and `NotBetween`.
+    pub fn formula2(&self) -> Option<&str> {
+        self.inner.formula2.as_deref()
+    }
+    /// What the rule checks.
+    pub fn kind(&self) -> ValidationKind {
+        use core::ValidationType as T;
+        match self.inner.validation_type.unwrap_or(T::None) {
+            T::None => ValidationKind::Any,
+            T::Whole => ValidationKind::WholeNumber,
+            T::Decimal => ValidationKind::Decimal,
+            T::List => ValidationKind::List,
+            T::Date => ValidationKind::Date,
+            T::Time => ValidationKind::Time,
+            T::TextLength => ValidationKind::TextLength,
+            T::Custom => ValidationKind::Custom,
+        }
+    }
+    /// The comparison of a number, date, time or text-length rule.
+    pub fn comparison(&self) -> Option<Comparison> {
+        let numeric = matches!(
+            self.kind(),
+            ValidationKind::WholeNumber
+                | ValidationKind::Decimal
+                | ValidationKind::Date
+                | ValidationKind::Time
+                | ValidationKind::TextLength
+        );
+        // Excel's default operator is between.
+        numeric.then(|| {
+            Comparison::from_validation(
+                self.inner
+                    .operator
+                    .unwrap_or(core::ValidationOperator::Between),
+            )
+        })
+    }
+    /// Whether empty cells are allowed.
+    pub fn allows_blank(&self) -> bool {
+        self.inner.allow_blank.unwrap_or(false)
+    }
+    /// The prompt title and message, shown when a user selects the cell.
+    pub fn prompt(&self) -> Option<(&str, &str)> {
+        let message = self.inner.prompt.as_deref()?;
+        Some((self.inner.prompt_title.as_deref().unwrap_or(""), message))
+    }
+    /// The error title and message, shown when the rule rejects a value.
+    pub fn error(&self) -> Option<(&str, &str)> {
+        let message = self.inner.error.as_deref()?;
+        Some((self.inner.error_title.as_deref().unwrap_or(""), message))
+    }
 }
 
 /// A rule that formats cells when a condition holds.
@@ -385,6 +520,11 @@ impl ConditionalFormat {
         self.rule.stop_if_true = Some(stop);
         self
     }
+    /// Apply the rule to one more range.
+    pub fn with_range(mut self, range: impl IntoRange) -> Result<Self> {
+        self.ranges.push(range.into_range()?);
+        Ok(self)
+    }
     /// The ranges the rule applies to.
     pub fn ranges(&self) -> &[RangeRef] {
         &self.ranges
@@ -392,6 +532,29 @@ impl ConditionalFormat {
     /// The rule formulas, without leading `=`.
     pub fn formulas(&self) -> impl Iterator<Item = &str> {
         self.rule.formulas.iter().map(AsRef::as_ref)
+    }
+    /// What the rule tests.
+    pub fn kind(&self) -> ConditionalKind {
+        match self.rule.rule_type {
+            Some(core::ConditionalRuleType::CellIs) => ConditionalKind::CellValue,
+            Some(core::ConditionalRuleType::Expression) => ConditionalKind::Formula,
+            _ => ConditionalKind::Other,
+        }
+    }
+    /// The comparison of a cell-value rule.
+    pub fn comparison(&self) -> Option<Comparison> {
+        if self.kind() != ConditionalKind::CellValue {
+            return None;
+        }
+        self.rule.operator.and_then(Comparison::from_conditional)
+    }
+    /// The formatting the rule applies.
+    pub fn style(&self) -> Option<&PartialStyle> {
+        self.style.as_ref()
+    }
+    /// Whether lower-priority rules stop when this one applies.
+    pub fn stops_if_true(&self) -> bool {
+        self.rule.stop_if_true.unwrap_or(false)
     }
 }
 
