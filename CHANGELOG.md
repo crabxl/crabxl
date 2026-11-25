@@ -6,9 +6,26 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
-## [0.3.1]
+## [Unreleased]
 
 ### Added
+
+- Charts: `features::Chart` and `Series` build column, bar, line, area, pie,
+  doughnut and scatter charts. `Worksheet::add_chart`, `charts` and
+  `remove_charts`.
+- Printing: `Worksheet::page_setup` and `set_page_setup` with
+  `features::PageSetup`: orientation, paper size, scale, fit to pages,
+  margins, centering, grid lines, print area and print titles.
+- `Worksheet::set_auto_filter`, `auto_filter` and `remove_auto_filter`. A
+  worksheet filter and a table cannot overlap.
+- `Worksheet::set_tab_color` and `tab_color`.
+- `Worksheet::set_rows_outline_level` and `set_columns_outline_level` group
+  rows and columns; `row_outline_level` and `column_outline_level` read them.
+- `DataValidation::date` and `time`, written as `DATE(...)` and `TIME(...)`
+  formulas so they work in both date systems.
+- `Worksheet::images` lists pictures as `features::PlacedImage`, and
+  `remove_images` removes them. `Image::data` gives the bytes.
+- `Worksheet::remove_conditional_formats`.
 
 - `Table::with_totals_row` adds a table whose last row is a totals row, and
   `Table::banded_rows` reads the banding back. The totals row cells hold text,

@@ -203,7 +203,7 @@ impl Workbook {
         })
     }
 
-    fn ids(&self) -> Vec<(SheetId, String)> {
+    pub(crate) fn ids(&self) -> Vec<(SheetId, String)> {
         self.engine
             .model()
             .sheets()

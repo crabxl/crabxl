@@ -1,11 +1,12 @@
-//! Tables, data validation, conditional formats, notes, hyperlinks, defined
-//! names and images.
+//! Tables, data validation, conditional formats, charts, page setup, notes,
+//! hyperlinks, defined names and images.
 //!
 //! Each type here is a plain value. Build it, then add it to a worksheet or
 //! workbook. Reading returns the same types.
 
-use crate::reference::{IntoCellRef, IntoRange, RangeRef};
+use crate::reference::{CellRef, IntoCellRef, IntoRange, RangeRef, Span};
 use crate::style::PartialStyle;
+use crate::value::Temporal;
 use crate::{Error, ErrorKind, Result};
 use crabxl_core::features as core;
 
@@ -247,9 +248,9 @@ pub enum ValidationKind {
     Decimal,
     /// A drop-down list, of fixed choices or of a range.
     List,
-    /// Dates. CrabXL reads these rules but does not create them.
+    /// Dates.
     Date,
-    /// Times. CrabXL reads these rules but does not create them.
+    /// Times of day.
     Time,
     /// Text length.
     TextLength,
@@ -343,6 +344,34 @@ impl DataValidation {
             comparison,
             first.to_string(),
             second.map(|v| v.to_string()),
+        )
+    }
+    /// Dates compared with one or two bounds. The bounds are written as
+    /// `DATE(year,month,day)` formulas, which work in every date system.
+    pub fn date(comparison: Comparison, first: Temporal, second: Option<Temporal>) -> Result<Self> {
+        let date = |value: Temporal| -> Result<String> {
+            let (year, month, day, ..) = value.to_parts()?;
+            Ok(format!("DATE({year},{month},{day})"))
+        };
+        Self::numeric(
+            core::ValidationType::Date,
+            comparison,
+            date(first)?,
+            second.map(date).transpose()?,
+        )
+    }
+    /// Times of day compared with one or two bounds, written as
+    /// `TIME(hour,minute,second)` formulas.
+    pub fn time(comparison: Comparison, first: Temporal, second: Option<Temporal>) -> Result<Self> {
+        let time = |value: Temporal| -> Result<String> {
+            let (hour, minute, second, _) = value.to_time_of_day()?;
+            Ok(format!("TIME({hour},{minute},{second})"))
+        };
+        Self::numeric(
+            core::ValidationType::Time,
+            comparison,
+            time(first)?,
+            second.map(time).transpose()?,
         )
     }
     /// Text whose length compares with one or two bounds.
@@ -749,6 +778,10 @@ impl Image {
         })?;
         Self::from_bytes(data)
     }
+    /// The encoded bytes.
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
     /// Width and height in pixels.
     pub fn size(&self) -> (u32, u32) {
         (self.width, self.height)
@@ -800,6 +833,478 @@ fn image_header(data: &[u8]) -> Option<(crabxl_core::ImageFormat, u32, u32)> {
         }
     }
     None
+}
+
+/// Page orientation for printing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Orientation {
+    /// Taller than wide.
+    Portrait,
+    /// Wider than tall.
+    Landscape,
+}
+
+/// Page margins in inches.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Margins {
+    /// Left margin.
+    pub left: f64,
+    /// Right margin.
+    pub right: f64,
+    /// Top margin.
+    pub top: f64,
+    /// Bottom margin.
+    pub bottom: f64,
+    /// Distance from the top edge to the header.
+    pub header: f64,
+    /// Distance from the bottom edge to the footer.
+    pub footer: f64,
+}
+
+impl Default for Margins {
+    /// 0.75 inches left and right, 1 inch top and bottom, 0.5 inches for the
+    /// header and footer.
+    fn default() -> Self {
+        Self {
+            left: 0.75,
+            right: 0.75,
+            top: 1.0,
+            bottom: 1.0,
+            header: 0.5,
+            footer: 0.5,
+        }
+    }
+}
+
+/// How a worksheet prints. `None` and `false` fields keep Excel's defaults.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PageSetup {
+    /// Portrait or landscape.
+    pub orientation: Option<Orientation>,
+    /// Excel's paper code, such as 1 for Letter or 9 for A4.
+    pub paper_size: Option<u32>,
+    /// Print scale in percent, from 10 to 400.
+    pub scale: Option<u32>,
+    /// Fit to this many pages wide and tall; 0 leaves that direction free.
+    pub fit_to: Option<(u32, u32)>,
+    /// Page margins.
+    pub margins: Margins,
+    /// Center the printout between the left and right margins.
+    pub center_horizontally: bool,
+    /// Center the printout between the top and bottom margins.
+    pub center_vertically: bool,
+    /// Print the cell grid lines.
+    pub grid_lines: bool,
+    /// The range to print; `None` prints the used range.
+    pub print_area: Option<RangeRef>,
+    /// Rows to repeat at the top of each page.
+    pub title_rows: Option<Span>,
+    /// Columns to repeat at the left of each page.
+    pub title_columns: Option<Span>,
+}
+
+impl PageSetup {
+    pub(crate) fn validate(&self) -> Result<()> {
+        let invalid = |message: &str| Err(Error::new(ErrorKind::InvalidData, message));
+        if self.scale.is_some_and(|scale| !(10..=400).contains(&scale)) {
+            return invalid("A print scale is between 10 and 400");
+        }
+        if self
+            .fit_to
+            .is_some_and(|(wide, tall)| wide > 32767 || tall > 32767)
+        {
+            return invalid("Fit to at most 32767 pages");
+        }
+        let m = self.margins;
+        if [m.left, m.right, m.top, m.bottom, m.header, m.footer]
+            .iter()
+            .any(|value| !value.is_finite() || *value < 0.0)
+        {
+            return invalid("Margins are finite, non-negative inches");
+        }
+        Ok(())
+    }
+}
+
+/// The kind of a chart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ChartKind {
+    /// Vertical bars.
+    Column,
+    /// Horizontal bars.
+    Bar,
+    /// Lines.
+    Line,
+    /// Filled areas.
+    Area,
+    /// A pie.
+    Pie,
+    /// A ring.
+    Doughnut,
+    /// Points at x and y values. Each series needs categories: the x values.
+    Scatter,
+    /// Another kind, such as a 3-D, radar or stock chart. CrabXL keeps these
+    /// charts but does not create them.
+    Other,
+}
+
+/// One data series of a chart: references such as `"Data!$B$2:$B$9"`.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Series {
+    values: String,
+    categories: Option<String>,
+    title: Option<String>,
+}
+
+impl Series {
+    /// A series of the values in a range.
+    pub fn new(values: &str) -> Result<Self> {
+        let values = values.trim_start_matches('=');
+        if values.is_empty() {
+            return Err(Error::new(ErrorKind::InvalidData, "A series needs values"));
+        }
+        Ok(Self {
+            values: values.to_owned(),
+            categories: None,
+            title: None,
+        })
+    }
+    /// Set the category labels, or the x values of a scatter chart.
+    pub fn with_categories(mut self, categories: &str) -> Self {
+        self.categories = Some(categories.trim_start_matches('=').to_owned());
+        self
+    }
+    /// Set the name shown in the legend.
+    pub fn with_title(mut self, title: &str) -> Self {
+        self.title = Some(title.to_owned());
+        self
+    }
+    /// The value reference.
+    pub fn values(&self) -> &str {
+        &self.values
+    }
+    /// The category reference.
+    pub fn categories(&self) -> Option<&str> {
+        self.categories.as_deref()
+    }
+    /// The name shown in the legend.
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_deref()
+    }
+}
+
+/// A chart that covers a range of cells.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Chart {
+    kind: ChartKind,
+    range: Option<RangeRef>,
+    title: Option<String>,
+    series: Vec<Series>,
+    legend: bool,
+}
+
+impl Chart {
+    /// An empty chart that covers `range`, such as `"E2:L18"`, with a legend.
+    pub fn new(kind: ChartKind, range: impl IntoRange) -> Result<Self> {
+        if kind == ChartKind::Other {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "Choose a chart kind CrabXL can create",
+            ));
+        }
+        Ok(Self {
+            kind,
+            range: Some(range.into_range()?),
+            title: None,
+            series: Vec::new(),
+            legend: true,
+        })
+    }
+    /// Add a data series.
+    pub fn with_series(mut self, series: Series) -> Self {
+        self.series.push(series);
+        self
+    }
+    /// Set the chart title.
+    pub fn with_title(mut self, title: &str) -> Self {
+        self.title = Some(title.to_owned());
+        self
+    }
+    /// Show or hide the legend.
+    pub fn with_legend(mut self, legend: bool) -> Self {
+        self.legend = legend;
+        self
+    }
+    /// The kind of chart.
+    pub fn kind(&self) -> ChartKind {
+        self.kind
+    }
+    /// The cells the chart covers, or `None` for a chart placed by position.
+    pub fn range(&self) -> Option<RangeRef> {
+        self.range
+    }
+    /// The title.
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_deref()
+    }
+    /// The data series.
+    pub fn series(&self) -> &[Series] {
+        &self.series
+    }
+    /// Whether the legend shows.
+    pub fn has_legend(&self) -> bool {
+        self.legend
+    }
+
+    pub(crate) fn to_core(&self) -> Result<crabxl_core::drawing::Chart> {
+        use crabxl_core::drawing::{ChartKind as K, XmlContent, XmlElement};
+        let range = self
+            .range
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "A chart needs a range"))?;
+        if self.series.is_empty() {
+            return Err(Error::new(ErrorKind::InvalidData, "A chart needs a series"));
+        }
+        let kind = match self.kind {
+            ChartKind::Column | ChartKind::Bar => K::Bar,
+            ChartKind::Line => K::Line,
+            ChartKind::Area => K::Area,
+            ChartKind::Pie => K::Pie,
+            ChartKind::Doughnut => K::Doughnut,
+            ChartKind::Scatter => K::Scatter,
+            ChartKind::Other => {
+                return Err(Error::new(
+                    ErrorKind::Unsupported,
+                    "Choose a chart kind CrabXL can create",
+                ));
+            }
+        };
+        let (start, end) = (range.start(), range.end());
+        let anchor = crabxl_core::DrawingAnchor::TwoCell {
+            from: crabxl_core::DrawingMarker::new(start.row(), start.column())?,
+            to: crabxl_core::DrawingMarker::new(end.row() + 1, end.column() + 1)?,
+            edit_as: None,
+        };
+        let mut chart = crabxl_core::drawing::Chart::new(kind, anchor)?;
+        for series in &self.series {
+            chart.add_series(
+                0,
+                &series.values,
+                series.categories.as_deref(),
+                series.title.as_deref(),
+                None,
+            )?;
+        }
+        let element = |name: &str, children: Vec<XmlElement>| XmlElement {
+            name: name.into(),
+            attributes: Vec::new(),
+            children: children.into_iter().map(XmlContent::Element).collect(),
+        };
+        let value = |name: &str, value: &str| {
+            let mut node = XmlElement::new(name);
+            node.set_attribute("val", value);
+            node
+        };
+        let body = chart
+            .space
+            .child_mut("chart")
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Chart has no body"))?;
+        if self.kind == ChartKind::Bar
+            && let Some(direction) = body
+                .child_mut("plotArea")
+                .and_then(|plot| plot.child_mut("barChart"))
+                .and_then(|family| family.child_mut("barDir"))
+        {
+            direction.set_attribute("val", "bar");
+        }
+        let plot = body
+            .children
+            .iter()
+            .position(
+                |child| matches!(child, XmlContent::Element(e) if e.local_name() == "plotArea"),
+            )
+            .unwrap_or(0);
+        if self.legend {
+            body.children.insert(
+                plot + 1,
+                XmlContent::Element(element(
+                    "c:legend",
+                    vec![value("c:legendPos", "r"), value("c:overlay", "0")],
+                )),
+            );
+        }
+        // Excel names a one-series chart after its series unless told not to.
+        let deleted = value(
+            "c:autoTitleDeleted",
+            if self.title.is_some() { "0" } else { "1" },
+        );
+        let mut head = Vec::new();
+        if let Some(title) = &self.title {
+            let mut text = XmlElement::new("a:t");
+            text.children.push(XmlContent::Text(title.as_str().into()));
+            head.push(element(
+                "c:title",
+                vec![
+                    element(
+                        "c:tx",
+                        vec![element(
+                            "c:rich",
+                            vec![
+                                XmlElement::new("a:bodyPr"),
+                                element("a:p", vec![element("a:r", vec![text])]),
+                            ],
+                        )],
+                    ),
+                    value("c:overlay", "0"),
+                ],
+            ));
+        }
+        head.push(deleted);
+        for (offset, node) in head.into_iter().enumerate() {
+            body.children.insert(offset, XmlContent::Element(node));
+        }
+        Ok(chart)
+    }
+
+    pub(crate) fn from_core(chart: &crabxl_core::drawing::Chart) -> Self {
+        use crabxl_core::drawing::{XmlContent, XmlElement};
+        fn text(element: &XmlElement, out: &mut String) {
+            for child in &element.children {
+                match child {
+                    XmlContent::Text(value) => out.push_str(value),
+                    XmlContent::Element(inner) => text(inner, out),
+                    _ => {}
+                }
+            }
+        }
+        fn elements(element: &XmlElement) -> impl Iterator<Item = &XmlElement> {
+            element.children.iter().filter_map(|child| match child {
+                XmlContent::Element(inner) => Some(inner),
+                _ => None,
+            })
+        }
+        let reference = |series: &XmlElement, names: [&str; 2]| {
+            names
+                .iter()
+                .find_map(|name| series.child(name))
+                .and_then(|node| node.child("numRef").or_else(|| node.child("strRef")))
+                .and_then(|node| node.child("f"))
+                .map(|formula| {
+                    let mut out = String::new();
+                    text(formula, &mut out);
+                    out
+                })
+        };
+        let body = chart.space.child("chart");
+        let plot = body.and_then(|body| body.child("plotArea"));
+        let families: Vec<&XmlElement> = plot
+            .into_iter()
+            .flat_map(elements)
+            .filter(|e| e.local_name().ends_with("Chart"))
+            .collect();
+        let kind = match families.as_slice() {
+            [family] => match family.local_name() {
+                "barChart" => match family.child("barDir").and_then(|d| d.attribute("val")) {
+                    Some("bar") => ChartKind::Bar,
+                    _ => ChartKind::Column,
+                },
+                "lineChart" => ChartKind::Line,
+                "areaChart" => ChartKind::Area,
+                "pieChart" => ChartKind::Pie,
+                "doughnutChart" => ChartKind::Doughnut,
+                "scatterChart" => ChartKind::Scatter,
+                _ => ChartKind::Other,
+            },
+            _ => ChartKind::Other,
+        };
+        let series = families
+            .iter()
+            .flat_map(|family| elements(family))
+            .filter(|e| e.local_name() == "ser")
+            .filter_map(|ser| {
+                let values = reference(ser, ["val", "yVal"])?;
+                let title = ser.child("tx").map(|tx| {
+                    let mut out = String::new();
+                    match tx.child("v") {
+                        Some(v) => text(v, &mut out),
+                        None => text(tx, &mut out),
+                    }
+                    out
+                });
+                Some(Series {
+                    values,
+                    categories: reference(ser, ["cat", "xVal"]),
+                    title,
+                })
+            })
+            .collect();
+        let title = body.and_then(|body| body.child("title")).map(|title| {
+            let mut out = String::new();
+            if let Some(tx) = title.child("tx") {
+                text(tx, &mut out);
+            }
+            out
+        });
+        let range = match &chart.anchor {
+            crabxl_core::DrawingAnchor::TwoCell { from, to, .. } => {
+                let start = CellRef::new(from.row, from.col).ok();
+                let end = CellRef::new(
+                    to.row.saturating_sub(1).max(from.row),
+                    to.col.saturating_sub(1).max(from.col),
+                )
+                .ok();
+                start.zip(end).and_then(|(a, b)| RangeRef::new(a, b).ok())
+            }
+            _ => None,
+        };
+        Self {
+            kind,
+            range,
+            title,
+            series,
+            legend: body.is_some_and(|body| body.child("legend").is_some()),
+        }
+    }
+}
+
+/// A picture on a worksheet and the cell its top-left corner is on.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlacedImage {
+    /// The picture.
+    pub image: Image,
+    /// The cell of its top-left corner, or `None` for a picture placed by
+    /// position.
+    pub at: Option<CellRef>,
+}
+
+impl PlacedImage {
+    pub(crate) fn from_core(image: &crabxl_core::Image) -> Result<Self> {
+        let at = match &image.anchor {
+            crabxl_core::DrawingAnchor::OneCell { from, .. }
+            | crabxl_core::DrawingAnchor::TwoCell { from, .. } => {
+                CellRef::new(from.row, from.col).ok()
+            }
+            crabxl_core::DrawingAnchor::Absolute { .. } => None,
+        };
+        let mut data = Vec::new();
+        image
+            .data
+            .write_to(&mut data)
+            .map_err(|error| Error::caused_by(ErrorKind::Io, "Cannot read the picture", error))?;
+        let (width, height) = match image_header(&data) {
+            Some((_, width, height)) => (width, height),
+            None => (0, 0),
+        };
+        Ok(Self {
+            image: Image {
+                data,
+                format: image.format,
+                width,
+                height,
+            },
+            at,
+        })
+    }
 }
 
 #[cfg(test)]

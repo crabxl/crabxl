@@ -1,9 +1,12 @@
 //! A worksheet in an editable workbook.
 
-use crate::features::{ConditionalFormat, DataValidation, Hyperlink, Image, Note, Table};
+use crate::features::{
+    Chart, ConditionalFormat, DataValidation, Hyperlink, Image, Margins, Note, Orientation,
+    PageSetup, PlacedImage, Table,
+};
 use crate::reference::{CellRef, IntoCellRef, IntoRange, IntoSpan, RangeRef, Span};
 use crate::row::{FromRow, Grid, IntoRow};
-use crate::style::Style;
+use crate::style::{Color, Style};
 use crate::value::{CellInput, Formula, IntoCell, Value, from_core, to_core};
 use crate::workbook::{Visibility, Workbook};
 use crate::{Error, ErrorKind, Result};
@@ -575,6 +578,18 @@ impl<'a> Worksheet<'a> {
         }) {
             return Err(Error::new(ErrorKind::InvalidData, "Tables cannot overlap"));
         }
+        if features
+            .auto_filter
+            .as_ref()
+            .and_then(|filter| filter.ref_range.as_deref())
+            .and_then(|text| text.parse::<crabxl_core::CellRange>().ok())
+            .is_some_and(|filter| filter.intersects(table.range.0))
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "A table cannot overlap the worksheet filter",
+            ));
+        }
         features.tables.push(core_table);
         self.book.engine.set_sheet_features(self.id, features)
     }
@@ -785,6 +800,411 @@ impl<'a> Worksheet<'a> {
             .as_ref()
             .is_some_and(|protection| protection.sheet))
     }
+
+    /// The pictures, with the cell of each top-left corner.
+    pub fn images(&mut self) -> Result<Vec<PlacedImage>> {
+        self.book
+            .engine
+            .sheet_images(self.id)?
+            .iter()
+            .map(PlacedImage::from_core)
+            .collect()
+    }
+    /// Remove every picture whose top-left corner is in `range`. Returns the
+    /// count.
+    pub fn remove_images(&mut self, range: impl IntoRange) -> Result<usize> {
+        let range = range.into_range()?;
+        let mut images = self.book.engine.sheet_images(self.id)?.to_vec();
+        let before = images.len();
+        images.retain(|image| !anchored_in(&image.anchor, range));
+        let removed = before - images.len();
+        if removed > 0 {
+            self.book.engine.set_sheet_images(self.id, images)?;
+        }
+        Ok(removed)
+    }
+    /// The charts.
+    pub fn charts(&mut self) -> Result<Vec<Chart>> {
+        Ok(self
+            .book
+            .engine
+            .sheet_charts(self.id)?
+            .iter()
+            .map(Chart::from_core)
+            .collect())
+    }
+    /// Add a chart. Its series refer to cells; Excel draws them when it
+    /// opens the file.
+    pub fn add_chart(&mut self, chart: &Chart) -> Result<()> {
+        let mut charts = self.book.engine.sheet_charts(self.id)?.to_vec();
+        let mut core = chart.to_core()?;
+        core.name = format!("Chart {}", charts.len() + 1).into();
+        charts.push(core);
+        self.book.engine.set_sheet_charts(self.id, charts)
+    }
+    /// Remove every chart whose top-left corner is in `range`. Returns the
+    /// count.
+    pub fn remove_charts(&mut self, range: impl IntoRange) -> Result<usize> {
+        let range = range.into_range()?;
+        let mut charts = self.book.engine.sheet_charts(self.id)?.to_vec();
+        let before = charts.len();
+        charts.retain(|chart| !anchored_in(&chart.anchor, range));
+        let removed = before - charts.len();
+        if removed > 0 {
+            self.book.engine.set_sheet_charts(self.id, charts)?;
+        }
+        Ok(removed)
+    }
+    /// Remove every conditional format that applies to a cell of `range`.
+    /// Returns the count of rules removed.
+    pub fn remove_conditional_formats(&mut self, range: impl IntoRange) -> Result<usize> {
+        let range = range.into_range()?;
+        let mut features = self.features()?;
+        let mut removed = 0;
+        features.conditional_formats.retain(|block| {
+            let hit = block.ranges.iter().any(|other| other.intersects(range.0));
+            if hit {
+                removed += block.rules.len();
+            }
+            !hit
+        });
+        if removed > 0 {
+            self.book.engine.set_sheet_features(self.id, features)?;
+        }
+        Ok(removed)
+    }
+
+    // ----- Filter, outline and printing -----
+
+    /// The range with filter buttons, if any.
+    pub fn auto_filter(&mut self) -> Result<Option<RangeRef>> {
+        Ok(self
+            .book
+            .engine
+            .sheet_features(self.id)?
+            .auto_filter
+            .as_ref()
+            .and_then(|filter| filter.ref_range.as_deref())
+            .and_then(|text| text.into_range().ok()))
+    }
+    /// Put filter buttons on the header row of a range. Replaces any
+    /// worksheet filter and its criteria. Tables have their own filters, so
+    /// the range cannot overlap a table.
+    pub fn set_auto_filter(&mut self, range: impl IntoRange) -> Result<()> {
+        let range = range.into_range()?;
+        let mut features = self.features()?;
+        if features.tables.iter().any(|table| {
+            table
+                .ref_range
+                .parse::<crabxl_core::CellRange>()
+                .is_ok_and(|other| other.intersects(range.0))
+        }) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "A worksheet filter cannot overlap a table",
+            ));
+        }
+        features.auto_filter = Some(crabxl_core::features::AutoFilter {
+            ref_range: Some(range.to_string().into()),
+            ..Default::default()
+        });
+        self.book.engine.set_sheet_features(self.id, features)
+    }
+    /// Remove the worksheet filter.
+    pub fn remove_auto_filter(&mut self) -> Result<()> {
+        let mut features = self.features()?;
+        if features.auto_filter.take().is_some() {
+            self.book.engine.set_sheet_features(self.id, features)?;
+        }
+        Ok(())
+    }
+    /// Set the outline level of rows, from 0 (not grouped) to 7.
+    pub fn set_rows_outline_level(&mut self, rows: impl IntoSpan, level: u8) -> Result<()> {
+        let level = outline_level(level)?;
+        let span = rows.into_row_span()?;
+        self.edit_rows(span, |row| row.outline_level = level)
+    }
+    /// The outline level of a row.
+    pub fn row_outline_level(&mut self, row: &str) -> Result<u8> {
+        let span = Span::rows(row)?;
+        let level = self
+            .model()?
+            .dimensions()
+            .row(RowIndex::new(span.start)?)
+            .and_then(|row| row.outline_level);
+        Ok(level.map_or(0, |level| level.min(7) as u8))
+    }
+    /// Set the outline level of columns, from 0 (not grouped) to 7.
+    pub fn set_columns_outline_level(&mut self, columns: impl IntoSpan, level: u8) -> Result<()> {
+        let level = outline_level(level)?;
+        let span = columns.into_column_span()?;
+        self.edit_columns(span, |column| column.outline_level = level)
+    }
+    /// The outline level of a column.
+    pub fn column_outline_level(&mut self, column: &str) -> Result<u8> {
+        let span = Span::columns(column)?;
+        let level = self
+            .model()?
+            .dimensions()
+            .column(ColumnIndex::new(span.start)?)
+            .and_then(|column| column.outline_level);
+        Ok(level.map_or(0, |level| level.min(7) as u8))
+    }
+    /// The color of the sheet tab, if set.
+    pub fn tab_color(&mut self) -> Result<Option<Color>> {
+        let settings = self.book.engine.print_settings(self.id)?;
+        settings
+            .properties
+            .as_ref()
+            .and_then(|properties| properties.tab_color.as_ref())
+            .map(color_from_attributes)
+            .transpose()
+    }
+    /// Set or clear the color of the sheet tab.
+    pub fn set_tab_color(&mut self, color: Option<&Color>) -> Result<()> {
+        let tab = color.map(color_attributes).transpose()?;
+        let mut settings = self.book.engine.print_settings(self.id)?;
+        let mut properties = settings.properties.take().unwrap_or_default();
+        properties.tab_color = tab;
+        settings.properties = Some(properties);
+        self.book.engine.set_print_settings(self.id, settings)
+    }
+    /// How the sheet prints.
+    pub fn page_setup(&mut self) -> Result<PageSetup> {
+        use crabxl_core::PageOrientation as O;
+        let settings = self.book.engine.print_settings(self.id)?;
+        let setup = &settings.setup;
+        let count = |value: Option<i64>| value.and_then(|v| u32::try_from(v).ok());
+        let (print_area, titles) = self.print_names()?;
+        let (title_rows, title_columns) = titles;
+        Ok(PageSetup {
+            orientation: match setup.orientation {
+                Some(O::Portrait) => Some(Orientation::Portrait),
+                Some(O::Landscape) => Some(Orientation::Landscape),
+                _ => None,
+            },
+            paper_size: count(setup.paper_size),
+            scale: count(setup.scale),
+            fit_to: (settings.fit_to_page == Some(true)).then(|| {
+                (
+                    count(setup.fit_to_width).unwrap_or(1),
+                    count(setup.fit_to_height).unwrap_or(1),
+                )
+            }),
+            margins: settings.margins.map_or_else(Margins::default, |m| Margins {
+                left: m.left,
+                right: m.right,
+                top: m.top,
+                bottom: m.bottom,
+                header: m.header,
+                footer: m.footer,
+            }),
+            center_horizontally: settings.options.horizontal_centered == Some(true),
+            center_vertically: settings.options.vertical_centered == Some(true),
+            grid_lines: settings.options.grid_lines == Some(true),
+            print_area,
+            title_rows,
+            title_columns,
+        })
+    }
+    /// Set how the sheet prints. Settings that `PageSetup` does not cover,
+    /// such as page breaks and headers, are kept.
+    pub fn set_page_setup(&mut self, page: &PageSetup) -> Result<()> {
+        use crabxl_core::PageOrientation as O;
+        page.validate()?;
+        let mut settings = self.book.engine.print_settings(self.id)?;
+        let setup = &mut settings.setup;
+        setup.orientation = page.orientation.map(|orientation| match orientation {
+            Orientation::Portrait => O::Portrait,
+            Orientation::Landscape => O::Landscape,
+        });
+        setup.paper_size = page.paper_size.map(i64::from);
+        setup.scale = page.scale.map(i64::from);
+        setup.fit_to_width = page.fit_to.map(|(wide, _)| i64::from(wide));
+        setup.fit_to_height = page.fit_to.map(|(_, tall)| i64::from(tall));
+        settings.fit_to_page = page.fit_to.map(|_| true);
+        let m = page.margins;
+        settings.margins = Some(crabxl_core::PageMargins {
+            left: m.left,
+            right: m.right,
+            top: m.top,
+            bottom: m.bottom,
+            header: m.header,
+            footer: m.footer,
+        });
+        settings.options.horizontal_centered = page.center_horizontally.then_some(true);
+        settings.options.vertical_centered = page.center_vertically.then_some(true);
+        settings.options.grid_lines = page.grid_lines.then_some(true);
+        self.book.engine.set_print_settings(self.id, settings)?;
+        self.set_print_names(page)
+    }
+    fn sheet_scope(&mut self) -> Result<u32> {
+        let id = self.id;
+        self.book
+            .ids()
+            .iter()
+            .position(|(other, _)| *other == id)
+            .map(|index| index as u32)
+            .ok_or_else(|| Error::new(ErrorKind::SheetNotFound, "The sheet was removed"))
+    }
+    #[allow(clippy::type_complexity)]
+    fn print_names(&mut self) -> Result<(Option<RangeRef>, (Option<Span>, Option<Span>))> {
+        let scope = self.sheet_scope()?;
+        let features = self.book.engine.workbook_features()?;
+        let find = |name: &str| {
+            features
+                .defined_names
+                .iter()
+                .find(|d| d.local_sheet_id == Some(scope) && d.name.eq_ignore_ascii_case(name))
+                .map(|d| d.value.to_string())
+        };
+        let local = |part: &str| part.rsplit('!').next().unwrap_or(part).replace('$', "");
+        // shortcut: an area of several ranges reads as None, upgrade if needed
+        let area = find(PRINT_AREA).and_then(|value| local(&value).into_range().ok());
+        let mut titles = (None, None);
+        for part in find(PRINT_TITLES).iter().flat_map(|value| value.split(',')) {
+            let part = local(part);
+            if part.starts_with(|c: char| c.is_ascii_digit()) {
+                titles.0 = Span::rows(&part).ok();
+            } else {
+                titles.1 = Span::columns(&part).ok();
+            }
+        }
+        Ok((area, titles))
+    }
+    fn set_print_names(&mut self, page: &PageSetup) -> Result<()> {
+        let scope = self.sheet_scope()?;
+        let sheet = format!("'{}'", self.name().replace('\'', "''"));
+        let column = |index: u32| -> Result<String> { Ok(CellRef::new(0, index)?.column_name()) };
+        let area = page
+            .print_area
+            .map(|range| -> Result<String> {
+                let (start, end) = (range.start(), range.end());
+                Ok(format!(
+                    "{sheet}!${}${}:${}${}",
+                    column(start.column())?,
+                    start.row() + 1,
+                    column(end.column())?,
+                    end.row() + 1
+                ))
+            })
+            .transpose()?;
+        let mut titles = Vec::new();
+        if let Some(rows) = page.title_rows {
+            titles.push(format!(
+                "{sheet}!${}:${}",
+                rows.start + 1,
+                rows.start + rows.count
+            ));
+        }
+        if let Some(columns) = page.title_columns {
+            titles.push(format!(
+                "{sheet}!${}:${}",
+                column(columns.start)?,
+                column(columns.start + columns.count - 1)?
+            ));
+        }
+        let titles = (!titles.is_empty()).then(|| titles.join(","));
+        let mut features = self.book.engine.workbook_features()?.clone();
+        for (name, value) in [(PRINT_AREA, area), (PRINT_TITLES, titles)] {
+            features.defined_names.retain(|d| {
+                !(d.local_sheet_id == Some(scope) && d.name.eq_ignore_ascii_case(name))
+            });
+            if let Some(value) = value {
+                features
+                    .defined_names
+                    .push(crabxl_core::features::DefinedName {
+                        name: name.into(),
+                        value: value.into(),
+                        local_sheet_id: Some(scope),
+                        ..Default::default()
+                    });
+            }
+        }
+        self.book.engine.set_workbook_features(features)
+    }
+}
+
+const PRINT_AREA: &str = "_xlnm.Print_Area";
+const PRINT_TITLES: &str = "_xlnm.Print_Titles";
+
+fn anchored_in(anchor: &crabxl_core::DrawingAnchor, range: RangeRef) -> bool {
+    match anchor {
+        crabxl_core::DrawingAnchor::OneCell { from, .. }
+        | crabxl_core::DrawingAnchor::TwoCell { from, .. } => {
+            let (start, end) = (range.start(), range.end());
+            (start.row()..=end.row()).contains(&from.row)
+                && (start.column()..=end.column()).contains(&from.col)
+        }
+        crabxl_core::DrawingAnchor::Absolute { .. } => false,
+    }
+}
+
+fn outline_level(level: u8) -> Result<Option<u32>> {
+    if level > 7 {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "An outline level is from 0 to 7",
+        ));
+    }
+    Ok((level > 0).then_some(u32::from(level)))
+}
+
+fn color_attributes(color: &Color) -> Result<crabxl_core::ElementAttributes> {
+    use crabxl_core::ColorKind;
+    let mut attributes: crabxl_core::ElementAttributes = Vec::new();
+    let mut push = |name: &str, value: String| attributes.push((name.into(), value.into()));
+    match &color.kind {
+        ColorKind::Theme(index) => push("theme", index.as_i64().unwrap_or(0).to_string()),
+        ColorKind::Indexed(index) => push("indexed", index.as_i64().unwrap_or(0).to_string()),
+        _ => match color.to_rgb() {
+            Some((r, g, b)) => push("rgb", format!("FF{r:02X}{g:02X}{b:02X}")),
+            None => {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "A tab color is an RGB, theme or indexed color",
+                ));
+            }
+        },
+    }
+    if let Some(tint) = color.tint {
+        push("tint", tint.to_string());
+    }
+    Ok(attributes)
+}
+
+fn color_from_attributes(attributes: &crabxl_core::ElementAttributes) -> Result<Color> {
+    use crabxl_core::ColorKind;
+    let get = |name: &str| {
+        attributes
+            .iter()
+            .find(|(key, _)| key.as_ref() == name)
+            .map(|(_, value)| value.as_ref())
+    };
+    let number = |text: &str| {
+        text.parse::<i64>()
+            .map_err(|_| Error::new(ErrorKind::InvalidData, "Invalid tab color index"))
+    };
+    let mut color = if let Some(rgb) = get("rgb") {
+        Color::hex(rgb)?
+    } else if let Some(theme) = get("theme") {
+        Color {
+            kind: ColorKind::Theme(number(theme)?.into()),
+            tint: None,
+        }
+    } else if let Some(indexed) = get("indexed") {
+        Color {
+            kind: ColorKind::Indexed(number(indexed)?.into()),
+            tint: None,
+        }
+    } else {
+        Color {
+            kind: ColorKind::Auto(true),
+            tint: None,
+        }
+    };
+    color.tint = get("tint").and_then(|tint| tint.parse().ok());
+    Ok(color)
 }
 
 impl std::fmt::Debug for Worksheet<'_> {

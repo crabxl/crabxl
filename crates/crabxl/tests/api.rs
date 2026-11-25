@@ -673,3 +673,127 @@ fn written_dates_get_a_format_only_when_the_cell_needs_one() {
         assert_eq!(sheet.style("B1").unwrap().number_format(), "dd/mm/yyyy");
     }
 }
+
+#[test]
+fn printing_filters_outline_charts_and_pictures_round_trip() {
+    use crabxl::Span;
+    use crabxl::features::{Chart, ChartKind, Margins, Orientation, PageSetup, Series};
+    let mut book = Workbook::new().unwrap();
+    let mut sheet = book.add_worksheet("Q 1").unwrap();
+    sheet.append_row(("Region", "Amount", "Due")).unwrap();
+    sheet
+        .append_rows([("North", 10, 1), ("South", 20, 2), ("West", 30, 3)])
+        .unwrap();
+    let page = PageSetup {
+        orientation: Some(Orientation::Landscape),
+        paper_size: Some(9),
+        fit_to: Some((1, 0)),
+        margins: Margins {
+            left: 0.5,
+            ..Margins::default()
+        },
+        center_horizontally: true,
+        grid_lines: true,
+        print_area: Some("A1:C4".parse().unwrap()),
+        title_rows: Some(Span::rows("1").unwrap()),
+        title_columns: Some(Span::columns("A").unwrap()),
+        ..PageSetup::default()
+    };
+    sheet.set_page_setup(&page).unwrap();
+    assert!(
+        sheet
+            .set_page_setup(&PageSetup {
+                scale: Some(5),
+                ..PageSetup::default()
+            })
+            .is_err()
+    );
+    sheet.set_auto_filter("A1:C4").unwrap();
+    sheet.set_tab_color(Some(&Color::rgb(255, 0, 0))).unwrap();
+    sheet.set_rows_outline_level("2:3", 1).unwrap();
+    sheet.set_columns_outline_level("C", 2).unwrap();
+    assert!(sheet.set_rows_outline_level("2", 8).is_err());
+    let chart = Chart::new(ChartKind::Bar, "E2:K12")
+        .unwrap()
+        .with_title("Sales")
+        .with_series(
+            Series::new("'Q 1'!$B$2:$B$4")
+                .unwrap()
+                .with_categories("'Q 1'!$A$2:$A$4")
+                .with_title("Amount"),
+        );
+    sheet.add_chart(&chart).unwrap();
+    let pie = Chart::new(ChartKind::Pie, "E14:K24")
+        .unwrap()
+        .with_legend(false)
+        .with_series(Series::new("'Q 1'!$B$2:$B$4").unwrap());
+    sheet.add_chart(&pie).unwrap();
+    sheet
+        .add_image(&Image::from_bytes(png()).unwrap(), "M2")
+        .unwrap();
+    sheet
+        .add_data_validation(
+            DataValidation::date(
+                Comparison::Between,
+                Temporal::date(2026, 1, 1).unwrap(),
+                Some(Temporal::date(2026, 12, 31).unwrap()),
+            )
+            .unwrap()
+            .with_range("C2:C4")
+            .unwrap(),
+        )
+        .unwrap();
+    sheet
+        .add_data_validation(
+            DataValidation::time(
+                Comparison::GreaterThan,
+                Temporal::time(9, 30, 0, 0).unwrap(),
+                None,
+            )
+            .unwrap()
+            .with_range("D2")
+            .unwrap(),
+        )
+        .unwrap();
+    sheet
+        .add_conditional_format(
+            ConditionalFormat::formula("B2:B4", "$B2>15", PartialStyle::new()).unwrap(),
+        )
+        .unwrap();
+
+    let mut again = reopen(&mut book);
+    let mut sheet = again.worksheet("Q 1").unwrap();
+    assert_eq!(sheet.page_setup().unwrap(), page);
+    assert_eq!(sheet.auto_filter().unwrap().unwrap().to_string(), "A1:C4");
+    assert_eq!(sheet.tab_color().unwrap(), Some(Color::rgb(255, 0, 0)));
+    assert_eq!(sheet.row_outline_level("2").unwrap(), 1);
+    assert_eq!(sheet.row_outline_level("4").unwrap(), 0);
+    assert_eq!(sheet.column_outline_level("C").unwrap(), 2);
+    assert_eq!(sheet.charts().unwrap(), vec![chart, pie]);
+    let images = sheet.images().unwrap();
+    assert_eq!(images.len(), 1);
+    assert_eq!(images[0].at, Some("M2".parse().unwrap()));
+    assert_eq!(images[0].image.size(), (1, 1));
+    let rules = sheet.data_validations().unwrap();
+    assert_eq!(rules[0].formula1(), Some("DATE(2026,1,1)"));
+    assert_eq!(rules[1].formula1(), Some("TIME(9,30,0)"));
+    assert_eq!(sheet.remove_conditional_formats("B3").unwrap(), 1);
+    assert_eq!(sheet.remove_charts("E2:E2").unwrap(), 1);
+    assert_eq!(sheet.remove_images("A1:Z9").unwrap(), 1);
+    sheet.remove_auto_filter().unwrap();
+    sheet.set_tab_color(None).unwrap();
+    sheet.set_page_setup(&PageSetup::default()).unwrap();
+    let mut last = reopen(&mut again);
+    let mut sheet = last.worksheet("Q 1").unwrap();
+    assert_eq!(sheet.charts().unwrap().len(), 1);
+    assert!(sheet.images().unwrap().is_empty() && sheet.conditional_formats().unwrap().is_empty());
+    assert_eq!(sheet.auto_filter().unwrap(), None);
+    assert_eq!(sheet.tab_color().unwrap(), None);
+    assert_eq!(sheet.page_setup().unwrap(), PageSetup::default());
+    assert!(
+        sheet
+            .set_auto_filter("A1:B2")
+            .and_then(|()| sheet.add_table(Table::new("T", "A1:C4").unwrap()))
+            .is_err()
+    );
+}
