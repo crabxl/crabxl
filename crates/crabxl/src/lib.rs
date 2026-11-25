@@ -1,155 +1,81 @@
-//! Rust spreadsheet processing with bounded streaming XLSX reads.
+//! Read, write and edit Excel XLSX files.
 //!
-//! Streaming reads, sequential creation and source-preserving edits share native
-//! cell, style, worksheet, drawing, chart, pivot and workbook metadata models.
-//! Binary assets and pivot records can stay on disk while cells stream. Formulas
-//! and pivot results are retained or marked for recalculation; CrabXL does not calculate them.
+//! CrabXL has three entry points, one for each way of working with a file:
 //!
-//! ```no_run
-//! use crabxl::{AccessPattern, MemoryPolicy, ReadData, WorkbookReader};
+//! | Type | Use it to | Memory |
+//! |---|---|---|
+//! | [`Workbook`] | create a workbook, or open one and change it | the sheets you use |
+//! | [`read::Reader`] | read large files row by row | one row |
+//! | [`write::Writer`] | write large files row by row | one row |
+//!
+//! All three share the same values, styles, references and errors.
+//!
+//! # Create a workbook
+//!
+//! ```
+//! use crabxl::style::{Font, Style};
+//! use crabxl::{Formula, Workbook};
 //! # fn main() -> crabxl::Result<()> {
-//! let mut workbook = WorkbookReader::open("numbers.xlsx")?;
-//! let output = workbook.read_with_policy(
-//!     "Sheet", AccessPattern::RepeatedAccess, MemoryPolicy::default(),
-//! )?;
-//! println!("{:?}", output.decision);
-//! match output.data {
-//!     ReadData::Materialized(sheet) => println!("{} rows", sheet.rows.len()),
-//!     ReadData::Streaming(mut rows) => while let Some(row) = rows.next_row()? {
-//!         println!("{:?}", row.index);
-//!     },
-//! }
+//! let mut book = Workbook::new()?;
+//! let mut sheet = book.add_worksheet("Sales")?;
+//! sheet.append_row(("Region", "Q1", "Q2", "Total"))?;
+//! sheet.append_row(("North", 120.5, 98.0, Formula::new("B2+C2")?))?;
+//! sheet.set_style("A1:D1", &Style::new().with_font(Font::new().with_bold(true)))?;
+//! sheet.freeze_panes("A2")?;
+//! let bytes = book.write_to(std::io::Cursor::new(Vec::new()), &Default::default())?;
+//! # assert!(!bytes.into_inner().is_empty());
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Edit a file
+//!
+//! A save copies every part you did not change, and it fails instead of
+//! dropping content that CrabXL cannot keep. Saves to a path are atomic.
+//!
+//! ```no_run
+//! use crabxl::Workbook;
+//! # fn main() -> crabxl::Result<()> {
+//! let mut book = Workbook::open("report.xlsx")?;
+//! let mut sheet = book.worksheet("Summary")?;
+//! let total: f64 = (&sheet.value("B10")?).try_into()?;
+//! sheet.insert_rows("5:6")?; // Formulas, names and ranges follow the cells.
+//! sheet.set_value("B5", total * 2.0)?;
+//! book.save("report.xlsx")?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Values
+//!
+//! A cell holds a [`Value`] and, optionally, a [`Formula`]. For a formula
+//! cell the value is the cached result. Values never turn into formulas:
+//! text that starts with `=` stays text. Numbers keep their full precision;
+//! see [`Number`].
+
+mod reference;
+mod row;
+mod value;
+mod workbook;
+mod worksheet;
+
+pub mod features;
+pub mod read;
+pub mod style;
+pub mod write;
+
+pub use crabxl_core::{Error, ErrorKind, Result};
+pub use crabxl_xlsx::DataLossPolicy;
+pub use reference::{CellRef, IntoCellRef, IntoRange, IntoSpan, RangeRef, Span};
+pub use row::{FromRow, Grid, IntoRow};
+pub use value::{
+    CellInput, ErrorValue, Formula, FromValue, IntoCell, Number, RichText, Temporal, TemporalKind,
+    Text, TextRun, Value,
+};
+pub use workbook::{
+    Limits, Memory, OpenOptions, Properties, SaveOptions, Source, Visibility, Workbook,
+};
+pub use worksheet::{Cell, Worksheet};
 
 #[cfg(feature = "calc")]
-pub use crabxl_calc::{CalcStats, calculate};
-pub use crabxl_core::{
-    AccessPattern, AutoMemory, DecisionReason, MemoryPolicy, MemorySource, ReadDecision, ReadMode,
-};
-pub use crabxl_core::{
-    Cell, CellAddress, CellValue, ColumnIndex, Error, ErrorKind, MAX_COLUMNS, MAX_ROWS,
-    ReadOptions, ResourceLimits, Result, Row, RowBatch, RowIndex, SheetData,
-};
-pub use crabxl_core::{
-    CellError, CellText, ExactInteger, StyleComponent, StyleId, StyleInteger, parse_iso8601,
-};
-pub use crabxl_xlsx::{AdaptiveRead, ReadData};
-pub use crabxl_xlsx::{LoadOptions, LoadedWorkbook};
-pub use crabxl_xlsx::{Rows, SheetInfo, SheetKind, WorkbookReader};
-pub use crabxl_xlsx::{max_threads, set_max_threads};
-
-pub use crabxl_xlsx::{
-    FormulaWritePolicy, NonFiniteWritePolicy, StyleWritePolicy, WorkbookWriter, WriteOptions,
-    WriteStats,
-};
-
-pub use crabxl_core::{
-    BorderLine, BorderSide, CellStyle, DateEpoch, DateKind, ExcelDateTime, Font, Formula,
-    HorizontalAlignment, VerticalAlignment,
-};
-
-pub use crabxl_core::{ActiveViewSelection, normalize_active_view, resolve_sheet_index};
-pub use crabxl_core::{CellRange, EditLimits, SheetVisibility, Worksheet, WorksheetRange};
-pub use crabxl_core::{Hyperlink, Hyperlinks};
-pub use crabxl_core::{MergedCellRange, MergedRangeIter, MergedRanges};
-pub use crabxl_xlsx::resolve_relationship_targets;
-pub use crabxl_xlsx::unprotect_rich_text_literal;
-pub use crabxl_xlsx::{HyperlinkOutput, visit_owned_hyperlink_ids};
-pub use crabxl_xlsx::{read_rich_text, write_rich_text};
-
-pub use crabxl_xlsx::{
-    CalculationChainPolicy, CopySheetOptions, DataLossPolicy, EditorOptions, PartInfo,
-    ReferenceUpdate, SaveOptions, SaveStats, WorkbookEditor,
-};
-
-pub use crabxl_core::MemoryAllowance;
-pub use crabxl_xlsx::memory_allowance;
-
-pub use crabxl_core::{Axis, RangeUpdate, StructuralEdit};
-pub use crabxl_core::{
-    FormulaScan, FormulaToken, TokenKind, TokenSubtype, classify_formula_operand,
-    formula_scientific_prefix, scan_formula_fragment, tokenize_formula,
-};
-pub use crabxl_core::{formula_position, translate_axis, translate_expression};
-
-pub use crabxl_core::{
-    OwnedWorksheets, SheetId, Workbook, WorkbookLimits, WorkbookParts, WorksheetEditor,
-};
-
-pub use crabxl_xlsx::{SharedStringOptions, SharedStringStats, SharedStringStorage};
-
-pub use crabxl_core::{
-    ArgbLiteral, Color, ColorKind, FontScheme, PhoneticProperties, PhoneticRun, RichText,
-    RichTextRun, RunFont, TextVerticalAlignment, Underline,
-};
-
-pub use crabxl_core::{
-    Alignment, Border, Fill, FillPattern, GradientFill, GradientKind, GradientStop, PatternFill,
-    Protection,
-};
-
-pub use crabxl_core::{
-    CellFormat, NamedStyle, NamedStyleOptions, NumberFormat, StyleCatalog, StyleView,
-};
-
-pub use crabxl_core::DateReadPolicy;
-
-pub use crabxl_core::{
-    DataTableOptions, FormulaAnnotations, FormulaFlag, FormulaFlags, FormulaMetadata, FormulaRange,
-    FormulaReference, FormulaType, SharedFormulaIndex,
-};
-
-pub use crabxl_core::FormulaReadPolicy;
-
-pub use crabxl_xlsx::SharedFormulaStats;
-
-pub use crabxl_core::{
-    BUILTIN_NUMBER_FORMATS, builtin_number_format, builtin_number_format_id, classify_number_format,
-};
-
-pub use crabxl_core::{StyleLimits, StyleRegistry, TemporalStyleIds};
-
-pub use crabxl_core::{
-    Theme, ThemeCatalog, ThemeColor, ThemeFontCollection, ThemeScriptFont, ThemeTypeface,
-};
-pub use crabxl_xlsx::ThemeWritePolicy;
-
-pub use crabxl_core::CellMetadataReadPolicy;
-
-pub use crabxl_core::{
-    DifferentialStyle, TableStyle, TableStyleCatalog, TableStyleElement, TableStyleRegion,
-};
-
-pub use crabxl_core::{Pane, PanePosition, PaneState, Selection, SheetView, SheetViews, ViewMode};
-
-pub use crabxl_core::{
-    ElementAttributes, PageBreak, PageMargins, PageOrder, PageOrientation, PageSetup,
-    PaperDimension, PrintOptions, PrintSettings, PrintSettingsChange, PrintedComments,
-    PrintedErrors, SheetProperties,
-};
-
-/// Sparse worksheet dimension metadata and shared appearance identities.
-pub use crabxl_core::{ColumnDimension, RowDimension, SheetDimensions};
-
-/// Tables, filters, conditional formats, validation, comments, protection,
-/// header/footer, defined names and document properties.
-pub use crabxl_core::features;
-pub use crabxl_core::{SheetFeatures, WorkbookFeatures};
-/// Convert features from and to SpreadsheetML XML, for language bindings.
-pub use crabxl_xlsx::feature_xml;
-
-pub use crabxl_core::drawing;
-pub use crabxl_core::drawing::{
-    DrawingAnchor, DrawingEditAs, DrawingExtent, DrawingMarker, Image, ImageFormat,
-};
-
-pub use crabxl_core::drawing::{Chart, ChartKind, PartGraph, Shape, XmlContent, XmlElement};
-
-pub use crabxl_core::{BinaryPayload, BinaryReader};
-
-pub use crabxl_xlsx::{PivotRecords, write_pivot_records};
-
-pub use crabxl_core::AnnotatedValue;
-pub use crabxl_core::CellStorageType;
+pub use crabxl_calc::CalcStats;

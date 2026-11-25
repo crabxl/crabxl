@@ -19,9 +19,14 @@ deflate-zlib = ["crabxl-xlsx/deflate-zlib"]
 calc = ["crabxl-xlsx/calc", "dep:crabxl-calc"]
 
 [dependencies]
+chrono.workspace = true
 crabxl-core.workspace = true
 crabxl-xlsx.workspace = true
 crabxl-calc = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+zip.workspace = true
 
 [lints]
 workspace = true
