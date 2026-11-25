@@ -209,6 +209,21 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             if charts_changed {
                 plan.charts.push((other, updated_charts));
             }
+            let mut links = Vec::new();
+            for (address, link) in self.hyperlinks(other)?.iter() {
+                let Some(location) = link.location.as_deref() else {
+                    continue;
+                };
+                // A location is a reference or a defined name, without "=".
+                if let Some(updated) = edit.update_formula(location, Some(&host), &sheet)? {
+                    let mut link = link.clone();
+                    link.location = Some(updated.into());
+                    links.push((address, link));
+                }
+            }
+            if !links.is_empty() {
+                plan.links.push((other, links));
+            }
             let mut formulas = Vec::new();
             for cell in self.sheet(other)?.cells() {
                 if let Some(value) = edit.update_value(&cell.value, &host, &sheet)? {
@@ -260,24 +275,27 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         for (sheet, formulas) in plan.formulas {
             for (address, value) in formulas {
                 let address = if sheet == id {
-                    let (row, column) = match edit.axis {
-                        crabxl_core::Axis::Rows => (
-                            edit.map_index(address.row.get())?,
-                            Some(address.column.get()),
-                        ),
-                        crabxl_core::Axis::Columns => (
-                            Some(address.row.get()),
-                            edit.map_index(address.column.get())?,
-                        ),
-                    };
-                    match (row, column) {
-                        (Some(row), Some(column)) => CellAddress::new(row, column)?,
-                        _ => continue, // The cell itself was deleted.
+                    match moved(edit, address)? {
+                        Some(address) => address,
+                        None => continue, // The cell itself was deleted.
                     }
                 } else {
                     address
                 };
                 self.set_value(sheet, address, value)?;
+            }
+        }
+        for (sheet, links) in plan.links {
+            for (address, link) in links {
+                let address = if sheet == id {
+                    match moved(edit, address)? {
+                        Some(address) => address,
+                        None => continue,
+                    }
+                } else {
+                    address
+                };
+                self.update_hyperlink(sheet, address, Some(link))?;
             }
         }
         for (sheet, charts) in plan.charts {
@@ -506,9 +524,28 @@ pub enum ReferenceUpdate {
     CellsOnly,
 }
 
+/// Where a cell of the edited sheet moved; `None` when it was deleted.
+fn moved(edit: &crabxl_core::StructuralEdit, address: CellAddress) -> Result<Option<CellAddress>> {
+    let (row, column) = match edit.axis {
+        crabxl_core::Axis::Rows => (
+            edit.map_index(address.row.get())?,
+            Some(address.column.get()),
+        ),
+        crabxl_core::Axis::Columns => (
+            Some(address.row.get()),
+            edit.map_index(address.column.get())?,
+        ),
+    };
+    Ok(match (row, column) {
+        (Some(row), Some(column)) => Some(CellAddress::new(row, column)?),
+        _ => None,
+    })
+}
+
 #[derive(Default)]
 struct ReferencePlan {
     formulas: Vec<(SheetId, Vec<(CellAddress, CellValue)>)>,
+    links: Vec<(SheetId, Vec<(CellAddress, crabxl_core::Hyperlink)>)>,
     charts: Vec<(SheetId, Vec<crabxl_core::drawing::Chart>)>,
     features: Option<crabxl_core::SheetFeatures>,
     images: Option<Vec<crabxl_core::Image>>,

@@ -190,3 +190,26 @@ fn cells_only_edits_keep_reference_text_and_unsupported_content_rejects_first() 
     // Nothing moved.
     assert_eq!(expression(&mut book, "Data", "A4"), "SUM(A1:A3)");
 }
+
+#[test]
+fn internal_hyperlinks_follow_their_target_cells() {
+    let mut book = prepared();
+    let summary = book.sheet_id("Summary").unwrap();
+    let link = crabxl_core::Hyperlink {
+        location: Some("Data!A4".into()),
+        ..Default::default()
+    };
+    book.set_hyperlink(summary, address("C1"), Some(link))
+        .unwrap();
+    let data = book.sheet_id("Data").unwrap();
+    book.insert_rows(data, RowIndex::new(0).unwrap(), 3)
+        .unwrap();
+    let location = book
+        .hyperlinks(summary)
+        .unwrap()
+        .get(address("C1"))
+        .unwrap()
+        .location
+        .clone();
+    assert_eq!(location.as_deref(), Some("Data!A7"));
+}
