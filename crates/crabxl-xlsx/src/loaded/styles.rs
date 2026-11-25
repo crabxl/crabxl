@@ -18,6 +18,42 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         }
         Ok(())
     }
+    /// Register a complete appearance and return its workbook-local id. An
+    /// equal appearance returns the existing id.
+    pub fn register_style(
+        &mut self,
+        style: crabxl_core::CellStyle,
+    ) -> Result<crabxl_core::StyleId> {
+        if let Some(name) = &style.font.name {
+            crate::encode::validate_xml_text(name)?;
+        }
+        self.prepare_style_edit()?;
+        self.rebalance()?;
+        let result = self.bank.register_style(style);
+        if result.is_ok() {
+            self.editor.styles_changed();
+        }
+        self.rebalance()?;
+        result
+    }
+    /// The complete appearance of a workbook-local style id.
+    pub fn cell_style(&self, id: crabxl_core::StyleId) -> Result<crabxl_core::CellStyle> {
+        let Some(catalog) = self.bank.style_catalog() else {
+            return Ok(crabxl_core::CellStyle::default());
+        };
+        let view = catalog.cell_style(id)?;
+        Ok(crabxl_core::CellStyle {
+            number_format: view.number_format.unwrap_or("General").into(),
+            font: view.font.clone(),
+            fill: view.fill.clone(),
+            borders: view.border.clone(),
+            alignment: view.alignment.cloned().unwrap_or_default(),
+            protection: view.protection.cloned().unwrap_or(crabxl_core::Protection {
+                locked: Some(true),
+                hidden: Some(false),
+            }),
+        })
+    }
     /// Derive a source cell's number format while retaining its other style fields.
     /// Unknown style extensions and signed packages reject before registration.
     /// Successfully interned formats remain reusable if a later cell edit fails.
