@@ -168,6 +168,25 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .map(|entry| entry.id)
             .collect();
         let mut plan = ReferencePlan::default();
+        let chartsheets: Vec<SheetId> = self
+            .sheets
+            .iter()
+            .filter(|entry| entry.kind == crate::SheetKind::ChartSheet)
+            .map(|entry| entry.id)
+            .collect();
+        for other in chartsheets {
+            let mut charts = self.sheet_charts(other)?.to_vec();
+            let mut changed = false;
+            for chart in &mut charts {
+                if let Some(space) = edit.update_chart(&chart.space, &sheet)? {
+                    chart.space = space;
+                    changed = true;
+                }
+            }
+            if changed {
+                plan.charts.push((other, charts));
+            }
+        }
         for &other in &worksheets {
             let host = self.bank.sheet(other)?.name().to_owned();
             let pivots = self.sheet_pivots(other)?.to_vec();
