@@ -6,6 +6,66 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
+## [0.3.0] - unreleased
+
+This release redesigns the public API. See the
+[README](README.md) for the new entry points.
+
+### Changed
+
+- The `crabxl` crate has its own API: `Workbook` to create a workbook or
+  open one and change it, `read::Reader` to stream rows and `write::Writer`
+  to write rows with bounded memory. They share `Value`, `Formula`,
+  `Number`, `Temporal`, `Style`, references (`CellRef`, `RangeRef`, `Span`)
+  and the feature types in `features`. The crate root no longer re-exports
+  engine types such as `LoadedWorkbook`, `WorkbookReader`, `WorkbookWriter`
+  and `WorkbookEditor`; depend on `crabxl-xlsx` and `crabxl-core` for them.
+- Inserting or deleting rows or columns updates every reference to the
+  moved cells: formulas on all sheets, defined names, tables, filters, sort
+  ranges, conditional formats, data validation, merges, row heights, column
+  widths, chart series, drawing anchors and internal hyperlinks. References
+  into deleted cells become `#REF!`. Content that cannot follow (pivot
+  tables, scenarios, array formulas, 3-D references, a deleted table header)
+  fails with `ErrorKind::Unsupported` before anything changes.
+  `ReferenceUpdate::CellsOnly` keeps the old behavior.
+- A save fails with `ErrorKind::Unsupported` instead of silently dropping
+  content: unmodeled attributes or elements in rewritten features, views or
+  print settings, linked pictures in rewritten drawings, unsupported
+  `mc:AlternateContent` blocks, unknown sheet catalog entries, invalidated
+  digital signatures and sheet copies that cannot carry their source.
+  `DataLossPolicy::Allow` permits the removal.
+- Policy variants named after a reference package now describe their
+  behavior, and the defaults are lossless: `DateReadPolicy::RetainSerial`,
+  `FormulaReadPolicy::Lenient`, `CellMetadataReadPolicy::ProjectValues`,
+  `FormulaWritePolicy::OmitDefaults`, `StyleWritePolicy::OmitDefaults`,
+  `NonFiniteWritePolicy::Reject` and `ThemeWritePolicy::Office`.
+  `DocumentProperties::for_new_document` replaces `with_openpyxl_defaults`.
+- Date formats read by the parts they show: date-only formats read as
+  dates and time-only formats as times (`TemporalKindPolicy::FromFormat`).
+  A serial with a part the format hides reads as a date and time.
+  `TemporalKindPolicy::FromValue` keeps the old rule.
+- `LoadedWorkbook::copy_sheet` copies views and the header/footer too.
+  `CopySheetOptions` selects a narrower copy.
+
+### Added
+
+- `CellValue::Decimal` and `ExactDecimal` keep numbers with more precision
+  than `f64`. `ReadOptions::exact_numbers` returns every non-integer as its
+  exact text.
+- `write_atomically`: path saves write a temporary file, flush it and rename
+  it over the target. A failed save leaves the target unchanged; an existing
+  target keeps its permissions.
+- `ErrorKind::NotFound`, `ErrorKind::Conversion` and `Error::sheet`.
+- Style builders: `Color::rgb`, `Color::hex`, `Color::theme` and `with_*`
+  methods on `Font`, `Border`, `Alignment` and `CellStyle`.
+- `LoadedWorkbook::register_style` and `cell_style`.
+
+### Fixed
+
+- Building a sheet with dates in a loaded workbook took quadratic time.
+- Large created worksheets compress on several threads, as rewritten ones
+  already did.
+
 ## [0.2.2]
 
 ### Fixed

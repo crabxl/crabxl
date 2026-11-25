@@ -15,21 +15,27 @@
 
 ## About
 
-CrabXL provides bounded streaming reads, sequential writes, and existing-file
-edits through a shared Rust engine. It targets the public capabilities of
-openpyxl while keeping the Rust API idiomatic.
+CrabXL reads, writes and edits XLSX files in Rust. Three entry points cover
+the three ways of working with a file, and all three share one model of
+values, formulas, styles and references:
 
-- Stream sparse worksheet rows or explicitly load an owned sheet.
-- Read exact integers, text, rich text, dates, styles, and formula records.
-- Create workbooks and edit supported cell values while preserving unrelated
-  original package parts.
-- Configure memory allowances, shared-string RAM/disk storage, caches, resource
-  limits, and ZIP compression.
+| Type | Use it to | Memory |
+|---|---|---|
+| `Workbook` | create a workbook, or open one and change it | the sheets you use |
+| `read::Reader` | read large files row by row | one row |
+| `write::Writer` | write large files row by row | one row |
 
-CrabXL has the capabilities of openpyxl 3.1.5. Before version 1.0, a minor
-version can change the API. Invalid input returns explicit errors.
-The optional `calc` feature calculates formulas with the Formualizer engine and
-stores the results as cached values. See [project status](internal/STATUS.md).
+- Edits are lossless. A save copies every part you did not change. It fails
+  instead of dropping content that CrabXL cannot keep, unless you allow it.
+- Saves to a path are atomic. Saving over the file you opened is safe.
+- Inserting or deleting rows or columns updates every reference: formulas on
+  all sheets, names, tables, rules, merges, charts and drawings.
+- Numbers keep their full precision. Text never turns into a formula.
+- Invalid input returns explicit errors with the sheet and cell.
+
+Before version 1.0, a minor version can change the API. The optional `calc`
+feature calculates formulas with the Formualizer engine and stores the
+results as cached values. See [project status](internal/STATUS.md).
 
 ## Installation
 
@@ -37,77 +43,103 @@ Requires **Rust 1.88 or newer**.
 
 ```toml
 [dependencies]
-crabxl = "0.2.2"
+crabxl = "0.3.0"
 ```
 
 ## Usage
 
-### Read rows
+### Create a workbook
 
 ```rust
-use crabxl::WorkbookReader;
+use crabxl::style::{Color, Fill, Font, Style};
+use crabxl::{Formula, Workbook};
 
 fn main() -> crabxl::Result<()> {
-    let mut workbook = WorkbookReader::open("input.xlsx")?;
-    let mut rows = workbook.rows("Sheet1")?;
+    let header = Style::new()
+        .with_font(Font::new().with_bold(true))
+        .with_fill(Fill::solid(Color::hex("DDEBF7")?));
 
-    while let Some(row) = rows.next_row()? {
-        for cell in row.cells {
-            println!("{:?}: {:?}", cell.address, cell.value);
-        }
+    let mut book = Workbook::new()?;
+    let mut sheet = book.add_worksheet("Sales")?;
+    sheet.append_row(("Region", "Q1", "Q2", "Total"))?;
+    sheet.append_row(("North", 120.5, 98.0, Formula::new("B2+C2")?))?;
+    sheet.set_style("A1:D1", &header)?;
+    sheet.set_column_width("A:D", 14.0)?;
+    sheet.freeze_panes("A2")?;
+    book.save("sales.xlsx")
+}
+```
+
+### Edit a file
+
+```rust
+use crabxl::Workbook;
+
+fn main() -> crabxl::Result<()> {
+    let mut book = Workbook::open("report.xlsx")?;
+    let mut summary = book.worksheet("Summary")?;
+    let total: f64 = (&summary.value("B10")?).try_into()?; // the cached result
+    summary.insert_rows("5:6")?; // formulas, names and ranges follow the cells
+    summary.set_value("B5", total * 2.0)?;
+    summary.map_style("B2:B12", |style| style.with_number_format("#,##0.00"))?;
+    book.save("report.xlsx") // atomic, even over the source
+}
+```
+
+A cell holds a `Value` and, optionally, a `Formula`; for a formula cell the
+value is the cached result. `rows_as::<(String, f64)>("A2:B9")` converts rows
+to tuples, and `values("A1:D10")` returns a dense `Grid`.
+
+### Stream rows
+
+```rust
+use crabxl::read::{Reader, RowOptions};
+use crabxl::write::{WriteOptions, Writer};
+
+fn main() -> crabxl::Result<()> {
+    let mut reader = Reader::open("events.xlsx")?;
+    let options = RowOptions::new().with_columns("A:C")?.with_skip_rows(1);
+    let mut writer = Writer::create("totals.xlsx", &WriteOptions::new())?;
+    let mut sheet = writer.add_worksheet("Totals")?;
+    for row in reader.rows("Events", &options)? {
+        let (id, kind, amount): (i64, String, f64) = row?.parse()?;
+        sheet.append_row((id, kind, amount * 1.2))?;
     }
-    Ok(())
+    writer.finish()
 }
 ```
 
-Coordinates are zero-based. Streaming returns physically present cells with their
-original positions. Use `read_sheet` when you need an owned worksheet snapshot.
-
-### Edit an existing file
-
-```rust
-use crabxl::{CellAddress, CellValue, SaveOptions, WorkbookEditor};
-
-fn main() -> crabxl::Result<()> {
-    let mut workbook = WorkbookEditor::open("input.xlsx")?;
-    workbook.set_value("Sheet1", CellAddress::new(0, 0)?, CellValue::Integer(42))?;
-    workbook.save_path("output.xlsx", SaveOptions::default())?;
-    Ok(())
-}
-```
-
-Use `WorkbookWriter` for sequential creation and `LoadedWorkbook` for structural
-edits such as appending rows or copying sheets. The
-[quickstart example](crates/crabxl/examples/quickstart.rs) shows all four APIs:
+The [quickstart example](crates/crabxl/examples/quickstart.rs) runs all three:
 
 ```sh
 cargo run -p crabxl --example quickstart
 ```
 
-## Resource and compression options
+## Options
 
-To set one memory limit for a loaded workbook, use
-`LoadOptions::with_memory_limit(bytes)`:
+`OpenOptions` sets input safety limits (`Limits::Strict` for untrusted
+uploads, `Limits::Unlimited` for files you trust), a memory budget
+(`Memory::Budget(bytes)`), the data-loss policy and exact-number reading.
+The memory budget covers loaded sheets, edits and shared strings; it is not
+a cap on process memory.
 
-```rust
-let options = crabxl::LoadOptions::with_memory_limit(2 * 1024 * 1024 * 1024);
-let book = crabxl::LoadedWorkbook::with_options(std::fs::File::open("in.xlsx")?, options)?;
-```
+`SaveOptions` and `WriteOptions` accept compression levels **0–9**: 0 stores
+without compression, 1–9 use Deflate, and the default is 6. Worksheets of
+4 MiB or more compress on up to four threads. The default backend is
+pure-Rust zlib-rs; native zlib is available through the `deflate-zlib`
+feature with default features disabled.
 
-`ResourceLimits` guards against hostile input files: ZIP bombs, deep XML and
-huge XML tokens. The default opens every file Excel writes;
-`ResourceLimits::strict()` suits untrusted uploads and
-`ResourceLimits::unlimited()` turns the guards off for trusted files.
-`MemoryPolicy` offers explicit budgets or configurable Auto selection;
-`SharedStringOptions` controls RAM/disk placement and decoded caches. Managed
-allowances are not a whole-process RSS cap.
+## Crates
 
-Write and save options accept compression levels **0–9**: 0 stores without
-compression; 1–9 use Deflate; the default is 6. Worksheets of 4 MiB or more are
-compressed on up to four threads. The default backend is pure-Rust zlib-rs.
-Native zlib is available through the `deflate-zlib` feature with default
-features disabled. Existing-file saves retain compressed bytes for untouched
-parts.
+| Crate | Contents |
+|---|---|
+| `crabxl` | The public API described here. |
+| `crabxl-xlsx` | The XLSX engine: package, readers, writers, the preserving editor. |
+| `crabxl-core` | I/O-free models: values, styles, features, references. |
+| `crabxl-calc` | Optional formula calculation. |
+
+Language bindings and tools that need engine-level access depend on
+`crabxl-xlsx` and `crabxl-core` directly.
 
 ## Documentation
 

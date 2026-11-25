@@ -30,7 +30,7 @@ pub(crate) fn validate_link(
 ) -> Result<()> {
     link.validate_owner(address)
         .map_err(|error| error.with_cell(address))?;
-    // As in openpyxl, every target is written as an external relationship and
+    // Every target is written as an external relationship and
     // a relationship ID without a target is dropped.
     for text in [&link.target, &link.location, &link.display, &link.tooltip]
         .into_iter()

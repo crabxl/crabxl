@@ -183,7 +183,7 @@ pub(crate) fn header(
                 table.input2 = Some(value.into_owned().into_boxed_str());
                 table_seen = true;
             }
-            // Unknown attributes are ignored, as in openpyxl.
+            // Unknown attributes are ignored; they carry no formula semantics.
             _ => {}
         }
     }

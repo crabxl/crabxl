@@ -171,7 +171,7 @@ impl Worksheet {
                     formula.formula_type(),
                     crate::FormulaType::Array | crate::FormulaType::DataTable
                 ) {
-                    // As in openpyxl, array and data-table formulas keep their text.
+                    // Array and data-table formulas keep their text: their ranges are attributes.
                     continue;
                 }
                 let maximum = self

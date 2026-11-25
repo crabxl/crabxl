@@ -5,9 +5,9 @@
 - **Report a bug.** Use the [issue forms](https://github.com/crabxl/crabxl/issues/new/choose).
   Give the CrabXL version and the smallest `.xlsx` file or code that shows the
   problem. Remove confidential data first.
-- **Report a difference from openpyxl.** CrabXL targets the public capabilities
-  of openpyxl 3.1.5. Tell us the openpyxl call or behavior and how CrabXL is
-  different. Report Python API problems in
+- **Report a missing capability.** Tell us what you need to read, write or
+  edit and what CrabXL does instead. Report Python API problems, including
+  differences from openpyxl in `crabxl.openpyxl`, in
   [crabxl-python](https://github.com/crabxl/crabxl-python/issues).
 - **Improve the documentation.** User documentation is in [docs](docs). The
   documentation site is built from it by
@@ -21,8 +21,8 @@ Do not report security problems in public issues. Read [SECURITY.md](SECURITY.md
 
 | Path | Contents |
 |---|---|
-| `crates/crabxl` | Public facade crate. Users depend only on this crate. |
-| `crates/crabxl-core` | Format-independent models: values, addresses, styles, formulas, worksheets and memory accounting. |
+| `crates/crabxl` | The public API: `Workbook`, `read::Reader`, `write::Writer`. Users depend on this crate. |
+| `crates/crabxl-core` | Format-independent models: values, addresses, styles, formulas, worksheets, reference updates and memory accounting. |
 | `crates/crabxl-xlsx` | XLSX package I/O: streaming reader, sequential writer, editor and loaded workbook. |
 | `crates/crabxl/examples` | Usage examples. Start with [`quickstart.rs`](crates/crabxl/examples/quickstart.rs). |
 | `docs/` | Public user documentation. |
@@ -31,8 +31,16 @@ Do not report security problems in public issues. Read [SECURITY.md](SECURITY.md
 | `tools/` | Release scripts. |
 
 The Python package is in a separate repository,
-[crabxl-python](https://github.com/crabxl/crabxl-python). It uses the
-`crabxl` crate from crates.io.
+[crabxl-python](https://github.com/crabxl/crabxl-python). Its native API
+uses the `crabxl` crate; its openpyxl interface also uses `crabxl-xlsx` and
+`crabxl-core`.
+
+## Design rules
+
+- Name options by what they do. Defaults are lossless: a save never drops
+  content without `DataLossPolicy::Allow`.
+- Behavior that only a compatibility interface needs is an option the
+  interface selects, never a default.
 
 ## Development setup
 

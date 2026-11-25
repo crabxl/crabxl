@@ -1,11 +1,13 @@
 # Status
 
-Last update: 2026-11-11.
+Last update: 2026-11-25.
 
 ## Current release
 
-- Releases and their changes are in `CHANGELOG.md`. The capabilities match
-  openpyxl 3.1.5.
+- Releases and their changes are in `CHANGELOG.md`. Version 0.3.0 (unreleased)
+  redesigns the public API: `Workbook`, `read::Reader` and `write::Writer`.
+- The Python package offers the native API under `crabxl` and the openpyxl
+  3.1.5 interface under `crabxl.openpyxl`.
 
 ## Implemented Rust scope
 
@@ -41,23 +43,27 @@ Port origins and notices are in `third_party/ports.json`.
 
 ## Validation
 
-Windows: 352 Rust tests pass. Formatting and Clippy pass for all workspace
-targets. The Python validation (see the crabxl-python status) passes: 1,066
-package tests, 1,560 corpus round-trip checks and the openpyxl 3.1.5 suite
-with 2,114 passes and 330 tracked failures of openpyxl internals and
-deliberate differences.
+Linux, 2026-11-25: 408 Rust tests pass, including doctests and the public
+API tests in `crates/crabxl/tests/api.rs`. Formatting and Clippy pass for all
+workspace targets. The Python validation (see the crabxl-python status)
+passes: 1,100 package tests and the openpyxl 3.1.5 suite with 2,114 passes
+and 330 tracked failures of openpyxl internals and deliberate differences,
+unchanged from 0.2.2. Files from the new API open in openpyxl with the
+expected values, formulas, styles and frozen panes.
 
-Windows Excel opens written and edited 1,000,000-row files with the right rows
-and date formats. The benchmark suites are in crabxl-benchmarks. A full
-rerun and macOS Excel validation are optional (see the roadmap).
+Windows Excel opened written and edited 1,000,000-row files from 0.2.x. The
+0.3.0 output has not been opened in Excel yet (see the roadmap). The
+benchmark suites are in crabxl-benchmarks.
 
 ## Deliberate boundaries
 
 - CrabXL calculates formulas only through the optional `calc` feature, and not
   array or data-table formulas. It does not calculate chart caches or pivot
   results, execute VBA, or refresh external sources.
-- Reference ranges, chart series and drawing anchors retain their explicit-edit
-  policies during row/column edits. Notes move with their cells.
-- As in openpyxl, an edit drops unknown markup from the parts it rewrites, and a
-  changed signed package is saved without its signature. Untouched source parts
-  retain their compressed payloads.
+- Row and column edits update formulas, names, tables, rules, merges,
+  dimensions, chart series, anchors and internal hyperlinks. Pivot tables,
+  scenarios, array and data-table formulas and 3-D references cannot follow;
+  such edits fail before anything changes.
+- A save that would remove content CrabXL cannot keep fails unless
+  `DataLossPolicy::Allow` is set. Untouched source parts retain their
+  compressed payloads.

@@ -2,11 +2,17 @@
 
 ## Canonical implementation
 
-Rust core is the only canonical implementation. Models, validation, algorithms and feature semantics belong in the shared Rust implementation; adapters translate language-specific calls, objects, ownership and errors. Do not implement a second spreadsheet engine in a binding or silently fall back to its reference package.
+Rust core is the only canonical implementation. Models, validation, algorithms and feature semantics belong in the shared Rust implementation; adapters translate language-specific calls, objects, ownership and errors. Do not implement a second spreadsheet engine in a binding or silently fall back to a reference package.
 
-For languages with a dominant reference package, match that package's public API and mental model. Capabilities already present in the reference package use its compatibility interface rather than a newly invented CrabXL API. Additional core capabilities receive idiomatic language extensions. A reference package's missing capabilities never restrict Rust core, and Rust API structure never dictates binding API structure.
+## Native API first
 
-Compatibility surfaces and CrabXL extensions must be clearly distinguishable and independently evolvable. Keep their documentation, tests and compatibility/version policies separate. Extensions must not change reference-compatible defaults or introduce ambiguous competing calls for existing reference capabilities. Choose concrete extension namespaces per language when implementing its adapter.
+Each binding's primary API is a native CrabXL API designed for its language. It shares the core's semantics, not its structure: the same values, formulas, styles, references, errors and guarantees (lossless saves, atomic path saves, reference updates on row and column edits, exact numbers), expressed in that language's idioms. A reference package is not the design reference, foundation or constraint of the native API.
+
+## Compatibility interfaces
+
+Where a language has a dominant reference package, a binding may also offer a compatibility interface for it, under its own namespace (for Python, `crabxl.openpyxl`). A compatibility interface adapts to CrabXL: it selects the core options that reproduce the reference package's behavior (for example cells-only row edits, value-based date kinds or `DataLossPolicy::Allow`). Reference behavior never becomes a core default, and core options are named by what they do, not after a reference package.
+
+Native and compatibility interfaces are independently maintained and versioned in their documentation, tests and compatibility policies. A compatibility interface must not change native defaults, and the native API must not add calls whose only purpose is compatibility.
 
 ## Binding priority
 
@@ -41,7 +47,7 @@ These are acceptance goals, not assertions about current results. Functional cor
 
 Use pinned versions, identical inputs and verified outputs, equivalent semantics/modes, release builds, warmups and alternating repeated runs. Record wall time, CPU time, peak RSS, temporary storage, output size and relevant feature/checksum assertions. Include representative numeric, repeated/high-cardinality text, styled, sparse, multi-sheet and edit workloads as capabilities become available. Separate streaming, materialized and preserving-edit operations; report unequal capabilities explicitly rather than presenting them as equivalent measurements.
 
-Compare Python migration workloads through the Python adapter using compatible calls and include conversion/runtime costs. Report native Rust comparisons separately. Include runtime baselines and avoid subtracting them from headline RSS results. Memory policies remain configurable: bounded streaming, explicit budgets and measured adaptive Auto behavior. Extra memory is useful only where measurements establish a speed benefit; lower RSS must not be claimed by concealing temporary-disk or I/O costs.
+Compare Python workloads through both the native API and the compatibility interface, and include conversion and runtime costs. Report native Rust comparisons separately. Include runtime baselines and avoid subtracting them from headline RSS results. Memory policies remain configurable: bounded streaming, explicit budgets and measured adaptive Auto behavior. Extra memory is useful only where measurements establish a speed benefit; lower RSS must not be claimed by concealing temporary-disk or I/O costs.
 
 Loading optimization now explicitly targets calamine for both streaming and
 non-streaming reads. Attempt lower elapsed time and lower peak RSS for complete

@@ -34,12 +34,12 @@ pub(crate) fn unsupported(message: &str) -> Error {
 }
 const UNKNOWN_ATTRIBUTE: &str = "Unknown attribute";
 const UNKNOWN_ELEMENT: &str = "Unknown element";
-/// An attribute that crabxl does not model. `attributes` ignores it, as openpyxl does.
+/// An attribute that crabxl does not model. `attributes` skips it and notes the loss.
 pub(crate) fn unknown_attribute() -> Error {
     unsupported(UNKNOWN_ATTRIBUTE)
 }
 /// An element that crabxl does not model, returned before it is read.
-/// `children` skips it, as openpyxl does.
+/// `children` skips it and notes the loss.
 pub(crate) fn unknown_element() -> Error {
     unsupported(UNKNOWN_ELEMENT)
 }

@@ -8,11 +8,23 @@ Update this file only when the architecture changes.
 |---|---|
 | `crabxl-core` | I/O-free models: values, addresses, formulas, styles, the editable workbook bank, worksheet storage, feature, drawing, chart and pivot models, errors and resource limits. |
 | `crabxl-xlsx` | ZIP and OOXML: package and relationship graph, readers, writers, the source-preserving editor and the loaded workbook coordinator. |
-| `crabxl` | Public facade. Re-exports and composes; no second engine. |
+| `crabxl` | Public API: `Workbook`, `read::Reader`, `write::Writer` and their values, styles, references and features. Composes the engine; no second engine. |
 
 Dependencies flow `crabxl` → `crabxl-xlsx` → `crabxl-core`. The core never
-imports XLSX code or a language runtime. Bindings (the Python package) depend on
-`crabxl` only.
+imports XLSX code or a language runtime. Bindings build their native API on
+`crabxl`; compatibility interfaces that need engine-level access (the openpyxl
+adapter) also use `crabxl-xlsx` and `crabxl-core`.
+
+## Public API
+
+| Type | Engine |
+|---|---|
+| `Workbook` | `LoadedWorkbook` over a boxed source. A new workbook starts from an empty in-memory package. |
+| `read::Reader` | `WorkbookReader` row streams. |
+| `write::Writer` | `WorkbookWriter` interleaved per-sheet spools. |
+
+Worksheet handles borrow their workbook, one at a time. References are A1 text
+or zero-based `CellRef`, `RangeRef` and `Span` values.
 
 ## Modes
 
@@ -40,8 +52,19 @@ The editor writes only affected parts. Unchanged parts are copied with their
 compressed bytes. Affected worksheet XML is rewritten as a stream: known
 elements are replaced in schema order and unknown elements pass through.
 Relationship, content-type and identity allocation happen in one transaction.
-Markup that an edit would affect but CrabXL does not understand returns an
-error instead of being dropped.
+
+Saves are lossless by default. Codecs note content their typed models do not
+represent (`loss::note`); a save re-reads the source of every block it
+rewrites under `loss::track`, and every place that would remove content asks
+the `DataLossPolicy` first (`loss::remove`). Path saves go through
+`write_atomically`.
+
+## Structural edits
+
+`StructuralEdit` (core) maps indexes, spans, ranges, formulas, features,
+anchors, chart series and defined names. `LoadedWorkbook` plans every update
+before the cells move, so content that cannot follow rejects the edit while the
+workbook is unchanged.
 
 ## Memory
 

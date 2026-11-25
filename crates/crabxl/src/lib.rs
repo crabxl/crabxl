@@ -66,6 +66,9 @@ pub mod write;
 
 pub use crabxl_core::{Error, ErrorKind, Result};
 pub use crabxl_xlsx::DataLossPolicy;
+/// The number of threads large reads, saves and compression may use, and a
+/// way to lower it. `CRABXL_MAX_THREADS` sets the same limit.
+pub use crabxl_xlsx::{max_threads, set_max_threads};
 pub use reference::{CellRef, IntoCellRef, IntoRange, IntoSpan, RangeRef, Span};
 pub use row::{FromRow, Grid, IntoRow};
 pub use value::{

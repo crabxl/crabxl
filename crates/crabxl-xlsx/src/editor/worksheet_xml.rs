@@ -354,7 +354,7 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
     let mut skipped_views = false;
     let mut formula = false;
     let mut seen_v = false;
-    // Shared groups whose master cell was replaced. As in openpyxl, their
+    // Shared groups whose master cell was replaced. Their
     // followers are written as ordinary formulas translated from the master.
     let mut orphans: std::collections::HashMap<
         crabxl_core::SharedFormulaIndex,

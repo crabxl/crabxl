@@ -1,13 +1,17 @@
 # Roadmap
 
-CrabXL has the capabilities of openpyxl 3.1.5. Each release and its changes
+CrabXL has its own API and the capabilities of openpyxl 3.1.5. Each release and its changes
 are in the [changelog](../CHANGELOG.md). The Python package has its own
 [roadmap](https://github.com/crabxl/crabxl-python/blob/main/internal/roadmap.md).
 
 ## Next
 
-1. Open written and edited files in Excel for macOS. Windows Excel already opens
-   written and edited 1,000,000-row files with the right rows and date formats.
+1. Open files written and edited by the 0.3.0 API in Excel for Windows and
+   macOS, including files after row and column edits.
+2. Charts, pivot tables and sheet views in the public API. The engine and the
+   openpyxl interface already support them.
+3. Reference updates for pivot tables and 3-D references, which now reject
+   row and column edits.
 
 ## Not provided
 

@@ -116,7 +116,7 @@ impl<R: Read + Seek> WorkbookReader<R> {
                     "Worksheet not found",
                 )
             })?;
-        // Dialog sheets are read like worksheets, as in openpyxl.
+        // Dialog sheets are read like worksheets: they share the cell model.
         Ok(info.part().to_owned())
     }
 
