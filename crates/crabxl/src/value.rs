@@ -134,6 +134,15 @@ impl Number {
             _ => None,
         }
     }
+    /// The decimal text of an integer stored as an integer, of any size.
+    /// `None` for numbers stored as `f64` or as exact decimals.
+    pub fn to_integer_string(&self) -> Option<String> {
+        match &self.0 {
+            NumberRepr::Integer(value) => Some(value.to_string()),
+            NumberRepr::BigInteger(value) => Some(value.as_str().to_owned()),
+            _ => None,
+        }
+    }
     /// Whether the number is a whole number.
     pub fn is_integer(&self) -> bool {
         match &self.0 {
@@ -299,7 +308,8 @@ impl Temporal {
         self.0.to_iso8601()
     }
     /// The calendar date and time of day: year, month, day, hour, minute,
-    /// second and microsecond. Fails for durations and serials without a
+    /// second and microsecond. Fails for times of day (see
+    /// [`Temporal::to_time_of_day`]), durations and serials without a
     /// calendar date.
     pub fn to_parts(&self) -> Result<(i32, u32, u32, u32, u32, u32, u32)> {
         use chrono::{Datelike, Timelike};
@@ -318,6 +328,27 @@ impl Temporal {
             value.minute(),
             value.second(),
             value.nanosecond() / 1000,
+        ))
+    }
+    /// The time of day: hour, minute, second and microsecond. Works for times
+    /// and for the time part of dates and times.
+    pub fn to_time_of_day(&self) -> Result<(u32, u32, u32, u32)> {
+        use chrono::Timelike;
+        let time = match self.kind() {
+            TemporalKind::Time => self.0.to_time()?,
+            TemporalKind::Duration => {
+                return Err(Error::new(
+                    ErrorKind::Conversion,
+                    "A duration is not a time of day",
+                ));
+            }
+            _ => self.0.to_datetime()?.time(),
+        };
+        Ok((
+            time.hour(),
+            time.minute(),
+            time.second(),
+            time.nanosecond() / 1000,
         ))
     }
     /// The total length of a duration in microseconds.
