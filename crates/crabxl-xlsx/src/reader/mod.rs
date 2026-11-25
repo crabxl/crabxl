@@ -327,7 +327,9 @@ impl CellHeader {
     }
 }
 
-fn numeric_value(value: &str) -> Result<CellValue> {
+/// Integers stay exact. Other lexemes become `f64` unless they hold more
+/// precision than `f64` keeps, or `exact` asks for the written decimal.
+fn numeric_value(value: &str, exact: bool) -> Result<CellValue> {
     if value.is_empty() {
         return Ok(CellValue::Empty);
     }
@@ -340,6 +342,11 @@ fn numeric_value(value: &str) -> Result<CellValue> {
     let number = fast_float2::parse::<f64, _>(value.as_bytes()).map_err(|error| {
         Error::caused_by(ErrorKind::InvalidData, "Invalid numeric cell value", error)
     })?;
+    if (exact || crabxl_core::ExactDecimal::exceeds_f64(value)) && number.is_finite() {
+        return Ok(CellValue::Decimal(Box::new(
+            crabxl_core::ExactDecimal::parse(value)?,
+        )));
+    }
     Ok(CellValue::Number(number))
 }
 

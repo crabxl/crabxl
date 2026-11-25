@@ -58,6 +58,7 @@ fn literal(value: &CellValue) -> Result<Option<LiteralValue>> {
         CellValue::BigInteger(integer) => {
             LiteralValue::Number(integer.as_str().parse().map_err(failure)?)
         }
+        CellValue::Decimal(decimal) => LiteralValue::Number(decimal.to_f64()),
         CellValue::Boolean(boolean) => LiteralValue::Boolean(*boolean),
         CellValue::Text(text) => LiteralValue::Text(text.as_str().into()),
         CellValue::RichText(text) => LiteralValue::Text(text.plain_text()?.into()),

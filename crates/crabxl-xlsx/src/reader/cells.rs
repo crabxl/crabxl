@@ -369,9 +369,8 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                 .map_err(|error| error.with_cell(address))?;
                 *decoded += 1;
                 let value = match header.kind {
-                    ScalarKind::Numeric => {
-                        numeric_value(value.trim_ascii()).map(BufferedValue::Direct)
-                    }
+                    ScalarKind::Numeric => numeric_value(value.trim_ascii(), options.exact_numbers)
+                        .map(BufferedValue::Direct),
                     ScalarKind::Boolean => {
                         boolean_value(value.trim_ascii()).map(BufferedValue::Direct)
                     }

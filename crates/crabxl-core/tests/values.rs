@@ -543,3 +543,20 @@ fn batch_style_arrays_keep_scalar_identities_and_default_components() {
     }
     assert!(catalog.style_array(StyleId::new(99)).is_err());
 }
+
+#[test]
+fn exact_decimals_validate_canonicalize_and_detect_extra_precision() {
+    use crabxl_core::ExactDecimal;
+    let value = ExactDecimal::parse("+1.25e-3").unwrap();
+    assert_eq!(value.as_str(), "1.25E-3");
+    assert_eq!(value.to_f64(), 0.00125);
+    for invalid in ["", ".", "1..2", "1e", "1e+", "abc", "--1", "1.2.3"] {
+        assert!(ExactDecimal::parse(invalid).is_err(), "{invalid}");
+    }
+    assert!(!ExactDecimal::exceeds_f64("0.1"));
+    assert!(!ExactDecimal::exceeds_f64("1.1000000000000001"));
+    assert!(!ExactDecimal::exceeds_f64("1.50000000000000000000000"));
+    assert!(!ExactDecimal::exceeds_f64("0.000000000000000000012345"));
+    assert!(ExactDecimal::exceeds_f64("3.14159265358979323846"));
+    assert!(ExactDecimal::exceeds_f64("-12345678901234567890.5E10"));
+}

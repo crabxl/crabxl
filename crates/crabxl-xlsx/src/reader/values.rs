@@ -61,7 +61,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
         if BOOLEAN {
             return boolean_value(value);
         }
-        numeric_value(value)
+        numeric_value(value, self.options.exact_numbers)
     }
 
     pub(super) fn interpret_date(
@@ -324,6 +324,7 @@ pub(super) fn date_value(
             .as_str()
             .parse::<f64>()
             .map_err(|_| invalid("Invalid numeric date serial"))?,
+        CellValue::Decimal(v) => v.to_f64(),
         _ => return Ok(value),
     };
     if !serial.is_finite() {

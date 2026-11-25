@@ -509,6 +509,7 @@ pub(crate) fn encode_cell_views_with_dimension<'a>(
                         CellValue::BigInteger(value) => {
                             buffer.write_all(value.as_str().as_bytes())?
                         }
+                        CellValue::Decimal(value) => buffer.write_all(value.as_str().as_bytes())?,
                         CellValue::Number(value) if value.is_finite() => {
                             write!(buffer, "{value:?}")?
                         }
@@ -598,6 +599,10 @@ pub(crate) fn validate_value(
             ErrorKind::LimitExceeded,
             "Exact integer exceeds writer cell limit",
         )),
+        CellValue::Decimal(value) if value.as_str().len() > maximum => Err(Error::new(
+            ErrorKind::LimitExceeded,
+            "Exact decimal exceeds writer cell limit",
+        )),
         CellValue::DateTime(value) => value.serial_in(epoch).map(|_| ()),
         CellValue::Formula(value) => {
             if let Some(metadata) = value.metadata() {
@@ -667,6 +672,7 @@ pub(crate) fn validate_value(
         | CellValue::Number(_)
         | CellValue::Integer(_)
         | CellValue::BigInteger(_)
+        | CellValue::Decimal(_)
         | CellValue::Boolean(_) => Ok(()),
         _ => Err(Error::new(ErrorKind::InvalidData, "Unknown cell value")),
     }

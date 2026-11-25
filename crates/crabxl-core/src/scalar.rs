@@ -101,6 +101,80 @@ impl ExactInteger {
     }
 }
 
+/// An exact decimal number as written in a file, kept as canonical text.
+///
+/// Readers produce it when a lexeme holds more precision than `f64`, or for
+/// every non-integer when exact numbers are requested. Writers emit the text
+/// unchanged, so no precision is lost on a round trip.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ExactDecimal {
+    text: Box<str>,
+}
+impl ExactDecimal {
+    /// Validate `[+-]digits[.digits][(e|E)[+-]digits]` with at least one
+    /// digit in the mantissa. A leading `+` is removed and `e` becomes `E`.
+    pub fn parse(value: &str) -> Result<Self> {
+        let invalid = || Error::new(ErrorKind::InvalidData, "Invalid exact decimal literal");
+        let unsigned = value.strip_prefix('+').unwrap_or(value);
+        let body = unsigned.strip_prefix('-').unwrap_or(unsigned);
+        let (mantissa, exponent) = match body.find(['e', 'E']) {
+            Some(index) => (&body[..index], Some(&body[index + 1..])),
+            None => (body, None),
+        };
+        let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+        let digits = |text: &str| text.bytes().all(|byte| byte.is_ascii_digit());
+        if whole.len() + fraction.len() == 0 || !digits(whole) || !digits(fraction) {
+            return Err(invalid());
+        }
+        if let Some(exponent) = exponent {
+            let exponent = exponent.strip_prefix(['+', '-']).unwrap_or(exponent);
+            if exponent.is_empty() || !digits(exponent) {
+                return Err(invalid());
+            }
+        }
+        Ok(Self {
+            text: unsigned.replace('e', "E").into_boxed_str(),
+        })
+    }
+    /// Borrow the canonical decimal text.
+    pub fn as_str(&self) -> &str {
+        &self.text
+    }
+    /// The nearest `f64`.
+    pub fn to_f64(&self) -> f64 {
+        self.text.parse().unwrap_or(f64::NAN)
+    }
+    /// Whether a decimal lexeme holds more precision than `f64` can keep:
+    /// more than 17 significant digits after trailing fraction zeros.
+    pub fn exceeds_f64(value: &str) -> bool {
+        let body = value.trim_start_matches(['+', '-']);
+        let mantissa = body.split(['e', 'E']).next().unwrap_or(body);
+        let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+        let fraction = fraction.trim_end_matches('0');
+        let significant = whole
+            .bytes()
+            .chain(fraction.bytes())
+            .skip_while(|byte| *byte == b'0')
+            .count();
+        let significant = if fraction.is_empty() {
+            significant
+                - whole
+                    .bytes()
+                    .rev()
+                    .take_while(|byte| *byte == b'0')
+                    .count()
+                    .min(significant)
+        } else {
+            significant
+        };
+        significant > 17
+    }
+    /// Heap allocation including the boxed wrapper when stored in CellValue.
+    pub fn memory_bytes(&self) -> usize {
+        size_of::<Self>() + self.text.len()
+    }
+}
+
 /// A literal spreadsheet error, separate from a library I/O/parser error.
 /// Unknown future error tokens remain readable without losing their spelling.
 #[derive(Clone, Debug, PartialEq, Eq)]

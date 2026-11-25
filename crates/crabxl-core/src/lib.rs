@@ -36,7 +36,7 @@ pub use row::{
     Cell, CellMetadataReadPolicy, CellValue, DateReadPolicy, FormulaReadPolicy, ReadOptions, Row,
     RowBatch, SheetData,
 };
-pub use scalar::{CellError, CellText, ExactInteger, StyleInteger};
+pub use scalar::{CellError, CellText, ExactDecimal, ExactInteger, StyleInteger};
 pub use style::{CellStyle, Font, StyleComponent, StyleId};
 
 mod dimensions;

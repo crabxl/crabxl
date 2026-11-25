@@ -21,6 +21,8 @@ pub enum CellValue {
     Integer(i64),
     /// An exact decimal integer outside i64; no floating-point conversion.
     BigInteger(Box<ExactInteger>),
+    /// An exact decimal number kept as written; no floating-point conversion.
+    Decimal(Box<crate::ExactDecimal>),
     /// Owned text with whitespace preserved.
     Text(Box<CellText>),
     /// A literal spreadsheet error token.
@@ -107,6 +109,7 @@ impl CellValue {
             Self::DateTime(_) => size_of::<ExcelDateTime>(),
             Self::Formula(value) => value.memory_bytes(),
             Self::BigInteger(value) => value.memory_bytes(),
+            Self::Decimal(value) => value.memory_bytes(),
             Self::Text(value) => value.memory_bytes(),
             Self::Error(value) => value.memory_bytes(),
             Self::RichText(value) => value.memory_bytes(),
@@ -281,6 +284,10 @@ pub struct ReadOptions {
     pub inline_rich_text: Option<bool>,
     /// Serials outside the calendar range: exact serial (default) or `#VALUE!`.
     pub date_policy: DateReadPolicy,
+    /// Return every non-integer number as the exact decimal written in the
+    /// file. Without it, only lexemes with more precision than `f64` are kept
+    /// as decimals.
+    pub exact_numbers: bool,
     /// Expose shared source metadata instead of only expanded normal expressions.
     /// Array/table metadata is always retained when returning formulas.
     pub formula_metadata: bool,

@@ -68,9 +68,11 @@ impl CellValue {
             return Ok(self);
         }
         let automatic = match self.unannotated() {
-            Self::Empty | Self::Number(_) | Self::Integer(_) | Self::BigInteger(_) => {
-                CellStorageType::Number
-            }
+            Self::Empty
+            | Self::Number(_)
+            | Self::Integer(_)
+            | Self::BigInteger(_)
+            | Self::Decimal(_) => CellStorageType::Number,
             Self::Text(_) | Self::RichText(_) => CellStorageType::String,
             Self::Boolean(_) => CellStorageType::Boolean,
             Self::DateTime(_) => CellStorageType::Date,
@@ -126,7 +128,10 @@ impl CellValue {
             return Ok(Cow::Borrowed(value));
         }
         let owned = match (kind, value) {
-            (CellStorageType::Number, Self::Number(_) | Self::Integer(_) | Self::BigInteger(_))
+            (
+                CellStorageType::Number,
+                Self::Number(_) | Self::Integer(_) | Self::BigInteger(_) | Self::Decimal(_),
+            )
             | (CellStorageType::String, Self::Text(_) | Self::RichText(_))
             | (CellStorageType::FormulaString, Self::Text(_))
             | (CellStorageType::Boolean, Self::Boolean(_))
@@ -156,6 +161,7 @@ impl CellValue {
             }
             (CellStorageType::FormulaString, Self::Integer(value)) => Self::text(value.to_string()),
             (CellStorageType::FormulaString, Self::BigInteger(value)) => Self::text(value.as_str()),
+            (CellStorageType::FormulaString, Self::Decimal(value)) => Self::text(value.as_str()),
             (CellStorageType::FormulaString, Self::Boolean(value)) => {
                 Self::text(if *value { "1" } else { "0" })
             }

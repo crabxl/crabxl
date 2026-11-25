@@ -143,7 +143,9 @@ fn parse_block(mut bytes: &[u8], context: &Context) -> Option<Vec<ParsedRow>> {
                     .ok()
                 };
                 let value = match header.kind {
-                    ScalarKind::Numeric => BufferedValue::Direct(date(numeric_value(value).ok()?)?),
+                    ScalarKind::Numeric => BufferedValue::Direct(date(
+                        numeric_value(value, context.options.exact_numbers).ok()?,
+                    )?),
                     ScalarKind::Boolean => BufferedValue::Direct(date(boolean_value(value).ok()?)?),
                     ScalarKind::SharedText => {
                         let id = shared_string_id(value).ok()?;

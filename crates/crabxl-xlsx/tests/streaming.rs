@@ -3799,3 +3799,68 @@ fn plain_inline_text_cells_decode_escapes_and_keep_spaces() {
         ]
     );
 }
+
+#[test]
+fn numbers_keep_precision_beyond_f64_and_exact_mode_keeps_every_lexeme() {
+    use crabxl_core::ExactDecimal;
+    let mut book = open(
+        "<row><c><v>0.5</v></c><c><v>3.14159265358979323846</v></c><c><v>1E+2</v></c><c><v>12</v></c></row>",
+    );
+    let values = book.read_sheet("A & B").unwrap().rows.remove(0).cells;
+    assert_eq!(values[0].value, CellValue::Number(0.5));
+    assert_eq!(
+        values[1].value,
+        CellValue::Decimal(Box::new(
+            ExactDecimal::parse("3.14159265358979323846").unwrap()
+        ))
+    );
+    assert_eq!(values[2].value, CellValue::Number(100.0));
+    assert_eq!(values[3].value, CellValue::Integer(12));
+    let exact = book
+        .read_sheet_with_options(
+            "A & B",
+            ReadOptions {
+                exact_numbers: true,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .rows
+        .remove(0)
+        .cells;
+    let texts: Vec<_> = exact
+        .iter()
+        .map(|cell| match &cell.value {
+            CellValue::Decimal(value) => value.as_str().to_owned(),
+            other => format!("{other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        texts,
+        ["0.5", "3.14159265358979323846", "1E+2", "Integer(12)"]
+    );
+
+    // Writers emit the exact text again.
+    let directory = tempfile::tempdir().unwrap();
+    let mut writer = crabxl_xlsx::WorkbookWriter::new(crabxl_xlsx::WriteOptions {
+        temp_directory: Some(directory.path().into()),
+        ..Default::default()
+    })
+    .unwrap();
+    writer.start_sheet("S").unwrap();
+    writer
+        .write_row(&Row {
+            index: RowIndex::new(0).unwrap(),
+            cells: exact,
+        })
+        .unwrap();
+    let output = writer.finish(Cursor::new(Vec::new())).unwrap();
+    let mut again = WorkbookReader::new(output).unwrap();
+    let values = again.read_sheet("S").unwrap().rows.remove(0).cells;
+    assert_eq!(
+        values[1].value,
+        CellValue::Decimal(Box::new(
+            ExactDecimal::parse("3.14159265358979323846").unwrap()
+        ))
+    );
+}
