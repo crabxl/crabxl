@@ -43,7 +43,7 @@ Requires **Rust 1.88 or newer**.
 
 ```toml
 [dependencies]
-crabxl = "0.3.0"
+crabxl = "0.4.0"
 ```
 
 ## Usage
