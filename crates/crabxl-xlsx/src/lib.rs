@@ -64,8 +64,10 @@ mod metadata;
 mod printing;
 
 mod loaded;
+mod loss;
+pub use loss::DataLossPolicy;
 mod loaded_codec;
-pub use loaded::{LoadOptions, LoadedWorkbook};
+pub use loaded::{CopySheetOptions, LoadOptions, LoadedWorkbook};
 
 mod dimension_codec;
 

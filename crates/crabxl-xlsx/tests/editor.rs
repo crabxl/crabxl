@@ -112,8 +112,21 @@ fn upsert_preserves_excel_workbook_absolute_path_alternative() {
                 String::from_utf8_lossy(&output["xl/worksheets/sheet1.xml"]).contains("r=\"E9\"")
             );
         } else {
-            // Other alternatives are dropped, as openpyxl does.
-            let (output, _) = result.unwrap();
+            // Other alternatives cannot be rewritten: the save fails unless
+            // the data-loss policy allows their removal.
+            assert_eq!(result.unwrap_err().kind(), ErrorKind::Unsupported);
+            let mut editor = WorkbookEditor::with_options(
+                Cursor::new(packed(&data)),
+                EditorOptions {
+                    data_loss: crabxl_xlsx::DataLossPolicy::Allow,
+                    ..EditorOptions::default()
+                },
+            )
+            .unwrap();
+            editor.set_active_sheet("Other").unwrap();
+            let (output, _) = editor
+                .save(Cursor::new(Vec::new()), SaveOptions::default())
+                .unwrap();
             let output = parts(output.get_ref());
             assert!(
                 !String::from_utf8_lossy(&output["xl/workbook.xml"]).contains("AlternateContent")
@@ -427,18 +440,24 @@ fn patch_budgets_signed_sources_and_calculation_chain_edits_are_guarded() {
             },
         )
         .unwrap();
-        // Signatures no longer block edits; only the chain policy does.
+        // Signatures do not block edits; only the chain policy does. Saving an
+        // edited signed package removes the signature, which needs consent.
         let result = editor.set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(9));
         if kind.contains("calcChain") {
             assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidState);
+            assert!(
+                editor
+                    .save(Cursor::new(Vec::new()), SaveOptions::default())
+                    .is_ok()
+            );
         } else {
             result.unwrap();
-        }
-        assert!(
-            editor
+            let error = editor
                 .save(Cursor::new(Vec::new()), SaveOptions::default())
-                .is_ok()
-        );
+                .unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::Unsupported);
+            assert!(error.message().contains("digital signature"));
+        }
     }
 }
 #[test]
@@ -1242,4 +1261,61 @@ fn replacing_a_shared_master_expands_its_followers() {
         };
         assert_eq!(formula.expression(), expected);
     }
+}
+
+#[test]
+fn rewriting_features_with_unmodeled_source_content_needs_consent() {
+    let mut data = parts(&source());
+    data.insert(
+        "xl/worksheets/sheet1.xml".into(),
+        format!(
+            "<worksheet xmlns=\"{MAIN}\"><sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData><sheetProtection sheet=\"1\" futureFlag=\"1\"/></worksheet>"
+        )
+        .into_bytes(),
+    );
+    let input = packed(&data);
+    let change = |editor: &mut WorkbookEditor<Cursor<Vec<u8>>>| {
+        let mut features = editor.sheet_features("Sheet").unwrap();
+        let protection = features.protection.as_mut().unwrap();
+        assert!(protection.sheet);
+        protection.sheet = false;
+        editor.set_sheet_features("Sheet", features).unwrap();
+    };
+
+    // Unchanged features keep the source bytes, so saving needs no consent.
+    let mut unchanged = WorkbookEditor::new(Cursor::new(input.clone())).unwrap();
+    unchanged
+        .set_value("Sheet", Address::new(0, 0).unwrap(), Value::Integer(2))
+        .unwrap();
+    unchanged
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+
+    let mut strict = WorkbookEditor::new(Cursor::new(input.clone())).unwrap();
+    change(&mut strict);
+    let error = strict
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert!(
+        error.message().contains("sheet 'Sheet'"),
+        "{}",
+        error.message()
+    );
+
+    let mut allowing = WorkbookEditor::with_options(
+        Cursor::new(input),
+        EditorOptions {
+            data_loss: crabxl_xlsx::DataLossPolicy::Allow,
+            ..EditorOptions::default()
+        },
+    )
+    .unwrap();
+    change(&mut allowing);
+    let (output, _) = allowing
+        .save(Cursor::new(Vec::new()), SaveOptions::default())
+        .unwrap();
+    let xml =
+        String::from_utf8(parts(output.get_ref())["xl/worksheets/sheet1.xml"].clone()).unwrap();
+    assert!(!xml.contains("futureFlag"));
 }

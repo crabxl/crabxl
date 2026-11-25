@@ -493,8 +493,8 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                 && hyperlinks.is_none()
             {
                 let alternative_depth = frame.depth;
-                // Buffer the block: alternatives holding cell data are dropped
-                // whole, as openpyxl does, since the edit cannot reach them.
+                // Buffer the block: an alternative holding cell data cannot be
+                // reached by the edit, so it is removed when the policy allows.
                 let mut events = vec![frame.event.into_owned()];
                 let mut keep = true;
                 loop {
@@ -516,6 +516,9 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                         break;
                     }
                 }
+                if !keep {
+                    crate::loss::remove("an mc:AlternateContent block with cell data")?;
+                }
                 if keep {
                     for event in events {
                         writer.write_event(event).map_err(|cause| {
@@ -525,12 +528,12 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                 }
                 continue;
             }
-            // Other alternatives are dropped, as openpyxl does.
+            crate::loss::remove("an mc:AlternateContent block in a rewritten worksheet")?;
             let depth = frame.depth;
             crate::style_codec::skip(&mut xml, depth)?;
             continue;
         }
-        // openpyxl's public copy behavior omits views and header/footer state.
+        // A copy takes views and header/footer from its model, not the template.
         if copying
             && frame.depth == 1
             && frame.scope == Scope::Spreadsheet
@@ -988,7 +991,8 @@ pub(super) fn patch_worksheet<R: Read + Seek, W: Write>(
                                         b"v" | b"is" | b"t" | b"f"
                                     )
                                 {
-                                    // Unknown content of the replaced cell is dropped.
+                                    // The caller replaced the cell, including
+                                    // its extension content.
                                     continue;
                                 }
                                 if child.local_name().as_ref().as_bytes() == b"f" {

@@ -42,7 +42,13 @@ pub(crate) fn attributes(
                 )
             })?;
         match apply(name, &value) {
-            Err(error) if crate::features::is_unknown_attribute(&error) => {}
+            Err(error) if crate::features::is_unknown_attribute(&error) => {
+                // Prefixed attributes belong to extension namespaces that
+                // consumers may ignore; unprefixed ones are unmodeled data.
+                if !name.contains(&b':') {
+                    crate::loss::note("an unknown attribute");
+                }
+            }
             result => result?,
         }
     }

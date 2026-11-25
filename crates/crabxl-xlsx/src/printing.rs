@@ -15,7 +15,7 @@ use std::io::{self, BufRead, Write};
 fn invalid(message: &str) -> Error {
     Error::new(ErrorKind::InvalidData, message)
 }
-/// Unknown attributes are ignored by `attributes`, as in openpyxl.
+/// Unknown attributes are skipped by `attributes`, which notes the loss.
 fn unsupported() -> Error {
     crate::features::unknown_attribute()
 }

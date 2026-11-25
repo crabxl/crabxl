@@ -12,10 +12,24 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     pub fn create_sheet(&mut self, name: impl Into<Box<str>>) -> Result<SheetId> {
         self.add_sheet(name.into(), None)
     }
-    /// Copy supported cell content and source worksheet properties into a new
-    /// budgeted canonical model. Affected unmodeled graphs reject before mutation.
+    /// Copy a sheet completely: cells, styles, dimensions, merges, views,
+    /// header/footer, printing, tables, rules, notes and drawings. Table and
+    /// pivot names get unique suffixes. Affected unmodeled graphs reject
+    /// before mutation.
     pub fn copy_sheet(&mut self, id: SheetId, name: impl Into<Box<str>>) -> Result<SheetId> {
-        self.add_sheet(name.into(), Some(id))
+        self.copy_sheet_with(id, name, CopySheetOptions::default())
+    }
+    /// Copy a sheet and choose which view and header/footer state the copy keeps.
+    pub fn copy_sheet_with(
+        &mut self,
+        id: SheetId,
+        name: impl Into<Box<str>>,
+        options: CopySheetOptions,
+    ) -> Result<SheetId> {
+        self.copy_options = options;
+        let result = self.add_sheet(name.into(), Some(id));
+        self.copy_options = CopySheetOptions::default();
+        result
     }
     /// Create a chart-only sheet without materializing worksheet cells.
     pub fn create_chartsheet(
@@ -70,12 +84,18 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             let mut template = source.original.or_else(|| self.editor.copy_template(id));
             if let Some(index) = template {
                 match self.editor.prepare_copy_template(index) {
-                    // Like openpyxl, copy cells, styles and dimensions from the model
-                    // when the source part holds content the copy cannot carry.
+                    // The source part holds content the copy cannot carry: copy
+                    // the model only, when the data-loss policy allows it.
                     Err(error)
                         if error.kind() == ErrorKind::Unsupported
                             && kind == crate::SheetKind::Worksheet =>
                     {
+                        crate::loss::with_policy(self.options.editor.data_loss, || {
+                            crate::loss::remove(format_args!(
+                                "content of the source sheet that a copy cannot carry ({})",
+                                error.message()
+                            ))
+                        })?;
                         template = None;
                     }
                     result => result?,
@@ -96,16 +116,21 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             Some(id) => Some(self.copied_features(id, &name)?),
             None => features,
         };
-        let copied_metadata = source
+        let copied_metadata = match source
             .filter(|_| kind == crate::SheetKind::Worksheet)
             .and_then(|id| self.sheets.iter().find(|entry| entry.id == id)?.original)
-            .map(|original| {
-                let name = self.editor.book.sheets()[original].name();
-                (
-                    self.editor.pending_sheet_views(name).cloned(),
-                    self.editor.pending_print_settings(name).cloned(),
-                )
-            });
+        {
+            Some(original) => {
+                let name = self.editor.book.sheets()[original].name().to_owned();
+                let views = match self.editor.pending_sheet_views(&name).cloned() {
+                    Some(views) => Some(views),
+                    None if self.copy_options.views => Some(self.editor.sheet_views(&name)?),
+                    None => None,
+                };
+                Some((views, self.editor.pending_print_settings(&name).cloned()))
+            }
+            None => None,
+        };
         let originals = self.original_identities()?;
         let maximum = self
             .allowance

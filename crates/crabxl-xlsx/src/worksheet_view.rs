@@ -129,7 +129,7 @@ fn position(value: &str) -> Result<PanePosition> {
         _ => Err(invalid("Invalid worksheet pane position")),
     }
 }
-/// Unknown attributes are ignored by `attributes`, as in openpyxl.
+/// Unknown attributes are skipped by `attributes`, which notes the loss.
 fn unsupported() -> Error {
     crate::features::unknown_attribute()
 }
@@ -153,7 +153,7 @@ fn read_header_inner<B: BufRead>(xml: &mut XmlStream<B>, maximum: usize) -> Resu
     let mut unknown = None;
     loop {
         if let Some(depth) = unknown.take() {
-            // An element crabxl does not model, ignored as in openpyxl.
+            crate::loss::note("an unknown view element");
             crate::style_codec::skip(xml, depth)?;
         }
         let frame = xml.next()?;

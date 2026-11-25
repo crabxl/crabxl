@@ -60,7 +60,8 @@ pub use crabxl_xlsx::{HyperlinkOutput, visit_owned_hyperlink_ids};
 pub use crabxl_xlsx::{read_rich_text, write_rich_text};
 
 pub use crabxl_xlsx::{
-    CalculationChainPolicy, EditorOptions, PartInfo, SaveOptions, SaveStats, WorkbookEditor,
+    CalculationChainPolicy, CopySheetOptions, DataLossPolicy, EditorOptions, PartInfo, SaveOptions,
+    SaveStats, WorkbookEditor,
 };
 
 pub use crabxl_core::MemoryAllowance;

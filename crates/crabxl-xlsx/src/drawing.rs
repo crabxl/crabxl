@@ -333,7 +333,7 @@ pub(crate) struct PictureRef {
 }
 
 /// Parse the anchors of a drawing. Anchors without a supported object are
-/// skipped, as in openpyxl.
+/// skipped and noted as unmodeled content.
 pub(crate) fn read<B: BufRead>(xml: &mut XmlStream<B>) -> Result<Vec<PictureRef>> {
     let mut pictures = Vec::new();
     let mut root = None;
@@ -499,10 +499,13 @@ fn read_anchor<B: BufRead>(
             nv.attribute("descr").map(Into::into),
         )
     } else {
-        // A linked picture has no embedded image; it is skipped, as in openpyxl.
+        // A linked picture has no embedded image, so the model cannot hold it.
         match picture_properties(&properties) {
             Ok(values) => values,
-            Err(error) if error.kind() == crabxl_core::ErrorKind::Unsupported => return Ok(None),
+            Err(error) if error.kind() == crabxl_core::ErrorKind::Unsupported => {
+                crate::loss::note("a linked picture");
+                return Ok(None);
+            }
             Err(error) => return Err(error),
         }
     };
@@ -1435,12 +1438,14 @@ impl<Rd: std::io::Read + std::io::Seek> crate::WorkbookReader<Rd> {
             let relationship = relationships
                 .get(&picture.relationship)
                 .ok_or_else(|| invalid("Missing image relationship"))?;
-            // Linked pictures and images in unknown formats are skipped, as in openpyxl.
+            // The image model holds embedded pictures in known formats only.
             if relationship.external || relationship.kind.rsplit('/').next() != Some("image") {
+                crate::loss::note("a linked picture");
                 continue;
             }
             let target = crate::package::resolve_part(&part, &relationship.target)?;
             let Ok(format) = self.image_format(&target) else {
+                crate::loss::note("a picture in an unknown image format");
                 continue;
             };
             let data = match payloads.get(&target) {

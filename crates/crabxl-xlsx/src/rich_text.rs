@@ -165,7 +165,7 @@ pub(crate) fn read_container<B: BufRead>(
                 };
             }
             Event::Start(_) => {
-                // Unknown content is ignored, as in openpyxl.
+                crate::loss::note("unknown rich-text content");
                 let depth = frame.depth;
                 skip_subtree(xml, depth)?;
             }
@@ -252,7 +252,7 @@ fn read_run<B: BufRead>(
                 });
             }
             Event::Start(_) => {
-                // Unknown content is ignored, as in openpyxl.
+                crate::loss::note("unknown rich-text content");
                 let depth = frame.depth;
                 skip_subtree(xml, depth)?;
             }
@@ -289,7 +289,7 @@ fn read_phonetic<B: BufRead>(
                 return Ok(text.unwrap_or_default());
             }
             Event::Start(_) => {
-                // Unknown content is ignored, as in openpyxl.
+                crate::loss::note("unknown rich-text content");
                 let depth = frame.depth;
                 skip_subtree(xml, depth)?;
             }
@@ -439,7 +439,7 @@ fn read_plain_container<B: BufRead>(
                 return Ok(ParsedText::Plain(text.into_boxed_str()));
             }
             Event::Start(_) => {
-                // Unknown content is ignored, as in openpyxl.
+                crate::loss::note("unknown rich-text content");
                 let depth = frame.depth;
                 skip_subtree(xml, depth)?;
             }
@@ -495,7 +495,7 @@ fn append_plain_run<B: BufRead>(
                 return Ok(());
             }
             Event::Start(_) => {
-                // Unknown content is ignored, as in openpyxl.
+                crate::loss::note("unknown rich-text content");
                 let depth = frame.depth;
                 skip_subtree(xml, depth)?;
             }

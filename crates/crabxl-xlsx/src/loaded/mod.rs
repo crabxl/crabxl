@@ -102,6 +102,23 @@ pub struct LoadedWorkbook<R: Read + Seek = File> {
     allowance: MemoryAllowance,
     source_style_count: usize,
     workbook_features: Option<Box<FeatureState<crabxl_core::WorkbookFeatures>>>,
+    copy_options: CopySheetOptions,
+}
+/// What a sheet copy keeps besides cells, styles, layout and objects.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CopySheetOptions {
+    /// Copy the sheet views: selection, panes, zoom and grid display.
+    pub views: bool,
+    /// Copy the header and footer.
+    pub header_footer: bool,
+}
+impl Default for CopySheetOptions {
+    fn default() -> Self {
+        Self {
+            views: true,
+            header_footer: true,
+        }
+    }
 }
 impl LoadedWorkbook<File> {
     /// Open a path with default joint model/source allowances.
@@ -220,6 +237,7 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             allowance,
             source_style_count,
             workbook_features: None,
+            copy_options: CopySheetOptions::default(),
         };
         value.rebalance()?;
         Ok(value)

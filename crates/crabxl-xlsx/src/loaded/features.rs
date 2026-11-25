@@ -414,7 +414,9 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
     }
     pub(super) fn copied_features(&mut self, id: SheetId, name: &str) -> Result<SheetFeatures> {
         let mut copy = self.sheet_features(id)?.clone();
-        copy.header_footer = None;
+        if !self.copy_options.header_footer {
+            copy.header_footer = None;
+        }
         copy.images = Some(self.sheet_images(id)?.to_vec());
         let mut charts = self.sheet_charts(id)?.to_vec();
         let source = self.bank.sheet(id)?.name();

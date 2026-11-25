@@ -210,7 +210,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                     if frame.scope != Scope::Spreadsheet
                         || e.local_name().as_ref().as_bytes() != b"sheet"
                     {
-                        // Unknown catalog content is dropped, as in openpyxl.
+                        crate::loss::remove("unknown content in the sheet catalog")?;
                         let depth = frame.depth;
                         crate::style_codec::skip(&mut xml, depth)?;
                         continue;

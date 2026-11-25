@@ -48,8 +48,9 @@ fn each_attribute(
                     e,
                 )
             })?;
-        // Unknown attributes are ignored, as in openpyxl.
-        visit(&key, &value)?;
+        if !visit(&key, &value)? {
+            crate::loss::note("an unknown protection attribute");
+        }
     }
     Ok(())
 }
@@ -60,6 +61,7 @@ fn finish<B: BufRead>(xml: &mut XmlStream<B>, depth: usize) -> Result<()> {
         let frame = xml.next()?;
         match frame.event {
             Event::Start(_) => {
+                crate::loss::note("an unknown protection element");
                 let depth = frame.depth;
                 crate::style_codec::skip(xml, depth)?;
             }

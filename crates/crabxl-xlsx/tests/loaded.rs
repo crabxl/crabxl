@@ -538,9 +538,10 @@ fn lazy_models_share_source_styles_and_stable_ids_and_keep_source_repeatable() {
             "xl/worksheets/crabxl-sheet-4.xml",
         ] {
             let xml = String::from_utf8(saved[name].clone()).unwrap();
+            // A copy is complete: printing, header/footer and views.
             assert!(xml.contains("<pageMargins"));
-            assert!(!xml.contains("<headerFooter"));
-            assert!(!xml.contains("<sheetViews"));
+            assert!(xml.contains("<headerFooter"));
+            assert!(xml.contains("<sheetViews"));
         }
         let mut reopened =
             LoadedWorkbook::with_options(Cursor::new(package(saved)), Default::default()).unwrap();
@@ -1281,6 +1282,15 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
                 },
                 ..Default::default()
             }
+        } else if matches!(mode, "signed" | "alternative") {
+            // These saves remove a signature or an alternative: allow it.
+            LoadOptions {
+                editor: crabxl_xlsx::EditorOptions {
+                    data_loss: crabxl_xlsx::DataLossPolicy::Allow,
+                    ..Default::default()
+                },
+                ..Default::default()
+            }
         } else {
             LoadOptions::default()
         };
@@ -1304,7 +1314,7 @@ fn active_selection_is_lazy_repeatable_and_rejects_affected_metadata_before_muta
         let before = workbook.managed_retained_bytes();
         let result = workbook.set_active_sheet(second);
         if matches!(mode, "signed" | "alternative") {
-            // Signatures and unknown alternatives are dropped on save, as in openpyxl.
+            // Signatures and unknown alternatives are removed on save.
             result.unwrap();
             let saved = parts(
                 workbook
@@ -2180,9 +2190,18 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
             xml.replace(from, to).into_bytes(),
         );
         let input = package(guarded_parts.clone());
-        let mut guarded =
-            LoadedWorkbook::with_options(Cursor::new(input), Default::default()).unwrap();
-        // Unknown attributes are dropped on rewrite, as in openpyxl.
+        // Unknown attributes cannot be rewritten; this workbook allows removal.
+        let mut guarded = LoadedWorkbook::with_options(
+            Cursor::new(input),
+            LoadOptions {
+                editor: crabxl_xlsx::EditorOptions {
+                    data_loss: crabxl_xlsx::DataLossPolicy::Allow,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let id = guarded.sheet_id("First").unwrap();
         guarded
             .insert_rows(id, RowIndex::new(0).unwrap(), 1)

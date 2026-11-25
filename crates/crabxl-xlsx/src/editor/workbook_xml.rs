@@ -45,8 +45,8 @@ pub(super) fn preserve_absolute_path<R: std::io::BufRead>(
     scope: Scope,
     mut preserve: impl FnMut(Event<'_>) -> Result<()>,
 ) -> Result<bool> {
-    // Only Excel's absolute-path alternative is kept. Any other block is
-    // dropped whole, as openpyxl does.
+    // Only Excel's absolute-path alternative is rewritten. Any other block
+    // is removed whole when the data-loss policy allows it.
     let outer = depth;
     let drop_rest = |xml: &mut XmlStream<R>, done: bool| -> Result<bool> {
         let mut done = done;
@@ -150,6 +150,8 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
                 for event in events {
                     emit(&mut writer, event)?;
                 }
+            } else {
+                crate::loss::remove("an mc:AlternateContent block in the workbook part")?;
             }
             continue;
         }
@@ -158,7 +160,7 @@ pub(super) fn patch_workbook<R: Read + Seek, W: Write>(
                 Event::End(_) if frame.depth == 2 => skipped_sheet = false,
                 Event::Text(text)
                     if text.as_ref().as_bytes().iter().all(u8::is_ascii_whitespace) => {}
-                // Unknown catalog content is dropped, as in openpyxl.
+                // Content of a removed sheet's catalog entry goes with it.
                 _ => {}
             }
             continue;

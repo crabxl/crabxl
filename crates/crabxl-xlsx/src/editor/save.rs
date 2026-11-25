@@ -22,6 +22,83 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         extra_retained: usize,
         data_only: bool,
     ) -> Result<(W, SaveStats)> {
+        crate::loss::with_policy(self.options.data_loss, || {
+            self.check_rewritten_metadata()?;
+            self.save_models_within_policy(output, options, bank, extra_retained, data_only)
+        })
+    }
+    /// Re-read the source of every replaced metadata block. A block whose
+    /// source holds content that the typed model does not represent would lose
+    /// that content when it is rewritten, so the data-loss policy decides.
+    fn check_rewritten_metadata(&mut self) -> Result<()> {
+        let sheets: Vec<(String, String)> = self
+            .book
+            .sheets()
+            .iter()
+            .map(|info| (info.part().to_owned(), info.name().to_owned()))
+            .collect();
+        for (part, name) in &sheets {
+            if let Some(patch) = self.feature_patches.get(part).cloned() {
+                let (source, lossy) = crate::loss::track(|| self.book.sheet_features(name))?;
+                if let Some(what) = lossy
+                    && source != *patch
+                {
+                    crate::loss::remove(format_args!(
+                        "{what} in the tables, rules or notes of sheet '{name}'"
+                    ))?;
+                }
+                if patch.images.is_some() || patch.charts.is_some() || patch.shapes.is_some() {
+                    let (_, lossy) = crate::loss::track(|| {
+                        self.book.sheet_images(name)?;
+                        self.book.sheet_charts(name)?;
+                        self.book.sheet_shapes(name)
+                    })?;
+                    if let Some(what) = lossy {
+                        crate::loss::remove(format_args!(
+                            "{what} in the drawing of sheet '{name}'"
+                        ))?;
+                    }
+                }
+            }
+            if let Some(patch) = self.view_patches.get(part).cloned() {
+                let (source, lossy) = crate::loss::track(|| self.book.sheet_views(name))?;
+                if let Some(what) = lossy
+                    && source != *patch
+                {
+                    crate::loss::remove(format_args!("{what} in the views of sheet '{name}'"))?;
+                }
+            }
+            if let Some(patch) = self.print_patches.get(part).cloned() {
+                let (source, lossy) = crate::loss::track(|| self.book.print_settings(name))?;
+                if let Some(what) = lossy
+                    && source != *patch
+                {
+                    crate::loss::remove(format_args!(
+                        "{what} in the print settings of sheet '{name}'"
+                    ))?;
+                }
+            }
+        }
+        if let Some(patch) = self.workbook_feature_patch.clone() {
+            let (source, lossy) = crate::loss::track(|| self.book.workbook_features())?;
+            if let Some(what) = lossy
+                && source != *patch
+            {
+                crate::loss::remove(format_args!(
+                    "{what} in the workbook names, protection or properties"
+                ))?;
+            }
+        }
+        Ok(())
+    }
+    fn save_models_within_policy<W: Write + Seek>(
+        &mut self,
+        output: W,
+        options: SaveOptions,
+        bank: Option<&crabxl_core::Workbook>,
+        extra_retained: usize,
+        data_only: bool,
+    ) -> Result<(W, SaveStats)> {
         if (!self.model_patches.is_empty() || self.membership.is_some()) && bank.is_none() {
             return Err(invalid(
                 "Model rewrite requires its canonical workbook owner",
@@ -282,9 +359,12 @@ impl<R: Read + Seek> WorkbookEditor<R> {
             .map_err(|error| zip_error("Cannot preserve ZIP archive comment", error))?;
         let mut stats = SaveStats::default();
         let empty_chains = HashSet::new();
-        // openpyxl does not keep digital signatures, so a changed signed package
-        // is saved without them.
+        // An edit invalidates a digital signature, so a changed signed package
+        // can only be saved without it.
         let drop_signature = self.signed && self.is_dirty();
+        if drop_signature {
+            crate::loss::remove("the digital signature, which the edit invalidates")?;
+        }
         let unsigned_rels = if drop_signature {
             let maximum = self.options.resources.max_part_bytes;
             let file = self
@@ -863,7 +943,7 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                             formula_attributes: self.options.formula_attributes,
                             views: sheet.sheet_views(),
                             printing: sheet.print_settings(),
-                            // openpyxl's copy omits tables, rules, validation and comments.
+                            // Copies carry the features planned by the loaded workbook.
                             features: Some(
                                 feature_plans
                                     .get(created.part.as_str())

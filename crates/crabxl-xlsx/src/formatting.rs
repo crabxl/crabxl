@@ -58,7 +58,7 @@ pub(crate) fn read_font<B: BufRead>(
                     b"scheme" => 13,
                     b"color" => 14,
                     _ => {
-                        // Unknown font properties are ignored, as in openpyxl.
+                        crate::loss::note("an unknown font property");
                         crate::style_codec::skip(xml, depth + 1)?;
                         continue;
                     }
@@ -295,7 +295,9 @@ pub(crate) fn check_attributes(e: &BytesStart<'_>, allowed: &[&[u8]]) -> Result<
             continue;
         }
         if !allowed.contains(&key) {
-            // Unknown attributes are ignored, as in openpyxl.
+            if !key.contains(&b':') {
+                crate::loss::note("an unknown formatting attribute");
+            }
             continue;
         }
     }

@@ -134,10 +134,12 @@ pub struct EditorOptions {
     pub max_patch_cells: usize,
     /// How to handle the original derived calculation order during edits.
     pub calculation_chain: CalculationChainPolicy,
-    /// Nonfinite value/caches use compatible blanks unless strict rejection is requested.
+    /// NaN and infinity in assigned values: rejected by default, or blank.
     pub non_finite: crate::NonFiniteWritePolicy,
     /// Formula attribute omission for assigned replacement values.
     pub formula_attributes: crate::FormulaWritePolicy,
+    /// Saves that cannot keep part of the source fail by default.
+    pub data_loss: crate::DataLossPolicy,
 }
 impl Default for EditorOptions {
     fn default() -> Self {
@@ -149,6 +151,7 @@ impl Default for EditorOptions {
             calculation_chain: CalculationChainPolicy::default(),
             non_finite: crate::NonFiniteWritePolicy::default(),
             formula_attributes: crate::FormulaWritePolicy::default(),
+            data_loss: crate::DataLossPolicy::default(),
         }
     }
 }

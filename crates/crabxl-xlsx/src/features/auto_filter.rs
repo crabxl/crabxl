@@ -54,6 +54,7 @@ pub(crate) fn children<B: BufRead>(
                 };
                 match result {
                     Err(error) if super::is_unknown_element(&error) => {
+                        crate::loss::note("an unknown element");
                         crate::style_codec::skip(xml, frame_depth)?;
                     }
                     result => result?,
