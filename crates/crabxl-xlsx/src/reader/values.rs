@@ -74,6 +74,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
             kind,
             self.epoch,
             self.options.date_policy,
+            self.options.temporal_kinds,
             |message| self.invalid(message),
         )
     }
@@ -311,9 +312,10 @@ pub(super) fn date_value(
     kind: Option<crabxl_core::DateKind>,
     epoch: crabxl_core::DateEpoch,
     policy: crabxl_core::DateReadPolicy,
+    kinds: crabxl_core::TemporalKindPolicy,
     invalid: impl Fn(&str) -> Error,
 ) -> Result<CellValue> {
-    use crabxl_core::{DateKind, DateReadPolicy, ExcelDateTime};
+    use crabxl_core::{DateKind, DateReadPolicy, ExcelDateTime, TemporalKindPolicy};
     let Some(mut kind) = kind else {
         return Ok(value);
     };
@@ -334,8 +336,18 @@ pub(super) fn date_value(
             Err(invalid("Non-finite date serial"))
         };
     }
+    if kind != DateKind::Duration {
+        kind = match (kinds, kind) {
+            (TemporalKindPolicy::FromValue, _) => DateKind::DateTime,
+            // The value has a time part the format hides: keep it.
+            (_, DateKind::Date) if serial.fract() != 0.0 => DateKind::DateTime,
+            (_, DateKind::Time) if !(0.0..1.0).contains(&serial) => DateKind::DateTime,
+            (_, kind) => kind,
+        };
+    }
     let raw = ExcelDateTime::from_serial(serial, epoch, kind)?;
-    if kind == DateKind::DateTime
+    if kinds == TemporalKindPolicy::FromValue
+        && kind == DateKind::DateTime
         && (0.0..1.0).contains(&serial)
         && raw.fraction_milliseconds() < 86_400_000
     {

@@ -138,6 +138,7 @@ fn parse_block(mut bytes: &[u8], context: &Context) -> Option<Vec<ParsedRow>> {
                         kind,
                         context.epoch,
                         context.options.date_policy,
+                        context.options.temporal_kinds,
                         |_| crabxl_core::Error::new(crabxl_core::ErrorKind::InvalidData, ""),
                     )
                     .ok()

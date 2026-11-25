@@ -240,6 +240,18 @@ pub enum DateReadPolicy {
     /// Return a `#VALUE!` cell error for serials without a calendar conversion.
     ErrorOutOfRange,
 }
+/// How the reader chooses the kind of a date-formatted number.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TemporalKindPolicy {
+    /// From the parts the format shows: a date for date parts only (when the
+    /// serial is whole), a time for time parts only (when the serial is below
+    /// one day), and a date and time otherwise. Elapsed formats are durations.
+    #[default]
+    FromFormat,
+    /// A time for serials below one day and a date and time otherwise, for
+    /// every non-elapsed date format.
+    FromValue,
+}
 /// Validation of worksheet-local shared formula groups.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum FormulaReadPolicy {
@@ -284,6 +296,8 @@ pub struct ReadOptions {
     pub inline_rich_text: Option<bool>,
     /// Serials outside the calendar range: exact serial (default) or `#VALUE!`.
     pub date_policy: DateReadPolicy,
+    /// How the kind of a date-formatted number is chosen.
+    pub temporal_kinds: TemporalKindPolicy,
     /// Return every non-integer number as the exact decimal written in the
     /// file. Without it, only lexemes with more precision than `f64` are kept
     /// as decimals.

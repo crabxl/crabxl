@@ -499,9 +499,11 @@ impl ImportedStyles {
                 .number_formats
                 .binary_search_by_key(&format.number_format_id, NumberFormat::id)
                 .ok()
-                .map(|i| catalog.number_formats[i].date_kind())
+                .map(|i| crabxl_core::classify_temporal_format(catalog.number_formats[i].code()))
                 .unwrap_or_else(|| match format.number_format_id {
-                    14..=22 | 45 | 47 => Some(crabxl_core::DateKind::DateTime),
+                    14..=17 => Some(crabxl_core::DateKind::Date),
+                    18..=21 | 45 | 47 => Some(crabxl_core::DateKind::Time),
+                    22 => Some(crabxl_core::DateKind::DateTime),
                     46 => Some(crabxl_core::DateKind::Duration),
                     _ => None,
                 });

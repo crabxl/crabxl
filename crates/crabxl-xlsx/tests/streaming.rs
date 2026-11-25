@@ -1969,7 +1969,18 @@ fn styled_dates_epochs_duration_cached_formulas_and_general_values_stream() {
     let sheet = "<row><c s=\"1\"><v>0</v></c><c s=\"1\"><v>0.5</v></c><c s=\"1\"><v>0.99999999999</v></c><c s=\"1\"><v>59</v></c><c s=\"1\"><v>60</v></c><c s=\"1\"><v>61</v></c><c s=\"1\"><v>-0.5</v></c><c s=\"1\"><v>2958466</v></c><c s=\"2\"><v>1.25</v></c><c s=\"3\"><v>1.5</v></c><c s=\"1\" t=\"b\"><v>0</v></c><c s=\"1\" t=\"inlineStr\"><is><t>text</t></is></c><c s=\"1\"><f>1</f><v>61</v></c><c s=\"1\"><f>1</f></c></row>";
     for mac in [false, true] {
         let mut book = WorkbookReader::new(Cursor::new(with_styles(sheet, &styles, mac))).unwrap();
-        let row = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+        let row = book
+            .rows_with_options(
+                "A & B",
+                ReadOptions {
+                    temporal_kinds: crabxl_core::TemporalKindPolicy::FromValue,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .next_row()
+            .unwrap()
+            .unwrap();
         let date = |i: usize| {
             let CellValue::DateTime(value) = &row.cells[i].value else {
                 panic!("Expected date/time at {i}")
@@ -2026,6 +2037,7 @@ fn styled_dates_epochs_duration_cached_formulas_and_general_values_stream() {
                 "A & B",
                 ReadOptions {
                     data_only: true,
+                    temporal_kinds: crabxl_core::TemporalKindPolicy::FromValue,
                     ..Default::default()
                 },
             )
@@ -2247,6 +2259,7 @@ fn materialized_date_policy_retains_serials_without_losing_style_identity() {
             "A & B",
             ReadOptions {
                 data_only: true,
+                temporal_kinds: crabxl_core::TemporalKindPolicy::FromValue,
                 ..Default::default()
             },
         )
@@ -3862,5 +3875,35 @@ fn numbers_keep_precision_beyond_f64_and_exact_mode_keeps_every_lexeme() {
         CellValue::Decimal(Box::new(
             ExactDecimal::parse("3.14159265358979323846").unwrap()
         ))
+    );
+}
+
+#[test]
+fn temporal_kinds_follow_the_format_and_keep_hidden_time_parts() {
+    use crabxl_core::DateKind;
+    let styles = basic_styles(
+        "<xf/><xf numFmtId=\"14\"/><xf numFmtId=\"20\"/><xf numFmtId=\"22\"/><xf numFmtId=\"46\"/>",
+    );
+    let sheet = "<row><c s=\"1\"><v>46351</v></c><c s=\"1\"><v>46351.5</v></c><c s=\"2\"><v>0.25</v></c><c s=\"2\"><v>1.25</v></c><c s=\"3\"><v>46351.5</v></c><c s=\"4\"><v>1.5</v></c></row>";
+    let mut book = WorkbookReader::new(Cursor::new(with_styles(sheet, &styles, false))).unwrap();
+    let row = book.rows("A & B").unwrap().next_row().unwrap().unwrap();
+    let kinds: Vec<DateKind> = row
+        .cells
+        .iter()
+        .map(|cell| match &cell.value {
+            CellValue::DateTime(value) => value.kind(),
+            other => panic!("{other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            DateKind::Date,
+            DateKind::DateTime,
+            DateKind::Time,
+            DateKind::DateTime,
+            DateKind::DateTime,
+            DateKind::Duration
+        ]
     );
 }

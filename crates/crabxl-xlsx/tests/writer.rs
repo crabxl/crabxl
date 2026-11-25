@@ -2416,7 +2416,17 @@ fn imported_style_ids_and_zero_date_formats_survive_export_with_derived_auto_ids
             &reader.style_catalog().unwrap().unwrap().cell_formats[..2],
             prefix.as_slice()
         );
-        let output = reader.read_sheet("Sheet").unwrap();
+        // One shared format holds dates, times and durations here, so the
+        // kinds come from the values.
+        let output = reader
+            .read_sheet_with_options(
+                "Sheet",
+                crabxl_core::ReadOptions {
+                    temporal_kinds: crabxl_core::TemporalKindPolicy::FromValue,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         assert_eq!(output.rows[0].cells[1].style.get(), 1);
         assert_eq!(output.rows[0].cells[2].style.get() == 0, zero_is_date);
         assert_eq!(output.rows[0].cells[3].style.get() == 0, zero_is_date);

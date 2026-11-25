@@ -106,3 +106,99 @@ pub fn classify_number_format(format: &str) -> Option<crate::DateKind> {
     }
     None
 }
+
+/// Classify a format's first section by the parts it shows: [`DateKind::Date`]
+/// for date parts only, [`DateKind::Time`] for time parts only,
+/// [`DateKind::DateTime`] for both and [`DateKind::Duration`] for elapsed
+/// time such as `[h]:mm`. Returns `None` for non-temporal formats.
+///
+/// `m` means minutes after an hour or before a second, and months otherwise.
+///
+/// [`DateKind::Date`]: crate::DateKind::Date
+/// [`DateKind::Time`]: crate::DateKind::Time
+/// [`DateKind::DateTime`]: crate::DateKind::DateTime
+/// [`DateKind::Duration`]: crate::DateKind::Duration
+pub fn classify_temporal_format(format: &str) -> Option<crate::DateKind> {
+    use crate::DateKind;
+    if classify_number_format(format)? == DateKind::Duration {
+        return Some(DateKind::Duration);
+    }
+    // Significant letters of the first section, outside quotes and escapes.
+    let mut letters = Vec::new();
+    let mut escaped = false;
+    let mut quote = false;
+    let mut brackets = 0usize;
+    for ch in format.chars() {
+        match (ch, escaped, quote) {
+            (_, true, _) => escaped = false,
+            ('"', _, true) => quote = false,
+            (_, _, true) => {}
+            ('"', _, _) => quote = true,
+            ('_' | '\\' | '*', _, _) => escaped = true,
+            (';', _, _) => break,
+            ('[', _, _) => brackets += 1,
+            (']', _, _) => brackets = brackets.saturating_sub(1),
+            (_, _, _) if brackets > 0 => {}
+            (c, _, _) if c.is_ascii_alphabetic() => letters.push(c.to_ascii_lowercase()),
+            _ => {}
+        }
+    }
+    let text: String = letters.iter().collect();
+    let mut date = false;
+    let mut time = text.contains("am/pm")
+        || text.contains("a/p")
+        || text.contains("ampm")
+        || text.contains("ap");
+    let significant: Vec<char> = letters
+        .iter()
+        .copied()
+        .filter(|c| matches!(c, 'd' | 'y' | 'm' | 'h' | 's'))
+        .collect();
+    for (index, letter) in significant.iter().enumerate() {
+        match letter {
+            'd' | 'y' => date = true,
+            'h' | 's' => time = true,
+            'm' => {
+                let before = significant[..index].iter().rev().find(|c| **c != 'm');
+                let after = significant[index + 1..].iter().find(|c| **c != 'm');
+                if before == Some(&'h') || after == Some(&'s') {
+                    time = true;
+                } else {
+                    date = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    match (date, time) {
+        (true, false) => Some(DateKind::Date),
+        (false, true) => Some(DateKind::Time),
+        _ => Some(DateKind::DateTime),
+    }
+}
+
+#[cfg(test)]
+mod temporal_tests {
+    use super::*;
+    use crate::DateKind;
+
+    #[test]
+    fn formats_classify_by_the_parts_they_show() {
+        for (format, kind) in [
+            ("yyyy-mm-dd", DateKind::Date),
+            ("d-mmm-yy", DateKind::Date),
+            ("mmm-yy", DateKind::Date),
+            ("h:mm:ss", DateKind::Time),
+            ("hh:mm AM/PM", DateKind::Time),
+            ("mm:ss", DateKind::Time),
+            ("yyyy-mm-dd hh:mm", DateKind::DateTime),
+            ("m/d/yy h:mm", DateKind::DateTime),
+            ("[h]:mm:ss", DateKind::Duration),
+            ("\"Day\" dd", DateKind::Date),
+        ] {
+            assert_eq!(classify_temporal_format(format), Some(kind), "{format}");
+        }
+        assert_eq!(classify_temporal_format("0.00"), None);
+        assert_eq!(classify_temporal_format("General"), None);
+    }
+}

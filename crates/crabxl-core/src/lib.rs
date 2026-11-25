@@ -34,7 +34,7 @@ pub use memory::{
 };
 pub use row::{
     Cell, CellMetadataReadPolicy, CellValue, DateReadPolicy, FormulaReadPolicy, ReadOptions, Row,
-    RowBatch, SheetData,
+    RowBatch, SheetData, TemporalKindPolicy,
 };
 pub use scalar::{CellError, CellText, ExactDecimal, ExactInteger, StyleInteger};
 pub use style::{CellStyle, Font, StyleComponent, StyleId};
@@ -86,7 +86,8 @@ pub use style_catalog::{
 
 mod number_formats;
 pub use number_formats::{
-    BUILTIN_NUMBER_FORMATS, builtin_number_format, builtin_number_format_id, classify_number_format,
+    BUILTIN_NUMBER_FORMATS, builtin_number_format, builtin_number_format_id,
+    classify_number_format, classify_temporal_format,
 };
 
 mod style_hash;
