@@ -291,12 +291,7 @@ impl Temporal {
     /// The number format a cell gets when it receives this value and has no
     /// number format yet.
     pub fn default_format(&self) -> &'static str {
-        match self.kind() {
-            TemporalKind::Date => "yyyy-mm-dd",
-            TemporalKind::DateTime => "yyyy-mm-dd hh:mm:ss",
-            TemporalKind::Time => "hh:mm:ss",
-            TemporalKind::Duration => "[h]:mm:ss",
-        }
+        self.0.kind().default_number_format()
     }
     /// The serial number in the workbook's date system.
     pub fn serial(&self) -> f64 {

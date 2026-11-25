@@ -509,3 +509,96 @@ fn saves_fail_rather_than_drop_unmodeled_content() {
         .write_to(Cursor::new(Vec::new()), &SaveOptions::new())
         .unwrap();
 }
+
+#[test]
+fn appended_dates_and_times_keep_their_kind() {
+    let row = || {
+        vec![
+            Value::Temporal(Temporal::date(2026, 11, 25).unwrap()),
+            Value::Temporal(Temporal::datetime(2026, 11, 25, 9, 30, 0, 0).unwrap()),
+            Value::Temporal(Temporal::time(9, 30, 0, 0).unwrap()),
+            Value::Temporal(Temporal::duration(1, 3600, 0).unwrap()),
+        ]
+    };
+    let kinds = [
+        TemporalKind::Date,
+        TemporalKind::DateTime,
+        TemporalKind::Time,
+        TemporalKind::Duration,
+    ];
+    let check = |book: &mut Workbook, row_number: u32| {
+        let mut sheet = book.worksheet("S").unwrap();
+        for (column, kind) in kinds.iter().enumerate() {
+            let at = CellRef::new(row_number - 1, column as u32).unwrap();
+            let Value::Temporal(read) = sheet.value(at).unwrap() else {
+                panic!("{at} is not a date or time")
+            };
+            assert_eq!(read.kind(), *kind, "{at}");
+        }
+    };
+
+    // A new sheet.
+    let mut book = Workbook::new().unwrap();
+    book.add_worksheet("S").unwrap().append_row(row()).unwrap();
+    check(&mut book, 1);
+    let mut book = reopen(&mut book);
+    check(&mut book, 1);
+
+    // A sheet from a file: the streamed append path.
+    book.worksheet("S").unwrap().append_row(row()).unwrap();
+    check(&mut book, 2);
+    let mut book = reopen(&mut book);
+    check(&mut book, 2);
+
+    // A sheet from a file that a style edit has already decoded.
+    let mut sheet = book.worksheet("S").unwrap();
+    sheet
+        .set_style("H1", &Style::new().with_number_format("0.00"))
+        .unwrap();
+    sheet.append_row(row()).unwrap();
+    check(&mut book, 3);
+    let mut book = reopen(&mut book);
+    check(&mut book, 3);
+}
+
+#[test]
+fn written_dates_get_a_format_only_when_the_cell_needs_one() {
+    let date = Temporal::date(2026, 11, 25).unwrap();
+    let datetime = Temporal::datetime(2026, 11, 25, 9, 30, 0, 0).unwrap();
+    let mut book = Workbook::new().unwrap();
+    let mut sheet = book.add_worksheet("S").unwrap();
+    sheet.set_value("A1", 1).unwrap();
+    sheet
+        .set_style("B1", &Style::new().with_number_format("dd/mm/yyyy"))
+        .unwrap();
+    sheet
+        .set_style("C1", &Style::new().with_number_format("0.00"))
+        .unwrap();
+    let mut book = reopen(&mut book);
+    for loaded in [false, true] {
+        let mut sheet = book.worksheet("S").unwrap();
+        if loaded {
+            // Decode the sheet first, so the second pass uses the model path.
+            sheet
+                .set_style("Z1", &Style::new().with_number_format("0"))
+                .unwrap();
+        }
+        sheet.set_value("A2", date).unwrap();
+        sheet.set_value("B1", date).unwrap();
+        sheet.set_value("C1", datetime).unwrap();
+        assert_eq!(sheet.style("B1").unwrap().number_format(), "dd/mm/yyyy");
+        let mut again = reopen(&mut book);
+        let mut sheet = again.worksheet("S").unwrap();
+        for (at, kind) in [
+            ("A2", TemporalKind::Date),
+            ("B1", TemporalKind::Date),
+            ("C1", TemporalKind::DateTime),
+        ] {
+            let Value::Temporal(read) = sheet.value(at).unwrap() else {
+                panic!("{at} is not a date (loaded: {loaded})")
+            };
+            assert_eq!(read.kind(), kind, "{at} (loaded: {loaded})");
+        }
+        assert_eq!(sheet.style("B1").unwrap().number_format(), "dd/mm/yyyy");
+    }
+}

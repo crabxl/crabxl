@@ -156,26 +156,14 @@ impl<'a> Worksheet<'a> {
     /// Write a value or a [`Formula`] to a cell. The cell keeps its style.
     pub fn set_value(&mut self, at: impl IntoCellRef, value: impl IntoCell) -> Result<()> {
         let at = at.into_cell_ref()?;
-        let input = value.into_cell();
-        let temporal = match &input {
-            CellInput::Value(Value::Temporal(temporal)) => Some(*temporal),
-            _ => None,
-        };
-        let value = to_core(input).map_err(|error| error.with_cell(at.0))?;
-        // A date or time in a cell without a number format gets the default
-        // format of its kind, so it reads back as the same kind.
-        let base = match temporal {
-            Some(_) => Some(self.style(at)?).filter(|style| style.number_format() == "General"),
-            None => None,
-        };
+        // The engine gives a date or time in a cell without a date format the
+        // default format of its kind, so it reads back as the same kind.
+        let value = to_core(value.into_cell()).map_err(|error| error.with_cell(at.0))?;
         let id = self.id;
         self.book
             .engine
             .upsert_value(id, at.0, value)
             .map_err(|error| self.context(error))?;
-        if let (Some(base), Some(temporal)) = (base, temporal) {
-            self.set_style(at, &base.with_number_format(temporal.default_format()))?;
-        }
         Ok(())
     }
     /// Write a formula to a cell, with or without the leading `=`.
@@ -216,32 +204,18 @@ impl<'a> Worksheet<'a> {
     /// Append a row after the last row that has cells. Returns its
     /// zero-based row index.
     pub fn append_row(&mut self, row: impl IntoRow) -> Result<u32> {
-        let cells = row.into_cells();
-        let temporals: Vec<(u32, crate::Temporal)> = cells
-            .iter()
-            .enumerate()
-            .filter_map(|(column, input)| match input {
-                CellInput::Value(Value::Temporal(temporal)) => Some((column as u32, *temporal)),
-                _ => None,
-            })
-            .collect();
-        let values = cells.into_iter().map(to_core).collect::<Result<Vec<_>>>()?;
+        // The engine gives each date or time the default format of its kind.
+        let values = row
+            .into_cells()
+            .into_iter()
+            .map(to_core)
+            .collect::<Result<Vec<_>>>()?;
         let id = self.id;
         let index = self
             .book
             .engine
             .append(id, values)
             .map_err(|error| self.context(error))?;
-        for (column, temporal) in temporals {
-            let format = temporal.default_format();
-            let style = self
-                .book
-                .temporal_styles
-                .entry(format)
-                .or_insert_with(|| Style::new().with_number_format(format))
-                .clone();
-            self.set_style(CellRef::new(index.get(), column)?, &style)?;
-        }
         Ok(index.get())
     }
     /// Append rows after the last row that has cells.
