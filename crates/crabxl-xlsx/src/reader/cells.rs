@@ -305,7 +305,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     )?;
                     if header.metadata
                         && self.options.cell_metadata_policy
-                            == crabxl_core::CellMetadataReadPolicy::Compatible
+                            == crabxl_core::CellMetadataReadPolicy::ProjectValues
                     {
                         self.projected_metadata_cells += 1;
                     }
@@ -513,7 +513,7 @@ impl<'a, R: Read + Seek> Rows<'a, R> {
                     }
                     seen_formula = true;
                     if self.options.data_only
-                        && self.options.formula_policy == crabxl_core::FormulaReadPolicy::Compatible
+                        && self.options.formula_policy == crabxl_core::FormulaReadPolicy::Lenient
                     {
                         self.skip_formula_text()?;
                         continue;

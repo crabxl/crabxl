@@ -7,11 +7,10 @@ use std::io::Cursor;
 /// Theme emission policy for newly created packages.
 #[derive(Clone, Debug, Default)]
 pub enum ThemeWritePolicy {
-    /// Emit the public reference's default theme from static storage.
+    /// Write the default Office theme from static storage.
     #[default]
-    ReferenceDefault,
-    /// Preserve opaque caller bytes, matching the public loaded_theme property.
-    /// Empty bytes select the reference default theme.
+    Office,
+    /// Preserve opaque caller bytes. Empty bytes select the Office theme.
     Custom(Theme),
     /// Require a bounded DrawingML theme document before preserving custom bytes.
     Validated(Theme),
@@ -21,7 +20,7 @@ pub enum ThemeWritePolicy {
 impl ThemeWritePolicy {
     pub(crate) fn bytes(&self) -> Option<&[u8]> {
         match self {
-            Self::ReferenceDefault => Some(crate::default_theme::DEFAULT_THEME.as_bytes()),
+            Self::Office => Some(crate::default_theme::DEFAULT_THEME.as_bytes()),
             Self::Custom(theme) if theme.bytes().is_empty() => {
                 Some(crate::default_theme::DEFAULT_THEME.as_bytes())
             }

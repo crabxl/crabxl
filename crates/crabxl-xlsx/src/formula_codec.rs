@@ -36,14 +36,14 @@ pub(crate) fn is_shared(e: &BytesStart<'_>) -> Result<bool> {
 /// Value projection and replacement analysis have different extension guarantees.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum HeaderPolicy {
-    Compatible,
+    Lenient,
     Strict,
     KnownRecords,
 }
 impl From<FormulaReadPolicy> for HeaderPolicy {
     fn from(policy: FormulaReadPolicy) -> Self {
         match policy {
-            FormulaReadPolicy::Compatible => Self::Compatible,
+            FormulaReadPolicy::Lenient => Self::Lenient,
             FormulaReadPolicy::ValidateGroups => Self::Strict,
         }
     }
@@ -53,7 +53,7 @@ pub(crate) fn header(
     maximum: usize,
     policy: HeaderPolicy,
 ) -> Result<FormulaMetadata> {
-    let compatible = policy == HeaderPolicy::Compatible;
+    let compatible = policy == HeaderPolicy::Lenient;
     // Select semantics before reading hints: attribute order has no meaning.
     let mut kind = FormulaType::Normal;
     for attribute in e.attributes() {
@@ -415,7 +415,7 @@ fn flag(
     policy: crate::FormulaWritePolicy,
 ) -> std::io::Result<()> {
     if let Some(value) = value {
-        if policy == crate::FormulaWritePolicy::Compatible
+        if policy == crate::FormulaWritePolicy::OmitDefaults
             && (value.source() == Some("")
                 || (value.source().is_none() && value.value() == Some(false)))
         {

@@ -228,30 +228,32 @@ impl SheetData {
     }
 }
 
-/// How numeric date-formatted values outside the reference calendar range are read.
+/// How date-formatted serials outside the supported calendar range are read.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DateReadPolicy {
-    /// Return a spreadsheet #VALUE! error for unrepresentable baseline dates/durations.
+    /// Keep the exact finite serial, even when no calendar conversion exists.
     #[default]
-    Compatible,
-    /// Keep finite source serials even when a calendar/runtime conversion is unavailable.
     RetainSerial,
+    /// Return a `#VALUE!` cell error for serials without a calendar conversion.
+    ErrorOutOfRange,
 }
 /// Validation of worksheet-local shared formula groups.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum FormulaReadPolicy {
-    /// Match reference expansion, including missing templates and source range quirks.
+    /// Expand shared formulas leniently: tolerate missing masters and declared
+    /// ranges that do not cover every follower.
     #[default]
-    Compatible,
+    Lenient,
     /// Reject unresolved/duplicate masters and followers outside declared ranges.
     ValidateGroups,
 }
 /// Treatment of opaque cell/value metadata references during value projection.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CellMetadataReadPolicy {
-    /// Match reference values/formulas without interpreting cm/vm graphs.
+    /// Return the visible value or formula and leave cm/vm references out of it.
+    /// Saving still preserves the references of unchanged cells.
     #[default]
-    Compatible,
+    ProjectValues,
     /// Retain formula cm/vm references in FormulaMetadata, without interpreting
     /// dependent graphs. Annotated scalar cells and data-only reads are rejected.
     RetainFormulaReferences,
@@ -272,21 +274,19 @@ pub struct ReadOptions {
     pub columns: Option<RangeInclusive<ColumnIndex>>,
     /// Return cached formula results instead of formulas. Missing caches are Empty.
     pub data_only: bool,
-    /// Preserve rich-text runs and pronunciation metadata rather than projecting
-    /// display text. Plain projection is the reference-compatible default.
+    /// Return rich-text runs and pronunciation metadata instead of plain text.
     pub rich_text: bool,
-    /// Override inline run preservation independently of shared-string runs.
-    /// None follows rich_text. Reference-compatible read-only adapters can
-    /// project inline runs while retaining rich shared strings.
+    /// Override run preservation for inline strings only. `None` follows
+    /// `rich_text`.
     pub inline_rich_text: Option<bool>,
-    /// Baseline date errors by default; exact raw-serial retention is an extension.
+    /// Serials outside the calendar range: exact serial (default) or `#VALUE!`.
     pub date_policy: DateReadPolicy,
     /// Expose shared source metadata instead of only expanded normal expressions.
     /// Array/table metadata is always retained when returning formulas.
     pub formula_metadata: bool,
-    /// Reference-compatible shared groups or explicit structural validation.
+    /// Lenient shared-formula expansion or strict group validation.
     pub formula_policy: FormulaReadPolicy,
-    /// Reference-compatible value projection or explicit rejection of opaque cm/vm references.
+    /// Projection, retention or rejection of cm/vm cell metadata references.
     pub cell_metadata_policy: CellMetadataReadPolicy,
 }
 impl ReadOptions {

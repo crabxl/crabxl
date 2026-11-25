@@ -373,7 +373,11 @@ mod tests {
         let mut plain = Vec::new();
         write_app(
             &mut plain,
-            &DocumentProperties::with_openpyxl_defaults("x"),
+            &DocumentProperties::for_new_document(
+                "x",
+                Some("openpyxl"),
+                Some(("Microsoft Excel Compatible / Openpyxl 3.1.5", "3.1")),
+            ),
             &[],
         )
         .unwrap();

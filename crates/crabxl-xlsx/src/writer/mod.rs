@@ -34,20 +34,21 @@ const FOOTER: &[u8] = b"</sheetData></worksheet>";
 /// XLSX serialization of nonfinite numeric values and formula caches.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum NonFiniteWritePolicy {
-    /// Match the public baseline: write a present blank numeric value.
+    /// Reject the value before any XML is committed. XLSX cannot store NaN or
+    /// infinity, so this is the lossless default.
     #[default]
-    Blank,
-    /// Reject the row before committing any temporary XML.
     Reject,
+    /// Write a present blank cell in place of the value.
+    Blank,
 }
 
 /// Serialization of optional formula flags and empty data-table inputs.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum FormulaWritePolicy {
-    /// Omit newly assigned false flags and empty table inputs like the public baseline.
-    /// Original source flag spellings are retained, including zero/false strings.
+    /// Omit newly assigned false flags and empty table inputs, which are the
+    /// schema defaults. Original source flag spellings are retained.
     #[default]
-    Compatible,
+    OmitDefaults,
     /// Retain explicit optional false flags and empty table inputs.
     RetainExplicit,
 }
@@ -55,10 +56,11 @@ pub enum FormulaWritePolicy {
 /// Serialization of alignment attributes with zero/false values.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum StyleWritePolicy {
-    /// Match public reference omission, including zero rotations and false wrap flags.
+    /// Omit attributes equal to their schema defaults, such as zero rotations
+    /// and false wrap flags.
     #[default]
-    Compatible,
-    /// Preserve explicit optional alignment attributes as a Rust extension.
+    OmitDefaults,
+    /// Write explicitly set optional alignment attributes.
     RetainExplicit,
 }
 
@@ -94,13 +96,13 @@ pub struct WriteOptions {
     pub date_1904: bool,
     /// Encode calendar and clock values as ISO date cells; durations remain numeric.
     pub iso_dates: bool,
-    /// Nonfinite serialization is compatible by default, with explicit strict rejection.
+    /// NaN and infinity: rejected by default, or written as blank cells.
     pub non_finite: NonFiniteWritePolicy,
-    /// Compatible formula omission or explicit attribute retention.
+    /// Omission of default formula flags or explicit retention.
     pub formula_attributes: FormulaWritePolicy,
-    /// Compatible alignment omission or explicit attribute retention.
+    /// Omission of default alignment attributes or explicit retention.
     pub style_attributes: StyleWritePolicy,
-    /// Reference default, opaque/validated custom bytes, or explicit omission.
+    /// The Office theme, opaque or validated custom bytes, or explicit omission.
     pub theme: crate::ThemeWritePolicy,
     /// Zero-based active display sheet, checked against the completed catalog.
     pub active_sheet: usize,

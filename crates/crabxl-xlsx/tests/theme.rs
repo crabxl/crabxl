@@ -21,7 +21,7 @@ fn custom(xml: &str) -> Cursor<Vec<u8>> {
 
 #[test]
 fn typed_default_palette_fonts_and_owned_lifetime_match_public_generated_theme() {
-    let mut reader = WorkbookReader::new(package(ThemeWritePolicy::ReferenceDefault)).unwrap();
+    let mut reader = WorkbookReader::new(package(ThemeWritePolicy::Office)).unwrap();
     let raw = reader.theme().unwrap().unwrap().bytes().to_vec();
     let catalog = reader.read_theme_catalog().unwrap().unwrap();
     assert_eq!(catalog.name.as_deref(), Some("Office Theme"));

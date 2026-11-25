@@ -130,16 +130,19 @@ pub struct DocumentProperties {
 }
 
 impl DocumentProperties {
-    /// The properties openpyxl 3.1.5 writes for a fresh workbook: creator
-    /// `openpyxl`, `created`/`modified` set to `now_iso` and the openpyxl
-    /// application name and version.
-    pub fn with_openpyxl_defaults(now_iso: &str) -> Self {
+    /// Properties for a new document: `created` and `modified` set to `now_iso`
+    /// (W3CDTF), plus an optional creator and application name.
+    pub fn for_new_document(
+        now_iso: &str,
+        creator: Option<&str>,
+        application: Option<(&str, &str)>,
+    ) -> Self {
         Self {
-            creator: Some("openpyxl".into()),
+            creator: creator.map(Into::into),
             created: Some(now_iso.into()),
             modified: Some(now_iso.into()),
-            application: Some("Microsoft Excel Compatible / Openpyxl 3.1.5".into()),
-            app_version: Some("3.1".into()),
+            application: application.map(|(name, _)| name.into()),
+            app_version: application.map(|(_, version)| version.into()),
             ..Self::default()
         }
     }
@@ -215,10 +218,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_is_empty_and_defaults_are_openpyxl_like() {
+    fn default_is_empty_and_new_document_sets_timestamps() {
         assert!(DocumentProperties::default().is_empty());
-        let d = DocumentProperties::with_openpyxl_defaults("2024-01-02T03:04:05Z");
-        assert_eq!(d.creator.as_deref(), Some("openpyxl"));
+        let d = DocumentProperties::for_new_document("2024-01-02T03:04:05Z", Some("me"), None);
+        assert_eq!(d.creator.as_deref(), Some("me"));
+        assert_eq!(d.application, None);
         assert_eq!(d.created, d.modified);
         assert!(d.heap_bytes() > 0);
     }

@@ -327,7 +327,7 @@ pub(super) fn date_value(
         _ => return Ok(value),
     };
     if !serial.is_finite() {
-        return if policy == DateReadPolicy::Compatible {
+        return if policy == DateReadPolicy::ErrorOutOfRange {
             Ok(CellValue::error("#VALUE!"))
         } else {
             Err(invalid("Non-finite date serial"))
@@ -341,7 +341,7 @@ pub(super) fn date_value(
         kind = DateKind::Time;
     }
     let date = ExcelDateTime::from_serial(serial, epoch, kind)?;
-    if policy == DateReadPolicy::Compatible {
+    if policy == DateReadPolicy::ErrorOutOfRange {
         let valid = date.is_reference_representable();
         if !valid {
             return Ok(CellValue::error("#VALUE!"));

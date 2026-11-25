@@ -2005,7 +2005,8 @@ fn styled_dates_epochs_duration_cached_formulas_and_general_values_stream() {
                 "1899-12-29 12:00:00"
             }
         );
-        assert_eq!(row.cells[7].value, CellValue::error("#VALUE!"));
+        // Out of the calendar range: the exact serial is retained by default.
+        assert_eq!(date(7).serial(), 2958466.0);
         assert_eq!(date(8).kind(), DateKind::Duration);
         assert_eq!(date(8).to_duration().unwrap().num_seconds(), 108000);
         assert_eq!(row.cells[9].value, CellValue::Number(1.5));
@@ -2231,17 +2232,21 @@ fn materialized_date_policy_retains_serials_without_losing_style_identity() {
     let styles = basic_styles("<xf/><xf numFmtId=\"14\"/>");
     let sheet = "<row><c s=\"1\"><v>2958466</v></c><c s=\"1\"><f>1</f><v>0.5</v></c></row>";
     let mut book = WorkbookReader::new(Cursor::new(with_styles(sheet, &styles, false))).unwrap();
-    let compatible = book.read_sheet("A & B").unwrap();
-    assert_eq!(
-        compatible.rows[0].cells[0].value,
-        CellValue::error("#VALUE!")
-    );
+    let erroring = book
+        .read_sheet_with_options(
+            "A & B",
+            ReadOptions {
+                date_policy: DateReadPolicy::ErrorOutOfRange,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(erroring.rows[0].cells[0].value, CellValue::error("#VALUE!"));
     let raw = book
         .read_sheet_with_options(
             "A & B",
             ReadOptions {
                 data_only: true,
-                date_policy: DateReadPolicy::RetainSerial,
                 ..Default::default()
             },
         )

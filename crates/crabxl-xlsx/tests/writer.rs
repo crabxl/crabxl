@@ -1894,10 +1894,14 @@ fn structured_formula_payload_and_input_validation_are_atomic() {
 }
 
 #[test]
-fn compatible_nonfinite_numbers_emit_blank_values_without_losing_formulas() {
+fn blank_nonfinite_policy_emits_blank_values_without_losing_formulas() {
     use crabxl_core::{Formula, ReadOptions};
     let directory = tempfile::tempdir().unwrap();
-    let mut writer = WorkbookWriter::new(options(&directory)).unwrap();
+    let mut writer = WorkbookWriter::new(WriteOptions {
+        non_finite: crabxl_xlsx::NonFiniteWritePolicy::Blank,
+        ..options(&directory)
+    })
+    .unwrap();
     writer.start_sheet("Sheet").unwrap();
     writer
         .write_row(&row(
@@ -2033,7 +2037,7 @@ fn registered_font_attributes_stream_escaped_payloads_and_recover_original_text(
 fn alignment_zero_serialization_has_compatible_and_explicit_policies() {
     use crabxl_core::{Alignment, CellStyle};
     for policy in [
-        crabxl_xlsx::StyleWritePolicy::Compatible,
+        crabxl_xlsx::StyleWritePolicy::OmitDefaults,
         crabxl_xlsx::StyleWritePolicy::RetainExplicit,
     ] {
         let mut writer = WorkbookWriter::new(WriteOptions {
@@ -2065,7 +2069,7 @@ fn alignment_zero_serialization_has_compatible_and_explicit_policies() {
             WorkbookReader::new(writer.finish(Cursor::new(Vec::new())).unwrap()).unwrap();
         let catalog = reader.style_catalog().unwrap().unwrap();
         let loaded = catalog.cell_style(id).unwrap().alignment.unwrap();
-        if policy == crabxl_xlsx::StyleWritePolicy::Compatible {
+        if policy == crabxl_xlsx::StyleWritePolicy::OmitDefaults {
             assert_eq!(loaded, &Alignment::default());
         } else {
             assert_eq!(loaded, &alignment);
@@ -2146,13 +2150,13 @@ fn themes_default_opaque_validated_omitted_and_abort_ownership() {
     use crabxl_xlsx::ThemeWritePolicy;
     let custom = b"<a:theme xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" name=\"custom\"><a:extLst/></a:theme>";
     for policy in [
-        ThemeWritePolicy::ReferenceDefault,
+        ThemeWritePolicy::Office,
         ThemeWritePolicy::Custom(Theme::from_bytes(custom.to_vec().into_boxed_slice())),
         ThemeWritePolicy::Validated(Theme::from_bytes(custom.to_vec().into_boxed_slice())),
         ThemeWritePolicy::Omit,
     ] {
         let omitted = matches!(policy, ThemeWritePolicy::Omit);
-        let default = matches!(policy, ThemeWritePolicy::ReferenceDefault);
+        let default = matches!(policy, ThemeWritePolicy::Office);
         let mut writer = WorkbookWriter::new(WriteOptions {
             theme: policy,
             ..Default::default()
@@ -2285,7 +2289,7 @@ fn formula_attribute_policies_distinguish_owned_false_from_source_spellings() {
     )
     .unwrap();
     for policy in [
-        FormulaWritePolicy::Compatible,
+        FormulaWritePolicy::OmitDefaults,
         FormulaWritePolicy::RetainExplicit,
     ] {
         let mut writer = WorkbookWriter::new(WriteOptions {
@@ -2634,7 +2638,7 @@ fn literal_empty_formula_references_follow_compatible_and_retained_policies() {
     use std::io::Read;
     for kind in [FormulaType::Array, FormulaType::DataTable] {
         for policy in [
-            FormulaWritePolicy::Compatible,
+            FormulaWritePolicy::OmitDefaults,
             FormulaWritePolicy::RetainExplicit,
         ] {
             let formula = Formula::with_optional_expression(

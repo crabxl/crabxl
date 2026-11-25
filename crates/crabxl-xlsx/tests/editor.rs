@@ -1012,15 +1012,8 @@ fn structured_formula_targets_replace_without_rewriting_unrelated_cells() {
 }
 
 #[test]
-fn nonfinite_editor_policy_is_atomic_and_compatible_blanks_read_back() {
-    let mut strict = WorkbookEditor::with_options(
-        Cursor::new(source()),
-        EditorOptions {
-            non_finite: crabxl_xlsx::NonFiniteWritePolicy::Reject,
-            ..Default::default()
-        },
-    )
-    .unwrap();
+fn nonfinite_editor_policy_rejects_by_default_and_blanks_on_request() {
+    let mut strict = WorkbookEditor::new(Cursor::new(source())).unwrap();
     assert_eq!(
         strict
             .set_value(
@@ -1040,15 +1033,22 @@ fn nonfinite_editor_policy_is_atomic_and_compatible_blanks_read_back() {
         reader.read_sheet("Sheet").unwrap().rows[0].cells[0].value,
         Value::Integer(1)
     );
-    let mut compatible = WorkbookEditor::new(Cursor::new(source())).unwrap();
-    compatible
+    let mut blanking = WorkbookEditor::with_options(
+        Cursor::new(source()),
+        EditorOptions {
+            non_finite: crabxl_xlsx::NonFiniteWritePolicy::Blank,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    blanking
         .set_value(
             "Sheet",
             Address::new(0, 0).unwrap(),
             Value::Number(f64::NEG_INFINITY),
         )
         .unwrap();
-    let (output, _) = compatible
+    let (output, _) = blanking
         .save(Cursor::new(Vec::new()), SaveOptions::default())
         .unwrap();
     let mut reader = WorkbookReader::new(output).unwrap();
@@ -1095,7 +1095,7 @@ fn assigned_formula_attributes_follow_the_same_writer_policy_on_repeated_saves()
     use crabxl_core::{DataTableOptions, FormulaMetadata, FormulaRange, FormulaType};
     use crabxl_xlsx::FormulaWritePolicy;
     for policy in [
-        FormulaWritePolicy::Compatible,
+        FormulaWritePolicy::OmitDefaults,
         FormulaWritePolicy::RetainExplicit,
     ] {
         let mut editor = WorkbookEditor::with_options(
