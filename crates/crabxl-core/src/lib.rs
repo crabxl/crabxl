@@ -52,6 +52,7 @@ mod sheet_selection;
 pub use sheet_selection::{ActiveViewSelection, normalize_active_view, resolve_sheet_index};
 
 mod references;
+mod style_builders;
 pub use references::{Axis, RangeUpdate, StructuralEdit};
 mod translate;
 pub use translate::{formula_position, translate_axis, translate_expression};

@@ -27,6 +27,10 @@ pub enum ErrorKind {
     SheetNotFound,
     /// An operation conflicts with a resource or sequential-mode state.
     InvalidState,
+    /// A named item, such as a table, defined name or note, does not exist.
+    NotFound,
+    /// A value does not have the requested type.
+    Conversion,
 }
 
 /// A spreadsheet error retaining the affected part, cell, and underlying cause.
@@ -39,6 +43,7 @@ struct ErrorDetails {
     kind: ErrorKind,
     message: String,
     part: Option<String>,
+    sheet: Option<String>,
     cell: Option<crate::CellAddress>,
     source: Option<Box<dyn StdError + Send + Sync>>,
 }
@@ -52,6 +57,7 @@ impl Error {
                 kind,
                 message: message.into(),
                 part: None,
+                sheet: None,
                 cell: None,
                 source: None,
             }),
@@ -76,6 +82,14 @@ impl Error {
         self
     }
 
+    /// Attach the affected sheet name, unless one is already set.
+    pub fn with_sheet(mut self, sheet: impl Into<String>) -> Self {
+        if self.details.sheet.is_none() {
+            self.details.sheet = Some(sheet.into());
+        }
+        self
+    }
+
     /// Attach the affected cell coordinate.
     pub fn with_cell(mut self, cell: crate::CellAddress) -> Self {
         self.details.cell = Some(cell);
@@ -94,6 +108,10 @@ impl Error {
     pub fn part(&self) -> Option<&str> {
         self.details.part.as_deref()
     }
+    /// Return the affected sheet, when known.
+    pub fn sheet(&self) -> Option<&str> {
+        self.details.sheet.as_deref()
+    }
     /// Return the affected cell, when known.
     pub fn cell(&self) -> Option<crate::CellAddress> {
         self.details.cell
@@ -105,6 +123,9 @@ impl fmt::Display for Error {
         write!(f, "{}", self.details.message)?;
         if let Some(part) = &self.details.part {
             write!(f, " [part: {part}]")?;
+        }
+        if let Some(sheet) = &self.details.sheet {
+            write!(f, " [sheet: {sheet}]")?;
         }
         if let Some(cell) = self.details.cell {
             write!(f, " [cell: {cell}]")?;
@@ -128,6 +149,7 @@ impl fmt::Debug for Error {
             .field("kind", &self.details.kind)
             .field("message", &self.details.message)
             .field("part", &self.details.part)
+            .field("sheet", &self.details.sheet)
             .field("cell", &self.details.cell)
             .field("source", &self.details.source)
             .finish()
