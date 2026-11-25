@@ -8,6 +8,7 @@ mod hyperlink_values;
 mod hyperlinks;
 mod merges;
 mod structure;
+pub use structure::ReferenceUpdate;
 mod styles;
 mod values;
 

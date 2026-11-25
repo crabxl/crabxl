@@ -48,58 +48,246 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         }
         result
     }
-    /// Insert rows in a supported source-backed cell model. Unmodeled affected
-    /// worksheet graphs are rejected before mutation; formulas are not translated.
+    /// Insert `count` rows before row `at` and update every reference to the
+    /// moved cells. See [`Self::insert_rows_with`].
     pub fn insert_rows(&mut self, id: SheetId, at: RowIndex, count: u32) -> Result<()> {
-        self.edit_structure_with_comments(
-            id,
-            crabxl_core::features::CommentEdit::Shift {
-                at: at.get(),
-                count,
-                rows: true,
-                insert: true,
-            },
-            |sheet| sheet.insert_rows(at, count),
-        )
+        self.insert_rows_with(id, at, count, ReferenceUpdate::All)
     }
-    /// Delete rows while retaining unrelated original package parts.
+    /// Delete `count` rows starting at `at` and update every reference.
     pub fn delete_rows(&mut self, id: SheetId, at: RowIndex, count: u32) -> Result<()> {
-        self.edit_structure_with_comments(
-            id,
-            crabxl_core::features::CommentEdit::Shift {
-                at: at.get(),
-                count,
-                rows: true,
-                insert: false,
-            },
-            |sheet| sheet.delete_rows(at, count),
-        )
+        self.delete_rows_with(id, at, count, ReferenceUpdate::All)
     }
-    /// Insert columns without cloning the whole canonical worksheet.
+    /// Insert `count` columns before column `at` and update every reference.
     pub fn insert_columns(&mut self, id: SheetId, at: ColumnIndex, count: u32) -> Result<()> {
+        self.insert_columns_with(id, at, count, ReferenceUpdate::All)
+    }
+    /// Delete `count` columns starting at `at` and update every reference.
+    pub fn delete_columns(&mut self, id: SheetId, at: ColumnIndex, count: u32) -> Result<()> {
+        self.delete_columns_with(id, at, count, ReferenceUpdate::All)
+    }
+    /// Insert rows. With [`ReferenceUpdate::All`], formulas on every sheet,
+    /// defined names, tables, rules, validations, filters, merges, row
+    /// heights, chart series and drawing anchors follow the moved cells.
+    /// Content that cannot follow (pivot tables, scenarios, 3-D references,
+    /// array formulas) fails with `ErrorKind::Unsupported` before any change.
+    pub fn insert_rows_with(
+        &mut self,
+        id: SheetId,
+        at: RowIndex,
+        count: u32,
+        references: ReferenceUpdate,
+    ) -> Result<()> {
+        let edit = crabxl_core::StructuralEdit::insert_rows(at.get(), count)?;
+        self.structural_edit(id, edit, references)
+    }
+    /// Delete rows. See [`Self::insert_rows_with`].
+    pub fn delete_rows_with(
+        &mut self,
+        id: SheetId,
+        at: RowIndex,
+        count: u32,
+        references: ReferenceUpdate,
+    ) -> Result<()> {
+        let edit = crabxl_core::StructuralEdit::delete_rows(at.get(), count)?;
+        self.structural_edit(id, edit, references)
+    }
+    /// Insert columns. See [`Self::insert_rows_with`].
+    pub fn insert_columns_with(
+        &mut self,
+        id: SheetId,
+        at: ColumnIndex,
+        count: u32,
+        references: ReferenceUpdate,
+    ) -> Result<()> {
+        let edit = crabxl_core::StructuralEdit::insert_columns(at.get(), count)?;
+        self.structural_edit(id, edit, references)
+    }
+    /// Delete columns. See [`Self::insert_rows_with`].
+    pub fn delete_columns_with(
+        &mut self,
+        id: SheetId,
+        at: ColumnIndex,
+        count: u32,
+        references: ReferenceUpdate,
+    ) -> Result<()> {
+        let edit = crabxl_core::StructuralEdit::delete_columns(at.get(), count)?;
+        self.structural_edit(id, edit, references)
+    }
+    fn structural_edit(
+        &mut self,
+        id: SheetId,
+        edit: crabxl_core::StructuralEdit,
+        references: ReferenceUpdate,
+    ) -> Result<()> {
+        if references == ReferenceUpdate::All {
+            return self.structural_edit_with_references(id, edit);
+        }
+        self.shift_cells(id, edit)
+    }
+    /// Move cells and notes only; references keep their text.
+    fn shift_cells(&mut self, id: SheetId, edit: crabxl_core::StructuralEdit) -> Result<()> {
+        let rows = edit.axis == crabxl_core::Axis::Rows;
+        let (at, count, insert) = (edit.at, edit.count, edit.insert);
         self.edit_structure_with_comments(
             id,
             crabxl_core::features::CommentEdit::Shift {
-                at: at.get(),
+                at,
                 count,
-                rows: false,
-                insert: true,
+                rows,
+                insert,
             },
-            |sheet| sheet.insert_columns(at, count),
+            |sheet| match (rows, insert) {
+                (true, true) => sheet.insert_rows(RowIndex::new(at)?, count),
+                (true, false) => sheet.delete_rows(RowIndex::new(at)?, count),
+                (false, true) => sheet.insert_columns(ColumnIndex::new(at)?, count),
+                (false, false) => sheet.delete_columns(ColumnIndex::new(at)?, count),
+            },
         )
     }
-    /// Delete columns using the same guarded source/model coordinator.
-    pub fn delete_columns(&mut self, id: SheetId, at: ColumnIndex, count: u32) -> Result<()> {
-        self.edit_structure_with_comments(
-            id,
-            crabxl_core::features::CommentEdit::Shift {
-                at: at.get(),
-                count,
-                rows: false,
-                insert: false,
-            },
-            |sheet| sheet.delete_columns(at, count),
-        )
+    fn structural_edit_with_references(
+        &mut self,
+        id: SheetId,
+        edit: crabxl_core::StructuralEdit,
+    ) -> Result<()> {
+        let plan = self.plan_reference_updates(id, &edit)?;
+        self.shift_cells(id, edit)?;
+        self.apply_reference_updates(id, &edit, plan)
+    }
+    /// Compute every update before any change, so unsupported content
+    /// rejects the edit while the workbook is still untouched.
+    fn plan_reference_updates(
+        &mut self,
+        id: SheetId,
+        edit: &crabxl_core::StructuralEdit,
+    ) -> Result<ReferencePlan> {
+        let sheet = self.bank.sheet(id)?.name().to_owned();
+        let worksheets: Vec<SheetId> = self
+            .sheets
+            .iter()
+            .filter(|entry| entry.kind == crate::SheetKind::Worksheet)
+            .map(|entry| entry.id)
+            .collect();
+        let mut plan = ReferencePlan::default();
+        for &other in &worksheets {
+            let host = self.bank.sheet(other)?.name().to_owned();
+            let pivots = self.sheet_pivots(other)?.to_vec();
+            edit.check_pivots(&pivots, &host, &sheet)?;
+            let charts = self.sheet_charts(other)?.to_vec();
+            let mut updated_charts = charts.clone();
+            let mut charts_changed = false;
+            for chart in &mut updated_charts {
+                if let Some(space) = edit.update_chart(&chart.space, &sheet)? {
+                    chart.space = space;
+                    charts_changed = true;
+                }
+                if other == id
+                    && let Some(anchor) = edit.update_anchor(&chart.anchor)?
+                {
+                    chart.anchor = anchor;
+                    charts_changed = true;
+                }
+            }
+            if charts_changed {
+                plan.charts.push((other, updated_charts));
+            }
+            let mut formulas = Vec::new();
+            for cell in self.sheet(other)?.cells() {
+                if let Some(value) = edit.update_value(&cell.value, &host, &sheet)? {
+                    formulas.push((cell.address, value));
+                }
+            }
+            if !formulas.is_empty() {
+                plan.formulas.push((other, formulas));
+            }
+        }
+        plan.features = edit.update_sheet_features(self.sheet_features(id)?, &sheet)?;
+        let mut images = self.sheet_images(id)?.to_vec();
+        let mut images_changed = false;
+        for image in &mut images {
+            if let Some(anchor) = edit.update_anchor(&image.anchor)? {
+                image.anchor = anchor;
+                images_changed = true;
+            }
+        }
+        plan.images = images_changed.then_some(images);
+        let mut shapes = self.sheet_shapes(id)?.to_vec();
+        let mut shapes_changed = false;
+        for shape in &mut shapes {
+            if let Some(anchor) = edit.update_anchor(&shape.anchor)? {
+                shape.anchor = anchor;
+                shapes_changed = true;
+            }
+        }
+        plan.shapes = shapes_changed.then_some(shapes);
+        let names = &self.workbook_features()?.defined_names;
+        plan.names = edit.update_defined_names(names, &sheet)?;
+        let model = self.sheet(id)?;
+        let merges: Vec<CellRange> = model
+            .merged_ranges()
+            .ranges()
+            .iter()
+            .map(|merge| merge.range())
+            .collect();
+        plan.merges = edit.update_ranges(&merges)?;
+        plan.dimensions = updated_dimensions(model.dimensions(), edit)?;
+        Ok(plan)
+    }
+    fn apply_reference_updates(
+        &mut self,
+        id: SheetId,
+        edit: &crabxl_core::StructuralEdit,
+        plan: ReferencePlan,
+    ) -> Result<()> {
+        for (sheet, formulas) in plan.formulas {
+            for (address, value) in formulas {
+                let address = if sheet == id {
+                    let (row, column) = match edit.axis {
+                        crabxl_core::Axis::Rows => (
+                            edit.map_index(address.row.get())?,
+                            Some(address.column.get()),
+                        ),
+                        crabxl_core::Axis::Columns => (
+                            Some(address.row.get()),
+                            edit.map_index(address.column.get())?,
+                        ),
+                    };
+                    match (row, column) {
+                        (Some(row), Some(column)) => CellAddress::new(row, column)?,
+                        _ => continue, // The cell itself was deleted.
+                    }
+                } else {
+                    address
+                };
+                self.set_value(sheet, address, value)?;
+            }
+        }
+        for (sheet, charts) in plan.charts {
+            self.set_sheet_charts(sheet, charts)?;
+        }
+        if let Some(features) = plan.features {
+            let mut features = features;
+            // Notes moved with their cells during the shift.
+            features.comments = self.sheet_features(id)?.comments.clone();
+            self.set_sheet_features(id, features)?;
+        }
+        if let Some(images) = plan.images {
+            self.set_sheet_images(id, images)?;
+        }
+        if let Some(shapes) = plan.shapes {
+            self.set_sheet_shapes(id, shapes)?;
+        }
+        if let Some(names) = plan.names {
+            let mut features = self.workbook_features()?.clone();
+            features.defined_names = names;
+            self.set_workbook_features(features)?;
+        }
+        if let Some(merges) = plan.merges {
+            self.replace_merge_declarations(id, &merges)?;
+        }
+        if let Some(dimensions) = plan.dimensions {
+            self.bank.sheet_mut(id)?.set_dimensions(dimensions)?;
+        }
+        Ok(())
     }
     /// Move a source-backed rectangle; reference expressions remain unchanged.
     pub fn move_range(
@@ -287,4 +475,77 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
         self.rebalance()?;
         Ok(value)
     }
+}
+
+/// Whether a row or column edit updates references to the moved cells.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ReferenceUpdate {
+    /// Update formulas, names, ranges and anchors that refer to moved cells.
+    #[default]
+    All,
+    /// Move cells and notes only. References keep their text.
+    CellsOnly,
+}
+
+#[derive(Default)]
+struct ReferencePlan {
+    formulas: Vec<(SheetId, Vec<(CellAddress, CellValue)>)>,
+    charts: Vec<(SheetId, Vec<crabxl_core::drawing::Chart>)>,
+    features: Option<crabxl_core::SheetFeatures>,
+    images: Option<Vec<crabxl_core::Image>>,
+    shapes: Option<Vec<crabxl_core::drawing::Shape>>,
+    names: Option<Vec<crabxl_core::features::DefinedName>>,
+    merges: Option<Vec<CellRange>>,
+    dimensions: Option<crabxl_core::SheetDimensions>,
+}
+
+/// Row heights and column widths follow their rows and columns.
+fn updated_dimensions(
+    dimensions: &crabxl_core::SheetDimensions,
+    edit: &crabxl_core::StructuralEdit,
+) -> Result<Option<crabxl_core::SheetDimensions>> {
+    let mut updated = dimensions.clone();
+    let mut changed = false;
+    match edit.axis {
+        crabxl_core::Axis::Rows => {
+            for row in dimensions.rows() {
+                let moved = edit.map_index(row.index.get())?;
+                if moved == Some(row.index.get()) {
+                    continue;
+                }
+                changed = true;
+                updated.remove_row(row.index);
+            }
+            for row in dimensions.rows() {
+                if let Some(index) = edit.map_index(row.index.get())?
+                    && index != row.index.get()
+                {
+                    let mut row = row.clone();
+                    row.index = RowIndex::new(index)?;
+                    updated.set_row(row, usize::MAX)?;
+                }
+            }
+        }
+        crabxl_core::Axis::Columns => {
+            for column in dimensions.columns() {
+                let span = edit.map_span(column.start.get(), column.end.get())?;
+                if span == Some((column.start.get(), column.end.get())) {
+                    continue;
+                }
+                changed = true;
+                updated.remove_column(column.start);
+            }
+            for column in dimensions.columns() {
+                if let Some((start, end)) = edit.map_span(column.start.get(), column.end.get())?
+                    && (start, end) != (column.start.get(), column.end.get())
+                {
+                    let mut column = column.clone();
+                    column.start = ColumnIndex::new(start)?;
+                    column.end = ColumnIndex::new(end)?;
+                    updated.set_column(column, usize::MAX)?;
+                }
+            }
+        }
+    }
+    Ok(changed.then_some(updated))
 }

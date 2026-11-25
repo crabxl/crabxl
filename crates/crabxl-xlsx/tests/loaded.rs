@@ -2131,9 +2131,15 @@ fn preserving_overlays_share_lazy_models_and_failed_mutations_leave_both_states_
     let id = small.sheet_id("First").unwrap();
     small.sheet(id).unwrap();
     let before = small.managed_retained_bytes();
+    // The cell shift itself fails; reference planning would load other sheets.
     assert_eq!(
         small
-            .insert_rows(id, RowIndex::new(0).unwrap(), 1)
+            .insert_rows_with(
+                id,
+                RowIndex::new(0).unwrap(),
+                1,
+                crabxl_xlsx::ReferenceUpdate::CellsOnly
+            )
             .unwrap_err()
             .kind(),
         ErrorKind::MemoryBudgetExceeded

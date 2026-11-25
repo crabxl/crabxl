@@ -60,13 +60,14 @@ pub use crabxl_xlsx::{HyperlinkOutput, visit_owned_hyperlink_ids};
 pub use crabxl_xlsx::{read_rich_text, write_rich_text};
 
 pub use crabxl_xlsx::{
-    CalculationChainPolicy, CopySheetOptions, DataLossPolicy, EditorOptions, PartInfo, SaveOptions,
-    SaveStats, WorkbookEditor,
+    CalculationChainPolicy, CopySheetOptions, DataLossPolicy, EditorOptions, PartInfo,
+    ReferenceUpdate, SaveOptions, SaveStats, WorkbookEditor,
 };
 
 pub use crabxl_core::MemoryAllowance;
 pub use crabxl_xlsx::memory_allowance;
 
+pub use crabxl_core::{Axis, RangeUpdate, StructuralEdit};
 pub use crabxl_core::{
     FormulaScan, FormulaToken, TokenKind, TokenSubtype, classify_formula_operand,
     formula_scientific_prefix, scan_formula_fragment, tokenize_formula,

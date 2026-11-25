@@ -69,7 +69,7 @@ mod loaded;
 mod loss;
 pub use loss::DataLossPolicy;
 mod loaded_codec;
-pub use loaded::{CopySheetOptions, LoadOptions, LoadedWorkbook};
+pub use loaded::{CopySheetOptions, LoadOptions, LoadedWorkbook, ReferenceUpdate};
 
 mod dimension_codec;
 
