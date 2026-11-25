@@ -233,7 +233,13 @@ impl<'a> Worksheet<'a> {
             .append(id, values)
             .map_err(|error| self.context(error))?;
         for (column, temporal) in temporals {
-            let style = Style::new().with_number_format(temporal.default_format());
+            let format = temporal.default_format();
+            let style = self
+                .book
+                .temporal_styles
+                .entry(format)
+                .or_insert_with(|| Style::new().with_number_format(format))
+                .clone();
             self.set_style(CellRef::new(index.get(), column)?, &style)?;
         }
         Ok(index.get())

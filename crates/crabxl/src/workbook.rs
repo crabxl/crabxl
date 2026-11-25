@@ -162,6 +162,8 @@ const PLACEHOLDER: &str = "crabxl-empty";
 pub struct Workbook {
     pub(crate) engine: Engine,
     pub(crate) styles: HashMap<usize, (Style, StyleId)>,
+    /// The default style of each date and time kind, created once.
+    pub(crate) temporal_styles: HashMap<&'static str, Style>,
     empty: bool,
 }
 
@@ -199,6 +201,7 @@ impl Workbook {
         Ok(Self {
             engine,
             styles: HashMap::new(),
+            temporal_styles: HashMap::new(),
             empty: false,
         })
     }
