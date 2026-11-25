@@ -1014,27 +1014,11 @@ impl<R: Read + Seek> WorkbookEditor<R> {
         }
         Ok((output, stats))
     }
-    /// Write a fresh adjacent temporary output and replace the target only after
-    /// successful ZIP completion. Supports saving over the original path without
-    /// truncating its live source. Failed saves leave the target unchanged.
-    /// No crash-durability or cross-platform replacement guarantee is implied.
+    /// Save to a path atomically: the target is replaced only after the
+    /// complete package is written and flushed, and is unchanged on failure.
+    /// Saving over the source path is safe. See [`crate::write_atomically`].
     pub fn save_path(&mut self, path: impl AsRef<Path>, options: SaveOptions) -> Result<SaveStats> {
-        let path = path.as_ref();
-        let parent = path
-            .parent()
-            .filter(|parent| !parent.as_os_str().is_empty())
-            .unwrap_or_else(|| Path::new("."));
-        let mut temporary = tempfile::Builder::new()
-            .prefix("crabxl-save-")
-            .tempfile_in(parent)
-            .map_err(|error| io_error("Cannot create adjacent output temporary file", error))?;
-        let (_, stats) = self.save(&mut temporary, options)?;
-        // std::fs::rename supports Windows replacement with a live source handle.
-        // Keep the temporary path guarded so failures still remove the output.
-        let temporary = temporary.into_temp_path();
-        std::fs::rename(&temporary, path)
-            .map_err(|error| io_error("Cannot replace edited workbook target", error))?;
-        Ok(stats)
+        crate::write_atomically(path, |file| Ok(self.save(file, options)?.1))
     }
 }
 

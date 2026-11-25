@@ -63,6 +63,8 @@ pub use features::bridge as feature_xml;
 mod metadata;
 mod printing;
 
+mod atomic;
+pub use atomic::write_atomically;
 mod loaded;
 mod loss;
 pub use loss::DataLossPolicy;

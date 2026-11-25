@@ -661,25 +661,11 @@ impl<R: Read + Seek> LoadedWorkbook<R> {
             .set_active_view_index(self.editor.active_view_index());
         Ok(result)
     }
-    /// Atomically replace a path after a successful original-package save.
+    /// Save to a path atomically: the target is replaced only after the
+    /// complete package is written and flushed, and is unchanged on failure.
+    /// Saving over the source path is safe. See [`crate::write_atomically`].
     pub fn save_path(&mut self, path: impl AsRef<Path>, options: SaveOptions) -> Result<SaveStats> {
-        let path = path.as_ref();
-        let parent = path
-            .parent()
-            .filter(|path| !path.as_os_str().is_empty())
-            .unwrap_or_else(|| Path::new("."));
-        let mut temporary = tempfile::Builder::new()
-            .prefix("crabxl-save-")
-            .tempfile_in(parent)
-            .map_err(|error| {
-                Error::caused_by(ErrorKind::Io, "Cannot create adjacent loaded output", error)
-            })?;
-        let (_, stats) = self.save(&mut temporary, options)?;
-        let temporary = temporary.into_temp_path();
-        std::fs::rename(&temporary, path).map_err(|error| {
-            Error::caused_by(ErrorKind::Io, "Cannot replace loaded output", error)
-        })?;
-        Ok(stats)
+        crate::write_atomically(path, |file| Ok(self.save(file, options)?.1))
     }
     /// Release all loaded models and source caches, returning the caller's
     /// original seekable source without closing a caller-owned borrowed handle.
