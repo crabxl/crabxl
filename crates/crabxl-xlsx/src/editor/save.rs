@@ -879,119 +879,155 @@ impl<R: Read + Seek> WorkbookEditor<R> {
                         .bank_id
                         .ok_or_else(|| invalid("Created sheet has no model identity"))?,
                 )?;
-                zip.start_file(
-                    &created.part,
-                    crate::writer::compression_options(options.compression_level)
-                        .large_file(self.options.resources.max_part_bytes >= u64::from(u32::MAX)),
-                )
-                .map_err(|cause| {
-                    zip_error("Cannot start created worksheet", cause).with_part(&created.part)
-                })?;
-                let mut output = PartOutput {
-                    inner: BufWriter::with_capacity(64 * 1024, &mut zip),
-                    bytes: 0,
-                    maximum: self.options.resources.max_part_bytes,
-                };
-                let bytes = if created.kind == SheetKind::ChartSheet {
-                    let source = if let Some(root) = feature_plans
-                        .get(created.part.as_str())
-                        .and_then(|plan| plan.features.chartsheet.clone())
-                    {
-                        Some(root)
-                    } else if let Some(index) = created.template {
-                        let part = self.book.sheets()[index].part().to_owned();
-                        let mut xml = self.book.part_stream(&part)?;
-                        Some(crate::drawing::read_chartsheet(&mut xml)?)
-                    } else {
-                        None
-                    };
-                    crate::drawing::write_chartsheet(
-                        &mut output,
-                        source,
-                        feature_plans
-                            .get(created.part.as_str())
-                            .and_then(|plan| plan.output.refs.drawing.as_deref()),
-                        membership.namespace(),
-                    )
-                    .map_err(|cause| io_error("Cannot create chartsheet", cause))?;
-                    output
-                        .flush()
-                        .map_err(|cause| io_error("Cannot flush chartsheet", cause))?;
-                    output.bytes
-                } else if let Some(index) = created.template {
-                    let part = self
-                        .book
-                        .sheets()
-                        .get(index)
-                        .ok_or_else(|| invalid("Missing copied worksheet template"))?
-                        .part()
-                        .to_owned();
-                    let input = self.book.archive.by_name(&part).map_err(|cause| {
-                        zip_error("Cannot reopen copied worksheet template", cause)
-                    })?;
-                    let empty_features = crabxl_core::SheetFeatures::default();
-                    let empty_refs = crate::features::sheet::PartRefs::default();
-                    patch_worksheet(
-                        input,
-                        output,
-                        &part,
-                        WorksheetRewrite {
-                            data_only,
-                            metadata_counts,
-                            patches: None,
-                            limits: self.options.resources,
-                            formula_attributes: self.options.formula_attributes,
-                            views: sheet.sheet_views(),
-                            printing: sheet.print_settings(),
-                            // Copies carry the features planned by the loaded workbook.
-                            features: Some(
-                                feature_plans
-                                    .get(created.part.as_str())
-                                    .map_or((&empty_features, &empty_refs), |plan| {
-                                        (&*plan.features, &plan.output.refs)
-                                    }),
-                            ),
-                            hyperlinks: hyperlink_plans
-                                .get(created.part.as_str())
-                                .map(|(_, plan)| (sheet.hyperlinks(), plan)),
-                            invalidate_caches: true,
-                            keep_model_caches: self.keep_model_caches,
-                            model: Some(sheet),
-                            catalog: bank.style_catalog(),
-                            epoch,
-                            iso_dates: self.dates.1,
-                            non_finite: self.options.non_finite,
-                            copying: true,
-                        },
-                    )?
+                // Large created worksheets compress on several threads, like
+                // rewritten ones; about 16 XML bytes per cell sizes the part.
+                let mut packed = if created.kind == SheetKind::ChartSheet {
+                    None
                 } else {
-                    crate::loaded_codec::write_new(
-                        &mut output,
-                        sheet,
-                        bank.style_catalog(),
-                        self.options.resources,
-                        crate::loaded_codec::Encoding {
-                            metadata_counts,
-                            epoch,
-                            iso_dates: self.dates.1,
-                            non_finite: self.options.non_finite,
-                            formula_attributes: self.options.formula_attributes,
-                            keep_caches: self.keep_model_caches,
-                        },
-                        membership.namespace(),
-                        hyperlink_plans
-                            .get(created.part.as_str())
-                            .map(|(_, plan)| plan),
-                        feature_plans
-                            .get(created.part.as_str())
-                            .map(|plan| (&*plan.features, &plan.output.refs)),
+                    crate::parallel_deflate::threads(
+                        options.compression_level,
+                        (sheet.len() as u64).saturating_mul(16),
                     )
-                    .map_err(|error| error.with_part(&created.part))?;
-                    output
-                        .flush()
-                        .map_err(|cause| io_error("Cannot flush created worksheet", cause))?;
-                    output.bytes
+                    .map(|threads| {
+                        crate::parallel_deflate::ParallelDeflate::new(
+                            options.compression_level,
+                            threads,
+                            None,
+                        )
+                    })
+                    .transpose()
+                    .map_err(|error| io_error("Cannot start parallel compression", error))?
                 };
+                if packed.is_none() {
+                    zip.start_file(
+                        &created.part,
+                        crate::writer::compression_options(options.compression_level).large_file(
+                            self.options.resources.max_part_bytes >= u64::from(u32::MAX),
+                        ),
+                    )
+                    .map_err(|cause| {
+                        zip_error("Cannot start created worksheet", cause).with_part(&created.part)
+                    })?;
+                }
+                let bytes = {
+                    let target: &mut dyn Write = match packed.as_mut() {
+                        Some(packed) => packed,
+                        None => &mut zip,
+                    };
+                    let mut output = PartOutput {
+                        inner: BufWriter::with_capacity(64 * 1024, target),
+                        bytes: 0,
+                        maximum: self.options.resources.max_part_bytes,
+                    };
+                    if created.kind == SheetKind::ChartSheet {
+                        let source = if let Some(root) = feature_plans
+                            .get(created.part.as_str())
+                            .and_then(|plan| plan.features.chartsheet.clone())
+                        {
+                            Some(root)
+                        } else if let Some(index) = created.template {
+                            let part = self.book.sheets()[index].part().to_owned();
+                            let mut xml = self.book.part_stream(&part)?;
+                            Some(crate::drawing::read_chartsheet(&mut xml)?)
+                        } else {
+                            None
+                        };
+                        crate::drawing::write_chartsheet(
+                            &mut output,
+                            source,
+                            feature_plans
+                                .get(created.part.as_str())
+                                .and_then(|plan| plan.output.refs.drawing.as_deref()),
+                            membership.namespace(),
+                        )
+                        .map_err(|cause| io_error("Cannot create chartsheet", cause))?;
+                        output
+                            .flush()
+                            .map_err(|cause| io_error("Cannot flush chartsheet", cause))?;
+                        output.bytes
+                    } else if let Some(index) = created.template {
+                        let part = self
+                            .book
+                            .sheets()
+                            .get(index)
+                            .ok_or_else(|| invalid("Missing copied worksheet template"))?
+                            .part()
+                            .to_owned();
+                        let input = self.book.archive.by_name(&part).map_err(|cause| {
+                            zip_error("Cannot reopen copied worksheet template", cause)
+                        })?;
+                        let empty_features = crabxl_core::SheetFeatures::default();
+                        let empty_refs = crate::features::sheet::PartRefs::default();
+                        patch_worksheet(
+                            input,
+                            output,
+                            &part,
+                            WorksheetRewrite {
+                                data_only,
+                                metadata_counts,
+                                patches: None,
+                                limits: self.options.resources,
+                                formula_attributes: self.options.formula_attributes,
+                                views: sheet.sheet_views(),
+                                printing: sheet.print_settings(),
+                                // Copies carry the features planned by the loaded workbook.
+                                features: Some(
+                                    feature_plans
+                                        .get(created.part.as_str())
+                                        .map_or((&empty_features, &empty_refs), |plan| {
+                                            (&*plan.features, &plan.output.refs)
+                                        }),
+                                ),
+                                hyperlinks: hyperlink_plans
+                                    .get(created.part.as_str())
+                                    .map(|(_, plan)| (sheet.hyperlinks(), plan)),
+                                invalidate_caches: true,
+                                keep_model_caches: self.keep_model_caches,
+                                model: Some(sheet),
+                                catalog: bank.style_catalog(),
+                                epoch,
+                                iso_dates: self.dates.1,
+                                non_finite: self.options.non_finite,
+                                copying: true,
+                            },
+                        )?
+                    } else {
+                        crate::loaded_codec::write_new(
+                            &mut output,
+                            sheet,
+                            bank.style_catalog(),
+                            self.options.resources,
+                            crate::loaded_codec::Encoding {
+                                metadata_counts,
+                                epoch,
+                                iso_dates: self.dates.1,
+                                non_finite: self.options.non_finite,
+                                formula_attributes: self.options.formula_attributes,
+                                keep_caches: self.keep_model_caches,
+                            },
+                            membership.namespace(),
+                            hyperlink_plans
+                                .get(created.part.as_str())
+                                .map(|(_, plan)| plan),
+                            feature_plans
+                                .get(created.part.as_str())
+                                .map(|plan| (&*plan.features, &plan.output.refs)),
+                        )
+                        .map_err(|error| error.with_part(&created.part))?;
+                        output
+                            .flush()
+                            .map_err(|cause| io_error("Cannot flush created worksheet", cause))?;
+                        output.bytes
+                    }
+                };
+                if let Some(packed) = packed {
+                    packed
+                        .finish_into(&mut zip, &created.part)
+                        .map_err(|error| {
+                            io_error("Cannot write created worksheet", error)
+                                .with_part(&created.part)
+                        })?;
+                }
                 total += u128::from(bytes);
                 if total > u128::from(self.options.resources.max_total_uncompressed_bytes) {
                     return Err(limit("Created package uncompressed byte limit exceeded"));
