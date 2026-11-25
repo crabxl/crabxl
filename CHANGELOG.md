@@ -6,7 +6,7 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
-## [0.3.0] - unreleased
+## [0.3.0]
 
 This release redesigns the public API. See the
 [README](README.md) for the new entry points.
