@@ -12,8 +12,7 @@ licenses are in [licenses/](licenses/).
 | [umya-spreadsheet](https://github.com/MathNya/umya-spreadsheet) | Rich text runs, fonts and colors. | `licenses/umya-spreadsheet-MIT.txt` |
 
 [ports.json](ports.json) lists each adapted symbol: its source file and pinned
-commit, its destination and the changes. Pinned revisions are also in
-[internal/upstream-sources.md](../internal/upstream-sources.md).
+commit, its destination and the changes.
 
 openpyxl 3.1.5 is the compatibility reference. Its generated default theme data
 is used in `crabxl-xlsx/src/default_theme.rs` (`licenses/openpyxl-MIT.txt`).

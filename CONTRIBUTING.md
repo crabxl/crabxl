@@ -26,7 +26,6 @@ Do not report security problems in public issues. Read [SECURITY.md](SECURITY.md
 | `crates/crabxl-xlsx` | XLSX package I/O: streaming reader, sequential writer, editor and loaded workbook. |
 | `crates/crabxl/examples` | Usage examples. Start with [`quickstart.rs`](crates/crabxl/examples/quickstart.rs). |
 | `docs/` | Public user documentation. |
-| `internal/` | Maintainer records: [status](internal/STATUS.md), roadmap, architecture and the release process. |
 | `third_party/` | Provenance and licenses of code ported from other projects. |
 | `tools/` | Release scripts. |
 
@@ -117,8 +116,7 @@ the commit and the license.
 
 ### Design decisions
 
-Explain large design changes in the pull request. If the architecture changes,
-update [internal/architecture.md](internal/architecture.md).
+Explain large design changes in the pull request.
 
 ## Documentation style
 
@@ -144,8 +142,7 @@ CI checks them with Vale.
 ## Releases
 
 Maintainers make releases with the **Release Rust** workflow. You do not
-need to change version numbers. [internal/releases.md](internal/releases.md)
-describes the process.
+need to change version numbers.
 
 ## License
 

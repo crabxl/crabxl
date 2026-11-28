@@ -35,7 +35,7 @@ values, formulas, styles and references:
 
 Before version 1.0, a minor version can change the API. The optional `calc`
 feature calculates formulas with the Formualizer engine and stores the
-results as cached values. See [project status](internal/STATUS.md).
+results as cached values.
 
 ## Installation
 
@@ -144,7 +144,6 @@ Language bindings and tools that need engine-level access depend on
 ## Documentation
 
 - [API reference](https://docs.rs/crabxl)
-- [Project status](internal/STATUS.md)
 - [Changelog](CHANGELOG.md)
 
 ## Contributing
