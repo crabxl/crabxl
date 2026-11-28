@@ -6,6 +6,13 @@ Before version 1.0, a minor version can change the public API.
 The Python package has its own
 [changelog](https://github.com/crabxl/crabxl-python/blob/main/CHANGELOG.md).
 
+## [Unreleased]
+
+### Added
+
+- `Worksheet::row_hidden` and `column_hidden` read whether a row or column
+  is hidden.
+
 ## [0.4.0]
 
 ### Added

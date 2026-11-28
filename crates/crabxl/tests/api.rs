@@ -151,6 +151,8 @@ fn styles_layout_and_merges() {
         .unwrap();
     sheet.set_column_width("A:B", 18.0).unwrap();
     sheet.set_row_height("1", 24.0).unwrap();
+    sheet.set_rows_hidden("3:4", true).unwrap();
+    sheet.set_columns_hidden("C", true).unwrap();
     sheet.freeze_panes("A2").unwrap();
     sheet.merge("D1:E2").unwrap();
 
@@ -163,6 +165,10 @@ fn styles_layout_and_merges() {
     assert_eq!(sheet.style("B2").unwrap().number_format(), "#,##0.00");
     assert_eq!(sheet.column_width("B").unwrap(), Some(18.0));
     assert_eq!(sheet.row_height("1").unwrap(), Some(24.0));
+    assert!(sheet.row_hidden("4").unwrap());
+    assert!(!sheet.row_hidden("2").unwrap());
+    assert!(sheet.column_hidden("C").unwrap());
+    assert!(!sheet.column_hidden("D").unwrap());
     assert_eq!(sheet.frozen_panes().unwrap(), Some("A2".parse().unwrap()));
     assert_eq!(sheet.merged_ranges().unwrap(), ["D1:E2".parse().unwrap()]);
     sheet.unmerge("D1:E2").unwrap();

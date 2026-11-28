@@ -317,6 +317,16 @@ impl<'a> Worksheet<'a> {
             .column(ColumnIndex::new(span.start)?)
             .and_then(|column| column.width))
     }
+    /// Whether a column is hidden.
+    pub fn column_hidden(&mut self, column: &str) -> Result<bool> {
+        let span = Span::columns(column)?;
+        Ok(self
+            .model()?
+            .dimensions()
+            .column(ColumnIndex::new(span.start)?)
+            .and_then(|column| column.hidden)
+            .unwrap_or(false))
+    }
     /// Set the height of rows, in points.
     pub fn set_row_height(&mut self, rows: impl IntoSpan, height: f64) -> Result<()> {
         if !(0.0..=409.0).contains(&height) {
@@ -358,6 +368,16 @@ impl<'a> Worksheet<'a> {
             .dimensions()
             .row(RowIndex::new(span.start)?)
             .and_then(|row| row.height))
+    }
+    /// Whether a row is hidden.
+    pub fn row_hidden(&mut self, row: &str) -> Result<bool> {
+        let span = Span::rows(row)?;
+        Ok(self
+            .model()?
+            .dimensions()
+            .row(RowIndex::new(span.start)?)
+            .and_then(|row| row.hidden)
+            .unwrap_or(false))
     }
     /// Freeze the rows above and the columns left of a cell. `"A2"` freezes
     /// the first row; `"B1"` the first column.
