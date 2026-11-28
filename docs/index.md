@@ -9,7 +9,7 @@ Add the crate to `Cargo.toml`. The minimum Rust version is 1.88.
 
 ```toml
 [dependencies]
-crabxl = "0.4.0"
+crabxl = "0.4.1"
 ```
 
 ## Choose an entry point
@@ -93,7 +93,7 @@ Turn on the `calc` feature to calculate formulas with the
 
 ```toml
 [dependencies]
-crabxl = { version = "0.4.0", features = ["calc"] }
+crabxl = { version = "0.4.1", features = ["calc"] }
 ```
 
 `Workbook::calculate` stores each result as the formula's cached value, so
